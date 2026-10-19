@@ -5,7 +5,10 @@
     "description": "Read-modify-write of FLASH.CTRL (0x40022010, FLASH_REG_BASE+0x10) that sets bit 7 (OPLK) and leaves the other control bits unchanged. With OPLK set the controller refuses further erase and program operations until flash_unlock is called again. This is the Artery SDK flash_lock routine, written out as a single OR of the existing register value.",
     "category": "flash",
     "params": [],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -15,7 +18,10 @@
     "description": "Reads FLASH.STS (0x4002200C) and checks the flags in priority order: OBF (bit 0) gives 0 = FLASH_OPERATE_BUSY, PRGMERR (bit 2) gives 1 = FLASH_PROGRAM_ERROR, EPPERR (bit 4) gives 2 = FLASH_EPP_ERROR, and if none is set the result is 3 = FLASH_OPERATE_DONE. The code returns 0 at once when the busy flag is set. This matches the Artery SDK flash_operation_status_get; the timeout code 4 is not produced here. Called after erase or program operations to wait for completion.",
     "category": "flash",
     "params": [],
-    "returns": {"type": "u32", "description": "flash_status_type: 0 busy, 1 program error, 2 EPP error, 3 operate done"},
+    "returns": {
+      "type": "u32",
+      "description": "flash_status_type: 0 busy, 1 program error, 2 EPP error, 3 operate done"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -25,20 +31,34 @@
     "description": "Writes key1 0x45670123 and then key2 0xCDEF89AB to FLASH.UNLOCK (0x40022004). The controller unlocks only when the keys arrive in that order with no other write in between. This is the Artery SDK flash_unlock routine. It must be called before any flash_sector_erase or program sequence, and flash_lock (vcu_0159_0800ceb8) re-locks.",
     "category": "flash",
     "params": [],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800d06c": {
     "name": "gpio_bits_reset",
     "summary": "Drive the selected GPIO port pins low through the write-only CLR register",
-    "description": "Stores the pin mask into the port's CLR register at offset 0x14 of the GPIO block. Writing 1 to a CLR bit drives that pin low and writing 0 has no effect, so only the selected pins change and no read-modify-write is needed. This is the Artery SDK gpio_bits_reset. It is used throughout the application to switch power-enable, LED and control outputs off.",
+    "description": "Stores the pin mask into the port's CLR register at offset 0x14 of the GPIO block. Writing 1 to a CLR bit drives that pin low and writing 0 has no effect, so only the selected pins change and no read-modify-write is needed. This is the Artery SDK gpio_bits_reset. It has many callers across the application (vcu_0159_080022d4 and others).",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "GPIO port base (GPIOA..GPIOF register block)"},
-      {"name": "param_2", "type": "u16", "description": "pin bit mask, bit n selects pin n"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO port base (GPIOA..GPIOF register block)"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "pin bit mask, bit n selects pin n"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -48,10 +68,21 @@
     "description": "Stores the pin mask into the port's SCR register at offset 0x10 of the GPIO block. Writing 1 to an SCR bit drives that pin high and writing 0 has no effect. This is the Artery SDK gpio_bits_set and is the counterpart of gpio_bits_reset (vcu_0159_0800d06c).",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "GPIO port base (GPIOA..GPIOF register block)"},
-      {"name": "param_2", "type": "u16", "description": "pin bit mask, bit n selects pin n"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO port base (GPIOA..GPIOF register block)"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "pin bit mask, bit n selects pin n"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -61,48 +92,88 @@
     "description": "Sets the 8-byte init structure to the Artery SDK defaults: gpio_pins = 0xFFFF (all 16 pins), gpio_mode = GPIO_MODE_INPUT (0), gpio_out_type = push-pull (0), gpio_pull = GPIO_PULL_NONE (0x04) and gpio_drive_strength = GPIO_DRIVE_STRENGTH_STRONGER (1). Callers such as the GPIO setup in vcu_0159_08001ca8 overwrite the fields they need and then call gpio_init (vcu_0159_0800d0e8). Field layout: u32 pins at +0, then bytes out_type +4, pull +5, mode +6, drive +7.",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "gpio_init_type structure to fill (8 bytes)"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "gpio_init_type structure to fill (8 bytes)"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800d08c": {
     "name": "gpio_exint_line_config",
     "summary": "Route a GPIO port pin to an EXINT line by writing its 4-bit port field in IOMUX.EXINTCn",
-    "description": "Splits the pin number into a register index (pin >> 2, selecting IOMUX.EXINTC1..EXINTC4) and a 4-bit field position ((pin & 3) * 4). It clears that field and writes the port source value into it, so EXINT line 'pin' is driven by port 'port' (0 = GPIOA, 1 = GPIOB, ...). Other lines keep their settings. This is the Artery SDK gpio_exint_line_config and is called before exint_init when a GPIO input is wired to an external interrupt.",
+    "description": "Splits the pin number into a register index (pin >> 2, selecting IOMUX.EXINTC1..EXINTC4) and a 4-bit field position ((pin & 3) * 4). It clears that field and writes the port source value into it, so EXINT line 'pin' is driven by port 'port' (0 = GPIOA, 1 = GPIOB, ...). Other lines keep their settings. This is the Artery SDK gpio_exint_line_config Its callers include vcu_0159_080020a4, vcu_0159_080021c4 and vcu_0159_080026f0.",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "port source (0 = GPIOA ... 5 = GPIOF)"},
-      {"name": "param_2", "type": "u32", "description": "pin number 0..15 within the port"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "port source (0 = GPIOA ... 5 = GPIOF)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "pin number 0..15 within the port"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800d0e8": {
     "name": "gpio_init",
     "summary": "Configure the mode, pull and drive of the selected pins in CFGLR/CFGHR",
-    "description": "Applies a gpio_init_type to the pins in its mask. Each pin owns a 4-bit nibble in CFGLR (pins 0..7) or CFGHR (pins 8..15), and the code writes the nibble from the structure: analog mode gives 0; input mode gives the pull field & 0xF (4 = floating) and also sets ODT through SCR for GPIO_PULL_UP (0x18) or CLR for GPIO_PULL_DOWN (0x28); output and mux modes give (mode & 8) | (out_type & 4) | (drive & 3). The mask bits are walked one by one so untouched pins keep their configuration. This is the Artery SDK gpio_init. The structure layout is u32 pins at +0, out_type +4, pull +5, mode +6 and drive +7.",
+    "description": "Applies a gpio_init_type to the pins in its mask. Each pin owns a 4-bit nibble in CFGLR (pins 0..7) or CFGHR (pins 8..15), and the code writes the nibble from the structure: analog mode gives 0; input mode gives the pull field & 0xF (4 = floating) and also sets the output-data bit through SCR for GPIO_PULL_UP (0x18) or clears it through CLR for GPIO_PULL_DOWN (0x28); output and mux modes give (mode & 8) | (out_type & 4) | (drive & 3). The mask bits are walked one by one so untouched pins keep their configuration. This is the Artery SDK gpio_init. The structure layout is u32 pins at +0, out_type +4, pull +5, mode +6 and drive +7.",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "GPIO port base"},
-      {"name": "param_2", "type": "ptr", "description": "gpio_init_type: pins mask, output type, pull, mode and drive strength"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO port base"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "gpio_init_type: pins mask, output type, pull, mode and drive strength"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": "The decompiler shows the pull comparison against full byte values 0x18 and 0x28 (GPIO_PULL_UP and GPIO_PULL_DOWN in the SDK header)."
   },
   "vcu_0159_0800d18e": {
     "name": "vcu_gpio_pins_all_high",
     "summary": "Return 1 if every pin in the mask reads high on a GPIO port",
-    "description": "Computes (mask & ~IDT) == 0, where IDT is the port input data register at offset 0x08 of the GPIO block. The function therefore returns true only when all selected pins are high, and an empty mask gives true. It is a helper for the input-scan and key-state checks, which call it with one pin or a combination of pins on GPIOA or GPIOB. It does not change any state.",
+    "description": "Computes (mask & ~IDT) == 0, where IDT is the port input data register at offset 0x08 of the GPIO block. The function therefore returns true only when all selected pins are high, and an empty mask gives true. Its callers pass single pins or pin pairs on GPIOA and GPIOB. It does not change any state.",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "GPIO port base"},
-      {"name": "param_2", "type": "u32", "description": "pin bit mask to test"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO port base"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "pin bit mask to test"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 when all masked pins read high, else 0"},
+    "returns": {
+      "type": "bool",
+      "description": "1 when all masked pins read high, else 0"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -112,10 +183,21 @@
     "description": "Decodes a remap code: the top byte selects the IOMUX register, bits 23..16 give the field's bit offset, bits 15..8 its width and bits 7..0 the value to write. It clears the field and, when new_state is non-zero, ORs in the value shifted to the field position, so a remap is turned on or off with one call. This is the Artery SDK gpio_pin_remap_config. Each call is a read-modify-write of one IOMUX register, so it is not atomic.",
     "category": "gpio",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "remap code: [31:24] IOMUX register index, [23:16] bit offset, [15:8] width, [7:0] value"},
-      {"name": "param_2", "type": "s32", "description": "confirm_state: non-zero enables the remap, zero disables it"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "remap code: [31:24] IOMUX register index, [23:16] bit offset, [15:8] width, [7:0] value"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "confirm_state: non-zero enables the remap, zero disables it"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -125,46 +207,119 @@
     "description": "Initialises one protocol session slot (0x24 bytes): stores the buffer pointer at +4, its capacity (u16) at +8, the fragment size (s16) at +0x14 and param_5 at +0x20, and sets the state byte at +2 to 1 (bound). It returns 0 and writes nothing if any of the buffer pointer, the fragment size or the session pointer is zero, because the fragment size is later used as a divisor. The init routine vcu_0159_0800cf54 calls it for five consecutive slots starting at 0x200022E0, each with a 300-byte buffer at 0x20002394. The field meanings are inferred from the callers and the size arithmetic, so the names are medium confidence.",
     "category": "protocol",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "protocol session slot (36 bytes)"},
-      {"name": "param_2", "type": "s32", "description": "fragment (packet) size in bytes, must be non-zero"},
-      {"name": "param_3", "type": "ptr", "description": "frame buffer, must be non-zero"},
-      {"name": "param_4", "type": "u16", "description": "frame buffer capacity in bytes"},
-      {"name": "param_5", "type": "u32", "description": "stored at session +0x20 (passed as 0 by the init code)"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "protocol session slot (36 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "fragment (packet) size in bytes, must be non-zero"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "frame buffer, must be non-zero"
+      },
+      {
+        "name": "param_4",
+        "type": "u16",
+        "description": "frame buffer capacity in bytes"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "stored at session +0x20 (passed as 0 by the init code)"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 when the slot was bound, 0 for invalid arguments"},
+    "returns": {
+      "type": "bool",
+      "description": "1 when the slot was bound, 0 for invalid arguments"
+    },
     "confidence": "medium",
     "notes": "The +0x20 field is written but not interpreted in this function."
   },
   "vcu_0159_0800d688": {
     "name": "proto_session_build_frame",
     "summary": "Build a checksummed, fragmented frame for a protocol session into its buffer",
-    "description": "Writes a frame into a session buffer: byte 0 = param_3, bytes 1..2 = param_6 and param_7, then the n payload bytes, then a 16-bit checksum (little-endian) equal to the ones' complement of the 16-bit sum of the three header bytes and the payload. It rejects a null buffer or payload, a payload over 0x6F9 (1785) bytes and a buffer smaller than n+5. On success it stores the state 3 at +2, the session bytes param_4 and param_5 at +0 and +1, the frame length n+5 (u16) at +0xC, clears the fragment counter at +0x1A and sets the fragment count at +0x1C to ceil(param_10 / fragment_size), with fragment_size the u16 at +0x14. Its only caller is the session send path (vcu_0159_0800a676 finds the session, then this function builds the frame). The checksum is the same ones'-complement sum used by vcu_frame_checksum, so it is the protocol's frame check.",
+    "description": "Writes a frame into a session buffer: byte 0 = param_3, bytes 1..2 = param_6 and param_7, then the n payload bytes, then a 16-bit checksum (little-endian) equal to the ones' complement of the 16-bit sum of the three header bytes and the payload. It rejects a null buffer or payload, a payload over 0x6F9 (1785) bytes and a buffer smaller than n+5. On success it stores the state 3 at +2, the session bytes param_4 and param_5 at +0 and +1, the frame length n+5 (u16) at +0xC, clears the fragment counter at +0x1A and sets the fragment count at +0x1C to ceil(param_10 / fragment_size), with fragment_size the u16 at +0x14. Its caller vcu_0159_0800d2f6 first gets the session from proto_session_find_or_alloc (vcu_0159_0800a676) and then calls this function. The checksum is the same ones'-complement sum used by vcu_frame_checksum, so it is the protocol's frame check.",
     "category": "protocol",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "protocol session slot (36 bytes)"},
-      {"name": "param_2", "type": "u32", "description": "not used in this body"},
-      {"name": "param_3", "type": "s32", "description": "frame header byte 0"},
-      {"name": "param_4", "type": "u8", "description": "stored at session +0"},
-      {"name": "param_5", "type": "u8", "description": "stored at session +1"},
-      {"name": "param_6", "type": "s32", "description": "frame header byte 1"},
-      {"name": "param_7", "type": "s32", "description": "frame header byte 2"},
-      {"name": "param_8", "type": "ptr", "description": "payload source"},
-      {"name": "param_9", "type": "u32", "description": "payload length in bytes, at most 0x6F9"},
-      {"name": "param_10", "type": "s32", "description": "total message length used to compute the fragment count"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "protocol session slot (36 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not used in this body"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "frame header byte 0"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "stored at session +0"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "stored at session +1"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "frame header byte 1"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "frame header byte 2"
+      },
+      {
+        "name": "param_8",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "payload length in bytes, at most 0x6F9"
+      },
+      {
+        "name": "param_10",
+        "type": "s32",
+        "description": "total message length used to compute the fragment count"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 when the frame was built, 0 when a check failed"},
+    "returns": {
+      "type": "bool",
+      "description": "1 when the frame was built, 0 when a check failed"
+    },
     "confidence": "medium",
     "notes": "Header byte meanings are not fixed by this code (the caller supplies them). The +0x1C fragment count and the +0x14 fragment size are inferred from the arithmetic and the caller that reads them."
   },
   "vcu_0159_0800da38": {
     "name": "util_load_u32_le",
     "summary": "Read a little-endian 32-bit value from a possibly unaligned byte buffer",
-    "description": "Assembles four bytes at the given address into a u32 in little-endian order, using byte loads so there is no alignment requirement. The result is b0 | b1<<8 | b2<<16 | b3<<24. It is the read counterpart of util_store_u32_le (vcu_0159_0800dc54) and is used for multi-byte fields inside received frames.",
+    "description": "Assembles four bytes at the given address into a u32 in little-endian order, using byte loads so there is no alignment requirement. The result is b0 | b1<<8 | b2<<16 | b3<<24. It is the read counterpart of util_store_u32_le (vcu_0159_0800dc54) and is a generic helper for multi-byte fields.",
     "category": "util",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "pointer to 4 bytes, little-endian"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to 4 bytes, little-endian"
+      }
     ],
-    "returns": {"type": "u32", "description": "the 32-bit value"},
+    "returns": {
+      "type": "u32",
+      "description": "the 32-bit value"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -174,31 +329,85 @@
     "description": "Fills a CAN frame struct (word 0 = 29-bit ID, byte 4 = DLC, bytes 5..12 = data). The ID is priority << 26 | destination << 8 | source | 0x00EF0000 (PF = 0xEF, PGN 0xEF00 proprietary-A, PDU1 format), with the extended-ID bit 29 set and bit 31 preserved. The DLC is payload + 3, the three header bytes go to data bytes 0..2 and the payload follows. The call fails when priority is 8 or more, the payload is more than 5 bytes (so DLC stays at 8 or less) or a pointer is null. This group (vcu_can_*) builds the frames of the 0xEF00 proprietary channel, and the TP functions below build its multi-packet transport.",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "CAN priority 0..7"},
-      {"name": "param_2", "type": "u8", "description": "data byte 0 (header)"},
-      {"name": "param_3", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_4", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_5", "type": "u8", "description": "data byte 1 (header)"},
-      {"name": "param_6", "type": "u8", "description": "data byte 2 (header)"},
-      {"name": "param_7", "type": "s32", "description": "payload source pointer"},
-      {"name": "param_8", "type": "u32", "description": "payload length, 0..5"},
-      {"name": "param_9", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "CAN priority 0..7"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "data byte 0 (header)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "data byte 1 (header)"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "data byte 2 (header)"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "payload source pointer"
+      },
+      {
+        "name": "param_8",
+        "type": "u32",
+        "description": "payload length, 0..5"
+      },
+      {
+        "name": "param_9",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 on bad arguments"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 on bad arguments"
+    },
     "confidence": "medium",
     "notes": "The header byte semantics are not known from this function alone."
   },
   "vcu_0159_0800daac": {
     "name": "vcu_can_tp_abort_frame_build",
     "summary": "Build a J1939 TP.CM connection-abort frame (0x18EC) for PGN 0xEF00",
-    "description": "Builds an 8-byte TP.CM frame with ID 0x18EC (priority 6, PGN 0xEC00) from source and destination addresses. Data byte 0 = 0xFF (connection abort control), byte 1 = 0xFF (reason), bytes 2..4 = 0xFF reserved and bytes 5..7 = 00 EF 00, the PGN being aborted (0xEF00). This is the TP abort sent when a multi-packet transfer on the 0xEF00 channel must stop. It is one of the TP.CM builders (vcu_can_tp_*) that share the same ID and data layout.",
+    "description": "Builds an 8-byte TP.CM frame with ID 0x18EC (priority 6, PGN 0xEC00) from source and destination addresses. Data byte 0 = 0xFF (connection abort control), byte 1 = 0xFF (reason), bytes 2..4 = 0xFF reserved and bytes 5..7 = 00 EF 00, the PGN being aborted (0xEF00). It is presumably the abort sent when a multi-packet transfer on the 0xEF00 channel must stop. It is one of the TP.CM builders (vcu_can_tp_*) that share the same ID and data layout.",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_2", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_3", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 when the output pointer is null"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 when the output pointer is null"
+    },
     "confidence": "high",
     "notes": "The reason byte is written as the fixed value 0xFF."
   },
@@ -208,13 +417,36 @@
     "description": "Builds the TP.CM clear-to-send frame (ID 0x18EC): data byte 0 = 0x11, byte 1 = number of packets the receiver accepts now, byte 2 = next packet number expected, bytes 3..4 = 0xFF and bytes 5..7 = 00 EF 00 (PGN 0xEF00). The receiver sends it to start or resume a multi-packet transfer. Part of the TP.CM group with vcu_can_tp_abort_frame_build, vcu_can_tp_eom_ack_frame_build and vcu_can_tp_rts_frame_build.",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_2", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_3", "type": "u8", "description": "number of packets allowed (byte 1)"},
-      {"name": "param_4", "type": "u8", "description": "next packet number expected (byte 2)"},
-      {"name": "param_5", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "number of packets allowed (byte 1)"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "next packet number expected (byte 2)"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 when the output pointer is null"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 when the output pointer is null"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -224,12 +456,31 @@
     "description": "Builds the TP.CM end-of-message acknowledgment (ID 0x18EC): data byte 0 = 0x13, bytes 1..2 = total message size little-endian, byte 3 = number of packets ceil(size / 7) = (size + 6) / 7, byte 4 = 0xFF and bytes 5..7 = 00 EF 00 (PGN 0xEF00). The receiver sends it after the last data packet arrives. It is part of the TP.CM group (vcu_can_tp_*).",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_2", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_3", "type": "s32", "description": "total message size in bytes"},
-      {"name": "param_4", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "total message size in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 when the output pointer is null"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 when the output pointer is null"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -239,29 +490,75 @@
     "description": "Builds the TP.CM request-to-send (ID 0x18EC): data byte 0 = 0x10, bytes 1..2 = total size little-endian, byte 3 = number of data packets (size + 6) / 7, byte 4 = 0xFF (no limit on packets per CTS) and bytes 5..7 = 00 EF 00 (PGN 0xEF00). It is only built when the size is more than 8 bytes, because a message of 8 bytes or fewer goes in a single frame. It is part of the TP.CM group (vcu_can_tp_*) that starts a transfer.",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_2", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_3", "type": "u32", "description": "total message size in bytes, must be greater than 8"},
-      {"name": "param_4", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "total message size in bytes, must be greater than 8"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 when the size is 8 or less or the output pointer is null"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 when the size is 8 or less or the output pointer is null"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800dbdc": {
     "name": "vcu_can_tp_dt_frame_build",
     "summary": "Build a J1939 TP.DT data frame (0x18EB) from a message offset that is a multiple of 7",
-    "description": "Builds one TP.DT frame: ID 0x18EB (priority 6) from source and destination, data byte 0 = sequence number (offset / 7) + 1, computed as (offset + 6) / 7 + 1, followed by up to 7 payload bytes copied from the message. The offset must be a multiple of 7. The byte count comes from the in/out u16 *remaining (clamped to 7) and is written back. The remaining data bytes are filled with 0xFF. The decompiled index arithmetic looks off by one: the copy loop runs uVar2+1 times, and the padding loop starts one index too early, so the last copied byte is overwritten. The intended behaviour is 7 payload bytes per frame, so the exact byte count per frame should be checked against the binary. The caller is the TP send loop in vcu_0159_0800a78a's neighbourhood, which advances the offset by 7 per frame.",
+    "description": "Builds one TP.DT frame: ID 0x18EB (priority 6) from source and destination, data byte 0 = sequence number (offset / 7) + 1, computed as (offset + 6) / 7 + 1, followed by up to 7 payload bytes copied from the message. The offset must be a multiple of 7. The byte count comes from the in/out u16 *remaining (clamped to 7) and is written back. The remaining data bytes are filled with 0xFF. The decompiled index arithmetic looks off by one: the copy loop runs uVar2+1 times, and the padding loop starts one index too early, so the last copied byte is overwritten. The intended behaviour is 7 payload bytes per frame, so the exact byte count per frame should be checked against the binary. Its caller is vcu_0159_0800d34a, which advances the offset by 7 per frame.",
     "category": "can",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
-      {"name": "param_2", "type": "s32", "description": "destination address (ID bits 8..15)"},
-      {"name": "param_3", "type": "u32", "description": "byte offset of this chunk in the message, must be a multiple of 7"},
-      {"name": "param_4", "type": "ptr", "description": "message source at the chunk offset"},
-      {"name": "param_5", "type": "ptr", "description": "in/out u16: bytes remaining; clamped to 7 and written back"},
-      {"name": "param_6", "type": "ptr", "description": "output CAN frame struct"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address (ID bits 0..7)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "destination address (ID bits 8..15)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "byte offset of this chunk in the message, must be a multiple of 7"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "message source at the chunk offset"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "in/out u16: bytes remaining; clamped to 7 and written back"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "output CAN frame struct"
+      }
     ],
-    "returns": {"type": "bool", "description": "1 on success, 0 on bad arguments"},
+    "returns": {
+      "type": "bool",
+      "description": "1 on success, 0 on bad arguments"
+    },
     "confidence": "low",
     "notes": "Sequence number formula matches the TP.DT convention (1-based packet number). The byte-count and padding arithmetic is uncertain, see description."
   },
@@ -271,10 +568,21 @@
     "description": "Stores the low byte first, then bytes 1..3 of the value, into the four bytes at the destination. It has no alignment requirement and is the write counterpart of util_load_u32_le (vcu_0159_0800da38). It is used to fill multi-byte fields of outgoing frames.",
     "category": "util",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "value to store"},
-      {"name": "param_2", "type": "ptr", "description": "destination, 4 bytes"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "value to store"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "destination, 4 bytes"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -284,11 +592,26 @@
     "description": "Encodes the preemption and sub-priority values into one 4-bit priority with the current AIRCR.PRIGROUP setting (preemption bits = min(4, 7 - group), sub-priority bits = the rest), writes it into the top four bits of the priority byte and then enables the IRQ. For negative IRQ numbers (system exceptions) the byte is written to SCB.SHPR at 0xE000ED14; for device IRQs it goes into NVIC IPR at 0xE000E400 and the enable bit is set in the NVIC ISER word (write-1-to-enable, so the write does not disturb other IRQs). This is the Artery SDK nvic_irq_enable. The decompiled code writes the ISER register as a plain store, which is equivalent because the register ignores zero bits.",
     "category": "isr",
     "params": [
-      {"name": "param_1", "type": "s32", "description": "IRQ number; negative values select a system exception"},
-      {"name": "param_2", "type": "u32", "description": "preemption priority"},
-      {"name": "param_3", "type": "u32", "description": "sub-priority"}
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "IRQ number; negative values select a system exception"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "preemption priority"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "sub-priority"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -298,9 +621,16 @@
     "description": "Reads SCB.AIRCR, replaces PRIGROUP (bits 10..8) with the low three bits of the argument and writes 0x05FA in the VECTKEY field (bits 31..16) so the write is accepted. Changing the group after interrupts have been configured changes how existing priority values are split between preemption and sub-priority. This is the Artery SDK nvic_priority_group_config.",
     "category": "isr",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "priority group 0..7 (PRIGROUP value)"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "priority group 0..7 (PRIGROUP value)"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -310,33 +640,54 @@
     "description": "Sets or clears PWC.CTRL bit 8 (BPWEN) with a read-modify-write, leaving the other bits unchanged. While BPWEN is clear, writes to the RTC/ERTC backup registers and the LSE control are blocked. This is the Artery SDK pwc_battery_powered_domain_access and is called before ERTC setup.",
     "category": "power",
     "params": [
-      {"name": "param_1", "type": "s32", "description": "confirm_state: non-zero enables access, zero disables it"}
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "confirm_state: non-zero enables access, zero disables it"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800e728": {
     "name": "pwc_deep_sleep_mode_enter",
     "summary": "Enter deep sleep with WFE or WFI, setting and clearing SCB.SCR.SLEEPDEEP",
-    "description": "Sets SCB.SCR.SLEEPDEEP (bit 2) so the core sleeps in deep-sleep mode, then executes WFE (preceded by SEV, and twice so a pending event is cleared) when the argument is 1, or WFI when it is 0. Other values fall through with no sleep. SLEEPDEEP is cleared again after wake-up so later sleeps are ordinary sleep. This is the Artery SDK pwc_deep_sleep_mode_enter. The main loop uses it as the idle entry point.",
+    "description": "Sets SCB.SCR.SLEEPDEEP (bit 2) so the core sleeps in deep-sleep mode, then executes WFE (preceded by SEV, and twice so a pending event is cleared) when the argument is 1, or WFI when it is 0. Other values fall through with no sleep. SLEEPDEEP is cleared again after wake-up so later sleeps are ordinary sleep. This is the Artery SDK pwc_deep_sleep_mode_enter. Its caller is vcu_0159_0800688c.",
     "category": "power",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "0 = enter with WFI, 1 = enter with WFE"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "0 = enter with WFI, 1 = enter with WFE"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800e754": {
     "name": "pwc_voltage_regulate_set",
     "summary": "Select the voltage regulator mode through PWC.CTRL.VRSEL",
-    "description": "Writes bit 0 of PWC.CTRL (VRSEL) to the low bit of the argument, keeping the other bits. The bit selects between the normal and the low-power voltage regulator. This is the Artery SDK pwc_voltage_regulate_set and it is called when the system switches between run and low-power states.",
+    "description": "Writes bit 0 of PWC.CTRL (VRSEL) to the low bit of the argument, keeping the other bits. The bit selects between the normal and the low-power voltage regulator. This is the Artery SDK pwc_voltage_regulate_set and its caller is vcu_0159_0800688c.",
     "category": "power",
     "params": [
-      {"name": "param_1", "type": "u32", "description": "regulator mode: 0 = normal, 1 = low power"}
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "regulator mode: 0 = normal, 1 = low power"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -346,22 +697,40 @@
     "description": "Sets the 8-byte SPI init structure to the SDK defaults: transmission_mode = full duplex (0), master_slave_mode = slave (0), mclk_freq_division = DIV_2 (0), first_bit = MSB (0), frame_bit_num = 8-bit (0), clock_polarity = low (0), clock_phase = first edge (0) and cs_mode_selection = software (1). This is the Artery SDK spi_default_para_init, and the callers overwrite the fields they need before calling spi_init (vcu_0159_0800e7d4).",
     "category": "spi",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "spi_init_type structure to fill (8 bytes)"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "spi_init_type structure to fill (8 bytes)"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800e7ca": {
     "name": "spi_enable",
     "summary": "Enable or disable the SPI peripheral through SPI.CTRL1.SPIEN (bit 6)",
-    "description": "Read-modify-write of the first control register that sets or clears bit 6 (SPIEN) and leaves the other bits unchanged. It must be set after spi_init and the SPI is then in use. This is the Artery SDK spi_enable.",
+    "description": "Read-modify-write of the first control register that sets or clears bit 6 (SPIEN) and leaves the other bits unchanged. It is normally called after spi_init to start the SPI. This is the Artery SDK spi_enable.",
     "category": "spi",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "SPI peripheral base"},
-      {"name": "param_2", "type": "s32", "description": "confirm_state: non-zero enables, zero disables"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "SPI peripheral base"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "confirm_state: non-zero enables, zero disables"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -371,32 +740,53 @@
     "description": "Applies the SPI init structure with read-modify-write of the control registers: I2SCTRL.I2SMSEL is cleared (SPI mode, not I2S); the transmission mode goes to SLBEN (bit 15), SLBTD (bit 14) and ORA (bit 10) for full duplex, RX-only, half-duplex RX or half-duplex TX; SWCSEN (bit 9) takes the CS mode, and SWCSIL (bit 8) is set for master with software CS; MSTEN (bit 2) takes master/slave; the baud divisor goes to MDIV_L (CTRL1 bits 5..3) and MDIV_H (CTRL2 bit 8) when the divisor is above 7; LTF (bit 7) selects LSB first; FBN (bit 11) selects 16-bit frames; CLKPOL (bit 1) and CLKPHA (bit 0) set the clock idle level and sampling edge. This is the Artery SDK spi_init. The bit positions were checked against the SDK struct.",
     "category": "spi",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "SPI peripheral base"},
-      {"name": "param_2", "type": "ptr", "description": "spi_init_type: transmission mode, master/slave, divisor, bit order, frame size, clock polarity, phase, CS mode"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "SPI peripheral base"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "spi_init_type: transmission mode, master/slave, divisor, bit order, frame size, clock polarity, phase, CS mode"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800ea74": {
     "name": "systick_clock_source_config",
     "summary": "Select the SysTick clock source: core clock (no divide) or core clock / 8",
-    "description": "Sets SysTick.CTRL bit 2 (CLKSOURCE) when the argument is SYSTICK_CLOCK_SOURCE_AHBCLK_NODIV (4) and clears it for any other value, which selects the AHB clock divided by 8. This is the Artery SDK systick_clock_source_config and is called once during clock setup, so the 1 ms tick is derived from the chosen source.",
+    "description": "Sets SysTick.CTRL bit 2 (CLKSOURCE) when the argument is SYSTICK_CLOCK_SOURCE_AHBCLK_NODIV (4) and clears it for any other value, which selects the AHB clock divided by 8. This is the Artery SDK systick_clock_source_config Its caller is vcu_0159_08002030.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "s32", "description": "clock source: 4 = AHB without divider, 0 = AHB divided by 8"}
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "clock source: 4 = AHB without divider, 0 = AHB divided by 8"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800ea90": {
     "name": "vcu_systick_suspend",
     "summary": "Save the SysTick enable bit to RAM and stop the SysTick counter",
-    "description": "Copies SysTick.CTRL bit 0 (ENABLE) into the RAM byte DAT_200018AC and then clears ENABLE. It is used around operations that must not be interrupted by the 1 ms tick, such as the flash erase or the sleep entry. vcu_systick_resume (vcu_0159_0800eab0) restores the saved state. The pair forms a two-function suspend and resume group.",
+    "description": "Copies SysTick.CTRL bit 0 (ENABLE) into the RAM byte DAT_200018AC and then clears ENABLE. All three callers of the suspend, resume and deep-sleep routines list vcu_0159_0800688c, so this is most likely part of a sleep sequence (medium). vcu_systick_resume (vcu_0159_0800eab0) restores the saved state, and the pair forms a two-function suspend and resume group.",
     "category": "timer",
     "params": [],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -406,7 +796,10 @@
     "description": "ORs the saved byte DAT_200018AC into SysTick.CTRL, so the counter restarts only when it was enabled before vcu_systick_suspend. It never clears ENABLE, so a call without a prior suspend leaves the counter unchanged. This is the second half of the suspend and resume group.",
     "category": "timer",
     "params": [],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -416,11 +809,26 @@
     "description": "Writes the period register at offset 0x2C and the prescaler register at 0x28 of the timer block, then sets SWEVT.OVFSWTR (bit 0 of offset 0x14), which generates an update event so the new values load into the shadow registers at once. This is the Artery SDK tmr_base_init. The timer must still be started with tmr_counter_enable.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "timer peripheral base (TMRx)"},
-      {"name": "param_2", "type": "u32", "description": "period value (PR, auto-reload)"},
-      {"name": "param_3", "type": "u32", "description": "prescaler value (DIV)"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer peripheral base (TMRx)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "period value (PR, auto-reload)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "prescaler value (DIV)"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -430,11 +838,26 @@
     "description": "Stores the value into the capture/compare register of the chosen channel: 0 selects C1DT (offset 0x34), 2 selects C2DT (0x38), 4 selects C3DT (0x3C) and 6 selects C4DT (0x40). The codes are the TMR_SELECT_CHANNEL_n values, and the complementary variants (1, 3, 5) are not handled, so they do nothing. This is the Artery SDK tmr_channel_value_set.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "timer peripheral base (TMRx)"},
-      {"name": "param_2", "type": "u32", "description": "channel code: 0 = channel 1, 2 = channel 2, 4 = channel 3, 6 = channel 4"},
-      {"name": "param_3", "type": "u32", "description": "compare value"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer peripheral base (TMRx)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "channel code: 0 = channel 1, 2 = channel 2, 4 = channel 3, 6 = channel 4"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "compare value"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -444,10 +867,21 @@
     "description": "Writes the three-bit CNT_DIR field (bits 6..4 of CTRL1) to the low three bits of the argument, leaving the other control bits unchanged. The value selects up, down or center-aligned counting. This is the Artery SDK tmr_cnt_dir_set.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "timer peripheral base (TMRx)"},
-      {"name": "param_2", "type": "u32", "description": "counting mode (tmr_count_mode_type)"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer peripheral base (TMRx)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "counting mode (tmr_count_mode_type)"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
@@ -457,23 +891,45 @@
     "description": "Sets or clears bit 0 (TMREN) of CTRL1 with a read-modify-write that keeps the other bits. This is the Artery SDK tmr_counter_enable and it is the last step of timer start-up after tmr_base_init and the channel setup.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "timer peripheral base (TMRx)"},
-      {"name": "param_2", "type": "u32", "description": "confirm_state: non-zero starts the counter, zero stops it"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer peripheral base (TMRx)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "confirm_state: non-zero starts the counter, zero stops it"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   },
   "vcu_0159_0800edf6": {
     "name": "tmr_flag_clear",
     "summary": "Clear timer interrupt status flags by writing the inverted mask to ISTS",
-    "description": "Stores ~flag in the interrupt status register at offset 0x10. ISTS is rc_w0: a 0 written to a bit clears that flag, and a 1 leaves the flag unchanged, so only the bits in the mask are cleared. This is the Artery SDK tmr_flag_clear, which is called from the timer interrupt handlers after acknowledging an event.",
+    "description": "Stores ~flag in the interrupt status register at offset 0x10. ISTS is rc_w0: a 0 written to a bit clears that flag, and a 1 leaves the flag unchanged, so only the bits in the mask are cleared. This is the Artery SDK tmr_flag_clear. Its callers are not visible in this packet.",
     "category": "timer",
     "params": [
-      {"name": "param_1", "type": "ptr", "description": "timer peripheral base (TMRx)"},
-      {"name": "param_2", "type": "u32", "description": "mask of status flags to clear"}
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer peripheral base (TMRx)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "mask of status flags to clear"
+      }
     ],
-    "returns": {"type": "void", "description": "none"},
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
     "confidence": "high",
     "notes": ""
   }
