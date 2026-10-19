@@ -1,0 +1,403 @@
+{
+  "bms_4168_080010c4": {
+    "name": "bms_call_main_loop",
+    "summary": "Thunk that calls the endless BMS main loop bms_4168_08010558",
+    "description": "A two-instruction stub: it calls bms_4168_08010558 and returns. The decompiler names it thunk_FUN_08010558, so the toolchain emitted a separate entry for the same target. Its only direct caller in this packet's call graph is bms_4168_080012ec, which therefore reaches the main loop through this address. The target never returns, so this stub does not return in practice either.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return in practice"},
+    "confidence": "high",
+    "notes": "Behaviour of bms_4168_08010558 is taken from its own decompile in another packet (wave4), not verified here."
+  },
+  "bms_4168_080010d4": {
+    "name": "Reset_Handler",
+    "summary": "Cortex-M0+ reset entry: runs three startup routines, then enters the main loop",
+    "description": "Reset vector target. It calls bms_4168_0800366a, then bms_4168_080012ec, then bms_4168_08010558 (the endless main loop), in that order. It has no inline .data copy or .bss clear of its own, so that work is presumed to be inside the first two callees. The decompiler warns that it may set the stack pointer, which is normal for a reset vector.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "high",
+    "notes": "The roles of bms_4168_0800366a and bms_4168_080012ec are inferred from call order only; bms_4168_080012ec reaches the main loop through bms_call_main_loop."
+  },
+  "bms_4168_080010e6": {
+    "name": "Default_Handler",
+    "summary": "Default interrupt handler: spins in an endless loop",
+    "description": "Single infinite loop with no body. The vector table slot labelled CEC_IRQHandler points here, and unimplemented interrupts or faults that land on this default entry halt the core. The handler does not log, disable the source, or reset the MCU. Whether a watchdog recovers the hang is not visible in this function.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high",
+    "notes": "The CEC_IRQHandler label is the vector-table name for this slot; the slot is probably an unused IRQ default, not a real CEC handler."
+  },
+  "bms_4168_08001110": {
+    "name": "bms_udiv32",
+    "summary": "Unsigned 32-bit restoring division; returns the quotient",
+    "description": "Bit-serial restoring division for unsigned 32-bit operands, needed because Cortex-M0+ has no hardware divider. For k = 31 down to 0 it tests divisor <= dividend >> k (equivalent to divisor << k <= dividend, without overflow), subtracts divisor << k when the test passes and sets quotient bit k. The local dividend becomes the remainder and is discarded, so only the quotient is returned. With a zero divisor every test passes and the result is 0xFFFFFFFF.",
+    "category": "util",
+    "params": [
+      {"name": "dividend", "type": "u32", "description": "param_1, numerator; the local copy is reduced to the remainder and not returned"},
+      {"name": "divisor", "type": "u32", "description": "param_2, denominator; zero gives quotient 0xFFFFFFFF"}
+    ],
+    "returns": {"type": "u32", "description": "floor(param_1 / param_2)"},
+    "confidence": "high",
+    "notes": "Could be a hand-written replacement for libgcc __aeabi_uidiv; the name is generic, not confirmed."
+  },
+  "bms_4168_08001164": {
+    "name": "bms_rand_next",
+    "summary": "Advances the LCG seed in RAM word 0x200006A8 and returns 31 pseudo-random bits",
+    "description": "Linear congruential generator with the classic constants 1103515245 (0x41C64E6D) and 12345 (0x3039): seed = seed * 1103515245 + 12345 modulo 2^32, stored back into DAT_200006a8. The function returns bits 1 to 31 of the new state (seed >> 1). Nothing in this function seeds the generator, so the start value comes from whoever writes DAT_200006a8 elsewhere. The sequence is predictable and must not be used for security purposes.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "pseudo-random value in 0..0x7FFFFFFF"},
+    "confidence": "high"
+  },
+  "bms_4168_08001214": {
+    "name": "memcpy",
+    "summary": "Copies bytes forward, moving whole 32-bit words when both pointers are aligned",
+    "description": "Copies param_3 bytes from param_2 to param_1 in increasing address order. If both pointers are 4-byte aligned it copies words while at least four bytes remain, then copies the rest one byte at a time; otherwise it copies bytes only. There is no overlap handling, so a destination above an overlapping source is corrupted. The decompiled routine has no return value, which differs from the newlib memcpy that returns dst.",
+    "category": "libc",
+    "params": [
+      {"name": "dst", "type": "ptr", "description": "param_1, destination buffer"},
+      {"name": "src", "type": "ptr", "description": "param_2, source buffer"},
+      {"name": "n", "type": "u32", "description": "param_3, byte count"}
+    ],
+    "returns": {"type": "void", "description": "none in the decompiled signature"},
+    "confidence": "high",
+    "notes": "Named after the C library routine by behaviour; the implementation is custom and not newlib's."
+  },
+  "bms_4168_08001238": {
+    "name": "bms_mem_fill",
+    "summary": "Fills a byte buffer with one value; argument order is (dst, count, value)",
+    "description": "Writes the byte param_3 to param_2 consecutive addresses starting at param_1, using a count-down loop. A zero count writes nothing. The argument order is pointer, count, value, which is not the memset order, so callers must be checked before assuming memset semantics. Its callers bms_4168_08001246 and bms_4168_0800124a are outside this packet.",
+    "category": "libc",
+    "params": [
+      {"name": "dst", "type": "ptr", "description": "param_1, destination buffer"},
+      {"name": "count", "type": "s32", "description": "param_2, number of bytes; zero writes nothing (a negative value would loop almost 2^32 times)"},
+      {"name": "value", "type": "u8", "description": "param_3, byte value to store"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_0800125c": {
+    "name": "bms_memcmp_prefix",
+    "summary": "Scans two buffers for a matching prefix; the match length is not returned",
+    "description": "Increments an index while it is below param_3 and the bytes param_1[index] and param_2[index] are equal. This is the loop body of a memcmp-style helper, but the decompiled function has no return value, so the match length is either dropped or read by callers from a register that is not visible here. Six callers are listed in the call graph (bms_4168_08003a50 and others), none analysed in this packet.",
+    "category": "libc",
+    "params": [
+      {"name": "buf1", "type": "ptr", "description": "param_1, first buffer"},
+      {"name": "buf2", "type": "ptr", "description": "param_2, second buffer"},
+      {"name": "max", "type": "u32", "description": "param_3, maximum number of bytes to compare"}
+    ],
+    "returns": {"type": "void", "description": "none in the decompiled signature"},
+    "confidence": "low",
+    "notes": "The computed index is never returned in this decompile, so the purpose is inferred from the loop alone; check the callers before relying on it."
+  },
+  "bms_4168_08001310": {
+    "name": "bms_lzrle_decompress",
+    "summary": "Decodes a byte-oriented LZ/RLE stream of literals, zero runs and short back-references",
+    "description": "Decodes a compressed stream from param_1 into param_2 until param_2 + param_3 is reached. Each token byte has a 3-bit literal field in its low bits (0 means an extension byte follows), a 4-bit length field in its high nibble (0 means an extension byte follows) and bit 3 as a back-reference flag. The decoder copies the literal run, then either copies length+2 bytes from output position minus a one-byte distance (overlapping copies repeat data) or writes length zero bytes. There are no bounds checks on input or output, and the function always returns 0.",
+    "category": "util",
+    "params": [
+      {"name": "src", "type": "ptr", "description": "param_1, compressed input stream, advanced as it is read"},
+      {"name": "dst", "type": "ptr", "description": "param_2, output buffer, advanced as it is written"},
+      {"name": "out_len", "type": "s32", "description": "param_3, number of output bytes to produce"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The literal count looks biased by one (the do-while copies field-1 bytes), and a zero extension byte would make the literal loop run almost 2^32 times. The format is inferred from the decompile and may be wrong in detail. No caller is analysed in this packet."
+  },
+  "bms_4168_08001444": {
+    "name": "NVIC_SystemReset",
+    "summary": "Disables interrupts and requests a system reset through SCB AIRCR, then hangs",
+    "description": "Calls disableIRQinterrupts (CPSID i), issues a data synchronisation barrier, writes 0x05FA0004 to SCB->AIRCR (VECTKEY 0x5FA in the high half, SYSRESETREQ set), issues another barrier and then loops forever while the reset takes effect. This is the CMSIS NVIC_SystemReset sequence with an added interrupt disable. Of its five callers, bms_4168_08008ca0 calls it when an FDCAN configuration step fails, so a failed CAN setup restarts the MCU.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "high"
+  },
+  "bms_4168_080014cc": {
+    "name": "HAL_FDCAN_ActivateNotification",
+    "summary": "Enables FDCAN interrupt sources and routes their groups to interrupt lines 0 and 1",
+    "description": "param_1 is the FDCAN handle: instance pointer at +0x00, state byte at +0x5C, error code word at +0x60. The call is rejected unless the state is READY (1) or BUSY (2); it then sets error bit 0x2 and returns 1. Otherwise it ORs param_2 into the IE register (+0x54). Bits 0-2, 3-5, 6-8, 9-12, 13-15, 16-17 and 18-23 of param_2 form seven groups matching the seven ILS bits: for each group with a bit set, ILE bit 0 is set when that ILS bit is clear and ILE bit 1 when it is set, enabling interrupt line 0 or 1. Bit 7 of param_2 ORs param_3 (buffer mask) into TXBTIE and bit 8 into TXBCIE. Returns 0 on success.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"},
+      {"name": "ie_mask", "type": "u32", "description": "param_2, interrupt sources to enable (IE bits); bits 7 and 8 also select buffer-level enables"},
+      {"name": "buffer_mask", "type": "u32", "description": "param_3, Tx buffer bits written to TXBTIE/TXBCIE when bits 7/8 are set"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 when the state is not READY or BUSY"},
+    "confidence": "medium",
+    "notes": "Named after the ST HAL routine by its role (state check, IE register, ILS/ILE routing). The bit-to-group mapping and the bit 7/8 buffer-mask encoding are read from this code, not from ST flag definitions, so verify before relying on the exact flag meanings."
+  },
+  "bms_4168_080015c4": {
+    "name": "HAL_FDCAN_AddMessageToTxFifoQ",
+    "summary": "Writes one frame into the next Tx FIFO slot in message RAM and requests transmission",
+    "description": "Requires state BUSY (2), else sets error 0x8. Returns error 0x200 when the TXFQS queue-full flag is set. The put index comes from TXFQS bits 16-17, and the 0x48-byte element is written at handle+0x54 + index*0x48: T0 holds the identifier (standard IDs shifted to bits 18-28, extended IDs with XTD bit 30), RTR and ESI from pre-shifted header words; T1 holds the message marker (bits 24-31), EFC, FDF, BRS and DLC<<16. The payload is packed four bytes at a time into little-endian words, reading whole words from the payload pointer even when the DLC length is not a multiple of 4, with the length taken from the table at flash 0x08010A14. Finally TXBAR is set to 1<<index to request sending, the same mask is stored at handle+0x58, and 0 is returned.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"},
+      {"name": "header", "type": "ptr", "description": "param_2, 9-word Tx header: identifier, id type, frame type, DLC<<16, ESI, BRS, FDF, EFC, message marker (HAL FDCAN_TxHeaderTypeDef order)"},
+      {"name": "data", "type": "ptr", "description": "param_3, payload bytes"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 on bad state or full queue"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour and header layout. Only put-index bits 16-17 are used, so this build supports at most four Tx queue slots. The table at 0x08010A14 is the DLC-to-length map (0..8 bytes, then 12, 16, 20, 24, 32, 48, 64)."
+  },
+  "bms_4168_0800168c": {
+    "name": "HAL_FDCAN_ConfigFilter",
+    "summary": "Writes one standard or extended acceptance filter element into message RAM",
+    "description": "Accepts state READY or BUSY, else sets error 0x2. The filter descriptor (IdType, FilterIndex, FilterType, FilterConfig, FilterID1, FilterID2, in that order) selects the element. A standard filter (IdType 0) writes one word at the standard-filter RAM base (handle+0x40) + index*4, with SFID2 in bits 0-10, SFEC in bits 27-29, SFT in bits 30-31 and SFID1 in bits 16-26. Otherwise it writes two words at the extended-filter RAM base (handle+0x44) + index*8: EFID1 with EFEC in bits 29-31, then EFID2 with EFT in bits 30-31. The index is not range-checked, and the function returns 0 on success.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"},
+      {"name": "filter", "type": "ptr", "description": "param_2, 6-word filter descriptor (HAL FDCAN_FilterTypeDef order)"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 on bad state"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour and descriptor layout."
+  },
+  "bms_4168_080016f0": {
+    "name": "HAL_FDCAN_ConfigGlobalFilter",
+    "summary": "Sets the global filter (RXGFC) actions for non-matching and remote frames",
+    "description": "Requires state READY (1); otherwise sets error 0x4 and returns 1. It rewrites the low six bits of RXGFC at +0x80: ANFS = param_2 (bits 4-5, non-matching standard frames), ANFE = param_3 (bits 2-3, non-matching extended frames), RRFS = param_4 (bit 1, reject remote standard) and RRFE = param_5 (bit 0, reject remote extended). Bits 6-31 of RXGFC are kept. Returns 0 on success.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"},
+      {"name": "non_matching_std", "type": "u32", "description": "param_2, action code for non-matching standard frames"},
+      {"name": "non_matching_ext", "type": "u32", "description": "param_3, action code for non-matching extended frames"},
+      {"name": "reject_remote_std", "type": "u32", "description": "param_4, 1 to reject remote standard frames"},
+      {"name": "reject_remote_ext", "type": "u32", "description": "param_5, 1 to reject remote extended frames"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 when not READY"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour."
+  },
+  "bms_4168_08001754": {
+    "name": "HAL_FDCAN_ErrorCallback",
+    "summary": "Empty weak FDCAN error callback, invoked by the FDCAN interrupt dispatcher",
+    "description": "The body is a bare return, so the callback does nothing in this image. The FDCAN interrupt dispatcher bms_4168_0800185a calls it at the end of its run whenever the accumulated error code at handle+0x60 is non-zero. The dispatcher sets those error bits from IR flags 0xF10000 (bits 16 and 20-23) and from IR bit 14 (error 0x80). The name follows the ST HAL callback that is called at the same point.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The HAL callback name is inferred from the dispatcher's call position, not from a symbol."
+  },
+  "bms_4168_08001756": {
+    "name": "bms_fdcan_cb_ir_e0000",
+    "summary": "Empty FDCAN interrupt hook for IR bits 17-19 (mask 0xE0000)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with the masked IR/IE flags for bits 17-19 (0xE0000) after writing those bits back to IR to clear them. The name is derived from the mask; the RM0444 numbering for these bits (MRAF, TOO, DRX) is the likely meaning and is not verified against this image.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Probably a HAL error-status or timeout callback. The dispatcher passes the flag mask as an argument that this empty body ignores."
+  },
+  "bms_4168_08001758": {
+    "name": "HAL_FDCAN_GetRxMessage",
+    "summary": "Reads one received frame from RX FIFO0 or FIFO1 and releases its element",
+    "description": "Requires state BUSY (else error 0x8). RxLocation 0x40 selects FIFO0 and any other value selects FIFO1. If the FIFO fill level (RXF0S or RXF1S bits 0-3) is zero it returns error 0x100. Otherwise it takes the get index (bits 8-9) and reads the 0x48-byte element at handle+0x48 (FIFO0) or handle+0x4C (FIFO1) plus index*0x48. The header words are split into identifier, id type (raw bit 30), RTR (raw bit 29), ESI (raw bit 31), DLC (bits 16-19, kept shifted), BRS and FDF (raw bits 20 and 21), a 16-bit receive timestamp, the filter index (bits 24-30) and the matching-frame flag (bit 31). It then copies the DLC-sized payload from element+8, writes the get index to RXF0A (0x94) or RXF1A (0x9C) to release the element, and returns 0.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"},
+      {"name": "rx_location", "type": "u32", "description": "param_2, 0x40 for FIFO0, otherwise FIFO1"},
+      {"name": "header", "type": "ptr", "description": "param_3, output array of 10 words (HAL FDCAN_RxHeaderTypeDef order)"},
+      {"name": "data", "type": "ptr", "description": "param_4, output payload buffer"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 on bad state or empty FIFO"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour and header layout. Header fields keep their raw bit positions, so id type and flags are not normalised to 0/1."
+  },
+  "bms_4168_0800184c": {
+    "name": "HAL_FDCAN_GetTxFifoFreeLevel",
+    "summary": "Returns the Tx FIFO free level from TXFQS, masked to bits 0-2",
+    "description": "Returns TXFQS & 7, the TFFL free-entry count. The mask keeps only three bits, although the field is six bits wide, so the result is correct only for queues of up to seven entries. It is a pure register read with no side effects. Its caller bms_4168_08008bfc is outside this packet.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"}
+    ],
+    "returns": {"type": "u32", "description": "free Tx FIFO entries (0..7 as masked)"},
+    "confidence": "high",
+    "notes": "The narrow mask is probably deliberate given the four-slot queue seen in HAL_FDCAN_AddMessageToTxFifoQ, but that is not confirmed."
+  },
+  "bms_4168_08001858": {
+    "name": "bms_fdcan_cb_ir_40",
+    "summary": "Empty FDCAN interrupt hook for IR flag 0x40 (bit 6)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 6 (0x40) set, after writing 0x40 back to IR to clear it. In the RM0444 numbering bit 6 is RF1F (RX FIFO 1 full), which is the likely meaning, but this image's IR layout is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08001cf4": {
+    "name": "bms_fdcan_cb_ir_38",
+    "summary": "Empty FDCAN interrupt hook for IR flags 0x38 (bits 3-5)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with the masked IR/IE value for bits 3-5 (0x38) after clearing those IR bits. In RM0444 numbering this group is RF0L, RF1N and RF1W (FIFO0 message lost, FIFO1 new message, FIFO1 watermark), which is the likely meaning and is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08001cf6": {
+    "name": "HAL_FDCAN_Start",
+    "summary": "Starts FDCAN: requires READY, clears CCCR.INIT and moves the state to BUSY",
+    "description": "Requires state READY (1); otherwise sets error 0x4 and returns 1. On success it sets the state to BUSY (2), clears CCCR bit 0 (INIT) so the node joins the bus, clears the error code at +0x60 and returns 0. The function does not poll for INIT to clear, since the decompile has no wait loop.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 when not READY"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour."
+  },
+  "bms_4168_08001d22": {
+    "name": "HAL_FDCAN_Stop",
+    "summary": "Stops FDCAN: sets CCCR.INIT, handles clock-stop acknowledge, re-enables configuration change",
+    "description": "Requires state BUSY (else error 0x8). It sets CCCR.INIT (bit 0) and polls about 11 times for hardware to acknowledge it, then clears CCCR.CSR (bit 4, clock-stop request) and polls CSA (bit 3) for about 11 more iterations. A timeout in either loop sets error 0x1, moves the state to ERROR (3) and returns 1. On success it sets CCCR.CCE (bit 1), clears the Tx request mask at handle+0x58, sets the state to READY (1) and returns 0.",
+    "category": "fdcan",
+    "params": [
+      {"name": "handle", "type": "ptr", "description": "param_1, FDCAN handle"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 on bad state or timeout"},
+    "confidence": "high",
+    "notes": "Its caller bms_4168_08001732 calls this and then clears interrupt line enables ILE bits 0-1, sets the error code to 0 and the state to RESET, which looks like HAL_FDCAN_DeInit."
+  },
+  "bms_4168_08001dae": {
+    "name": "bms_fdcan_cb_ir_8000",
+    "summary": "Empty FDCAN interrupt hook for IR flag 0x8000 (bit 15)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 15 (0x8000) set, after writing that bit back to IR to clear it. In RM0444 numbering bit 15 is TEFL (TX event FIFO element lost), which is the likely meaning and is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08001db0": {
+    "name": "bms_fdcan_cb_ir_2000",
+    "summary": "Empty FDCAN interrupt hook for IR flag 0x2000 (bit 13)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 13 (0x2000) set, after clearing the bit through IR. In RM0444 numbering bit 13 is TEFW (TX event FIFO watermark), which is the likely meaning and is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08001db2": {
+    "name": "bms_fdcan_cb_ir_100",
+    "summary": "Empty FDCAN callback for IR flag 0x100 (bit 8), receives the cancelled-buffer mask",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when IR and IE have bit 8 (0x100) set, passing TXBCF AND TXBCIE, which are the Tx buffers whose cancellation finished and whose interrupt is enabled. It writes 0x100 back to IR first. In ST HAL terms this is the Tx buffer abort callback, but the bit-8 meaning differs from the RM0444 numbering (HPM), so the mapping is unverified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The mask argument comes from the dispatcher; the empty body ignores it. The probable ST callback is HAL_FDCAN_TxBufferAbortCallback."
+  },
+  "bms_4168_08001db4": {
+    "name": "bms_fdcan_cb_ir_80",
+    "summary": "Empty FDCAN callback for IR flag 0x80 (bit 7), receives the completed-buffer mask",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when IR and IE have bit 7 (0x80) set, passing TXBTO AND TXBTIE, the Tx buffers that finished transmitting with their interrupt enabled. It writes 0x80 back to IR first. This matches the ST HAL Tx buffer completion callback, but the bit-7 meaning is taken from the dispatcher's use only.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The mask argument is ignored by the empty body. The probable ST callback is HAL_FDCAN_TxBufferCompleteCallback."
+  },
+  "bms_4168_08001db6": {
+    "name": "bms_fdcan_cb_ir_1c00",
+    "summary": "Empty FDCAN interrupt hook for IR flags 0x1C00 (bits 10-12)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with IR AND IE AND 0x1C00 after writing those bits back to IR. In RM0444 numbering bits 10-12 are TCF, TFE and TEFN (transmission cancelled, Tx FIFO empty, TX event FIFO new entry), which is the likely meaning and is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The dispatcher passes the masked flags as an argument that this empty body ignores."
+  },
+  "bms_4168_08001db8": {
+    "name": "bms_fdcan_cb_ir_200",
+    "summary": "Empty FDCAN interrupt hook for IR flag 0x200 (bit 9)",
+    "description": "The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 9 (0x200) set, after clearing the bit through IR. In RM0444 numbering bit 9 is TC (transmission completed), which is the likely meaning and is not verified.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08001e74": {
+    "name": "HAL_FLASH_Lock",
+    "summary": "Sets FLASH.CR.LOCK and returns 1 if the bit still reads 0 afterwards",
+    "description": "Sets bit 31 (LOCK) of FLASH.CR at 0x40022014 by read-modify-write, reads the register back, and returns 1 when LOCK reads 0, meaning the lock did not take. It returns 0 when the bit reads back set. It does not wait on the flash busy flag. Because 1 means failure here, the return value is the reverse of the HAL_OK convention.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "bool", "description": "1 when LOCK still reads 0 (failure), 0 when locked"},
+    "confidence": "medium",
+    "notes": "Name follows ST HAL_FLASH_Lock. The return sense is inverted compared with the HAL status return, so callers must be checked before reusing it."
+  },
+  "bms_4168_08001f24": {
+    "name": "HAL_FLASH_Unlock",
+    "summary": "Unlocks FLASH.CR with the KEY1/KEY2 sequence and returns 1 if it stays locked",
+    "description": "If FLASH.CR.LOCK (bit 31) is set, writes KEY1 0x45670123 and then KEY2 0xCDEF89AB to FLASH.KEYR at 0x40022008. It then reads CR back and returns 1 when LOCK is still set (failure) and 0 otherwise. When the flash is already unlocked it writes nothing and returns 0. There is no timeout loop.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 on success (unlocked), 1 if still locked"},
+    "confidence": "high",
+    "notes": "Name follows the ST HAL routine from its behaviour."
+  },
+  "bms_4168_08001f4c": {
+    "name": "HAL_GPIO_DeInit",
+    "summary": "Resets GPIO pins in a mask to analog input and clears their EXTI and AF settings",
+    "description": "For each pin set in the mask param_2 on the port in param_1 (GPIOA to GPIOF map to port codes 0 to 5 by pointer compare): if the SYSCFG EXTICR field for that pin selects this port, it clears the pin's bits in EXTI RTSR1 (0x40021800), FTSR1 (0x40021804), IMR1 (0x40021880) and EMR1 (0x40021884) and clears the EXTICR field. It then sets the pin's MODER field to 0b11 (analog) and clears its AFR nibble and its OSPEEDR, OTYPER and PUPDR bits.",
+    "category": "gpio",
+    "params": [
+      {"name": "port", "type": "ptr", "description": "param_1, GPIO port register block (GPIO_Type *)"},
+      {"name": "pin_mask", "type": "u32", "description": "param_2, pins to reset, one bit per pin"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Mirrors ST HAL_GPIO_DeInit. The port code (A=0..F=5) is what the EXTICR fields store."
+  },
+  "bms_4168_0800202c": {
+    "name": "HAL_GPIO_Init",
+    "summary": "Configures GPIO pins from a GPIO_InitTypeDef record: mode, pull, speed, AF and EXTI",
+    "description": "Takes a GPIO_InitTypeDef-style record (Pin, Mode, Pull, Speed, Alternate, as 32-bit words) and applies it to the port in param_1 for each pin in the Pin mask, scanning bits from 0 upward. Mode bits 0-1 go into MODER. For output and AF modes (1 or 2) Speed goes to OSPEEDR and the output-type bit (mode bit 4) to OTYPER. PUPDR is written unless the mode is analog, and AFRL/AFRH get the Alternate nibble in AF mode. If mode bit 16 (interrupt) or bit 17 (event) is set, the port code goes into SYSCFG EXTICR, and EXTI RTSR1 and FTSR1 take the rising (bit 20) and falling (bit 21) trigger bits, while IMR1 and EMR1 take the interrupt and event enables.",
+    "category": "gpio",
+    "params": [
+      {"name": "port", "type": "ptr", "description": "param_1, GPIO port register block (GPIO_Type *)"},
+      {"name": "init", "type": "ptr", "description": "param_2, GPIO_InitTypeDef-style record: pin mask, mode, pull, speed, alternate"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Mirrors ST HAL_GPIO_Init and its mode encoding (MODE, OTYPE, IT/EVT, RISING/FALLING bits)."
+  },
+  "bms_4168_08002184": {
+    "name": "bms_get_ram_word_200006a0",
+    "summary": "Returns the 32-bit RAM word at 0x200006A0; its purpose is not identified",
+    "description": "Returns DAT_200006a0, a RAM word that sits 8 bytes below the LCG seed at 0x200006A8. Nothing in this function shows what the word holds, and the function only reads it. Eight callers, including bms_4168_08001460 and bms_4168_0800352c, are outside this packet, so the meaning must come from them. It is named by address until its role is known.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "raw value of the RAM word at 0x200006A0"},
+    "confidence": "low"
+  },
+  "bms_4168_08002190": {
+    "name": "bms_get_uid_word0",
+    "summary": "Returns word 0 of the 96-bit factory unique device ID",
+    "description": "Returns the UID symbol, the first 32-bit word of the factory-programmed 96-bit unique device ID. On STM32G0 this block is at 0x1FFF7590, which matches the addresses 0x1FFF7594 and 0x1FFF7598 read by the neighbouring getters. It is a read-only function with no side effects. Its caller bms_4168_0800a210 reads all three words.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "unique ID bits 31-0"},
+    "confidence": "high"
+  },
+  "bms_4168_0800219c": {
+    "name": "bms_get_uid_word1",
+    "summary": "Returns word 1 of the 96-bit factory unique device ID",
+    "description": "Reads DAT_1FFF7594, the second 32-bit word of the factory unique device ID (base 0x1FFF7590 on STM32G0). It is a read-only getter with no side effects. Its caller bms_4168_0800a210 reads it together with the other two ID words.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "unique ID bits 63-32"},
+    "confidence": "high"
+  },
+  "bms_4168_080021a8": {
+    "name": "bms_get_uid_word2",
+    "summary": "Returns word 2 of the 96-bit factory unique device ID",
+    "description": "Reads DAT_1FFF7598, the third 32-bit word of the factory unique device ID (base 0x1FFF7590 on STM32G0). It is a read-only getter with no side effects. Its caller bms_4168_0800a210 reads it together with the other two ID words.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "unique ID bits 95-64"},
+    "confidence": "high"
+  }
+}
