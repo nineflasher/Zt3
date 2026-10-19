@@ -69,7 +69,7 @@ Writes the NVIC clear-enable register (ICER, 0xE000E180 region, word n/32) for t
 
 - Addresses by version: 219: 0x0C033ACC
 - Peripheral registers: `0xe000e100` (A)
-- Called by: `ble_219_0c033c9c`, `ble_219_0c034008`
+- Called by: `hal_uart_close`, `hal_uart_open`
 - Calls: `hal_gpdma_cancel`, `hal_gpdma_free_chan`, `hal_cmu_clock_disable`, `hal_cmu_reset_set`
 - Confidence: high
 
@@ -104,7 +104,7 @@ param_1 selects one of 3 UART instances (register-block pointers in a table at 0
 **Notes:** Offset +0x48 bit1 meaning (DMA enable) is a guess; layout is PL011-like.
 
 - Addresses by version: 219: 0x0C033D18
-- Called by: `ble_219_0c033150`, `hal_trace_uart0_putc`
+- Called by: `ble_uart_print_values`, `hal_trace_uart0_putc`
 - Confidence: medium
 
 ## hal_uart_rx_dma_busy
@@ -120,7 +120,7 @@ Returns 0 when no RX channel is held for instance param_1 (slot DAT_2000AAB8 is 
 **Returns** `u32`: 1 busy, 0 idle or no channel
 
 - Addresses by version: 219: 0x0C0342A4
-- Called by: `ble_219_0c046380`
+- Called by: `ble_uart_tx_dma_pump`
 - Calls: `hal_gpdma_chan_busy`
 - Confidence: high
 
@@ -157,7 +157,7 @@ Receives param_3 bytes from UART instance param_1 into the buffer param_2 by GPD
 **Returns** `s32`: 0 started, zero-length or count reported; 1 RX already active; 2 no free GPDMA channel; 3 descriptor build or start failed; -1 large request without descriptor buffer; -2 descriptor buffer too small
 
 - Addresses by version: 219: 0x0C033E04
-- Called by: `ble_219_0c046380`
+- Called by: `ble_uart_tx_dma_pump`
 - Calls: `hal_gpdma_init_desc`, `hal_gpdma_sg_start_linear`, `hal_gpdma_start`, `hal_gpdma_get_chan`, `hal_gpdma_free_chan`
 - Confidence: medium
 
@@ -175,7 +175,7 @@ For UART instance param_1 (0..2) the register block comes from the 12-byte insta
 **Notes:** PL011 register layout is the basis for the offsets. The clock selector helpers are inferred from their names and the instance order.
 
 - Addresses by version: 219: 0x0C0334C8
-- Called by: `hal_uart_set_baud_rate`, `ble_219_0c034008`, `hal_uart_apply_line_config`
+- Called by: `hal_uart_set_baud_rate`, `hal_uart_open`, `hal_uart_apply_line_config`
 - Calls: `bes_cmu_set_reg70_sel_b2`, `bes_cmu_set_reg70_sel_b7`, `bes_cmu_set_reg70_sel_b12`, `ble_ram_patch_thunk_2000022c`
 - Confidence: high
 
@@ -228,7 +228,7 @@ Returns 0 when no TX channel is held for instance param_1 (slot DAT_2000AA8C is 
 **Returns** `u32`: 1 busy, 0 idle or no channel
 
 - Addresses by version: 219: 0x0C034290
-- Called by: `ble_219_0c0462c4`
+- Called by: `ble_uart_rx_dma_pump`
 - Calls: `hal_gpdma_chan_busy`
 - Confidence: high
 
@@ -272,7 +272,7 @@ Builds and starts a GPDMA transmit on UART instance param_1 from param_3 segment
 **Notes:** Only the first segment length is stored in DAT_2000AA94, which feeds hal_uart_tx_dma_complete. Modes 2 and 3 are read from the split arithmetic, not from a test.
 
 - Addresses by version: 219: 0x0C0336B0
-- Called by: `ble_219_0c033dc8`
+- Called by: `hal_uart_tx_dma_start`
 - Calls: `hal_gpdma_init_desc`, `hal_gpdma_sg_start_linear`, `hal_gpdma_get_chan`, `hal_gpdma_free_chan`
 - Confidence: medium
 
@@ -289,6 +289,6 @@ Under a BASEPRI section it clears the TX channel slot DAT_2000AA8C[inst] to 0xFF
 **Returns** `u32`: units not yet sent; 0 when no TX was active
 
 - Addresses by version: 219: 0x0C033BD8
-- Called by: `ble_219_0c033df8`
+- Called by: `hal_uart_tx_dma_stop_checked`
 - Calls: `hal_gpdma_stop`, `hal_gpdma_free_chan`, `hal_gpdma_get_sg_remain_size`
 - Confidence: high

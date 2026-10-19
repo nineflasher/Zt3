@@ -1,0 +1,605 @@
+{
+  "ble_219_0c02dea8": {
+    "name": "nvdata_device_init",
+    "summary": "Open one nvdata device, build its item index and locate the newest valid item",
+    "description": "Initialises one nvdata device (index 0..3, read through the u16 that param_1+0x10 points to) from a 0x18-byte device table at 0x0C082D0C: path at +0, area offset at +4, area size at +8, item size at +0xE, state pointer at +0x10 and mode flag at +0x14. It opens the path, creates a recursive mutex in the state block (state+4, prvInitialiseMutex type 4) and keeps the fd at state+0x54. Mode 0 scans every item slot (size / item size) with ble_219_0c02d784 and keeps the valid item with the highest 14-bit serial, compared modulo 16384. Mode non-zero first sizes a bitmap index from the sector geometry (ioctl 0x100), then checks the 0x55AAAA55 magic at the area start and binary-searches 4-byte index words with util_ctz32 to find the newest item; if the magic or that item is missing it falls back to a scan and, failing that, rebuilds the index. Results: state+0x56 is the current index (-1 if none), state+0x58 the serial (low 14 bits), and param_1+0xC receives the index. Returns 0, or -19 for a bad device index or a failed open.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "request record: +0x0C receives the current item index, +0x10 points to the u16 device index, +0x14 receives the state pointer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -19 (-ENODEV) for a device index above 3 or a failed open"
+    },
+    "confidence": "medium",
+    "notes": "Mode-flag semantics, the bitmap bit meaning and the rebuild path are inferred from the code, not from hardware. ble_219_0c02d870, ble_219_0c02db00 and ble_219_0c071a80 (device seek/lock helper) are not yet named. The prvInitialiseMutex result is not checked."
+  },
+  "ble_219_0c02e420": {
+    "name": "uart_disp_start_service",
+    "summary": "Start the UART dispatcher: open /dev/uart2, register stream buffers and spawn its RX task",
+    "description": "Creates the dispatcher's plain mutex (prvInitialiseMutex type 1) at channel context+8 when the context exists. It opens /dev/uart2 with flags 0x4006 and configures it through the fd control entry: ioctl 0x100 with 0x1C200 (115200 baud), two 0x120-byte stream buffers (xStreamBufferGenericCreateStatic, trigger level 1) passed with ioctl 0x1D and 0x1E, then ioctl 0x1C and 0x19. The fd is stored in DAT_20009D10, the single channel fd used by the rest of the dispatcher. The RX task 'nb uart disp' is created with xTaskCreateStatic at entry 0x0C02EB61 (Thumb address of ble_219_0c02eb60), 0x200 words of stack at 0x20009D48, TCB at 0x20004A78 and priority 4; it is created even if the open failed.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of ioctl commands 0x19, 0x1C, 0x1D and 0x1E and of the stream buffers is inferred from argument shapes. When the open fails DAT_20009D10 stays -1 and the RX loop has no fd to wait on."
+  },
+  "ble_219_0c02e5a4": {
+    "name": "uart_disp_send_frame",
+    "summary": "Build a 55 AA or 5A A5 dispatcher frame from a request record and write it to the UART",
+    "description": "param_1 is a request record: byte 0 is the frame type ('e' selects the 55 AA frame, any other value the 5A A5 frame; 'd' is rejected), byte 1 the channel (must be 0), byte 2 the payload length and bytes 3..6 header bytes; the payload pointer is at +8. A 55 AA frame is 55 AA len h0 h1 h2 payload csum_lo csum_hi (len+8 bytes) and carries request bytes 4..6 as header; a 5A A5 frame is 5A A5 len h0..h3 payload csum (len+9 bytes). The 16-bit checksum is the ones complement of the byte sum from the length byte through the last payload byte, stored low byte first. The frame is built in the channel TX buffer (capacity at context+4), the context mutex (context+8) is taken with a 100-tick timeout, the frame is written to fd DAT_20009D10 and a short write returns -16. The channel-0 TX counter at 0x20009D2C (stride 0x18) is incremented and the mutex released with xQueueGenericSend.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "request record: +0 frame type char, +1 channel (0 only), +2 payload length, +3..+6 header bytes, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success; -5 for an unknown frame type, no channel context or no fd; -16 on lock timeout or short write; 0 silently for a non-zero channel or a frame that does not fit the TX buffer"
+    },
+    "confidence": "high",
+    "notes": "The silent return 0 cases (non-zero channel, TX buffer too small) cannot be told apart by the caller. The 'e' (55 AA) and other (5A A5) frame types match the receive side in ble_219_0c02e7d8, which names 55 AA 'e' and 5A A5 'f'."
+  },
+  "ble_219_0c02e7d8": {
+    "name": "uart_disp_rx_process",
+    "summary": "Parse 55 AA and 5A A5 frames from the UART RX ring and dispatch them to handlers",
+    "description": "Called with 0 from the RX task. It reads pending UART bytes into the channel RX ring (buffer at context+0x58, capacity at +0x5C, fill at +0x5E) and, when the RX idle timer DAT_20009D3D is armed, marks state DAT_20009D3C = 2 and sets the deadline DAT_20009D34. It scans for frame starts 0x55 0xAA (type 'e', header 6 bytes) and 0x5A 0xA5 (type 'f', header 7 bytes); a frame is taken only when all of it is in the ring and its checksum matches, otherwise one byte is skipped and the resync counter DAT_20009D24 is incremented. A good frame is passed as a header record {type, length, src, dest, cmd} plus the raw frame and length: to the override handler DAT_20009D14 if set; otherwise, for keys 0xFC01, 0xFC04, 0xFD02, 0xFD05 and 0xFE03, to handler DAT_20009D44; otherwise to every entry of the 8-byte table at 0x0C073ED0 whose 3-byte (src, dest, cmd) key matches, and every masked entry of the 12-byte table at 0x0C073EFC. Frames with no handler print the 'not find chn' trace. Consumed bytes are removed by shifting the ring and fill is updated. Returns the argument when it is non-zero.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 starts a processing pass; a non-zero value is returned unchanged"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "param_1 when non-zero, otherwise 0"
+    },
+    "confidence": "medium",
+    "notes": "Handler table entry layouts are inferred from the pointer arithmetic. For 55 AA frames there is no src byte, so src is 0. Calls to the stub at 0x0C0360CC (stub_return_zero_0c0360cc) are no-ops. The idle-timeout interaction is medium confidence."
+  },
+  "ble_219_0c02eb60": {
+    "name": "uart_disp_rx_task",
+    "summary": "Body of the 'nb uart disp' task: wait for UART data with select and run the RX parser",
+    "description": "Registers the task with the watchdog monitor (wdt_task_monitor_register_current) and then loops forever. Each pass rebuilds a read set from the single-entry fd list at 0x20009D10, calls hal_wdt_task_checkin and waits in ble_fd_select (on the BLE event group) for readable data. If the RX idle timer is armed and its deadline DAT_20009D34 has passed, it sets DAT_20009D3C = 1, calls the idle callback DAT_20009D38(0) when registered and re-arms the deadline from DAT_20009D30 (ms). When the channel fd is readable it calls uart_disp_rx_process(0). The task never returns.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none; infinite loop"
+    },
+    "confidence": "medium",
+    "notes": "The select timeout block is zero as decompiled (local_40+2); the value 50000 written at local_40[4] is not read by that call, so the wait length is up to ble_fd_select. Medium confidence on that point."
+  },
+  "ble_219_0c033114": {
+    "name": "ble_uart_fmt_item",
+    "summary": "Format one value into a bounded buffer and return the number of bytes kept",
+    "description": "Wrapper around the snprintf-style formatter at ble_219_0c071fbc. It passes (buffer, capacity, format) through; the value argument arrives in r3 and is forwarded unchanged because this function does not touch r3. A non-negative would-be length is clamped to capacity-1 when the output was truncated (capacity 0 counts as 1), so the result is always the number of characters stored. A negative formatter result returns 0. ble_uart_print_values uses it to build one line in a shrinking buffer.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "buffer capacity in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "format string"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes stored (excluding room for the terminator when truncated), 0 on formatter error"
+    },
+    "confidence": "medium",
+    "notes": "The fourth argument (value) is inferred from the caller passing four arguments and the decompiler showing three. The formatter at 0x0C071FBC is not yet named."
+  },
+  "ble_219_0c033150": {
+    "name": "ble_uart_print_values",
+    "summary": "Format up to N 1/2/4-byte values into one line and send it to UART0 by polling",
+    "description": "Formats an array of values into a 249-byte stack line. The element width is chosen by param_2 (2 = halfword, 4 = word, anything else = byte); each value is formatted with ble_uart_fmt_item using the format string param_1 and the space left in the line (up to 0xFA characters), stopping after param_3 items or when the line is full. A count of 0 produces only a line feed. The line is ended with LF (at byte 250 when the line is full), then every byte is written to UART0 with hal_uart_putc_poll(0, byte), which waits for FIFO space. Returns the number of bytes sent.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "format string applied to each value"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "element width code: 2 halfword, 4 word, other byte"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of items"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "data array"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes sent to the UART (1 for the count 0 case)"
+    },
+    "confidence": "medium",
+    "notes": "The UART is UART0, the trace/console port. Width codes other than 2 and 4 are all treated as bytes."
+  },
+  "ble_219_0c033248": {
+    "name": "ble_uart_print_values_thunk",
+    "summary": "Branch into ble_uart_print_values (single-instruction thunk, same arguments)",
+    "description": "A single branch to 0x0C033150: the decompiler shows the target body under the name thunk_FUN_0c033150, so this address has no logic of its own. It is a second entry point to the UART line printer; the caller in this packet's graph is ble_219_0c03a8f4. The arguments and return value are those of ble_uart_print_values.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "format string"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "element width code"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of items"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "data array"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "passed through from ble_uart_print_values"
+    },
+    "confidence": "high",
+    "notes": "Thunk. The behaviour is described on ble_219_0c033150."
+  },
+  "ble_219_0c033328": {
+    "name": "hsm_trng_read_bytes",
+    "summary": "Fill a buffer with hardware TRNG bytes, polling the HSM TRNG status register",
+    "description": "Waits for hardware semaphore 1 (hal_hwsem_try_lock polled for about 500 timer units), then fills the buffer from the TRNG in chunks. For each chunk it sets the 0x40008000 block run state with hal_block_40008000_set_run(0), polls status register 0x40008104 for a ready nibble (timeout DAT_20003E24, 4 us between polls) and, when the error bits 0x0E are clear, reads up to six 32-bit words from 0x40008114..0x40008128 and copies them out little-endian, with the last partial word copied by memcpy. Error bits make it retry up to 20 times before printing the error. On exit it clears 0x4000812C, writes 0xF to 0x40008108 and 0x40008100 and releases semaphore 1.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "number of bytes to produce"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -1 on repeated error status, -2 on a ready timeout"
+    },
+    "confidence": "medium",
+    "notes": "The hardware semaphore result is not checked: after the 500-unit wait the code continues even without the lock. The meaning of the 0x40008000 block and of the control writes is inferred from the register accesses. The time source ble_219_0c073b30 and the 500 wait value (ble_219_0c073cb0) are not yet named."
+  },
+  "ble_219_0c03457c": {
+    "name": "nb_upgrade_verify_device_image",
+    "summary": "Check a RAW, RAW4 or GZIP image on a device: header magic, size and payload CRC32",
+    "description": "Reads the 48-byte image header at offset param_2 of device fd param_1. It accepts magic 'RAW4' (0x34574152), 'RAW ' (0x20574152) or 'GZIP' (0x50495A47) and rejects a payload above 0x1D8000 bytes with -5. The payload length is at header +0xC, the expected CRC32 at +0x10 and the payload offset at +0x18 (added to the base offset). The CRC32 (reflected, polynomial 0xEDB88320, initial 0xFFFFFFFF, final inversion) is computed with crc32_reflected_table in 256-byte chunks; for RAW4 images that run past 4 KB the stream is read as the first 4 KB, then one byte per 4 KB boundary, then the tail, the same layout as nb_upgrade_verify_raw. Returns 0 when the CRC matches (~crc equals the stored value), -8 on mismatch, and -5 for a bad magic, an oversize payload or a short read. The device is released with the seek helper using whence 0xFFFFFFFF.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "device fd of the image"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "base offset of the image header on the device"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on match, -8 on CRC mismatch, -5 on bad header, oversize payload or short read"
+    },
+    "confidence": "medium",
+    "notes": "RAW4 streaming coverage (which bytes the CRC includes beyond 4 KB) is low confidence, as for the sibling ble_219_0c034468. GZIP payloads are CRC-checked only; they are not decompressed. The ble_219_0c071a80 seek helper is not yet named."
+  },
+  "ble_219_0c035d0c": {
+    "name": "trace_printf",
+    "summary": "printf-style trace output into the trace object at 0x20003E30 (three variadic words)",
+    "description": "Variadic wrapper: copies its last three arguments (r1..r3) into a three-word stack array and passes the array with the format string to trace_vprintf_core on the trace object at 0x20003E30. Output goes through the character sink hal_trace_uart0_putc. Only three variadic words are copied, so a conversion that consumes a fourth argument reads stack memory above the copy and prints a wrong value.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "printf format string"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "first variadic argument"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "second variadic argument"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "third variadic argument"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Several callers in this packet pass four variadic arguments, for example the 'dev:%s,offset:%d,size:%d,item_table_size:%d' trace in ble_219_0c02dea8 and the 'NOTICE:IAP verify error ... ret:%d' trace in ble_219_0c037588; the last field of those lines is not reliable. Worth checking whether the wrapper should take a fifth argument."
+  },
+  "ble_219_0c035d30": {
+    "name": "console_init",
+    "summary": "Initialise the trace console: recursive mutex, open /dev/uart0 at 115200 baud",
+    "description": "Creates the recursive mutex of the trace object at 0x20003E30 (prvInitialiseMutex type 4). It opens /dev/uart0 with flags 0 and stores the fd in DAT_2000B520, which console_putc and console_write_crlf use as the console device. It sets 115200 baud through the fd control entry (command 0x100, argument 0x1C200), sends command 0x14 with argument 100, and prints 'console initialzed at /dev/uart0'. Returns 0 regardless of the open and control results.",
+    "category": "libc",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The open result is not checked. The meaning of fd control command 0x14 (argument 100) is not established. ble_219_0c0484b4 is named _close in wave2_batch06 but is called here with a command and argument; see the note on ble_219_0c0355c8."
+  },
+  "ble_219_0c035da4": {
+    "name": "bogomips_calibrate",
+    "summary": "Calibrate the busy-loop speed against SysTick and print the BogoMIPS value",
+    "description": "Times the systick_measure_loop_us busy loop with DAT_20003E90 * 100 iterations, where DAT_20003E90 is a preset loops-per-microsecond estimate, halving the count while the SysTick measurement wraps (returns -1). A zero measurement prints 'failed'. Otherwise DAT_20003E90 becomes the measured loops per microsecond (integer part), DAT_20003E8C becomes 0xFFFFFFFF divided by it (the longest microsecond delay the busy wait can express) and the function prints the rate with two decimals and BogoMIPS as twice the rate, rounded. Output goes to the trace console.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The use of DAT_20003E8C as a delay limit is inferred; its consumers are not in this packet. The meaning of DAT_20003E90 as loops per microsecond is inferred from the printed value."
+  },
+  "ble_219_0c035fc0": {
+    "name": "rtos_task_exit_handler",
+    "summary": "Return handler for a task function: print 'task <name> exit', delete the task and hang",
+    "description": "Called when a task function returns. It fills a TaskStatus_t for the current task with vTaskGetInfo (task handle 0, state argument 5, meaning eInvalid so the state is derived), prints '\\ntask %s exit\\n' with the task name from that record, calls ble_219_0c043da0 with 0 (removing the current task) and loops forever if that call returns.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none; never returns"
+    },
+    "confidence": "medium",
+    "notes": "ble_219_0c043da0 is not yet named and is treated as vTaskDelete(NULL) from its argument. The 4-byte status buffer in the decompile is a decompiler artifact; the TaskStatus_t is larger."
+  },
+  "ble_219_0c0360c0": {
+    "name": "ble_fd_close_all",
+    "summary": "Close every open descriptor from fd 3 upward using the fd control entry with command 0",
+    "description": "Repeatedly finds the next open descriptor above the previous one with ble_fd_find_next_open, starting at 2 so fds 0..2 are never touched, and closes it by calling the fd control entry as (fd, 0, 0), until none is left. Descriptor numbers run 3..48. It is a shutdown helper for the device layer.",
+    "category": "libc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The fd control entry ble_219_0c0484b4 is named _close in wave2_batch06. Here it takes command 0 as close, and other calls in this packet use it as a device control (command 0x100 for baud, 0x110 for erase). It may be better named as an ioctl-style entry."
+  },
+  "ble_219_0c0360d4": {
+    "name": "wdt_task_monitor_cli",
+    "summary": "Shell command: list monitored tasks, mask (-m N) or resume (-r N) their watchdog check-in",
+    "description": "Parses options with the getopt-style parser ble_219_0c0707bc using optstring 'm:r:', converting the arguments with strtoul. With no options left it reads the task count (uxTaskGetNumberOfTasks) and a snapshot (uxTaskGetSystemState) into a stack array of 36-byte TaskStatus_t entries. Each task gets a state label: 0 when its TCB lies outside the static task table 0x20004A18..0x20004B98, 1 when it is inside but not in the required mask DAT_2000BAAC, 2 when it is required. It prints the required, alive and mask bit sets (DAT_2000BAAC, DAT_2000BAA8, DAT_2000BAB0), signals command completion (ble_219_0c0354cc), and applies a -m request by setting the task's bit in DAT_2000BAB0 (excluded from the check-in requirement) or a -r request by clearing it. Any other option prints 'unknown option' and returns -3000.",
+    "category": "hal_wdt",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "argc"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "argv"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -3000 for an unknown option"
+    },
+    "confidence": "medium",
+    "notes": "The state labels come from a string table at 0x0C0856D4 that is not decoded here. The task index is (TCB - 0x20004A18) / 0x60. The getopt-style parser at ble_219_0c0707bc is not yet annotated."
+  },
+  "ble_219_0c036328": {
+    "name": "wdt_task_monitor_register_current",
+    "summary": "Add the calling task to the watchdog-required set and arm the watchdog on the first one",
+    "description": "Gets the current TCB with xTaskGetCurrentTaskHandle and checks it lies in the static task table 0x20004A18..0x20004B98. If it does not, it prints 'task %s is not monitored task' using pcTaskGetName and returns. For a valid task, when the required mask DAT_2000BAAC is still empty it first calls ble_219_0c046838(10000), which arms watchdog 0 with a 10 s timeout (inferred), then sets bit (TCB offset / 0x60) in DAT_2000BAAC. hal_wdt_task_checkin needs this bit set before it pings the watchdog.",
+    "category": "hal_wdt",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "ble_219_0c046838 is not yet named; its effect is inferred from the 10000 argument and the hal_wdt family. The check-in path also needs DAT_2000BAA4 set, which is presumably done by that helper."
+  },
+  "ble_219_0c036394": {
+    "name": "wdt_task_monitor_enable",
+    "summary": "Enable or disable watchdog monitoring through the watchdog arm helper",
+    "description": "With a non-zero argument it calls ble_219_0c046838(10000), arming watchdog 0 with a 10 s timeout, and with zero it calls ble_219_0c046838() without an argument. It is a thin switch around that helper, which wdt_task_monitor_register_current also uses.",
+    "category": "hal_wdt",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "non-zero to enable monitoring, zero to disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The helper ble_219_0c046838 is unnamed; the disarm behaviour is inferred."
+  },
+  "ble_219_0c03655c": {
+    "name": "nb_upgrade_print_image_info",
+    "summary": "Print the image name and the platform bytes of the current upgrade image header",
+    "description": "Prints 'image_name:%s,platform:' with the name from bes_image_format_name for the magic at DAT_2000BAB4, then prints the 8 bytes at DAT_2000BAB8 (header offsets +4..+0xB) as '%x(%c)' pairs, stopping early at a NUL byte, and ends with CRLF. Used to show what was found when an image is rejected.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Called by nb_upgrade_check_image_header and by ble_219_0c0285ec (outside this packet)."
+  },
+  "ble_219_0c0365a4": {
+    "name": "nb_upgrade_check_image_header",
+    "summary": "Validate a candidate upgrade image header and derive the backup offset for GZIP images",
+    "description": "Copies the 48-byte candidate header into the working copy at 0x2000BAB4 and maps its magic to a format name. An unknown format or an image larger than the configured maximum (config[0] against the size word at 0x2000BAC0) prints the header through nb_upgrade_print_image_info and returns 0. For a GZIP image with no backup offset configured (config[2] = 0xFFFFFFFF) it derives DAT_2000BAE4, the backup offset, from the page-rounded sum of the header length and payload length fields and the 0x114000 layout, printing 'NOTICE:backup_dev_offset'; it refuses with 'gzip format length not correct' when the result would not fit. Finally it calls the optional validation hook DAT_2000BB8C on the header and returns 1 when the image is accepted, otherwise the hook's result.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "candidate 48-byte image header"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when valid, 0 when the image cannot be checked or is refused, or the validation hook's non-1 result"
+    },
+    "confidence": "medium",
+    "notes": "The backup-offset constants (0x29000, 0x114000, 0xEB000) come from the decompile without a layout reference; the formula is descriptive. The validation hook at DAT_2000BB8C is set by another module. ble_219_0c0285ec is an outside caller."
+  },
+  "ble_219_0c0366e4": {
+    "name": "nb_upgrade_packet_info_rebuild",
+    "summary": "Rewrite the 28-byte upgrade packet-info record in flash with a fresh CRC16",
+    "description": "Fills the packet-info record at 0x2000BB94 (CRC16 at +0, magic 0x5550 at +2, 24-byte body at +4). The body is the file size from the session block (0x2000BCA4) and five words copied from the session descriptor, and the CRC16/CCITT (ble_219_0c047644, over the 26 bytes from the magic) is stored at +0. It erases the info sector (fd control command 0x110 with config[4] divided by the sector size), seeks to config[4] and writes the 28 bytes, then releases the device. It sets DAT_2000BB88 to 0x1C (the resume-chain start) and returns 0 on success or the failing call's result.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success; otherwise the nonzero result of the failing erase or write"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the body words is inferred from the session block layout. The sector size comes from the fd control query in nb_upgrade_resume_load (DAT_2000BAFC)."
+  },
+  "ble_219_0c0367b4": {
+    "name": "nb_upgrade_packet_info_erase",
+    "summary": "Invalidate the stored upgrade packet info by erasing its sector when the magic is valid",
+    "description": "Reads the 28-byte packet-info record at config[4] and logs the start. If its magic is 0x5550 it logs 'need to erase', clears the 0x70-byte resume record buffer at 0x2000BBB0, sets DAT_2000BB88 to 0, sets the record words 0x2000BB94..0x2000BBAC to 0xFFFFFFFF in RAM and erases the sector with fd control command 0x110 (argument = offset / sector size), printing an error if the erase fails. It always releases the device. It is called at session start (protocol 0), at finish and on the error paths.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The RAM words set to 0xFFFFFFFF do not themselves write flash; the erase does."
+  },
+  "ble_219_0c036868": {
+    "name": "nb_upgrade_verify_app_image",
+    "summary": "Verify the application image on a device: container CRC, then MD5 of the payload",
+    "description": "Opens the target device (param_1) and seeks to the backup offset DAT_2000BAE4 to read the 48-byte header. It rejects a size word above the configured maximum and copies the first four header words into the caller's output array. It runs nb_upgrade_verify_device_image (ble_219_0c03457c) for the container CRC; on success it hashes the payload with MD5 (md5_init, md5_update in chunks of config[7] bytes read into config[6], md5_final) and compares the 16-byte digest with the one stored in the header after the payload offset word. A digest mismatch prints both digests and returns -8, a bad header or read returns -5, and a failed open returns -19. The device is released before returning.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "device name string, e.g. /dev/pflash0"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "output array of four u32 header words"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -8 on digest or CRC mismatch, -5 on header or read error, -19 when the device cannot be opened"
+    },
+    "confidence": "medium",
+    "notes": "Header field offsets for the payload offset and the stored digest are read from the decompiled local layout and may be off by a word. The MD5 is over the payload length from the header only after the container CRC passes."
+  },
+  "ble_219_0c0369d8": {
+    "name": "nb_upgrade_session_begin",
+    "summary": "Start an upgrade session: open the target image, reset session state and reply to the peer",
+    "description": "Returns -2 when the upgrade module is not initialised (DAT_2000BC21 clear). If a session is already active it calls param_12 with code 6 and returns -16. Otherwise it checks the arguments (non-zero size within the configured maximum, method 0 or 1), returns -22 when they fail, and opens the target image through ble_219_0c0474b0 with the name 'mainApp.mImage', the size and config[1] (default /dev/pflash0). On success it stores the method, size, protocol and callbacks (param_5..param_12 at 0x2000BCB0..0x2000BCCC), clears the 0x7C-byte session block at 0x2000BC24 and the MD5 context, sets the communication and no-data deadlines from config[8] and config[9] and reports status 1 through DAT_2000BB84. Protocol 0 erases the packet info and sends packet 0; protocol 1 sends a 3-byte start reply; protocol 2 compares the stored packet identity and size and either offers resume at the stored packet index with a 7-byte reply or asks for a retransmit from packet 0.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "method: 0 or 1 (selects the name at 0x0C086044)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "image file size in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "protocol version in the low byte"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "stored with the session descriptor"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCB0"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCB4"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCB8"
+      },
+      {
+        "name": "param_8",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCBC"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCC0"
+      },
+      {
+        "name": "param_10",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCC4"
+      },
+      {
+        "name": "param_11",
+        "type": "u32",
+        "description": "session parameter stored at 0x2000BCC8"
+      },
+      {
+        "name": "param_12",
+        "type": "ptr",
+        "description": "response callback (event code, data, length); stored and called on busy and on replies"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the session started or resumed; -2 not initialised; -16 busy; -22 bad argument or open failure"
+    },
+    "confidence": "medium",
+    "notes": "Protocol versions 0, 1 and 2 and the reply layouts (3-byte and 7-byte messages) are inferred from the branch structure and not decoded. ble_219_0c0474b0 (image open helper) and ble_219_0c047554 (resume position setup from a block count) are not yet named. Which of the session parameters are needed by the peer is not established."
+  },
+  "ble_219_0c037588": {
+    "name": "nb_upgrade_session_finish",
+    "summary": "Finish an upgrade session: check the file MD5 and the flash image, then report the outcome",
+    "description": "Valid only in states 1 and 2; otherwise it calls the error callback with 9 and returns -71. It sets state 3 (verifying) and the no-data deadline. If param_1 equals DAT_2000BC38 and the protocol is 2, it finalises the session MD5 (md5_final) and compares it with the 16-byte digest the peer sent at 0x2000BCA9; a mismatch prints both digests and returns -19. It then verifies the flash image with nb_upgrade_verify_app_image. On success it prints 'IAP verify OK', calls the completion callback (0), clears the packet info with nb_upgrade_packet_info_erase, stops the session with ble_219_0c0475d4(1) and reports status 3. On failure it calls the error callback with 8, erases the packet info, stops the session with ble_219_0c0475d4() and reports status 2.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "received packet count or file checksum; compared with DAT_2000BC38"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success; -19 on file digest or checksum error; -71 for a call in the wrong state; otherwise the verify error"
+    },
+    "confidence": "medium",
+    "notes": "Status codes passed to the status callback (1 start, 2 failed or aborted, 3 done) and callback codes 8 and 9 are read from the calls and not from a spec. The meaning of DAT_2000BC38 is not established; ble_219_0c0475d4 is not yet named."
+  },
+  "ble_219_0c037798": {
+    "name": "nb_upgrade_resume_load",
+    "summary": "Load upgrade packet info and resume records from flash and find the last valid resume point",
+    "description": "Opens the info device (config[3]), reads the sector size with fd control 0x100 and the 28-byte packet-info record at config[4]. If its CRC16 matches (ble_219_0c047644 over 26 bytes from the magic), the magic is 0x5550 and the stored size is within the configured maximum, it walks 0x70-byte resume records from config[4]+0x1C up to config[4]+config[5]. Each record's CRC16 covers the 110 bytes after its CRC word, and the walk stops at the first bad record, leaving DAT_2000BB88 just past the last good one and that record in 0x2000BBB0 (packet index at 0x2000BBB2). With no valid resume record it clears the resume buffer, and an invalid info record is reset in RAM and logged as 'no valid upgrade file info'. The device is released and 'app dflash init complete' is logged. It does nothing when config[3] or config[5] is zero.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Record layouts are inferred from the CRC and offset arithmetic. The CRC16 state pointer at 0x20003E98 is a RAM word used by ble_219_0c047644. Resume is only offered when the stored packet identity matches (see ble_219_0c0369d8)."
+  },
+  "ble_219_0c037970": {
+    "name": "nb_upgrade_session_timeout_check",
+    "summary": "Periodic upgrade watchdog: abort a stalled session or report that no data arrived",
+    "description": "Runs only when the upgrade module is initialised and configured. If the communication timeout config[8] is set and a session is active (state not 0 or 3) and its deadline DAT_2000BC94 has passed, it logs 'communication timeout', stops the session with ble_219_0c0475d4(), sends status 2 and calls the error callback config[10] with code 1. If the no-data timeout config[9] is set, its deadline DAT_2000BC98 has passed and DAT_20003EA0 is still clear, it logs 'No upgrade data was received', calls config[10] with code 2, sets DAT_20003EA0 and returns.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Callback codes 1 and 2 are the error reason codes passed to config[10]; their meanings are taken from the log text."
+  },
+  "ble_219_0c037a2c": {
+    "name": "nb_upgrade_init",
+    "summary": "Register the upgrade configuration, load its flash state and mark the module initialised",
+    "description": "Stores param_1 as the upgrade configuration (DAT_2000BB90) and passes the constant table address 0x0C076FE4 to ble_set_var_2000f64c. It checks that the maximum image size (+0), staging buffer pointer (+0x18) and staging buffer size (+0x1C) are non-zero and that the size is a multiple of 1 KB, printing 'upgrade config argument error' and returning -22 when not. The configuration is kept and nb_upgrade_resume_load runs in both cases, then DAT_2000BC21 is set to 1. A NULL argument returns -22 without changes.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "upgrade configuration: +0 max image size, +4 image device name, +8 backup offset (0xFFFFFFFF none), +0xC info device name, +0x10 info offset, +0x14 info size, +0x18 staging buffer, +0x1C staging size, +0x20 communication timeout, +0x24 no-data timeout, +0x28 error callback"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the configuration is accepted, -22 for a NULL or invalid configuration"
+    },
+    "confidence": "high",
+    "notes": "A caller that ignores the return value runs with a bad configuration, since the config is stored and initialisation still runs. ble_219_0c047634 is treated as ble_set_var_2000f64c; the use of the 0x0C076FE4 table is not verified."
+  },
+  "ble_219_0c037d08": {
+    "name": "ble_rf_analog_init",
+    "summary": "Write the BLE analog and RF front-end register set, then run synth and oscillator calibration",
+    "description": "Writes about 40 analog, PMU and RF registers through hal_analogif_reg_write (ISPI, 16-bit addresses 0x1002..0x1376): RF filter and gain pairs at 0x1002..0x1006 and 0x1012..0x1019, and bank-1 registers 0x1050..0x111C. Several values depend on the chip variant query ble_219_0c073b50 (0x1051, 0x110F, 0x1115, 0x111C). It sets the variant marker DAT_20003CDC to 0x606, read-modify-writes the low 10 bits of register 0x1376 to 99 with hal_analogif_reg_read, sets the bank-1 user enable bit with ble_analog_bank1_user_mask_update(1), programs the synthesiser with ble_rf_synth_set_freq_ratio(384000000) and runs ble_rf_osc_trim_calibrate(0x0167C400, 0x10).",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Register roles are inferred from the helper names and values. The 0x0167C400 and 384000000 constants are unit-less in the decompile. Compare with bt_drv_rf_analog_bringup (ble_219_0c03e9fc), which covers the BT radio side. The variant query ble_219_0c073b50 is not yet named."
+  }
+}

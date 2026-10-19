@@ -1,0 +1,872 @@
+{
+  "ble_219_0c02878c": {
+    "name": "app_process_cmd_task_start_thunk",
+    "summary": "Branch into app_process_cmd_task_start (thunk to ble_219_0c0354e8)",
+    "description": "Single-instruction thunk: the decompiler shows the body of ble_219_0c0354e8 under the name thunk_FUN_0c0354e8, so this address is a branch into that function and has no logic of its own. It is a second entry point to the 'process command' task creation and is reached from ble_219_0c047fec. The return value is whatever the target returns, which is always 0.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0, passed through from the target"
+    },
+    "confidence": "high",
+    "notes": "Thunk. The behaviour is described on ble_219_0c0354e8."
+  },
+  "ble_219_0c028b90": {
+    "name": "ble_ring_append_with_mark",
+    "summary": "Append a payload to a BTstack ring buffer under a lock, optionally patching one marker byte",
+    "description": "Takes the lock at 0x20008B00 with a 100-tick timeout (ble_219_0c0430a8) and returns without action if it is not obtained. If param_3 is not 0xFF it writes the fill byte DAT_200092EC at payload offset param_3; when bit 7 of param_3 is set it masks that bit off, does only this marker write and skips the ring append. Otherwise it asks btstack_ring_buffer_bytes_free for ring 0x20008AEC and calls btstack_ring_buffer_write for param_2 bytes from param_1 when they fit, dropping the payload silently when they do not. The lock is released with ble_219_0c042c8c on every path after it was taken.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "payload buffer; source of the ring append and target of the marker byte"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "marker offset; 0xFF means no marker, bit 7 set means marker-only write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The purpose of ring 0x20008AEC and of the marker byte DAT_200092EC is not identified. The lock is inferred to be a take with timeout and ble_219_0c042c8c a give, from their use elsewhere in the packet."
+  },
+  "ble_219_0c029200": {
+    "name": "ble_payload_copy_and_schedule",
+    "summary": "Copy a payload into the 0x20009028 buffer and call 0x20008FE4 with 0x1DA",
+    "description": "Copies param_2 bytes from param_1 into the fixed buffer at 0x20009028 with memcpy, then calls ble_219_0c05b0a8 with the object 0x20008FE4 and the constant 0x1DA (474). The callee is not yet described, so the constant is most likely a timeout or period in ticks for an object that arms a timer or event. The function is called from ble_219_0c02a8f8 and ble_219_0c02c49c, which makes the buffer a shared staging area for them.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source payload"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "payload length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of 0x1DA and the identity of ble_219_0c05b0a8 are guesses."
+  },
+  "ble_219_0c02a478": {
+    "name": "ble_signal_event_8f94",
+    "summary": "Signal the event object at 0x20008F94 with value 1",
+    "description": "Does nothing except call ble_219_0c042d80 with the value 1 and the object 0x20008F94. The callee is not yet described; from its arguments it is a give or notify on an event object, probably waking the worker that waits on that object. Its only caller is ble_219_0c0297b0, which is outside this packet.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Name and purpose are inferred from a single call to an undescribed routine."
+  },
+  "ble_219_0c02b158": {
+    "name": "ble_device_info_init",
+    "summary": "Fill the BLE identity block at 0x200091E8 with a code, model 0x219, address, unique ID and serial",
+    "description": "Takes the packed word from ble_get_packed_word_12cb0 (global 0x20012CB0) and stores a 16-bit code at 0x200091E8, whose high byte is bits 19:16 and whose low byte is bits 11:8 and 3:0 of that word. It writes the constant 0x219 (the BLE_219 image id) at 0x200091EA and fills the 6-byte field at 0x200091EC through ble_219_0c058160. The chip unique ID goes to the 16 bytes at 0x200091F2 via app_get_unique_id16, a 16-byte value from ble_219_0c045d60 goes to 0x20009202, and the 16-byte vehicle serial string literal at 0x20004980 is copied to 0x20009212 with memcpy. The whole block spans 0x200091E8 to 0x20009221.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The 6-byte field at 0x200091EC is probably the Bluetooth device address, which is not verified. The meaning of the packed code and of the 16-byte value from ble_219_0c045d60 is unknown."
+  },
+  "ble_219_0c02c090": {
+    "name": "ble_pending_event_flush",
+    "summary": "Forward the 3-byte pending record at 0x20008F69 to ble_219_0c0585a4 and clear it",
+    "description": "Reads a three-byte record: the low seven bits of 0x20008F69 are an identifier and bit 7 is masked off, and bytes 0x20008F6A and 0x20008F6B form a little-endian 16-bit value. It passes both to ble_219_0c0585a4 (not yet described, probably a queued report or event post) and then zeroes all three bytes, so each record is consumed once. It has no direct callers and runs as an entry point or callback, so it works asynchronously with whatever fills the record.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Bit 7 of the first byte is treated as a valid or pending flag by inference only."
+  },
+  "ble_219_0c02c124": {
+    "name": "uart_bridge_send_frame",
+    "summary": "Build a 5A A5 UART frame with four header bytes, optional payload and checksum, then send it",
+    "description": "Builds the frame in a 256-byte stack buffer: bytes 0 and 1 are 5A A5, byte 2 is the length param_1, bytes 3 to 6 are the four header bytes param_2 to param_5 and, for a non-zero length, the payload is copied from param_6 to offset 7. The checksum is the 16-bit ones-complement of the sum of bytes 2 through length+6, stored little-endian after the payload, which makes the frame length+9 bytes long. The frame is written to channel 0 through ble_219_0c02e758 (uart_bridge_write_channel0). A length of 0xFFFB wraps the checksum offset, and the function then sends a 4-byte frame 5A A5 FF FF; a length above 247 overruns the 256-byte buffer because nothing checks length+9 against it.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "header byte 1, stored at frame offset 3"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "header byte 2, stored at frame offset 4"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "header byte 3, stored at frame offset 5"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "header byte 4, stored at frame offset 6"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload source"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The mapping of the four header bytes onto src, dest, cmd and index is inferred from the brief and not confirmed by a sender. The overrun for lengths above 247 is a real bound issue in this code."
+  },
+  "ble_219_0c02d724": {
+    "name": "ble_nvdata_init",
+    "summary": "Create the 5-entry request queue and the 'nvdata' task (0x100 stack words, priority 3)",
+    "description": "Creates a static queue of five 4-byte items with ble_219_0c042ba0 and stores the handle in DAT_20009CBC. The packet names that callee prvInitialiseNewQueue, but its five-argument form matches xQueueGenericCreateStatic. It then creates the static task named 'nvdata' through ble_219_0c043cfc with entry 0x0C02DC50, a stack depth of 0x100 words, priority 3, stack buffer 0x200098A8 and TCB 0x20004A18, and stores the handle in DAT_200098A4. It always returns 0 and checks neither creation result.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "ble_219_0c043cfc is assumed to be xTaskCreateStatic from its seven arguments. The 'nvdata' name suggests non-volatile storage, but the worker body is not in this packet."
+  },
+  "ble_219_0c02e758": {
+    "name": "uart_bridge_write_channel0",
+    "summary": "Write a buffer to the UART2 fd for channel 0 under the channel mutex and report errors",
+    "description": "Does nothing unless param_1 is 0, the buffer is non-null and the length is non-zero, and returns 0 in those cases. It gets the dispatcher context from uart_disp_get_channel_ctx and returns -5 when that is missing or the file descriptor in DAT_20009D10 is not positive. It takes the mutex at context+8 with a 100-tick timeout (ble_219_0c0430a8) and returns -16 if it is not obtained; otherwise it calls newlib write for the full length, releases the mutex, and returns -16 when fewer bytes were written.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "channel index; only 0 is handled"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "data buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "byte count"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when done or ignored; -5 no context or bad fd; -16 lock timeout or short write"
+    },
+    "confidence": "high",
+    "notes": "The descriptor is presumably the /dev/uart2 fd returned by uart_disp_get_channel_fd in earlier waves, which is not verified in this packet."
+  },
+  "ble_219_0c02ed2c": {
+    "name": "hal_sysreg_variant_select",
+    "summary": "Select one of two sysreg config addresses from the chip variant byte and apply the low byte",
+    "description": "Stores the result of ble_219_0c038d68 (a variant query, not yet described) in byte DAT_20003CE5. It sets DAT_20003CE8 to 0x24008F58 and, unless the variant equals 1, to 0x2400FF58 instead; the two addresses differ only in bits 12 to 14. It then calls bes_sysreg_set_f8_low_byte (ble_219_0c04124c), which replaces the low byte of register 0x400800F8. The decompile shows that call without an argument, so the selection is assumed to reach it through DAT_20003CE8.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The two addresses 0x24008F58 and 0x2400FF58 are not identified peripherals."
+  },
+  "ble_219_0c02f73c": {
+    "name": "hal_analogif_chan_enable",
+    "summary": "Reference-count analog interface channel 0..7 on or off and update ISPI register 0x301D",
+    "description": "Sets or clears bit param_1 in the 16-bit active-channel mask at 0x2000A60C, depending on whether param_2 is non-zero. When the first channel becomes active it calls pm_wake_mask_set_bit (ble_219_0c031cdc), and when the last one is released it calls pm_wake_mask_clear_bit (ble_219_0c031d2c), so the power-management wake mask follows channel use. For channels 0 to 6 it also read-modify-writes the low byte of ISPI register 0x301D through hal_analogif_reg_read and hal_analogif_reg_write. Channel 7 only updates the mask and the wake bit.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "analog channel index 0..7"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "non-zero means acquire, zero means release"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The wake-mask bit used by the two callees is not passed in this decompile, so it is presumably fixed. The meaning of register 0x301D is not established."
+  },
+  "ble_219_0c02f7d0": {
+    "name": "hal_analogif_deferred_step",
+    "summary": "Service the analog channel state byte: start or finish a deferred ISPI step under BASEPRI 0x40",
+    "description": "If both pending flags DAT_2000A630 and DAT_2000A5E0 are clear, it only looks at the state byte DAT_2000A634: when that is non-zero it clears the state, calls ble_219_0c0388b0 (not yet described) and returns its value, and when it is zero it returns the input unchanged. If either flag is set and the state is zero, it marks the state busy with 1, raises BASEPRI to 0x40 and sets bit 13 of ISPI register 0x3040 through hal_analogif_reg_read and hal_analogif_reg_write. It records a code address (0x0C039B90) and the link register in the trace words DAT_20003D70 and DAT_20003D74, points DAT_2000BCE8 at the completion handler LAB_0C02F908, then restores BASEPRI and the trace words and returns 0. A non-zero state with a flag set is returned unchanged.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "requested step state; replaced by the stored state when a flag is set"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 after a step starts, the state value when already busy, the input when idle, or the callee result when finishing"
+    },
+    "confidence": "medium",
+    "notes": "Flags DAT_2000A630 and DAT_2000A5E0 and the completion handler are not identified. The decompile warns about removed unreachable blocks, so the flow is partly reconstructed."
+  },
+  "ble_219_0c02fb54": {
+    "name": "hal_analogif_chan_start",
+    "summary": "Claim analog channel 0..7 with a timeout and callback, power it and program ISPI enable registers",
+    "description": "Accepts a timeout in param_2 that must be 0, -1 or 1000; any other value enters an infinite loop, the firmware trap. It returns -1 when the channel is above 7 or already set in the active mask 0x2000A60C, and otherwise stores param_3 in the per-channel table at 0x2000A610 and the timeout in the table at 0x2000A5EC. Channel 1 raises the shared flag DAT_2000A635 on first use, and every channel requests power through ble_219_0c03a138 with a 20-tick wait afterwards (ble_ram_patch_thunk_20000348); channel 1 also sets bit 15 of ISPI register 0x3002 if that request fails. Channels 0 to 6 also enable the AON clock for user 0 with hal_cmu_aonclk9_user_enable, and a channel with a stored callback sets its bit in 0x301F, saves that word in DAT_2000A632, raises DAT_2000A630 and calls hal_analogif_deferred_step, while channel 7 always takes the 0x301F path. All paths set the channel bit in 0x3020 and 0x3051, channels 0 to 6 also set bit 12 of 0x3018 and write 0x3D0 to 0x301C, and 0x304F gets 0x20 (or 0x10 for channel 7) before the channel is enabled through hal_analogif_chan_enable and the function returns 0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "analog channel index 0..7"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "timeout: 0, -1 or 1000 accepted, other values trap"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "completion context stored per channel"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -1 when the channel is out of range or busy"
+    },
+    "confidence": "medium",
+    "notes": "Register offsets 0x3002 to 0x304F are used as the code uses them; their field meanings are not established. The timeout units of 1000 and the 20-tick waits are read from the code only."
+  },
+  "ble_219_0c02ffa0": {
+    "name": "hal_irq_source_set_enable",
+    "summary": "Enable interrupt source 0..37 by setting its bit in a bank register or its ISPI control word",
+    "description": "Traps on source numbers above 0x25. For sources 0x24 and 0x25 it sets bit 0 of ISPI control register 0x302F or 0x303C by read-modify-write under BASEPRI 0x40, updating the trace words DAT_20003D70 and DAT_20003D74. For every other source it writes a one-hot word at offset 0 of the bank base taken from the table at 0x0C080FEC, where sources 0 to 31 use bank 0 at 0x40081000 and sources 32 to 35 use bank 1 at 0x40088000. The bank write is a single store with no read-modify-write, so the register is presumably write-one-to-set.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "interrupt source number 0..0x25"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The bank base addresses come from the peripheral addresses seen in this packet. Write-one-to-set semantics are inferred."
+  },
+  "ble_219_0c02ffdc": {
+    "name": "hal_irq_source_clear_enable",
+    "summary": "Disable interrupt source 0..37 by clearing its ISPI bit or writing its bank clear word",
+    "description": "Mirrors hal_irq_source_set_enable: sources above 0x25 trap, sources 0x24 and 0x25 clear bit 0 of ISPI register 0x302F or 0x303C by read-modify-write under BASEPRI 0x40, and every other source gets a one-hot write at offset 0xC of its bank base from the table at 0x0C080FEC. The offset 0xC word is the clear counterpart of the offset 0 set word.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "interrupt source number 0..0x25"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The clear semantics of offset 0xC are inferred from its pairing with offset 0 in hal_irq_source_set_enable."
+  },
+  "ble_219_0c030018": {
+    "name": "hal_irq_source_ctl",
+    "summary": "Route an enable or disable request to the source setter or clearer and program its control word",
+    "description": "When param_2 is 1 it calls hal_irq_source_clear_enable if param_3 is zero, or hal_irq_source_set_enable if it is non-zero. For sources other than 0x24 and 0x25 it then writes a one-hot word to bank offset 4 when param_2 is 1 and to offset 0x10 otherwise. For sources 0x24 and 0x25 it rewrites ISPI control register 0x302B or 0x303E: when param_2 is 0 it ORs in 0x2880, otherwise it ANDs with 0xDF7F and ORs in 0x800. The access runs under BASEPRI 0x40 with the trace words set, and sources above 0x25 trap.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "interrupt source number 0..0x25"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "1 selects the enable path; other values take the disable bank write and 0 takes the disable ISPI write"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "for enable requests, non-zero selects set and zero selects clear"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Behaviour for param_2 values other than 0 and 1 is read from the code. The ISPI field meanings of the masks 0x2880, 0xDF7F and 0x800 are not known."
+  },
+  "ble_219_0c0300d0": {
+    "name": "hal_irq_source_configure",
+    "summary": "Program interrupt source 0..37 from a config block: enable, trigger bits, vector entry and mask",
+    "description": "Reads a config block at param_2: byte 0 bit 0 is the enable flag and bits 1 and 2 are option bits, bytes 1 and 2 select sub-modes (byte 2 equal to 2 traps), and the 32-bit word at +4 is a callback word. For sources other than 0x24 and 0x25 it stores the callback word, or zero when disabled, in DAT_2000A638[source] and writes bank set and clear words at offsets 0x18 to 0x3C and 0x48 to 0x4C according to the sub-modes. When enabling it also installs handler 0x0C02FEED at VTOR entry 0xF0 (IRQ 0x2C) with a DSB, calls hal_irq_install_handler on that IRQ and then bes_gpio_mask_set. For sources 0x24 and 0x25 it saves the enable bit and word in DAT_2000BCD4 to DAT_2000BCDC, rewrites ISPI registers 0x3043 to 0x3047, and calls ble_219_0c0388b0 with class 3 only when the combined enable state of the two sources changes; param_3 and param_4 are not used in the body.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "interrupt source 0..0x25"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "config block: byte 0 flags, bytes 1 and 2 sub-modes, +4 callback word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in the body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused in the body"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0; the return 1 path is unreachable in this decompile"
+    },
+    "confidence": "medium",
+    "notes": "Sub-mode values and the bank offsets are read from the code only. The call to bes_gpio_mask_clear (ble_219_0c041b20) takes no argument here, though the packet describes that callee as taking a pin, so that name may be wrong."
+  },
+  "ble_219_0c03133c": {
+    "name": "hal_i2c_close",
+    "summary": "Close I2C instance 0..5 through hal_i2c_close_internal and return 0",
+    "description": "Accepts instance numbers below 6 and calls hal_i2c_close_internal (ble_219_0c030a08), which disables its NVIC line and controller, clears busy, asserts resets and gates clocks, then returns 0. The decompile shows that call without an argument, so the instance number is assumed to reach it in r0. Any other value enters an infinite loop, the firmware invalid-argument trap.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "I2C instance index 0..5"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0 for valid instances"
+    },
+    "confidence": "high",
+    "notes": "The six-instance bound is read from the compare. The implicit r0 argument is the same assumption as in hal_uart_close."
+  },
+  "ble_219_0c0315d8": {
+    "name": "hal_isr_chan_register",
+    "summary": "Register an ISR channel slot; on first use install both vectors and set up the wake registers",
+    "description": "Accepts channel 0 or 1 and slot 0 or 1, returning 1 or 2 otherwise. Only the first registration of a channel does real work: it writes handler 0x0C0313B4 at VTOR entry IRQ+16 for the IRQ from table 0x0C083E1C and handler 0x0C0314F1 at the entry for the IRQ from table 0x0C0857EC, each followed by a DSB, then sets register 0x400000A0 to 0x2000 and 0x8000 with threshold 5 in 0x400000A4 for channel 0, or to 0x4000 and 0x10000 with threshold 10 for channel 1. It clears the channel state, stores the address of its state byte at 0x2000A9CC into a pointer slot reached through the table at 0x0C07F068, records the owner key and enables the second IRQ through hal_irq_install_handler. Every first registration stores param_3 and param_4 in the slot tables at 0x2000A9BC and 0x2000AA54 and sets the slot bit in the mask at 0x2000A990, and a later call on a registered channel returns 3 when the owner key matches and traps when it differs.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "channel 0 or 1"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "slot 0 or 1"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "callback argument stored for the slot"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "second per-slot word stored at 0x2000AA54"
+      },
+      {
+        "name": "param_5",
+        "type": "s8",
+        "description": "owner key byte, compared on later calls"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on first registration, 1 invalid channel, 2 invalid slot, 3 already registered with the same key"
+    },
+    "confidence": "medium",
+    "notes": "The use of the two ISR channels and the meanings of registers 0x400000A0 and 0x400000A4 are not identified. The two IRQ tables are used differently here and in hal_isr_chan_disable, which uses the first table; the callers should be checked."
+  },
+  "ble_219_0c031808": {
+    "name": "hal_isr_chan_disable",
+    "summary": "Disable the IRQ of ISR channel 0 or 1 and write its wake bit when the channel slot word is set",
+    "description": "Returns 1 for a channel above 1. Otherwise it does the same work as ble_219_0c031810, which the packet lists as its callee and which the decompile shows inline here: it calls hal_irq_install_handler with 0 on the IRQ from table 0x0C083E1C and, if the word at 0x2000A9A8 plus 16 times the channel is non-zero, writes 0x2000 for channel 0 or 0x4000 for channel 1 to register 0x400000A0. It returns 0 on success.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "channel index"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 for an invalid channel"
+    },
+    "confidence": "medium",
+    "notes": "The write semantics of register 0x400000A0 are not known. This function uses the first IRQ table, while hal_isr_chan_register enables the second."
+  },
+  "ble_219_0c031810": {
+    "name": "hal_isr_chan_stop",
+    "summary": "Disable the first IRQ of ISR channel 0 or 1 and write its wake bit if the slot word is set",
+    "description": "Core of hal_isr_chan_disable without the range check: it calls hal_irq_install_handler on the IRQ from table 0x0C083E1C with argument 0, then if the word at 0x2000A9A8 plus 16 times the channel is non-zero it writes 0x2000 for channel 0 or 0x4000 for channel 1 to 0x400000A0. It always returns 0. The index is not checked, so the caller must have validated it.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "channel index 0 or 1, not checked"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The packet lists this as the callee of ble_219_0c031808, and the decompile of that function also shows the same body inline."
+  },
+  "ble_219_0c031ea4": {
+    "name": "hal_spi_close_user",
+    "summary": "Release a user bit on SPI bus 0 or 1 and, for the last user, disable the SSP and its GPDMA channels",
+    "description": "Works on the per-bus user mask at 0x20003D00 plus the bus index. It returns 1 when the user bit is not set, and otherwise clears the bit and returns 0 while other users remain. When the last user leaves it clears bit 1 (SSE) of the SSP control register CR1 at offset 4, cancels any DMA through hal_spi_dma_cancel_all when channel DAT_20003D1C[bus] is allocated, and when DAT_20003D18[bus] is allocated it detaches that channel under BASEPRI 0x40, cancels and frees it with hal_gpdma_cancel and hal_gpdma_free_chan, and calls ble_ram_patch_thunk_2000081c to signal the waiter if a completion callback was stored. Finally it asserts both module resets (hal_cmu_reset_set) and then gates both module clocks (hal_cmu_clock_disable) using the byte ids at 0x0C084270 and 0x0C084271 at stride 2, and returns 0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "bus index 0 or 1"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "user bit index 0..7"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when released, 1 when the user was not held"
+    },
+    "confidence": "medium",
+    "notes": "The register layout matches an ARM PrimeCell PL022 SSP (CR1 at +4, SR at +0xC with BSY at bit 4, ICR at +0x20). That is inferred from the offsets used across the SPI group, not from a datasheet. The module id tables are not in this packet."
+  },
+  "ble_219_0c032408": {
+    "name": "hal_spi_dma_xfer_start",
+    "summary": "Start a GPDMA-backed SPI transfer after word-size, busy and channel checks",
+    "description": "Derives the word size from the frame width in the config word at +6 (bits 4:0 plus one): up to 8 bits is one byte per word, 9 to 16 bits two bytes and 17 to 32 bits four bytes. For wider words it returns -1 when the length is not a multiple of the word size and -2 when the buffer is misaligned, and it returns -4 when SR bit 4 (busy) is set or -5 when the bus already owns its channels. Under BASEPRI 0x40 it allocates two GPDMA channels with request lines 0x18 and 0x17 on bus 0 or 0x10 and 0x0F on bus 1, returning -6 or -7 when one is missing, then builds one descriptor with the word count and width and runs hal_gpdma_start on both (-8 and -9 on failure, releasing the channels). With a non-zero param_6 it returns 0 at once so that the completion handler at 0x0C03200D finishes the transfer; otherwise it polls the busy state of channel DAT_20003D1C while CR1 bit 1 is set and then returns 0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "bus index 0 or 1"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "SSP config block; the halfword at +6 gives the frame width"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "second buffer address"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "first buffer address"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "transfer length in bytes"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "non-zero means asynchronous, completion handled by the callback"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success or async start; -1 length misaligned, -2 buffer misaligned, -4 busy, -5 channels owned, -6 and -7 no channel, -8 and -9 DMA start failed"
+    },
+    "confidence": "medium",
+    "notes": "Request line numbers are from the code; their mapping to SSP directions is not confirmed. The meaning of the 0x0C03200D callback is inferred from its use with param_6."
+  },
+  "ble_219_0c032688": {
+    "name": "hal_spi_bus0_open",
+    "summary": "Open SPI bus 0 after checking config bytes 6, 7 and 8",
+    "description": "Accepts a config block only when bytes 6 and 7 are equal and byte 8 is zero; otherwise it enters an infinite loop, the firmware trap. It then calls hal_spi_open_common with bus 0, the config block and the bus 0 state block at 0x20003CEC. It returns nothing.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "SSP config block"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of config bytes 6 to 8 is unknown. Only the address 0x20003CEC of the state block is known."
+  },
+  "ble_219_0c032714": {
+    "name": "hal_spi_bus1_open_user",
+    "summary": "Open SPI bus 1 for user 0..3 using that user's state block and make it the current user",
+    "description": "Returns -1 when the user index in byte 5 of the config block is 4 or more. Otherwise it raises BASEPRI to 0x40 and calls hal_spi_open_common with bus 1, the config block, the user's 20-byte state block at 0x20003920 plus 0x14 times the index, and five times the index as the fifth argument. On success it stores the user index in the current-user byte at 0x2000391E, then restores BASEPRI and returns the open status.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "SSP config block; byte +5 is the user index"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused in the body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in the body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to hal_spi_open_common"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "open status from hal_spi_open_common, or -1 for a bad user index"
+    },
+    "confidence": "medium",
+    "notes": "The per-user state block layout is not known; the 0x14 stride is taken from the code."
+  },
+  "ble_219_0c032774": {
+    "name": "hal_spi_bus1_close_user",
+    "summary": "Release a bus 1 user and, if it was current, switch the bus to the lowest still-held user",
+    "description": "Calls hal_spi_close_user for bus 1 under BASEPRI 0x40. When the release succeeds and the released user was the current one at 0x2000391E, it bit-reverses the held-user mask at 0x20003D01 and counts leading zeros, which yields the lowest-numbered user still held; index 4 or more is treated as no user, and the function traps if the chosen bit is not set. For a valid index it stores that user as current and reapplies its configuration with hal_spi_apply_cfg_regs (ble_219_0c031da0), and when no user is held it sets the current user to 0. It restores BASEPRI and returns the close status.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "user index 0..3"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused in the body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in the body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused in the body"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "status of hal_spi_close_user: 0 released, 1 not held"
+    },
+    "confidence": "medium",
+    "notes": "The held-user mask at 0x20003D01 is the bus 1 entry of the per-bus mask used by hal_spi_close_user."
+  },
+  "ble_219_0c0328cc": {
+    "name": "hal_spi_bus1_transfer",
+    "summary": "Run one bus 1 transfer for the current user, holding the bus lock until completion when asynchronous",
+    "description": "Try-acquires the bus-1 lock at 0x20003D05 through ble_ram_patch_thunk_200007f4 and returns -31 when it is busy. It then applies the current user's frame format with hal_spi_apply_format (ble_219_0c031d78) and traps unless the user state byte at +0x0B has its low two bits equal to 3. It starts the transfer with hal_spi_dma_xfer_start (ble_219_0c032408) using the two buffers, the length and the async flag. On failure, or when the call is synchronous, it clears the format, releases the lock through ble_ram_patch_thunk_2000081c and returns the start status; a successful asynchronous start returns 0 and leaves the lock and format held for the completion path.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "second buffer address"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "first buffer address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "transfer length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "non-zero means asynchronous"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success or async start, -31 when the bus is busy, otherwise the transfer start status"
+    },
+    "confidence": "medium",
+    "notes": "Parameter roles are read from the call into hal_spi_dma_xfer_start. The return value of ble_ram_patch_thunk_200007f4 is read as try-lock status, with 0 meaning acquired."
+  },
+  "ble_219_0c033c9c": {
+    "name": "hal_uart_close",
+    "summary": "Close UART instance 0..2 through hal_uart_close_internal, trapping on other values",
+    "description": "Accepts instance numbers 0 to 2 and calls hal_uart_close_internal (ble_219_0c033acc), which disables its NVIC line, frees its DMA channels and resets and gates its clocks. Any other value enters an infinite loop, the firmware trap. The internal call shows no argument in the decompile, so the instance is assumed to reach it in r0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "UART instance 0..2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The implicit r0 argument is the same assumption as in hal_i2c_close."
+  },
+  "ble_219_0c033dc8": {
+    "name": "hal_uart_tx_dma_start",
+    "summary": "Start a UART TX DMA transfer of one linear buffer in chunks of up to 4095 bytes",
+    "description": "For UART instances 0 to 2 it builds a one-entry segment list from the buffer address param_2 and the length param_3 and calls hal_uart_tx_dma_start_sg (ble_219_0c0336b0) with segment count 1, the arguments param_4 to param_6, mode 0 and a maximum chunk of 0xFFF bytes. Any other instance enters an infinite loop, the firmware trap. The callee's result is not returned.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "UART instance 0..2"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "buffer address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "callback argument passed to the DMA start"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "context argument passed to the DMA start"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "flags argument passed to the DMA start"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Mode 0 is read as linear from the callee summary in earlier waves. The callback and context roles of param_4 and param_5 are inferred from the callee signature."
+  },
+  "ble_219_0c033df8": {
+    "name": "hal_uart_tx_dma_stop_checked",
+    "summary": "Stop the TX DMA of UART instance 0..2 through hal_uart_tx_dma_stop, with a range check",
+    "description": "For instances 0 to 2 it calls hal_uart_tx_dma_stop (ble_219_0c033bd8), which stops the transfer and frees its channel. That callee returns the bytes not sent, which this wrapper discards. Other values enter an infinite loop, the firmware trap. The internal call shows no argument, so the instance is assumed to be in r0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "UART instance 0..2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Callers cannot learn the unsent byte count through this wrapper."
+  },
+  "ble_219_0c034008": {
+    "name": "hal_uart_open",
+    "summary": "Configure and enable UART instance 0..2 in PL011 layout from a config block or defaults",
+    "description": "Traps on instances above 2. On first use it sets the words at 0x2000AA8C, 0x2000AA8E, 0x2000AAB8 and 0x2000AABA to their none value and marks 0x2000AA7C as initialised; if the instance is already enabled it closes it first with hal_uart_close_internal. It enables the clocks and clears the resets of the two CMU module ids taken from the table at 0x0C085895 with stride 12. A null config uses the default table at 0x0C0809B4 with 8-bit words (LCR_H base 0x970), while a config block gives the LCR_H base from the table at 0x0C074574 indexed by byte 0, two stop bits for byte 1 equal to 1, the word length 5 to 8 bits from byte 2 (0 to 3) and RTS/CTS bits from byte 3 times 0x4000. It then disables the UART, waits for busy to clear, clears errors, masks interrupts, sets the divisor through hal_uart_set_baud_divisor from the rate at +8, writes the FIFO levels from bytes 4 and 5 and the DMA control from byte 12, and enables UARTEN, TXE and RXE in CR.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "UART instance 0..2"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "config block, or null for defaults: +8 baud rate, byte 0 parity table index, byte 1 stop bits, byte 2 word length, byte 3 flow control, bytes 4 and 5 FIFO levels, byte 12 DMA control"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Register offsets match the PL011 layout: +0x2C LCR_H, +0x30 CR, +0x34 IFLS, +0x38 IMSC, +0x44 ICR, +0x48 DMACR, and the busy flag in FR at +0x18. The bits 0x800 and 0x100 in the control words and the word at +0x54 are not identified."
+  },
+  "ble_219_0c03477c": {
+    "name": "nb_upgrade_image_digest",
+    "summary": "Parse an upgrade image header (RAIM, RAW or RAW4) and MD5 its payload when a digest is requested",
+    "description": "Reads the 32-bit magic at the image start. For 'RAIM' the hashed length is word 1 plus 8 and the return value is 0; for 'RAW ' and 'RAW4' the length is word 3 and the return value is word 5; any other magic zeroes the digest, magic and length outputs and returns 0. When param_2 is non-null it runs md5_init, then md5_update over the length bytes starting at the header plus word 6, then md5_final into the 16-byte digest. The magic and the length are written to param_3 and param_4 when those are non-null.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "upgrade image header"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "16-byte MD5 output, optional"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "magic output, optional"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "length output, optional"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "word 5 of a RAW or RAW4 header, or 0 for RAIM and unknown images"
+    },
+    "confidence": "medium",
+    "notes": "Magic words are read as little-endian integers and named from their ASCII bytes. The meaning of header words 1, 3, 5 and 6 is inferred. The length is not checked against the image size before hashing."
+  },
+  "ble_219_0c0354cc": {
+    "name": "app_cmd_complete_signal",
+    "summary": "Clear the command-busy byte at 0x2000AB5C and give the completion object at DAT_2000AB08",
+    "description": "Writes zero to the byte at 0x2000AB5C and gives the object whose handle is DAT_2000AB08 through ble_219_0c042c8c with (handle, 0, 0). It is the completion step after a command, presumably waking the task that waits on that object. Four callers share it: ble_219_0c0360d4, ble_219_0c03ff38, ble_219_0c041e38 and ble_219_0c048040.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The object at DAT_2000AB08 is presumed to be the semaphore or queue that the process command task waits on."
+  },
+  "ble_219_0c0354e8": {
+    "name": "app_process_cmd_task_start",
+    "summary": "Create the 'process command' task with 0x200 stack words at priority 1 and store its handle",
+    "description": "Calls ble_219_0c043cfc with the task entry 0x0C034F0C, the name 'process command', a stack depth of 0x200 words, no task parameter, priority 1, the static stack buffer at 0x2000ACC0 and the static TCB at 0x2000B4C0. The returned handle is stored in DAT_2000ABA0. It always returns 0 and does not check the creation result.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "high",
+    "notes": "The callee is assumed to be xTaskCreateStatic from its seven arguments. The task body at 0x0C034F0C is not part of this packet. ble_219_0c02878c is a branch to this function."
+  },
+  "ble_219_0c0355c8": {
+    "name": "uart_bridge_queue_init",
+    "summary": "Create a 32-byte static queue and pass it with a fixed id to ble_219_0c0484b4",
+    "description": "Creates a static queue of 32 one-byte items with ble_219_0c042ba0, using the storage at 0x20005478 and the queue structure at 0x20005428, then passes the handle with the global at 0x2000B520 and the constant 0x11 to ble_219_0c0484b4 and returns that call's result. The packet names ble_219_0c0484b4 _close, but this call passes three arguments, so that name is doubtful. The most likely role is a receive or event queue for the UART bridge, which is not verified. It has no direct callers.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "result of ble_219_0c0484b4"
+    },
+    "confidence": "low",
+    "notes": "ble_219_0c0484b4 is named _close in earlier waves. The constant 0x11 and the global at 0x2000B520 are not identified; the owner of that callee's entry should review it."
+  },
+  "ble_219_0c035900": {
+    "name": "trace_vprintf_core",
+    "summary": "Format a printf-style string to the trace output object, handling %c %d %u %x %p %s and %f",
+    "description": "Walks the format string at param_2 and sends each character through hal_trace_buf_putc into the output object at param_1, whose pending count at +0x56, line buffer at +0x58 and write callback at +0x50 are used to flush. It parses the flags '#', '+', '-' and '0', then a width and an optional precision after a dot, and skips the 'h' and 'l' length modifiers. Arguments come from the va cursor at param_3, which is advanced in place: %d uses trace_fmt_signed, %u, %x, %X and %p (0x and eight hex digits) use trace_fmt_unsigned, %c and %s are written directly, and %f converts the double with __aeabi_d2f, prints the integer part and then the fraction scaled by 10 to the precision, truncating rather than rounding. When the scheduler is running (xTaskGetSchedulerState) the output object is locked with ble_219_0c0431f8 and released with ble_219_0c042df4 before returning the count of characters written, or a negative value when a write callback fails.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output object: pending count +0x56, buffer +0x58, write callback +0x50"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "format string"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "va_list cursor, advanced in place"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "characters written, negative on a write-callback failure"
+    },
+    "confidence": "high",
+    "notes": "This is the trace printf used by the BLE firmware, not newlib vfprintf. The %f path truncates instead of rounding. The h and l modifiers are skipped without size distinction."
+  }
+}

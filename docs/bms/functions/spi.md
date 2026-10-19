@@ -47,7 +47,7 @@ Brings up SPI1 as bus master. It enables the GPIOB clock in RCC.IOPENR and reads
 
 - Addresses by version: 4130: 0x08008FA0, 4139: 0x080094A0, 4148: 0x08009CEC, 4168: 0x0800A000
 - Peripheral registers: `SPI1.SPI_CR1` (ARW), `SPI1.SPI_CR2` (RW), `RCC.IOPENR` (RW), `RCC.APBENR2` (RW)
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
 - Calls: `LL_GPIO_Init`, `LL_SPI_Init`
 - Confidence: high
 
@@ -68,5 +68,5 @@ Blocking one-byte full-duplex transfer on SPI1. The first loop polls SPI1_SR.TXE
 
 - Addresses by version: 4130: 0x0800906C, 4139: 0x0800956C, 4148: 0x08009DB8, 4168: 0x0800A0CC
 - Peripheral registers: `SPI1.SPI_SR` (R), `SPI1.SPI_DR` (RW)
-- Called by: `bms_extflash_sector_erase`, `bms_extflash_wip_poll`, `bms_extflash_read`, `bms_extflash_read_device_id`, `bms_extflash_wait_ready`, `bms_4168_0800bc20`, `bms_extflash_page_program`
+- Called by: `bms_extflash_sector_erase`, `bms_extflash_wip_poll`, `bms_extflash_read`, `bms_extflash_read_device_id`, `bms_extflash_wait_ready`, `bms_extflash_write_bytes`, `bms_extflash_page_program`
 - Confidence: high

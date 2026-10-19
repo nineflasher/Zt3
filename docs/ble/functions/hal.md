@@ -1,6 +1,6 @@
 # BLE - `hal` functions
 
-207 functions.
+238 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -55,14 +55,19 @@
 | [`ble_analog_cal_0x4059_ramp`](#ble_analog_cal_0x4059_ramp) | 0x0C038654 | Ramp the 0x4059 low nibble up to 0xE in single steps, then write 7 to 0x4024 |
 | [`ble_analog_cal_0x4059_trigger`](#ble_analog_cal_0x4059_trigger) | 0x0C0384E8 | Set the 0x4059 low nibble to 9, or pulse 0x405A bit 1 for 100 settle cycles, by sticky flag |
 | [`ble_analog_chan_group_mask_apply`](#ble_analog_chan_group_mask_apply) | 0x0C037F88 | OR a channel's two stored masks into its bank-4 analog config register (0x4040..0x4066) |
+| [`ble_gpio_dev_open`](#ble_gpio_dev_open) | 0x0C02D5D4 | Open /dev/gpio and store the descriptor in DAT_2000989C |
 | [`ble_hw_ctrl_reg_bit1_clear`](#ble_hw_ctrl_reg_bit1_clear) | 0x0C08665C | If param_1 == 0, clear bit 1 of the register at 0x07FFA000; return 0 |
 | [`ble_hw_ctrl_reg_bit1_set`](#ble_hw_ctrl_reg_bit1_set) | 0x0C086648 | If param_1 == 0, set bit 1 of the register at 0x07FFA000; return 0 |
 | [`ble_i2c_write_read_locked`](#ble_i2c_write_read_locked) | 0x0C045940 | Run one I2C write-then-read under a per-instance mutex; returns the read length |
 | [`ble_irq_binary_sem_init`](#ble_irq_binary_sem_init) | 0x0C045250 | One-time setup of a binary semaphore and the IRQ 42 handler for a BLE block |
+| [`ble_irq_source_request_apply`](#ble_irq_source_request_apply) | 0x0C038008 | Apply an IRQ enable or disable request on source 6 and program the source 8 route word |
+| [`ble_pin_config_record_apply`](#ble_pin_config_record_apply) | 0x0C0456C0 | Apply one pad configuration record: mux function, pull, and optional IRQ source setup |
+| [`ble_pin_config_table_apply`](#ble_pin_config_table_apply) | 0x0C045804 | Apply the built-in pin configuration table, one selected column per pass |
 | [`ble_reg3008_nibble_floor`](#ble_reg3008_nibble_floor) | 0x0C0386E0 | Raise the low nibble of register 0x3008 to a floor of 4, or 6 when DAT_20003D6A bits 4/6 are set |
 | [`ble_rf_agc_window_update_a`](#ble_rf_agc_window_update_a) | 0x0C038BCC | Recompute AGC window A: clamped level from param_1 + DAT_2000BCE1 and bound from DAT_2000BCE0 |
 | [`ble_rf_agc_window_update_b`](#ble_rf_agc_window_update_b) | 0x0C038C58 | Recompute AGC window B: clamped level from param_1 + DAT_2000BCE3 and bound from DAT_2000BCE7 |
 | [`ble_rf_agc_window_update_c`](#ble_rf_agc_window_update_c) | 0x0C038CE0 | Recompute AGC window C: clamped level from param_1 + DAT_2000BCE2 and bound from DAT_2000BCE6 |
+| [`ble_rf_analog_init`](#ble_rf_analog_init) | 0x0C037D08 | Write the BLE analog and RF front-end register set, then run synth and oscillator calibration |
 | [`ble_rf_block2_user_enable`](#ble_rf_block2_user_enable) | 0x0C03A244 | Add a user bit to the block-2 user mask; the first user initialises block 2 |
 | [`ble_rf_block4_enable`](#ble_rf_block4_enable) | 0x0C03A204 | Enable RF block 4 (all control flags, field 10, 1800-unit settle) or clear its second flag |
 | [`ble_rf_block_gate_301d_30ce`](#ble_rf_block_gate_301d_30ce) | 0x0C039828 | Set or clear bit 15 of register 0x301D together with bit 7 of register 0x30CE |
@@ -76,10 +81,14 @@
 | [`ble_rf_chan_field_set_ramped`](#ble_rf_chan_field_set_ramped) | 0x0C039308 | Set channel fields to (param_2, param_3), stepping the second field up one unit at a time |
 | [`ble_rf_chan_field_write`](#ble_rf_chan_field_write) | 0x0C039190 | Insert two values into the channel bit-fields of index param_1 (index 2 uses 0x30DD/0x30DE) |
 | [`ble_rf_event_source_enable`](#ble_rf_event_source_enable) | 0x0C0388B0 | Install or remove the handler for RF event source 0..4 and manage NVIC IRQ 42 |
+| [`ble_rf_front_end_start`](#ble_rf_front_end_start) | 0x0C039820 | Start the BLE RF front end: clock config 3, channel 3 setup, mode 1 and module 0x99 reset |
+| [`ble_rf_irq_setup`](#ble_rf_irq_setup) | 0x0C038250 | Set up BLE RF IRQ routing, analog trims and IRQ 74, or re-apply routing when running |
 | [`ble_rf_lut_index_write`](#ble_rf_lut_index_write) | 0x0C0398AC | Write a 6-bit index derived from param_2 into 0x3029 and/or 0x302A bits 10:5, as flagged in param_1 |
+| [`ble_rf_mode_switch`](#ble_rf_mode_switch) | 0x0C039488 | Switch the RF mode byte to 0-3 and refresh the AGC windows, power ramp and channel groups |
 | [`ble_rf_option_bit_set`](#ble_rf_option_bit_set) | 0x0C03A138 | Set or clear bit 9 of 0x30DA (selector 1) or bit 11 of 0x4001 (selector 6) |
 | [`ble_rf_osc_trim_calibrate`](#ble_rf_osc_trim_calibrate) | 0x0C0399B4 | Sweep the 0x216E[11:9] trim code against a 50 ms clock count and keep the centre of the best run |
 | [`ble_rf_power_ramp_step`](#ble_rf_power_ramp_step) | 0x0C039364 | Step a channel level ramp toward threshold 24 or 38 and settle the group-1 fields |
+| [`ble_rf_radio_init`](#ble_rf_radio_init) | 0x0C03A2A0 | Full BLE radio and analog init: trim unpacking, register sequence, mode 3 and IRQ setup |
 | [`ble_rf_reg3005_303f_clear`](#ble_rf_reg3005_303f_clear) | 0x0C039034 | Clear bit 8 of analog register 0x3005 and bit 15 of register 0x303F |
 | [`ble_rf_reg3170_field_set`](#ble_rf_reg3170_field_set) | 0x0C038E8C | Set the 5-bit field in bits 6:2 of analog register 0x3170 |
 | [`ble_rf_synth_load_ratio48`](#ble_rf_synth_load_ratio48) | 0x0C038D8C | Write a 48-bit synthesiser ratio to 0x2148..0x214A, latch it in 0x214C and wait for settle |
@@ -89,7 +98,10 @@
 | [`ble_ring_dispatch_pending`](#ble_ring_dispatch_pending) | 0x0C048B00 | Drain a ring of queued callbacks until the read index meets the write index |
 | [`flash_cache_hook_nop_a`](#flash_cache_hook_nop_a) | 0x0C086BB8 | Empty stub (immediate return) |
 | [`flash_cache_hook_nop_b`](#flash_cache_hook_nop_b) | 0x0C086BBC | Empty stub (immediate return) |
+| [`hal_analogif_chan_enable`](#hal_analogif_chan_enable) | 0x0C02F73C | Reference-count analog interface channel 0..7 on or off and update ISPI register 0x301D |
+| [`hal_analogif_chan_start`](#hal_analogif_chan_start) | 0x0C02FB54 | Claim analog channel 0..7 with a timeout and callback, power it and program ISPI enable registers |
 | [`hal_analogif_check_chip_id`](#hal_analogif_check_chip_id) | 0x0C040378 | Check the analog/PMU chip ID (register 0x3000 over ISPI) equals 0x136 |
+| [`hal_analogif_deferred_step`](#hal_analogif_deferred_step) | 0x0C02F7D0 | Service the analog channel state byte: start or finish a deferred ISPI step under BASEPRI 0x40 |
 | [`hal_analogif_reg_read`](#hal_analogif_reg_read) | 0x0C0401B0 | Read a 16-bit analog/PMU/RF register over the internal SPI (ISPI) with page selection |
 | [`hal_analogif_reg_write`](#hal_analogif_reg_write) | 0x0C040290 | Write a 16-bit analog/PMU/RF register over the internal SPI (ISPI) with page selection |
 | [`hal_block_40008000_open`](#hal_block_40008000_open) | 0x0C0332B4 | Open the 0x40008000 block: enable clock and reset 0x28, program rate and mode, cache both |
@@ -134,6 +146,7 @@
 | [`hal_i2c_calc_scl_cnt`](#hal_i2c_calc_scl_cnt) | 0x0C030368 | Compute SCL high/low counts for an I2C bus speed from timing minima |
 | [`hal_i2c_check_tx_abort`](#hal_i2c_check_tx_abort) | 0x0C0302B4 | Check I2C raw error status and prepare the controller to recover from a TX abort |
 | [`hal_i2c_clear_busy`](#hal_i2c_clear_busy) | 0x0C030268 | Clear an I2C instance's bit in the busy mask DAT_2000a6c8; drop PM busy bit 2 when none remain |
+| [`hal_i2c_close`](#hal_i2c_close) | 0x0C03133C | Close I2C instance 0..5 through hal_i2c_close_internal and return 0 |
 | [`hal_i2c_close_internal`](#hal_i2c_close_internal) | 0x0C030A08 | Close an I2C instance: disable its NVIC IRQ and controller, clear busy, assert resets and gate clocks |
 | [`hal_i2c_dev_write`](#hal_i2c_dev_write) | 0x0C0458E4 | Write a frame to an I2C device under its instance mutex; the first byte is the target address |
 | [`hal_i2c_master_recv_poll`](#hal_i2c_master_recv_poll) | 0x0C030CB8 | Polled I2C master read of n bytes, keeping the 8-deep FIFO filled with READ commands |
@@ -146,6 +159,13 @@
 | [`hal_init_stub_ret0_a`](#hal_init_stub_ret0_a) | 0x0C02ED24 | Stub returning 0, called from the platform init routine |
 | [`hal_init_stub_ret0_b`](#hal_init_stub_ret0_b) | 0x0C02ED28 | Second stub returning 0, called from the platform init routine |
 | [`hal_irq_get_handler_table`](#hal_irq_get_handler_table) | 0x0C0342B8 | Return the base address of the RAM handler table at 0x2000aa80 |
+| [`hal_irq_source_clear_enable`](#hal_irq_source_clear_enable) | 0x0C02FFDC | Disable interrupt source 0..37 by clearing its ISPI bit or writing its bank clear word |
+| [`hal_irq_source_configure`](#hal_irq_source_configure) | 0x0C0300D0 | Program interrupt source 0..37 from a config block: enable, trigger bits, vector entry and mask |
+| [`hal_irq_source_ctl`](#hal_irq_source_ctl) | 0x0C030018 | Route an enable or disable request to the source setter or clearer and program its control word |
+| [`hal_irq_source_set_enable`](#hal_irq_source_set_enable) | 0x0C02FFA0 | Enable interrupt source 0..37 by setting its bit in a bank register or its ISPI control word |
+| [`hal_isr_chan_disable`](#hal_isr_chan_disable) | 0x0C031808 | Disable the IRQ of ISR channel 0 or 1 and write its wake bit when the channel slot word is set |
+| [`hal_isr_chan_register`](#hal_isr_chan_register) | 0x0C0315D8 | Register an ISR channel slot; on first use install both vectors and set up the wake registers |
+| [`hal_isr_chan_stop`](#hal_isr_chan_stop) | 0x0C031810 | Disable the first IRQ of ISR channel 0 or 1 and write its wake bit if the slot word is set |
 | [`hal_pad_24_25_set_source`](#hal_pad_24_25_set_source) | 0x0C0419D0 | Set the source select and enable bit of the pad 0x24/0x25 control register 0x40086048 |
 | [`hal_periph_9000_set_field_10_7`](#hal_periph_9000_set_field_10_7) | 0x0C0326A8 | Set a 4-bit field (bits 10:7) in the register at 0x40009004 |
 | [`hal_pinmux_apply_table`](#hal_pinmux_apply_table) | 0x0C041758 | Apply a table of {pad, mode, arg, pull} records under the lock, reporting the first failure |
@@ -153,6 +173,12 @@
 | [`hal_pinmux_set_pull`](#hal_pinmux_set_pull) | 0x0C0416E4 | Set the pull choice (1 or 2) of one pad in two 1-bit-per-pad register pairs |
 | [`hal_pmu_get_saved_status_nibble`](#hal_pmu_get_saved_status_nibble) | 0x0C02ECD8 | Return the status nibble saved from register 0x40080038 |
 | [`hal_pmu_save_and_clear_status_nibble`](#hal_pmu_save_and_clear_status_nibble) | 0x0C02ECE4 | Save low 4 bits of reg 0x40080038 to DAT_20003ce4 and write 1s back to them |
+| [`hal_spi_bus0_open`](#hal_spi_bus0_open) | 0x0C032688 | Open SPI bus 0 after checking config bytes 6, 7 and 8 |
+| [`hal_spi_bus1_close_user`](#hal_spi_bus1_close_user) | 0x0C032774 | Release a bus 1 user and, if it was current, switch the bus to the lowest still-held user |
+| [`hal_spi_bus1_open_user`](#hal_spi_bus1_open_user) | 0x0C032714 | Open SPI bus 1 for user 0..3 using that user's state block and make it the current user |
+| [`hal_spi_bus1_transfer`](#hal_spi_bus1_transfer) | 0x0C0328CC | Run one bus 1 transfer for the current user, holding the bus lock until completion when asynchronous |
+| [`hal_spi_close_user`](#hal_spi_close_user) | 0x0C031EA4 | Release a user bit on SPI bus 0 or 1 and, for the last user, disable the SSP and its GPDMA channels |
+| [`hal_spi_dma_xfer_start`](#hal_spi_dma_xfer_start) | 0x0C032408 | Start a GPDMA-backed SPI transfer after word-size, busy and channel checks |
 | [`hal_sys_timer_alarm_elapsed`](#hal_sys_timer_alarm_elapsed) | 0x0C0330FC | Ticks elapsed on the free-running counter since the alarm was armed |
 | [`hal_sys_timer_alarm_get_count`](#hal_sys_timer_alarm_get_count) | 0x0C0330F0 | Read the alarm timer current-value register |
 | [`hal_sys_timer_alarm_is_running`](#hal_sys_timer_alarm_is_running) | 0x0C0330E0 | Return whether the alarm timer enable bit is set |
@@ -164,9 +190,14 @@
 | [`hal_sysipc_rx_irq_disable`](#hal_sysipc_rx_irq_disable) | 0x0C031848 | Disable the NVIC interrupt of an IPC channel |
 | [`hal_sysipc_rx_irq_setup`](#hal_sysipc_rx_irq_setup) | 0x0C031978 | Enable the IPC channel interrupt and (channel 1) install its vector and priority |
 | [`hal_sysipc_send`](#hal_sysipc_send) | 0x0C031884 | Queue a two-word IPC message on channel 0/1 for user type 0/1 and ring the doorbell (0x400000a0) |
+| [`hal_sysreg_variant_select`](#hal_sysreg_variant_select) | 0x0C02ED2C | Select one of two sysreg config addresses from the chip variant byte and apply the low byte |
 | [`hal_trace_buf_putc`](#hal_trace_buf_putc) | 0x0C035684 | Append a byte to a line buffer and flush through a write callback when full |
 | [`hal_trace_get_state_vars`](#hal_trace_get_state_vars) | 0x0C0363A4 | Copy three global words (0x2000baac, baa8, baa4) to caller-provided pointers |
 | [`hal_trace_set_flag_baa4`](#hal_trace_set_flag_baa4) | 0x0C036388 | Set the global flag at 0x2000baa4 to 1 |
+| [`hal_uart_close`](#hal_uart_close) | 0x0C033C9C | Close UART instance 0..2 through hal_uart_close_internal, trapping on other values |
+| [`hal_uart_open`](#hal_uart_open) | 0x0C034008 | Configure and enable UART instance 0..2 in PL011 layout from a config block or defaults |
+| [`hal_uart_tx_dma_start`](#hal_uart_tx_dma_start) | 0x0C033DC8 | Start a UART TX DMA transfer of one linear buffer in chunks of up to 4095 bytes |
+| [`hal_uart_tx_dma_stop_checked`](#hal_uart_tx_dma_stop_checked) | 0x0C033DF8 | Stop the TX DMA of UART instance 0..2 through hal_uart_tx_dma_stop, with a range check |
 | [`hwtimer_handler`](#hwtimer_handler) | 0x0C041ED4 | Sys-timer alarm ISR of the hwtimer list: expire due timers, re-arm the alarm and run callbacks |
 | [`hwtimer_start`](#hwtimer_start) | 0x0C042170 | Validate a hwtimer id against the static pool and start it with the given tick timeout |
 | [`hwtimer_start_internal`](#hwtimer_start_internal) | 0x0C04200C | Insert a hwtimer into the delta-sorted active list and (re)arm the sys-timer alarm (BES __hwtimer_start) |
@@ -294,7 +325,7 @@ Writes 0xCAFE02FF to register 0x40085038 (upper half 0xCAFE acts as a write key)
 
 - Addresses by version: 219: 0x0C041A68
 - Peripheral registers: `0x40085038` (W)
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: low
 
@@ -462,7 +493,7 @@ If param_1 == 0 clears bit 21 (0x200000) of 0x400000a8; if 1 sets it; otherwise 
 
 - Addresses by version: 219: 0x0C040F18
 - Peripheral registers: `0x400000a8` (RW)
-- Called by: `hal_spi_apply_cfg_regs`, `ble_219_0c03ab80`
+- Called by: `hal_spi_apply_cfg_regs`, `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## bes_cmu_set_sysclk_cfg
@@ -481,7 +512,7 @@ Returns 1 for param_1 > 7. For 0..6 loads three words from tables at 0x0c0745a8 
 
 - Addresses by version: 219: 0x0C040BC8
 - Peripheral registers: `0x40000060` (W), `0x40000064` (W), `0x400000a8` (RW)
-- Called by: `bes_cmu_request_sysclk`, `ble_219_0c039820`, `ble_rf_osc_trim_calibrate`, `ble_219_0c03ab80`
+- Called by: `bes_cmu_request_sysclk`, `ble_rf_front_end_start`, `ble_rf_osc_trim_calibrate`, `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## bes_cmu_set_sysclk_mode
@@ -509,7 +540,7 @@ Empty hook that just returns 0 (status OK). It is called once from the hardware 
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C040CCC
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: high
 
 ## bes_gpio_mask_clear
@@ -526,7 +557,7 @@ Inverse of bes_gpio_mask_set: clears bit param_1 in 0x40085080 for pins < 0x20, 
 
 - Addresses by version: 219: 0x0C041B20
 - Peripheral registers: `0x40085080` (RW), `0x40085084` (RW)
-- Called by: `ble_219_0c0300d0`
+- Called by: `hal_irq_source_configure`
 - Confidence: medium
 
 ## bes_gpio_mask_set
@@ -543,7 +574,7 @@ If param_1 < 0x20 sets bit param_1 in 0x40085080, else if param_1 < 0x24 sets bi
 
 - Addresses by version: 219: 0x0C041AE8
 - Peripheral registers: `0x40085080` (RW), `0x40085084` (RW)
-- Called by: `ble_219_0c0300d0`
+- Called by: `hal_irq_source_configure`
 - Confidence: medium
 
 ## bes_gpio_read_status_words
@@ -590,7 +621,7 @@ Long straight-line init: sets bits in 0x4008004c, programs 0x40080008/0x40080010
 
 - Addresses by version: 219: 0x0C04110C
 - Peripheral registers: `0x40000004` (W), `0x4000000c` (W), `0x40000014` (W), `0x4000001c` (RW), `0x40000034` (W), `0x4000003c` (W), `0x40000044` (W), `0x40000068` (RW), `0x400000d4` (W), `0x400000d8` (W), `0x400000dc` (W), `0x400000e0` (W), `0x400000e4` (W), `0x400000e8` (W), `0x400000ec` (RW), `0x40000144` (W)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## bes_hw_nop_hook
@@ -600,7 +631,7 @@ Long straight-line init: sets bits in 0x4008004c, programs 0x40080008/0x40080010
 Does nothing and returns immediately. Called from the hardware init routine ble_219_0c03ab80 as a placeholder for an unused platform step.
 
 - Addresses by version: 219: 0x0C0410E4
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: high
 
 ## bes_iomux_apply_default_pin_cfg
@@ -613,7 +644,7 @@ Writes 0xffffffff to 0x40086008 and 0 to 0x400860c4, then loops over pins 0..35.
 
 - Addresses by version: 219: 0x0C041638
 - Peripheral registers: `0x40086004` (R), `0x40086008` (W), `0x4008602c` (RW), `0x40086030` (RW), `0x4008607c` (R), `0x40086094` (RW), `0x40086098` (ARW), `0x400860c4` (W)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## bes_iomux_get_pin_table_entry
@@ -632,7 +663,7 @@ Returns table[param_2 + param_1*6] from a flash byte table at 0x0c08355c if para
 **Notes:** Table contents not decoded; purpose inferred.
 
 - Addresses by version: 219: 0x0C041A00
-- Called by: `ble_219_0c0456c0`
+- Called by: `ble_pin_config_record_apply`
 - Confidence: medium
 
 ## bes_iomux_init_level2
@@ -645,7 +676,7 @@ Calls bes_iomux_reg0c_set_level(2) (0x0c0414e0), then inside its own BASEPRI 0x4
 
 - Addresses by version: 219: 0x0C041884
 - Peripheral registers: `0x40086000` (A), `0x4008602c` (RW), `0x40086030` (RW)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Calls: `bes_iomux_reg0c_set_level`, `ble_ram_patch_thunk_2000025c`, `ble_ram_patch_thunk_20000244`
 - Confidence: low
 
@@ -663,7 +694,7 @@ Enters a BASEPRI 0x40 critical section with the DAT_20003D70/74 lock-owner trace
 
 - Addresses by version: 219: 0x0C0414E0
 - Peripheral registers: `0x40086000` (A), `0x4008600c` (RW), `0x4008602c` (RW), `0x40086030` (RW), `0x40086050` (RW)
-- Called by: `bes_iomux_init_level2`, `ble_219_0c0456c0`
+- Called by: `bes_iomux_init_level2`, `ble_pin_config_record_apply`
 - Calls: `ble_ram_patch_thunk_2000025c`, `ble_ram_patch_thunk_20000244`
 - Confidence: low
 
@@ -739,7 +770,7 @@ Small read-modify-write on two registers in the 0xD033xxxx block: reg 0x38 bit 7
 **Notes:** Undocumented block 0xD0330000.
 
 - Addresses by version: 219: 0x0C03CD38
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## bes_periph_d035_init_main
@@ -807,7 +838,7 @@ Writes 0x04000000 to 0x40080040, reads 0x40080000 (read-back to flush the write)
 
 - Addresses by version: 219: 0x0C041330
 - Peripheral registers: `0x40080000` (R), `0x40080004` (W), `0x40080040` (W)
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## bes_sysreg_cfg_step2
@@ -820,7 +851,7 @@ Under a BASEPRI lock: 0x40080090 = (v & 0xc7fffc7f) | 0x380, 0x400800b0 = (v & 0
 
 - Addresses by version: 219: 0x0C041348
 - Peripheral registers: `0x40080000` (R), `0x40080014` (W), `0x4008003c` (RW), `0x40080090` (RW), `0x400800b0` (RW), `0x400800cc` (W)
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## bes_sysreg_cfg_step3
@@ -833,7 +864,7 @@ Under a BASEPRI lock: 0x40080090 = (v & 0xc7fffc7f) | 0x380, 0x400800b0 = (v & 0
 
 - Addresses by version: 219: 0x0C0413C4
 - Peripheral registers: `0x4008006c` (RW), `0x40080084` (RW)
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## bes_sysreg_read_80000_hi16
@@ -861,7 +892,7 @@ Two read-modify-writes: 0x4008005c = (v & ~7) | 1 and 0x400800b4 = (v & ~7) | 1.
 
 - Addresses by version: 219: 0x0C0410E8
 - Peripheral registers: `0x4008005c` (RW), `0x400800b4` (RW)
-- Called by: `ble_219_0c045a34`
+- Called by: `ble_boot_early_init`
 - Confidence: low
 
 ## bes_sysreg_set_f8_low_byte
@@ -878,7 +909,7 @@ Read-modify-write: 0x400800f8 = (value & 0xffffff00) | param_1. Called from ble_
 
 - Addresses by version: 219: 0x0C04124C
 - Peripheral registers: `0x400800f8` (RW)
-- Called by: `ble_219_0c02ed2c`
+- Called by: `hal_sysreg_variant_select`
 - Confidence: medium
 
 ## bes_sysreg_write_04_bit19
@@ -891,7 +922,7 @@ Raises BASEPRI to 0x40, stores 0x80000 to 0x40080004, restores BASEPRI and perfo
 
 - Addresses by version: 219: 0x0C0413F0
 - Peripheral registers: `0x40080000` (R), `0x40080004` (W)
-- Called by: `bt_drv_reg_op_write_6byte_param`, `ble_219_0c03d69c`, `bt_drv_reg_op_env_bde4_clear_flags`, `bt_drv_reg_op_set_timing_params`, `bt_drv_reg_op_env_bde4_set_byte18`, `bt_drv_reg_op_set_rssi_monitor_params`, `ble_219_0c03df24`, `bt_drv_vco_test_start`, `bt_drv_vco_test_stop`, `bt_drv_rf_set_reg_c7c_bits13_14`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b` ...
+- Called by: `bt_drv_reg_op_write_6byte_param`, `bt_ctrl_crash_dump`, `bt_drv_reg_op_env_bde4_clear_flags`, `bt_drv_reg_op_set_timing_params`, `bt_drv_reg_op_env_bde4_set_byte18`, `bt_drv_reg_op_set_rssi_monitor_params`, `bt_drv_digital_assert_check`, `bt_drv_vco_test_start`, `bt_drv_vco_test_stop`, `bt_drv_rf_set_reg_c7c_bits13_14`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b` ...
 - Confidence: low
 
 ## bes_sysreg_write_04_bit4
@@ -904,7 +935,7 @@ Single store of 0x10 to 0x40080004. The register is written with one-hot masks b
 
 - Addresses by version: 219: 0x0C0410B8
 - Peripheral registers: `0x40080004` (W)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: low
 
 ## bes_sysreg_write_08_bit19
@@ -917,7 +948,7 @@ Raises BASEPRI to 0x40, stores 0x80000 to 0x40080008, restores BASEPRI. Counterp
 
 - Addresses by version: 219: 0x0C041430
 - Peripheral registers: `0x40080008` (W)
-- Called by: `bt_drv_reg_op_write_6byte_param`, `ble_219_0c03d69c`, `bt_drv_reg_op_env_bde4_clear_flags`, `bt_drv_reg_op_set_timing_params`, `bt_drv_reg_op_env_bde4_set_byte18`, `bt_drv_reg_op_set_rssi_monitor_params`, `ble_219_0c03df24`, `bt_drv_vco_test_start`, `bt_drv_vco_test_stop`, `bt_drv_rf_set_reg_c7c_bits13_14`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b` ...
+- Called by: `bt_drv_reg_op_write_6byte_param`, `bt_ctrl_crash_dump`, `bt_drv_reg_op_env_bde4_clear_flags`, `bt_drv_reg_op_set_timing_params`, `bt_drv_reg_op_env_bde4_set_byte18`, `bt_drv_reg_op_set_rssi_monitor_params`, `bt_drv_digital_assert_check`, `bt_drv_vco_test_start`, `bt_drv_vco_test_stop`, `bt_drv_rf_set_reg_c7c_bits13_14`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b` ...
 - Confidence: low
 
 ## ble_analog_bank1_user_mask_update
@@ -934,7 +965,7 @@ Maintains DAT_20003CD8, a bitmask of users of the bank-1 analog block: a non-zer
 **Notes:** Function of registers 0x1052/0x1053 not identified. The mask behaves as a reference count of users.
 
 - Addresses by version: 219: 0x0C037A7C
-- Called by: `ble_219_0c037d08`
+- Called by: `ble_rf_analog_init`
 - Calls: `hal_sys_timer_delay_us`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -960,7 +991,7 @@ Under the BASEPRI 0x40 lock trace, if the sticky flag DAT_20003D65 is 1 it repla
 **Notes:** Purpose of 0x4059/0x405A and of the sticky flag DAT_20003D65 not identified. The 5-unit delay is assumed to be microseconds.
 
 - Addresses by version: 219: 0x0C0384E8
-- Called by: `ble_219_0c039820`
+- Called by: `ble_rf_front_end_start`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -977,9 +1008,29 @@ Maps channel index param_1 to one of six bank-4 analog configuration registers: 
 **Notes:** The two-word per-index record at 0x20003C2A is not identified.
 
 - Addresses by version: 219: 0x0C037F88
-- Called by: `ble_219_0c038250`
+- Called by: `ble_rf_irq_setup`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
+
+## ble_gpio_dev_open
+
+**Open /dev/gpio and store the descriptor in DAT_2000989C**
+
+Calls the open helper ble_219_0c071a94 with the path '/dev/gpio' and flags 0 and stores the returned descriptor in DAT_2000989C. The four parameters are not used and are only passed through as extra arguments.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | unused |
+| `param_2` | `u32` | unused |
+| `param_3` | `u32` | unused |
+| `param_4` | `u32` | unused |
+
+**Notes:** The factory dispatcher ble_factory_test_dispatch_set reads the GPIO handle from DAT_2000988C, which is the neighbouring address, so the two should be checked against each other.
+
+- Addresses by version: 219: 0x0C02D5D4
+- Called by: `ble_app_main_init`
+- Calls: `ble_219_0c071a94`
+- Confidence: high
 
 ## ble_hw_ctrl_reg_bit1_clear
 
@@ -1054,6 +1105,61 @@ If the 16-bit field at the start of the block referenced by +0x10 is zero, it st
 - Calls: `prvInitialiseNewQueue`, `hal_irq_install_handler`
 - Confidence: medium
 
+## ble_irq_source_request_apply
+
+**Apply an IRQ enable or disable request on source 6 and program the source 8 route word**
+
+Applies one request from the IRQ record passed in (the caller uses 0x2000352C). A zero flag at record+7 enables source 6 through hal_irq_source_set_enable, and a non-zero flag disables it through hal_irq_source_clear_enable. The group byte at record+1 then selects route word 0 of source 8 (values below 4) or route word 1 (4 and up) through hal_irq_source_ctl. The group and flag bytes are stored to DAT_2000352D and DAT_20003533, which are the record's own fields when called from ble_rf_irq_setup. Each guarded call runs in a BASEPRI 0x40 section that stores the caller tag and LR in DAT_20003D70 and DAT_20003D74, and the routine spins forever if DAT_20003D64 is not 2.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | IRQ request record: byte +1 is the group (below 4 selects route word 0, otherwise 1), byte +7 the flag (zero enables) |
+| `param_2` | `u32` | caller tag passed through to the source routines |
+| `param_3` | `u32` | caller tag; overwritten with a local code tag before the guarded calls when the BASEPRI was not already 0x40 |
+
+**Notes:** The meaning of source 6 and source 8 comes only from the constant arguments and is not confirmed. The owner-tag, BASEPRI 0x40 and DAT_20003D64 guard pattern is the same as in the other BLE wrappers.
+
+- Addresses by version: 219: 0x0C038008
+- Called by: `ble_rf_irq_setup`
+- Calls: `hal_irq_source_set_enable`, `hal_irq_source_clear_enable`, `hal_irq_source_ctl`
+- Confidence: medium
+
+## ble_pin_config_record_apply
+
+**Apply one pad configuration record: mux function, pull, and optional IRQ source setup**
+
+Configures one pad from a pin spec and a 2-byte record. The pad number is the low byte of the spec plus 8 times its high byte, and spec 0x500 selects pad 0x24. The low nibble of record byte 0 selects the function: 10 applies the two-entry table at 0x0C083654 through hal_pinmux_apply_table, 9 runs a BASEPRI-locked sequence on the IO-mux registers 0x40086008, 0x4008602C and 0x40086030, 8 on spec 0x202 or 0x203 calls bes_iomux_reg0c_set_level(1), and other values are translated with bes_iomux_get_pin_table_entry before a one-entry hal_pinmux_apply_table call. Record byte 1 supplies the pull and option bits. For function 1, bit 7 of byte 0 selects enable or disable of the pad's IRQ source through hal_irq_source_ctl, and bits 4 to 6 of byte 0 configure the source through hal_irq_source_configure with trigger type (bits 4 to 6) minus 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | pin spec: 0x100 or 0x101, 0x202 or 0x203, or 0x500; pad = low byte + 8 * high byte |
+| `param_2` | `ptr` | 2-byte record: byte 0 holds function nibble, trigger bits 4 to 6 and enable bit 7; byte 1 holds pull and option bits |
+
+**Notes:** Field meanings come from the decompile and the callee summaries (pin table, IO-mux registers). The mapping of spec values to pads and the exact trigger encoding are inferred.
+
+- Addresses by version: 219: 0x0C0456C0
+- Peripheral registers: `0x40086000` (A), `0x40086008` (RW), `0x4008602c` (RW), `0x40086030` (RW)
+- Called by: `ble_factory_test_init`, `ble_pin_config_table_apply`
+- Calls: `hal_irq_source_ctl`, `hal_irq_source_configure`, `bes_iomux_reg0c_set_level`, `hal_pinmux_apply_table`, `bes_iomux_get_pin_table_entry`, `ble_ram_patch_thunk_2000025c`, `ble_ram_patch_thunk_20000244`
+- Confidence: medium
+
+## ble_pin_config_table_apply
+
+**Apply the built-in pin configuration table, one selected column per pass**
+
+Walks the five 6-byte entries of the ROM pin table that ends at 0x0C083658. For each entry the u16 pin spec is passed to ble_pin_config_record_apply together with a 2-byte record taken at an offset chosen by param_1. Callers pass 0 for the default map (ble_hw_init_stage0).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | column selector, used as a halfword offset into each entry |
+
+**Notes:** Table addresses and the offset arithmetic come from the decompile. The meaning of the column selector is inferred.
+
+- Addresses by version: 219: 0x0C045804
+- Called by: `ble_hw_init_stage0`
+- Calls: `ble_pin_config_record_apply`
+- Confidence: medium
+
 ## ble_reg3008_nibble_floor
 
 **Raise the low nibble of register 0x3008 to a floor of 4, or 6 when DAT_20003D6A bits 4/6 are set**
@@ -1079,7 +1185,7 @@ Computes a saturated 8-bit value v = clamp(param_1 + DAT_2000BCE1, 0, 255) and a
 **Notes:** The AGC interpretation is a guess from the register and flag pattern. Names are provisional. Windows B and C are the sibling routines.
 
 - Addresses by version: 219: 0x0C038BCC
-- Called by: `ble_219_0c039488`
+- Called by: `ble_rf_mode_switch`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1096,7 +1202,7 @@ Computes v = clamp(param_1 + DAT_2000BCE3, 0, 255) and b = max(0, DAT_2000BCE7 +
 **Notes:** Provisional AGC name, as for window A.
 
 - Addresses by version: 219: 0x0C038C58
-- Called by: `ble_219_0c039488`
+- Called by: `ble_rf_mode_switch`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1117,6 +1223,19 @@ Computes v = clamp(param_1 + DAT_2000BCE2, 0, 255) and b = max(0, DAT_2000BCE6 +
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
+## ble_rf_analog_init
+
+**Write the BLE analog and RF front-end register set, then run synth and oscillator calibration**
+
+Writes about 40 analog, PMU and RF registers through hal_analogif_reg_write (ISPI, 16-bit addresses 0x1002..0x1376): RF filter and gain pairs at 0x1002..0x1006 and 0x1012..0x1019, and bank-1 registers 0x1050..0x111C. Several values depend on the chip variant query ble_219_0c073b50 (0x1051, 0x110F, 0x1115, 0x111C). It sets the variant marker DAT_20003CDC to 0x606, read-modify-writes the low 10 bits of register 0x1376 to 99 with hal_analogif_reg_read, sets the bank-1 user enable bit with ble_analog_bank1_user_mask_update(1), programs the synthesiser with ble_rf_synth_set_freq_ratio(384000000) and runs ble_rf_osc_trim_calibrate(0x0167C400, 0x10).
+
+**Notes:** Register roles are inferred from the helper names and values. The 0x0167C400 and 384000000 constants are unit-less in the decompile. Compare with bt_drv_rf_analog_bringup (ble_219_0c03e9fc), which covers the BT radio side. The variant query ble_219_0c073b50 is not yet named.
+
+- Addresses by version: 219: 0x0C037D08
+- Called by: `ble_boot_early_init`
+- Calls: `ble_analog_bank1_user_mask_update`, `ble_rf_synth_set_freq_ratio`, `ble_rf_osc_trim_calibrate`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000220`
+- Confidence: medium
+
 ## ble_rf_block2_user_enable
 
 **Add a user bit to the block-2 user mask; the first user initialises block 2**
@@ -1128,7 +1247,7 @@ Under the BASEPRI 0x40 lock trace, when the user mask DAT_2000BD01 is zero it pr
 | `param_1` | `u8` | user bit(s) to add to DAT_2000BD01 |
 
 - Addresses by version: 219: 0x0C03A244
-- Called by: `ble_219_0c03a2a0`
+- Called by: `ble_rf_radio_init`
 - Calls: `ble_rf_chan_ctrl_update`, `ble_rf_chan_field_write`
 - Confidence: medium
 
@@ -1143,7 +1262,7 @@ When param_1 is non-zero it sets all control flags of row 4 with ble_rf_chan_ctr
 | `param_1` | `s32` | enable flag: non-zero enables, zero disables |
 
 - Addresses by version: 219: 0x0C03A204
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `ble_rf_chan_ctrl_update`, `ble_rf_chan_field_set_ramped`, `ble_ram_patch_thunk_20000348`
 - Confidence: medium
 
@@ -1158,7 +1277,7 @@ With a non-zero param_1 it sets bit 15 of 0x301D and bit 7 of 0x30CE. With zero 
 | `param_1` | `s32` | flag: non-zero enables the gate, zero disables it |
 
 - Addresses by version: 219: 0x0C039828
-- Called by: `ble_219_0c03a2a0`
+- Called by: `ble_rf_radio_init`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1261,7 +1380,7 @@ Selects the analog register for index param_1 (0 and 1 give 0x3007 and 0x3008, 2
 **Notes:** Table contents and per-bit meanings are not identified. Callers are ble_219_0c039488, ble_219_0c039820, ble_219_0c03a204, ble_219_0c03a244 and ble_219_0c03a2a0.
 
 - Addresses by version: 219: 0x0C0390A8
-- Called by: `ble_219_0c039488`, `ble_219_0c039820`, `ble_rf_block4_enable`, `ble_rf_block2_user_enable`, `ble_219_0c03a2a0`
+- Called by: `ble_rf_mode_switch`, `ble_rf_front_end_start`, `ble_rf_block4_enable`, `ble_rf_block2_user_enable`, `ble_rf_radio_init`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1316,7 +1435,7 @@ For index 2 it replaces the low 6 bits of 0x30DD with param_3 and of 0x30DE with
 | `param_3` | `u32` | field B value |
 
 - Addresses by version: 219: 0x0C039190
-- Called by: `ble_rf_chan_field_set_ramped`, `ble_rf_power_ramp_step`, `ble_219_0c039820`, `ble_rf_block2_user_enable`
+- Called by: `ble_rf_chan_field_set_ramped`, `ble_rf_power_ramp_step`, `ble_rf_front_end_start`, `ble_rf_block2_user_enable`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1337,8 +1456,47 @@ Stores param_2 (a handler pointer, zero to disable) in slot DAT_2000BCE8 + 4*par
 
 - Addresses by version: 219: 0x0C0388B0
 - Peripheral registers: `0xe000e104` (W), `0xe000e184` (W), `0xe000e284` (W), `0xe000e42a` (W), `0xe000ed08` (R)
-- Called by: `ble_219_0c02f7d0`, `ble_219_0c0300d0`
+- Called by: `hal_analogif_deferred_step`, `hal_irq_source_configure`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
+
+## ble_rf_front_end_start
+
+**Start the BLE RF front end: clock config 3, channel 3 setup, mode 1 and module 0x99 reset**
+
+Brings the RF front end into its mode-1 setup under a BASEPRI 0x40 section. It applies system clock configuration 3 (bes_cmu_set_sysclk_cfg), sets bit 11 of DAT_20003D6A, writes channel field 3 with value 6 (ble_rf_chan_field_write) and applies the channel 3 control update. It waits 1800 units and switches the RF mode to 1 when DAT_2000354C is not already 1. It then releases AON clock user 3, writes the key pair 0xCAFE and 0x5FEE to analog register 0x3000, clears bit 8 of 0x3005 and bit 15 of 0x303F (ble_rf_reg3005_303f_clear), and asserts the software reset of module 0x99 (hal_cmu_reset_set_mod99).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | not read by the body |
+| `param_2` | `u32` | caller tag for the clock-config call |
+| `param_3` | `u32` | caller tag for the clock-config call |
+
+**Notes:** Ghidra removed several unreachable blocks in this function, including the 0x4059 calibration path, so that helper in the call list is not reached on this path. The only caller in this packet is ble_boot_mode_set.
+
+- Addresses by version: 219: 0x0C039820
+- Called by: `ble_boot_mode_set`
+- Calls: `hal_cmu_reset_set_mod99`, `ble_analog_cal_0x4059_trigger`, `ble_rf_reg3005_303f_clear`, `ble_rf_chan_ctrl_update`, `ble_rf_chan_field_write`, `ble_rf_mode_switch`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `bes_cmu_set_sysclk_cfg`, `hal_cmu_aonclk9_user_disable`, `ble_ram_patch_thunk_20000348`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Confidence: medium
+
+## ble_rf_irq_setup
+
+**Set up BLE RF IRQ routing, analog trims and IRQ 74, or re-apply routing when running**
+
+Called from ble_rf_radio_init. If DAT_20003D64 is 4 it spins forever. If it is 2 (running) it re-applies three pin-mux tables with hal_pinmux_apply_table, programs IRQ routes 0x1A, 8 and 6 with hal_irq_source_ctl, and calls ble_irq_source_request_apply on the record at 0x2000352C. Any other state runs the first-time setup: it reads calibration record 0x0F into a scratch word, rewrites analog 0x4007 (clears bits 3-7, sets bits 0-2 and 8) and 0x406D (keeps only bits 15-13), and reads analog 0x4013 and trim record 0x0C to build DAT_20003CB0 and DAT_20003CB1 unless DAT_20003D65 is set. Once only it fills a 24-word table at 0x20003C30 with 16-bit mask pairs (two words hold the register address 0x40008000) and applies channel groups 1, 2, 5-11 and 13-16 through ble_analog_chan_group_mask_apply. Finally it writes the handler 0x0C038129 (Thumb) into the VTOR slot at 0x168, which is IRQ 74, sets its priority to 0xA0 at 0xE000E44A, and clears its pending bit and enables it through 0xE000E288 and 0xE000E108.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | not read by the body |
+| `param_2` | `u32` | not read by the body |
+| `param_3` | `u32` | caller tag used for the pin-mux and wait calls |
+
+**Notes:** The meaning of the state codes (2 running, 4 fatal) and of analog registers 0x4007 and 0x406D is inferred from usage. The first-time path is taken on any state other than 2 and 4.
+
+- Addresses by version: 219: 0x0C038250
+- Peripheral registers: `0x40008000` (A), `0xe000e108` (W), `0xe000e288` (W), `0xe000e44a` (W), `0xe000ed08` (R)
+- Called by: `ble_rf_radio_init`
+- Calls: `hal_irq_source_ctl`, `ble_analog_chan_group_mask_apply`, `ble_irq_source_request_apply`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `hal_pinmux_apply_table`, `ble_ram_patch_thunk_2000067c`
 - Confidence: medium
 
 ## ble_rf_lut_index_write
@@ -1357,9 +1515,26 @@ Derives a 6-bit index from param_2: 19 for values up to 1600, otherwise 19 + (pa
 **Notes:** Meaning of the 1600 threshold and the 40-unit step is not identified.
 
 - Addresses by version: 219: 0x0C0398AC
-- Called by: `ble_219_0c03a2a0`
+- Called by: `ble_rf_radio_init`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: low
+
+## ble_rf_mode_switch
+
+**Switch the RF mode byte to 0-3 and refresh the AGC windows, power ramp and channel groups**
+
+Changes the RF mode in DAT_2000354C under a BASEPRI 0x40 section. For modes 2 and 3 it reads analog 0x30C3 and 0x3013 and derives the AGC window B and window A levels from their bytes minus the trims DAT_2000BCE3 and DAT_2000BCE1. Each window is walked one step at a time toward its bound with ble_rf_agc_window_update_b and ble_rf_agc_window_update_a, or pinned at 38 and 4 when the reading is out of range, and then ble_rf_power_ramp_step runs with the previous mode. If the previous mode was 0, bit 12 of analog 0x30D9 is set and the routine waits 100 units. Mode 3 applies channel control updates for channels 3, 0 and 1 and clears bit 15 of 0x3038. Mode 1 applies them for channels 0 and 1, sets bit 15 of 0x3038, waits 1800 units and clears bit 12 of 0x30D9. The new mode is stored at the end.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | new RF mode, 0 to 3, stored to DAT_2000354C |
+
+**Notes:** Mode meanings are not identified. Callers are ble_rf_front_end_start (mode 1) and ble_rf_radio_init (mode 3).
+
+- Addresses by version: 219: 0x0C039488
+- Called by: `ble_rf_front_end_start`, `ble_rf_radio_init`
+- Calls: `ble_rf_agc_window_update_a`, `ble_rf_agc_window_update_b`, `ble_rf_chan_ctrl_update`, `ble_rf_power_ramp_step`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000348`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Confidence: medium
 
 ## ble_rf_option_bit_set
 
@@ -1376,7 +1551,7 @@ Selector 1 sets or clears bit 9 of register 0x30DA under the BASEPRI 0x40 lock t
 **Returns** `s32`: always 0
 
 - Addresses by version: 219: 0x0C03A138
-- Called by: `ble_219_0c02fb54`
+- Called by: `hal_analogif_chan_start`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1394,7 +1569,7 @@ Retunes the synthesiser with ble_rf_synth_retune(param_1, param_2), switches the
 **Notes:** The meaning of the trim field and the window factors 1.6 and 1.2 are taken from the code.
 
 - Addresses by version: 219: 0x0C0399B4
-- Called by: `ble_219_0c037d08`
+- Called by: `ble_rf_analog_init`
 - Calls: `bes_cmu_get_sysclk_effective`, `bes_clk_measure_hz`, `ble_rf_synth_retune`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `bes_cmu_set_sysclk_mode`, `bes_cmu_set_sysclk_cfg`, `ble_ram_patch_thunk_20000238`, `ble_ram_patch_thunk_20000738`, `ble_ram_patch_thunk_2000022c`
 - Confidence: medium
 
@@ -1411,9 +1586,24 @@ Runs under the BASEPRI 0x40 lock trace. A group of 0 defaults to DAT_2000354C. T
 **Notes:** Purpose of the ramp, the constants 24/38 and the group numbering are not identified.
 
 - Addresses by version: 219: 0x0C039364
-- Called by: `ble_219_0c039488`
+- Called by: `ble_rf_mode_switch`
 - Calls: `ble_rf_agc_window_update_c`, `ble_rf_chan_field_write`, `ble_rf_chan_field_set_ramped`, `hal_analogif_reg_read`, `ble_ram_patch_thunk_20000348`
 - Confidence: low
+
+## ble_rf_radio_init
+
+**Full BLE radio and analog init: trim unpacking, register sequence, mode 3 and IRQ setup**
+
+Radio bring-up run after the analog die is up. It clears analog 0x301F and 0x3020, then runs a long read-modify-write sequence of constant masks over analog registers 0x305E, 0x3050/0x3051, 0x3002, 0x300C, 0x3003, 0x3004, 0x300E, 0x3007, 0x3008, 0x308F, 0x301E, 0x30E6, 0x3006 and 0x3037. It unpacks signed trims from calibration records 8 and 9 (5-bit magnitude with sign bit 5, or 4-bit magnitudes with sign bits 10 and 15) into DAT_2000BCE1-BCE3 and DAT_2000BCE0/BCE6/BCE7, adds a table value (indexed by bits 14:12 of record 5) to DAT_2000BCE2 and bits 3:1 of record 12 to DAT_2000BCE1, and stores bit 15 of record 5 in DAT_2000BCD2. It then calls ble_rf_block_gate_301d_30ce, ble_rf_lut_index_write, hal_cmu_aonclk9_user_enable(3), ble_rf_mode_switch(3) when the mode is not already 3, ble_rf_chan_ctrl_update(2) and ble_rf_reg3005_303f_clear, and calls ble_rf_irq_setup. When the thunk at 0x0C073C00 returns 1 it also calls ble_rf_block2_user_enable. The last step increments the 10-bit counter in analog 0x3061, moving to 0x400 when it saturates at 0x3FF.
+
+**Returns** `u32`: always 0
+
+**Notes:** Trim-field layouts are inferred from the shift and mask arithmetic. Analog registers are given by address only.
+
+- Addresses by version: 219: 0x0C03A2A0
+- Called by: `ble_boot_early_init`
+- Calls: `ble_rf_irq_setup`, `ble_rf_reg3005_303f_clear`, `ble_rf_chan_ctrl_update`, `ble_rf_mode_switch`, `ble_rf_block_gate_301d_30ce`, `ble_rf_lut_index_write`, `ble_rf_block2_user_enable`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `hal_cmu_aonclk9_user_enable`, `ble_ram_patch_thunk_20000220`, `ble_ram_patch_thunk_20000650`, `ble_ram_patch_thunk_2000067c`
+- Confidence: medium
 
 ## ble_rf_reg3005_303f_clear
 
@@ -1430,7 +1620,7 @@ Under the BASEPRI 0x40 lock trace it clears bit 8 of register 0x3005, then clear
 **Notes:** The two bits are not identified. Its three arguments are unused.
 
 - Addresses by version: 219: 0x0C039034
-- Called by: `ble_219_0c039820`, `ble_219_0c03a2a0`
+- Called by: `ble_rf_front_end_start`, `ble_rf_radio_init`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1515,7 +1705,7 @@ Reads the reference clock through ble_ram_patch_thunk_2000022c and computes the 
 | `param_1` | `u32` | target frequency, in the same unit as the reference clock |
 
 - Addresses by version: 219: 0x0C038DF8
-- Called by: `ble_219_0c037d08`
+- Called by: `ble_rf_analog_init`
 - Calls: `ble_rf_synth_load_ratio48`, `__udivdi3`, `ble_ram_patch_thunk_2000022c`
 - Confidence: medium
 
@@ -1528,7 +1718,7 @@ Reads write index DAT_2000f7b0 and read index DAT_2000f7c0 (u16). While they dif
 **Notes:** Exact subsystem (UART/HCI transport DMA completion vs. other event queue) not determined.
 
 - Addresses by version: 219: 0x0C048B00
-- Called by: `ble_219_0c0599d4`
+- Called by: `ble_bts_task_handler`
 - Confidence: medium
 
 ## flash_cache_hook_nop_a
@@ -1555,6 +1745,44 @@ Single-instruction function that just returns. Companion of the other empty stub
 - Called by: `ble_219_0c088128`
 - Confidence: medium
 
+## hal_analogif_chan_enable
+
+**Reference-count analog interface channel 0..7 on or off and update ISPI register 0x301D**
+
+Sets or clears bit param_1 in the 16-bit active-channel mask at 0x2000A60C, depending on whether param_2 is non-zero. When the first channel becomes active it calls pm_wake_mask_set_bit (ble_219_0c031cdc), and when the last one is released it calls pm_wake_mask_clear_bit (ble_219_0c031d2c), so the power-management wake mask follows channel use. For channels 0 to 6 it also read-modify-writes the low byte of ISPI register 0x301D through hal_analogif_reg_read and hal_analogif_reg_write. Channel 7 only updates the mask and the wake bit.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | analog channel index 0..7 |
+| `param_2` | `s32` | non-zero means acquire, zero means release |
+
+**Notes:** The wake-mask bit used by the two callees is not passed in this decompile, so it is presumably fixed. The meaning of register 0x301D is not established.
+
+- Addresses by version: 219: 0x0C02F73C
+- Called by: `hal_analogif_chan_start`
+- Calls: `pm_wake_mask_set_bit`, `pm_wake_mask_clear_bit`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
+
+## hal_analogif_chan_start
+
+**Claim analog channel 0..7 with a timeout and callback, power it and program ISPI enable registers**
+
+Accepts a timeout in param_2 that must be 0, -1 or 1000; any other value enters an infinite loop, the firmware trap. It returns -1 when the channel is above 7 or already set in the active mask 0x2000A60C, and otherwise stores param_3 in the per-channel table at 0x2000A610 and the timeout in the table at 0x2000A5EC. Channel 1 raises the shared flag DAT_2000A635 on first use, and every channel requests power through ble_219_0c03a138 with a 20-tick wait afterwards (ble_ram_patch_thunk_20000348); channel 1 also sets bit 15 of ISPI register 0x3002 if that request fails. Channels 0 to 6 also enable the AON clock for user 0 with hal_cmu_aonclk9_user_enable, and a channel with a stored callback sets its bit in 0x301F, saves that word in DAT_2000A632, raises DAT_2000A630 and calls hal_analogif_deferred_step, while channel 7 always takes the 0x301F path. All paths set the channel bit in 0x3020 and 0x3051, channels 0 to 6 also set bit 12 of 0x3018 and write 0x3D0 to 0x301C, and 0x304F gets 0x20 (or 0x10 for channel 7) before the channel is enabled through hal_analogif_chan_enable and the function returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | analog channel index 0..7 |
+| `param_2` | `s32` | timeout: 0, -1 or 1000 accepted, other values trap |
+| `param_3` | `ptr` | completion context stored per channel |
+
+**Returns** `s32`: 0 on success, -1 when the channel is out of range or busy
+
+**Notes:** Register offsets 0x3002 to 0x304F are used as the code uses them; their field meanings are not established. The timeout units of 1000 and the 20-tick waits are read from the code only.
+
+- Addresses by version: 219: 0x0C02FB54
+- Calls: `hal_analogif_chan_enable`, `hal_analogif_deferred_step`, `ble_rf_option_bit_set`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `hal_cmu_aonclk9_user_enable`, `ble_ram_patch_thunk_20000348`
+- Confidence: medium
+
 ## hal_analogif_check_chip_id
 
 **Check the analog/PMU chip ID (register 0x3000 over ISPI) equals 0x136**
@@ -1566,8 +1794,27 @@ Bring-up check of the analog die. Calls the ISPI setup routine at 0x0C032688 wit
 **Notes:** 0x0C032688 is not described in this packet. The bank 3 / register 0 reading of address 0x3000 follows the bit layout documented for hal_analogif_reg_read. 0x136 as chip ID is inferred from the comparison only.
 
 - Addresses by version: 219: 0x0C040378
-- Called by: `ble_analog_chip_init`, `ble_219_0c03ab80`
-- Calls: `ble_219_0c032688`, `hal_periph_9000_set_field_10_7`, `hal_analogif_reg_read`
+- Called by: `ble_analog_chip_init`, `ble_soc_bringup_sequence`
+- Calls: `hal_spi_bus0_open`, `hal_periph_9000_set_field_10_7`, `hal_analogif_reg_read`
+- Confidence: medium
+
+## hal_analogif_deferred_step
+
+**Service the analog channel state byte: start or finish a deferred ISPI step under BASEPRI 0x40**
+
+If both pending flags DAT_2000A630 and DAT_2000A5E0 are clear, it only looks at the state byte DAT_2000A634: when that is non-zero it clears the state, calls ble_219_0c0388b0 (not yet described) and returns its value, and when it is zero it returns the input unchanged. If either flag is set and the state is zero, it marks the state busy with 1, raises BASEPRI to 0x40 and sets bit 13 of ISPI register 0x3040 through hal_analogif_reg_read and hal_analogif_reg_write. It records a code address (0x0C039B90) and the link register in the trace words DAT_20003D70 and DAT_20003D74, points DAT_2000BCE8 at the completion handler LAB_0C02F908, then restores BASEPRI and the trace words and returns 0. A non-zero state with a flag set is returned unchanged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | requested step state; replaced by the stored state when a flag is set |
+
+**Returns** `u32`: 0 after a step starts, the state value when already busy, the input when idle, or the callee result when finishing
+
+**Notes:** Flags DAT_2000A630 and DAT_2000A5E0 and the completion handler are not identified. The decompile warns about removed unreachable blocks, so the flow is partly reconstructed.
+
+- Addresses by version: 219: 0x0C02F7D0
+- Called by: `hal_analogif_chan_start`
+- Calls: `ble_rf_event_source_enable`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
 ## hal_analogif_reg_read
@@ -1586,7 +1833,7 @@ param_1 encodes the target: bits 15:12 select the ISPI chip/bank (written to DAT
 **Notes:** Command encoding (read = bit 26, reg at bits 25:18, data >> 2) matches BES hal_analogif.c; 0x0c0326c4/0x0c0326e8 are assumed to be hal_ispi send/recv.
 
 - Addresses by version: 219: 0x0C0401B0
-- Called by: `ble_219_0c02f73c`, `ble_219_0c02f7d0`, `ble_219_0c02fb54`, `ble_219_0c02ffdc`, `ble_219_0c030018`, `ble_219_0c0300d0`, `ble_analog_bank1_user_mask_update`, `ble_rf_synth_retune`, `ble_219_0c037d08`, `ble_analog_chan_group_mask_apply`, `ble_analog_status_dispatch`, `ble_219_0c038250` ...
+- Called by: `hal_analogif_chan_enable`, `hal_analogif_deferred_step`, `hal_analogif_chan_start`, `hal_irq_source_clear_enable`, `hal_irq_source_ctl`, `hal_irq_source_configure`, `ble_analog_bank1_user_mask_update`, `ble_rf_synth_retune`, `ble_rf_analog_init`, `ble_analog_chan_group_mask_apply`, `ble_analog_status_dispatch`, `ble_rf_irq_setup` ...
 - Calls: `hal_periph_9000_set_field_10_7`, `hal_ispi_send`, `hal_ispi_recv`
 - Confidence: medium
 
@@ -1607,7 +1854,7 @@ Counterpart of hal_analogif_reg_read (0x0c0401b0). param_1 bits 15:12 = ISPI ban
 **Notes:** Write encoding ((reg << 16 | val) << 2) matches BES hal_analogif.c.
 
 - Addresses by version: 219: 0x0C040290
-- Called by: `ble_219_0c02f73c`, `ble_219_0c02f7d0`, `ble_219_0c02fb54`, `ble_219_0c02ffdc`, `ble_219_0c030018`, `ble_219_0c0300d0`, `ble_analog_bank1_user_mask_update`, `ble_rf_synth_retune`, `ble_219_0c037d08`, `ble_analog_chan_group_mask_apply`, `ble_analog_status_dispatch`, `ble_219_0c038250` ...
+- Called by: `hal_analogif_chan_enable`, `hal_analogif_deferred_step`, `hal_analogif_chan_start`, `hal_irq_source_clear_enable`, `hal_irq_source_ctl`, `hal_irq_source_configure`, `ble_analog_bank1_user_mask_update`, `ble_rf_synth_retune`, `ble_rf_analog_init`, `ble_analog_chan_group_mask_apply`, `ble_analog_status_dispatch`, `ble_rf_irq_setup` ...
 - Calls: `hal_periph_9000_set_field_10_7`, `hal_ispi_send`, `bes_iomux_reg44_set_bits`, `bes_iomux_reg44_clear_bits`
 - Confidence: medium
 
@@ -1657,7 +1904,7 @@ Clears control word 0x4000812C, writes 0x0F to 0x40008108 and reads status 0x400
 
 - Addresses by version: 219: 0x0C03324C
 - Peripheral registers: `0x40008000` (A), `0x40008100` (W), `0x40008104` (R), `0x40008108` (W), `0x4000810c` (W), `0x4000812c` (W), `0x40008130` (W), `0x40008140` (W), `0x400081bc` (W)
-- Called by: `ble_219_0c033328`
+- Called by: `hsm_trng_read_bytes`
 - Calls: `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1676,7 +1923,7 @@ Only acts when param_1 == 0. If bit 0 of the word at 0x07FFA000 is clear it writ
 **Notes:** Identification as the cache enable is a guess from the address (BES cache block) and the enable/kick sequence.
 
 - Addresses by version: 219: 0x0C02ED04
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: low
 
 ## hal_chip_select_cfg_word
@@ -1709,7 +1956,7 @@ Counterpart of hal_cmu_aonclk9_user_enable (0x0c04146c). For user < 4: if the us
 
 - Addresses by version: 219: 0x0C0414AC
 - Peripheral registers: `0x40080000` (A), `0x40080008` (W)
-- Called by: `ble_219_0c039820`
+- Called by: `ble_rf_front_end_start`
 - Calls: `stub_empty_0c0398a8`
 - Confidence: medium
 
@@ -1727,7 +1974,7 @@ Ignores users > 3. For user 0 it first calls the empty stub 0x0c0398a8 with argu
 
 - Addresses by version: 219: 0x0C04146C
 - Peripheral registers: `0x40080004` (W)
-- Called by: `ble_219_0c02fb54`, `ble_219_0c03a2a0`
+- Called by: `hal_analogif_chan_start`, `ble_rf_radio_init`
 - Calls: `stub_empty_0c0398a8`
 - Confidence: medium
 
@@ -1747,7 +1994,7 @@ Rejects mode > 2 (returns 1) and returns -1 if 0x4000008c already shows an activ
 
 - Addresses by version: 219: 0x0C041264
 - Peripheral registers: `0x40000018` (RW), `0x40000054` (RW), `0x4000008c` (RW), `0x40080000` (A), `0x40080018` (RW)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Calls: `ble_ram_patch_thunk_200005a8`, `ble_ram_patch_thunk_20000334`
 - Confidence: low
 
@@ -1767,7 +2014,7 @@ Returns 1 if id > 0x90. Otherwise writes 1 << (id - base) to: 0x40000004 (id < 0
 
 - Addresses by version: 219: 0x0C04070C
 - Peripheral registers: `0x40000004` (W), `0x4000000c` (W), `0x40000014` (W), `0x40000144` (W), `0x40080044` (W)
-- Called by: `hal_i2c_close_internal`, `ble_219_0c031ea4`, `hal_uart_close_internal`
+- Called by: `hal_i2c_close_internal`, `hal_spi_close_user`, `hal_uart_close_internal`
 - Confidence: medium
 
 ## hal_cmu_clock_enable
@@ -1786,7 +2033,7 @@ Returns 1 if id > 0x90. Otherwise writes 1 << (id - base) to the 'set' register 
 
 - Addresses by version: 219: 0x0C040690
 - Peripheral registers: `0x40000000` (W), `0x40000008` (W), `0x40000010` (W), `0x40000140` (W), `0x40080000` (R), `0x40080040` (W)
-- Called by: `hal_spi_open_common`, `hal_block_40008000_open`, `ble_219_0c034008`, `hal_i2c_open_internal`
+- Called by: `hal_spi_open_common`, `hal_block_40008000_open`, `hal_uart_open`, `hal_i2c_open_internal`
 - Confidence: medium
 
 ## hal_cmu_clock_is_enabled
@@ -1805,7 +2052,7 @@ Returns false if id > 0x90. Otherwise reads the status register of the matching 
 
 - Addresses by version: 219: 0x0C040784
 - Peripheral registers: `0x40000000` (R), `0x40000008` (R), `0x40000010` (R), `0x40000144` (R), `0x40080040` (R)
-- Called by: `hal_uart_set_baud_rate`, `ble_219_0c034008`
+- Called by: `hal_uart_set_baud_rate`, `hal_uart_open`
 - Confidence: medium
 
 ## hal_cmu_get_crystal_freq
@@ -1830,7 +2077,7 @@ Writes 0x4000 to the CMU set register 0x40000060 (power-up bit of the OSCX2 bloc
 
 - Addresses by version: 219: 0x0C0410C4
 - Peripheral registers: `0x40000060` (W)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Calls: `ble_ram_patch_thunk_200005a8`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1891,7 +2138,7 @@ Returns 1 if id > 0x99. Otherwise writes 1 << (id - base) to the clear-side regi
 
 - Addresses by version: 219: 0x0C040890
 - Peripheral registers: `0x40000038` (W), `0x40000040` (W), `0x40000048` (W), `0x40000154` (W), `0x40080000` (R), `0x40080014` (W), `0x400800cc` (W)
-- Called by: `hal_spi_open_common`, `hal_block_40008000_open`, `ble_219_0c034008`, `hal_cmu_reset_pulse_nocheck`, `hal_i2c_open_internal`
+- Called by: `hal_spi_open_common`, `hal_block_40008000_open`, `hal_uart_open`, `hal_cmu_reset_pulse_nocheck`, `hal_i2c_open_internal`
 - Confidence: medium
 
 ## hal_cmu_reset_get_state
@@ -1928,7 +2175,7 @@ Public entry of the reset-pulse operation: returns 1 for module ids above 0x99, 
 **Notes:** Register names follow the BES reg_cmu layout (HRESET/PRESET/ORESET_PULSE at 0x28/0x2c/0x30).
 
 - Addresses by version: 219: 0x0C04092C
-- Called by: `ble_219_0c032408`
+- Called by: `hal_spi_dma_xfer_start`
 - Calls: `hal_cmu_reset_pulse_nocheck`
 - Confidence: medium
 
@@ -1968,7 +2215,7 @@ Returns 1 if id > 0x99. Otherwise writes 1 << (id - base) to: 0x40000034 (id < 0
 
 - Addresses by version: 219: 0x0C040804
 - Peripheral registers: `0x40000034` (W), `0x4000003c` (W), `0x40000044` (W), `0x40000150` (W), `0x40080010` (W), `0x400800c8` (W)
-- Called by: `hal_cmu_reset_set_mod99`, `hal_i2c_close_internal`, `ble_219_0c031ea4`, `hal_uart_close_internal`
+- Called by: `hal_cmu_reset_set_mod99`, `hal_i2c_close_internal`, `hal_spi_close_user`, `hal_uart_close_internal`
 - Confidence: medium
 
 ## hal_cmu_reset_set_mod99
@@ -1980,7 +2227,7 @@ Calls hal_cmu_reset_set(0x99). Per the id-to-register mapping used by hal_cmu_re
 **Notes:** Identity of module 0x99 (probably the BT core: BES hal_cmu_bt_reset_set) is a guess from the caller's context.
 
 - Addresses by version: 219: 0x0C02ED80
-- Called by: `ble_219_0c039820`
+- Called by: `ble_rf_front_end_start`
 - Calls: `hal_cmu_reset_set`
 - Confidence: medium
 
@@ -2015,7 +2262,7 @@ Clock re-initialisation step used by the CMU setup routine 0x0c03ab80. Sequence:
 
 - Addresses by version: 219: 0x0C040CFC
 - Peripheral registers: `0x4000010c` (RW)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Calls: `hal_cmu_select_pll_source`, `hal_cmu_pll_enable`, `hal_cmu_pll_release_user`, `bes_cmu_bit29_ctrl`, `bes_cmu_bit30_ctrl`
 - Confidence: low
 
@@ -2028,7 +2275,7 @@ Stores 1 into the word at 0xd0702000 and 2 into 0xd0702004. These addresses are 
 **Notes:** Target region 0xd0702000 is undocumented; may be a memory controller or boot-time hardware enable.
 
 - Addresses by version: 219: 0x0C03AA64
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## hal_gpadc_adc2volt
@@ -2060,7 +2307,7 @@ param_1 is a channel id (bit4 = controller 0/1, low 3 bits = channel; ids >= 0x2
 | `param_1` | `u32` | channel id: controller<<4 \| channel |
 
 - Addresses by version: 219: 0x0C02F354
-- Called by: `hal_gpdma_stop`, `hal_gpdma_free_chan`, `hal_spi_dma_cancel_all`, `ble_219_0c031ea4`, `hal_spi_dma_tx_done_handler`, `ble_219_0c032408`, `hal_uart_close_internal`
+- Called by: `hal_gpdma_stop`, `hal_gpdma_free_chan`, `hal_spi_dma_cancel_all`, `hal_spi_close_user`, `hal_spi_dma_tx_done_handler`, `hal_spi_dma_xfer_start`, `hal_uart_close_internal`
 - Confidence: high
 
 ## hal_gpdma_chan_busy
@@ -2076,7 +2323,7 @@ param_1 is a channel id (controller<<4 | channel; invalid values hang in an asse
 **Returns** `bool`: true if the channel is active
 
 - Addresses by version: 219: 0x0C02F5DC
-- Called by: `ble_219_0c032408`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_busy`, `hal_uart_rx_dma_busy`
+- Called by: `hal_spi_dma_xfer_start`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_busy`, `hal_uart_rx_dma_busy`
 - Confidence: high
 
 ## hal_gpdma_chan_irq_handler
@@ -2107,7 +2354,7 @@ param_1 is a channel id (controller << 4 | channel); ids >= 0x20 or with bit 3 s
 | `param_1` | `u32` | GPDMA channel id (controller << 4 \| channel 0..7) |
 
 - Addresses by version: 219: 0x0C02F558
-- Called by: `hal_spi_dma_cancel_all`, `ble_219_0c031ea4`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `ble_219_0c032408`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_complete`, `hal_uart_rx_dma_complete`, `hal_uart_tx_dma_start_sg`, `hal_uart_close_internal`, `hal_uart_tx_dma_stop`, `hal_uart_rx_dma_start`
+- Called by: `hal_spi_dma_cancel_all`, `hal_spi_close_user`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `hal_spi_dma_xfer_start`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_complete`, `hal_uart_rx_dma_complete`, `hal_uart_tx_dma_start_sg`, `hal_uart_close_internal`, `hal_uart_tx_dma_stop`, `hal_uart_rx_dma_start`
 - Calls: `hal_gpdma_cancel`
 - Confidence: high
 
@@ -2127,7 +2374,7 @@ param_2 > 2 hangs (assert); param_1 == 0 returns 0xff. The peripheral id param_1
 **Notes:** Policy meanings derived from the scan order; the BES enum (HAL_DMA_HIGH_PRIO etc.) names were not checked.
 
 - Addresses by version: 219: 0x0C02F41C
-- Called by: `ble_219_0c032408`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_start_sg`, `hal_uart_rx_dma_start`
+- Called by: `hal_spi_dma_xfer_start`, `hal_spi_dma_rx_start`, `hal_uart_tx_dma_start_sg`, `hal_uart_rx_dma_start`
 - Confidence: medium
 
 ## hal_gpdma_get_sg_remain_size
@@ -2153,7 +2400,7 @@ For channel id param_1, starts from the remaining count in the channel control r
 If DAT_2000a59c is 0: for each controller (0x40120000 and 0x40130000) writes 0xffffffff to the TC-clear (+8) and error-clear (+0x10) registers, sets the config register (+0x30) to (old & 0x7ff00ff0) | 9, then zeroes the eight channel config registers (+0x110 + n*0x20). Marks DAT_2000a59c = 1 and clears the four words 0x2000a548..0x2000a554 (the 16 channel-allocated flags). Called from the platform init routine 0x0c0459d4.
 
 - Addresses by version: 219: 0x0C02F6A4
-- Called by: `ble_219_0c0459d4`
+- Called by: `ble_hw_init_stage0`
 - Confidence: high
 
 ## hal_gpdma_init_desc
@@ -2225,7 +2472,7 @@ Builds one 4-word linked-list descriptor on the stack with hal_gpdma_init_desc(d
 | `param_1` | `ptr` | GPDMA channel configuration (src/dst addresses, size, channel id, callbacks) |
 
 - Addresses by version: 219: 0x0C02F330
-- Called by: `ble_219_0c032408`, `hal_uart_rx_dma_start`
+- Called by: `hal_spi_dma_xfer_start`, `hal_uart_rx_dma_start`
 - Calls: `hal_gpdma_init_desc`, `hal_gpdma_sg_start`
 - Confidence: high
 
@@ -2262,7 +2509,7 @@ If param_1 < 4 returns the word at 0x40000000 + (param_1 + 0x30)*4 (= 0x400000C0
 
 - Addresses by version: 219: 0x0C0319DC
 - Peripheral registers: `0x40000000` (A)
-- Called by: `ble_219_0c033328`
+- Called by: `hsm_trng_read_bytes`
 - Confidence: medium
 
 ## hal_hwsem_unlock
@@ -2279,7 +2526,7 @@ If param_1 < 4 writes 1 to 0x40000000 + (param_1 + 0x30)*4; otherwise does nothi
 
 - Addresses by version: 219: 0x0C0319F0
 - Peripheral registers: `0x40000000` (A)
-- Called by: `ble_219_0c033328`
+- Called by: `hsm_trng_read_bytes`
 - Confidence: medium
 
 ## hal_i2c_calc_scl_cnt
@@ -2338,6 +2585,25 @@ Inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it
 - Calls: `pm_busy_mask_clear_bit`
 - Confidence: high
 
+## hal_i2c_close
+
+**Close I2C instance 0..5 through hal_i2c_close_internal and return 0**
+
+Accepts instance numbers below 6 and calls hal_i2c_close_internal (ble_219_0c030a08), which disables its NVIC line and controller, clears busy, asserts resets and gates clocks, then returns 0. The decompile shows that call without an argument, so the instance number is assumed to reach it in r0. Any other value enters an infinite loop, the firmware invalid-argument trap.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | I2C instance index 0..5 |
+
+**Returns** `u32`: always 0 for valid instances
+
+**Notes:** The six-instance bound is read from the compare. The implicit r0 argument is the same assumption as in hal_uart_close.
+
+- Addresses by version: 219: 0x0C03133C
+- Called by: `hal_i2c_open_internal`
+- Calls: `hal_i2c_close_internal`
+- Confidence: high
+
 ## hal_i2c_close_internal
 
 **Close an I2C instance: disable its NVIC IRQ and controller, clear busy, assert resets and gate clocks**
@@ -2350,7 +2616,7 @@ Returns immediately if the open flag DAT_2000a6f0[inst*0x70] is 0. Otherwise tak
 
 - Addresses by version: 219: 0x0C030A08
 - Peripheral registers: `0xe000e180` (A), `0xe000e280` (A)
-- Called by: `ble_219_0c03133c`
+- Called by: `hal_i2c_close`
 - Calls: `hal_i2c_clear_busy`, `hal_cmu_clock_disable`, `hal_cmu_reset_set`
 - Confidence: high
 
@@ -2443,7 +2709,7 @@ Opens I2C instance n taken from the device record. If the requested speed equals
 
 - Addresses by version: 219: 0x0C0458A6
 - Peripheral registers: `0x40000000` (A), `0xe000e100` (A), `0xe000e280` (A), `0xe000e400` (A), `0xe000ed08` (R), `0xe000ed14` (A)
-- Calls: `hal_i2c_calc_scl_cnt`, `ble_219_0c03133c`, `hal_cmu_clock_enable`, `hal_cmu_reset_clear`, `bes_cmu_set_reg74_sel_b3`, `ble_ram_patch_thunk_2000022c`
+- Calls: `hal_i2c_calc_scl_cnt`, `hal_i2c_close`, `hal_cmu_clock_enable`, `hal_cmu_reset_clear`, `bes_cmu_set_reg74_sel_b3`, `ble_ram_patch_thunk_2000022c`
 - Confidence: medium
 
 ## hal_i2c_recv
@@ -2529,7 +2795,7 @@ Returns 0 and does nothing. It is called from 0x0c03ab80 in the same sequence as
 **Notes:** Original purpose unknown (empty implementation in this build).
 
 - Addresses by version: 219: 0x0C02ED24
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## hal_init_stub_ret0_b
@@ -2543,7 +2809,7 @@ Returns 0 and does nothing; twin of hal_init_stub_ret0_a (0x0c02ed24). Called on
 **Notes:** Original purpose unknown (empty implementation in this build).
 
 - Addresses by version: 219: 0x0C02ED28
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## hal_irq_get_handler_table
@@ -2555,7 +2821,149 @@ Returns the constant pointer 0x2000aa80, the table of 4-byte ISR entry addresses
 **Returns** `ptr`: address 0x2000aa80
 
 - Addresses by version: 219: 0x0C0342B8
-- Called by: `ble_219_0c0467b8`
+- Called by: `ble_uart_irq17_handler`
+- Confidence: medium
+
+## hal_irq_source_clear_enable
+
+**Disable interrupt source 0..37 by clearing its ISPI bit or writing its bank clear word**
+
+Mirrors hal_irq_source_set_enable: sources above 0x25 trap, sources 0x24 and 0x25 clear bit 0 of ISPI register 0x302F or 0x303C by read-modify-write under BASEPRI 0x40, and every other source gets a one-hot write at offset 0xC of its bank base from the table at 0x0C080FEC. The offset 0xC word is the clear counterpart of the offset 0 set word.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | interrupt source number 0..0x25 |
+
+**Notes:** The clear semantics of offset 0xC are inferred from its pairing with offset 0 in hal_irq_source_set_enable.
+
+- Addresses by version: 219: 0x0C02FFDC
+- Peripheral registers: `0x4008100c` (W), `0x4008800c` (W)
+- Called by: `hal_irq_source_set_enable`, `hal_irq_source_ctl`, `ble_irq_source_request_apply`
+- Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
+
+## hal_irq_source_configure
+
+**Program interrupt source 0..37 from a config block: enable, trigger bits, vector entry and mask**
+
+Reads a config block at param_2: byte 0 bit 0 is the enable flag and bits 1 and 2 are option bits, bytes 1 and 2 select sub-modes (byte 2 equal to 2 traps), and the 32-bit word at +4 is a callback word. For sources other than 0x24 and 0x25 it stores the callback word, or zero when disabled, in DAT_2000A638[source] and writes bank set and clear words at offsets 0x18 to 0x3C and 0x48 to 0x4C according to the sub-modes. When enabling it also installs handler 0x0C02FEED at VTOR entry 0xF0 (IRQ 0x2C) with a DSB, calls hal_irq_install_handler on that IRQ and then bes_gpio_mask_set. For sources 0x24 and 0x25 it saves the enable bit and word in DAT_2000BCD4 to DAT_2000BCDC, rewrites ISPI registers 0x3043 to 0x3047, and calls ble_219_0c0388b0 with class 3 only when the combined enable state of the two sources changes; param_3 and param_4 are not used in the body.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | interrupt source 0..0x25 |
+| `param_2` | `ptr` | config block: byte 0 flags, bytes 1 and 2 sub-modes, +4 callback word |
+| `param_3` | `u32` | unused in the body |
+| `param_4` | `u32` | unused in the body |
+
+**Returns** `u32`: always 0; the return 1 path is unreachable in this decompile
+
+**Notes:** Sub-mode values and the bank offsets are read from the code only. The call to bes_gpio_mask_clear (ble_219_0c041b20) takes no argument here, though the packet describes that callee as taking a pin, so that name may be wrong.
+
+- Addresses by version: 219: 0x0C0300D0
+- Peripheral registers: `0x40081020` (W), `0x40081034` (W), `0x40081038` (W), `0x40088018` (W), `0x4008801c` (W), `0x40088020` (W), `0x40088024` (W), `0x40088028` (W), `0x40088030` (W), `0x40088034` (W), `0x40088038` (W), `0x4008803c` (W), `0x40088048` (W), `0x4008804c` (W), `0xe000ed08` (R)
+- Called by: `ble_pin_config_record_apply`
+- Calls: `ble_rf_event_source_enable`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `bes_gpio_mask_set`, `bes_gpio_mask_clear`, `hal_irq_install_handler`
+- Confidence: medium
+
+## hal_irq_source_ctl
+
+**Route an enable or disable request to the source setter or clearer and program its control word**
+
+When param_2 is 1 it calls hal_irq_source_clear_enable if param_3 is zero, or hal_irq_source_set_enable if it is non-zero. For sources other than 0x24 and 0x25 it then writes a one-hot word to bank offset 4 when param_2 is 1 and to offset 0x10 otherwise. For sources 0x24 and 0x25 it rewrites ISPI control register 0x302B or 0x303E: when param_2 is 0 it ORs in 0x2880, otherwise it ANDs with 0xDF7F and ORs in 0x800. The access runs under BASEPRI 0x40 with the trace words set, and sources above 0x25 trap.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | interrupt source number 0..0x25 |
+| `param_2` | `s32` | 1 selects the enable path; other values take the disable bank write and 0 takes the disable ISPI write |
+| `param_3` | `u32` | for enable requests, non-zero selects set and zero selects clear |
+
+**Notes:** Behaviour for param_2 values other than 0 and 1 is read from the code. The ISPI field meanings of the masks 0x2880, 0xDF7F and 0x800 are not known.
+
+- Addresses by version: 219: 0x0C030018
+- Peripheral registers: `0x40081010` (W), `0x40088004` (W), `0x40088010` (W)
+- Called by: `ble_irq_source_request_apply`, `ble_rf_irq_setup`, `ble_pin_config_record_apply`
+- Calls: `hal_irq_source_set_enable`, `hal_irq_source_clear_enable`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
+
+## hal_irq_source_set_enable
+
+**Enable interrupt source 0..37 by setting its bit in a bank register or its ISPI control word**
+
+Traps on source numbers above 0x25. For sources 0x24 and 0x25 it sets bit 0 of ISPI control register 0x302F or 0x303C by read-modify-write under BASEPRI 0x40, updating the trace words DAT_20003D70 and DAT_20003D74. For every other source it writes a one-hot word at offset 0 of the bank base taken from the table at 0x0C080FEC, where sources 0 to 31 use bank 0 at 0x40081000 and sources 32 to 35 use bank 1 at 0x40088000. The bank write is a single store with no read-modify-write, so the register is presumably write-one-to-set.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | interrupt source number 0..0x25 |
+
+**Notes:** The bank base addresses come from the peripheral addresses seen in this packet. Write-one-to-set semantics are inferred.
+
+- Addresses by version: 219: 0x0C02FFA0
+- Peripheral registers: `0x40081000` (W), `0x40088000` (W)
+- Called by: `hal_irq_source_ctl`, `ble_irq_source_request_apply`
+- Calls: `hal_irq_source_clear_enable`
+- Confidence: medium
+
+## hal_isr_chan_disable
+
+**Disable the IRQ of ISR channel 0 or 1 and write its wake bit when the channel slot word is set**
+
+Returns 1 for a channel above 1. Otherwise it does the same work as ble_219_0c031810, which the packet lists as its callee and which the decompile shows inline here: it calls hal_irq_install_handler with 0 on the IRQ from table 0x0C083E1C and, if the word at 0x2000A9A8 plus 16 times the channel is non-zero, writes 0x2000 for channel 0 or 0x4000 for channel 1 to register 0x400000A0. It returns 0 on success.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | channel index |
+
+**Returns** `u32`: 0 on success, 1 for an invalid channel
+
+**Notes:** The write semantics of register 0x400000A0 are not known. This function uses the first IRQ table, while hal_isr_chan_register enables the second.
+
+- Addresses by version: 219: 0x0C031808
+- Called by: `bt_drv_intersys_link_init_once`, `bt_drv_rf_bringup`, `bt_drv_hci_cmd_complete_info_rx`, `ble_hci_intersys_open`
+- Calls: `hal_isr_chan_stop`
+- Confidence: medium
+
+## hal_isr_chan_register
+
+**Register an ISR channel slot; on first use install both vectors and set up the wake registers**
+
+Accepts channel 0 or 1 and slot 0 or 1, returning 1 or 2 otherwise. Only the first registration of a channel does real work: it writes handler 0x0C0313B4 at VTOR entry IRQ+16 for the IRQ from table 0x0C083E1C and handler 0x0C0314F1 at the entry for the IRQ from table 0x0C0857EC, each followed by a DSB, then sets register 0x400000A0 to 0x2000 and 0x8000 with threshold 5 in 0x400000A4 for channel 0, or to 0x4000 and 0x10000 with threshold 10 for channel 1. It clears the channel state, stores the address of its state byte at 0x2000A9CC into a pointer slot reached through the table at 0x0C07F068, records the owner key and enables the second IRQ through hal_irq_install_handler. Every first registration stores param_3 and param_4 in the slot tables at 0x2000A9BC and 0x2000AA54 and sets the slot bit in the mask at 0x2000A990, and a later call on a registered channel returns 3 when the owner key matches and traps when it differs.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | channel 0 or 1 |
+| `param_2` | `u32` | slot 0 or 1 |
+| `param_3` | `u32` | callback argument stored for the slot |
+| `param_4` | `u32` | second per-slot word stored at 0x2000AA54 |
+| `param_5` | `s8` | owner key byte, compared on later calls |
+
+**Returns** `u32`: 0 on first registration, 1 invalid channel, 2 invalid slot, 3 already registered with the same key
+
+**Notes:** The use of the two ISR channels and the meanings of registers 0x400000A0 and 0x400000A4 are not identified. The two IRQ tables are used differently here and in hal_isr_chan_disable, which uses the first table; the callers should be checked.
+
+- Addresses by version: 219: 0x0C0315D8
+- Peripheral registers: `0x400000a0` (W), `0x400000a4` (W), `0xe000ed08` (R)
+- Called by: `bt_drv_intersys_link_init_once`, `bt_drv_rf_bringup`, `ble_hci_intersys_open`
+- Calls: `hal_irq_install_handler`
+- Confidence: medium
+
+## hal_isr_chan_stop
+
+**Disable the first IRQ of ISR channel 0 or 1 and write its wake bit if the slot word is set**
+
+Core of hal_isr_chan_disable without the range check: it calls hal_irq_install_handler on the IRQ from table 0x0C083E1C with argument 0, then if the word at 0x2000A9A8 plus 16 times the channel is non-zero it writes 0x2000 for channel 0 or 0x4000 for channel 1 to 0x400000A0. It always returns 0. The index is not checked, so the caller must have validated it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | channel index 0 or 1, not checked |
+
+**Returns** `u32`: always 0
+
+**Notes:** The packet lists this as the callee of ble_219_0c031808, and the decompile of that function also shows the same body inline.
+
+- Addresses by version: 219: 0x0C031810
+- Peripheral registers: `0x400000a0` (W)
+- Called by: `hal_isr_chan_disable`
+- Calls: `hal_irq_install_handler`
 - Confidence: medium
 
 ## hal_pad_24_25_set_source
@@ -2608,7 +3016,7 @@ For each 4-byte record (pad, mode, arg, pull) it calls hal_pinmux_set_function w
 **Notes:** The lock semantics of 0x0C073C40 and 0x0C073BA0 are inferred from the spin loop and the release pattern. 0x0C039C30 is not described in this packet.
 
 - Addresses by version: 219: 0x0C041758
-- Called by: `ble_219_0c038250`, `ble_219_0c0456c0`
+- Called by: `ble_rf_irq_setup`, `ble_pin_config_record_apply`
 - Calls: `ble_rf_ch24_25_mode_bits_set`, `hal_pinmux_set_function`, `hal_pinmux_set_pull`, `ble_ram_patch_thunk_2000025c`, `ble_ram_patch_thunk_20000244`
 - Confidence: medium
 
@@ -2678,7 +3086,132 @@ Reads 0x40080038, stores (value & 0xf) in DAT_20003ce4, then reads the register 
 
 - Addresses by version: 219: 0x0C02ECE4
 - Peripheral registers: `0x40080038` (RW)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
+- Confidence: medium
+
+## hal_spi_bus0_open
+
+**Open SPI bus 0 after checking config bytes 6, 7 and 8**
+
+Accepts a config block only when bytes 6 and 7 are equal and byte 8 is zero; otherwise it enters an infinite loop, the firmware trap. It then calls hal_spi_open_common with bus 0, the config block and the bus 0 state block at 0x20003CEC. It returns nothing.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | SSP config block |
+
+**Notes:** The meaning of config bytes 6 to 8 is unknown. Only the address 0x20003CEC of the state block is known.
+
+- Addresses by version: 219: 0x0C032688
+- Called by: `hal_analogif_check_chip_id`
+- Calls: `hal_spi_open_common`
+- Confidence: medium
+
+## hal_spi_bus1_close_user
+
+**Release a bus 1 user and, if it was current, switch the bus to the lowest still-held user**
+
+Calls hal_spi_close_user for bus 1 under BASEPRI 0x40. When the release succeeds and the released user was the current one at 0x2000391E, it bit-reverses the held-user mask at 0x20003D01 and counts leading zeros, which yields the lowest-numbered user still held; index 4 or more is treated as no user, and the function traps if the chosen bit is not set. For a valid index it stores that user as current and reapplies its configuration with hal_spi_apply_cfg_regs (ble_219_0c031da0), and when no user is held it sets the current user to 0. It restores BASEPRI and returns the close status.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | user index 0..3 |
+| `param_2` | `u32` | unused in the body |
+| `param_3` | `u32` | unused in the body |
+| `param_4` | `u32` | unused in the body |
+
+**Returns** `s32`: status of hal_spi_close_user: 0 released, 1 not held
+
+**Notes:** The held-user mask at 0x20003D01 is the bus 1 entry of the per-bus mask used by hal_spi_close_user.
+
+- Addresses by version: 219: 0x0C032774
+- Calls: `hal_spi_apply_cfg_regs`, `hal_spi_close_user`
+- Confidence: medium
+
+## hal_spi_bus1_open_user
+
+**Open SPI bus 1 for user 0..3 using that user's state block and make it the current user**
+
+Returns -1 when the user index in byte 5 of the config block is 4 or more. Otherwise it raises BASEPRI to 0x40 and calls hal_spi_open_common with bus 1, the config block, the user's 20-byte state block at 0x20003920 plus 0x14 times the index, and five times the index as the fifth argument. On success it stores the user index in the current-user byte at 0x2000391E, then restores BASEPRI and returns the open status.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | SSP config block; byte +5 is the user index |
+| `param_2` | `u32` | unused in the body |
+| `param_3` | `u32` | unused in the body |
+| `param_4` | `u32` | passed through to hal_spi_open_common |
+
+**Returns** `s32`: open status from hal_spi_open_common, or -1 for a bad user index
+
+**Notes:** The per-user state block layout is not known; the 0x14 stride is taken from the code.
+
+- Addresses by version: 219: 0x0C032714
+- Called by: `ble_spi_read_locked`
+- Calls: `hal_spi_open_common`
+- Confidence: medium
+
+## hal_spi_bus1_transfer
+
+**Run one bus 1 transfer for the current user, holding the bus lock until completion when asynchronous**
+
+Try-acquires the bus-1 lock at 0x20003D05 through ble_ram_patch_thunk_200007f4 and returns -31 when it is busy. It then applies the current user's frame format with hal_spi_apply_format (ble_219_0c031d78) and traps unless the user state byte at +0x0B has its low two bits equal to 3. It starts the transfer with hal_spi_dma_xfer_start (ble_219_0c032408) using the two buffers, the length and the async flag. On failure, or when the call is synchronous, it clears the format, releases the lock through ble_ram_patch_thunk_2000081c and returns the start status; a successful asynchronous start returns 0 and leaves the lock and format held for the completion path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | second buffer address |
+| `param_2` | `ptr` | first buffer address |
+| `param_3` | `u32` | transfer length in bytes |
+| `param_4` | `s32` | non-zero means asynchronous |
+
+**Returns** `s32`: 0 on success or async start, -31 when the bus is busy, otherwise the transfer start status
+
+**Notes:** Parameter roles are read from the call into hal_spi_dma_xfer_start. The return value of ble_ram_patch_thunk_200007f4 is read as try-lock status, with 0 meaning acquired.
+
+- Addresses by version: 219: 0x0C0328CC
+- Calls: `hal_spi_apply_format`, `hal_spi_dma_xfer_start`, `ble_ram_patch_thunk_200007f4`, `ble_ram_patch_thunk_2000081c`
+- Confidence: medium
+
+## hal_spi_close_user
+
+**Release a user bit on SPI bus 0 or 1 and, for the last user, disable the SSP and its GPDMA channels**
+
+Works on the per-bus user mask at 0x20003D00 plus the bus index. It returns 1 when the user bit is not set, and otherwise clears the bit and returns 0 while other users remain. When the last user leaves it clears bit 1 (SSE) of the SSP control register CR1 at offset 4, cancels any DMA through hal_spi_dma_cancel_all when channel DAT_20003D1C[bus] is allocated, and when DAT_20003D18[bus] is allocated it detaches that channel under BASEPRI 0x40, cancels and frees it with hal_gpdma_cancel and hal_gpdma_free_chan, and calls ble_ram_patch_thunk_2000081c to signal the waiter if a completion callback was stored. Finally it asserts both module resets (hal_cmu_reset_set) and then gates both module clocks (hal_cmu_clock_disable) using the byte ids at 0x0C084270 and 0x0C084271 at stride 2, and returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | bus index 0 or 1 |
+| `param_2` | `u32` | user bit index 0..7 |
+
+**Returns** `s32`: 0 when released, 1 when the user was not held
+
+**Notes:** The register layout matches an ARM PrimeCell PL022 SSP (CR1 at +4, SR at +0xC with BSY at bit 4, ICR at +0x20). That is inferred from the offsets used across the SPI group, not from a datasheet. The module id tables are not in this packet.
+
+- Addresses by version: 219: 0x0C031EA4
+- Called by: `hal_spi_bus1_close_user`
+- Calls: `hal_gpdma_cancel`, `hal_gpdma_free_chan`, `hal_spi_dma_cancel_all`, `hal_cmu_clock_disable`, `hal_cmu_reset_set`, `ble_ram_patch_thunk_2000081c`
+- Confidence: medium
+
+## hal_spi_dma_xfer_start
+
+**Start a GPDMA-backed SPI transfer after word-size, busy and channel checks**
+
+Derives the word size from the frame width in the config word at +6 (bits 4:0 plus one): up to 8 bits is one byte per word, 9 to 16 bits two bytes and 17 to 32 bits four bytes. For wider words it returns -1 when the length is not a multiple of the word size and -2 when the buffer is misaligned, and it returns -4 when SR bit 4 (busy) is set or -5 when the bus already owns its channels. Under BASEPRI 0x40 it allocates two GPDMA channels with request lines 0x18 and 0x17 on bus 0 or 0x10 and 0x0F on bus 1, returning -6 or -7 when one is missing, then builds one descriptor with the word count and width and runs hal_gpdma_start on both (-8 and -9 on failure, releasing the channels). With a non-zero param_6 it returns 0 at once so that the completion handler at 0x0C03200D finishes the transfer; otherwise it polls the busy state of channel DAT_20003D1C while CR1 bit 1 is set and then returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | bus index 0 or 1 |
+| `param_2` | `ptr` | SSP config block; the halfword at +6 gives the frame width |
+| `param_3` | `u32` | second buffer address |
+| `param_4` | `u32` | first buffer address |
+| `param_5` | `u32` | transfer length in bytes |
+| `param_6` | `s32` | non-zero means asynchronous, completion handled by the callback |
+
+**Returns** `s32`: 0 on success or async start; -1 length misaligned, -2 buffer misaligned, -4 busy, -5 channels owned, -6 and -7 no channel, -8 and -9 DMA start failed
+
+**Notes:** Request line numbers are from the code; their mapping to SSP directions is not confirmed. The meaning of the 0x0C03200D callback is inferred from its use with param_6.
+
+- Addresses by version: 219: 0x0C032408
+- Called by: `hal_spi_bus1_transfer`
+- Calls: `hal_gpdma_start`, `hal_gpdma_cancel`, `hal_gpdma_get_chan`, `hal_gpdma_free_chan`, `hal_gpdma_chan_busy`, `hal_spi_apply_cfg_regs`, `hal_cmu_reset_pulse`
 - Confidence: medium
 
 ## hal_sys_timer_alarm_elapsed
@@ -2782,7 +3315,7 @@ Converts param_1 to float, computes ticks = (us / 1000.0) * DAT_20003548 + 0.99 
 
 - Addresses by version: 219: 0x0C033030
 - Peripheral registers: `0x40002004` (R)
-- Called by: `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `ble_219_0c033328`, `ble_analog_bank1_user_mask_update`
+- Called by: `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `hsm_trng_read_bytes`, `ble_analog_bank1_user_mask_update`
 - Confidence: medium
 
 ## hal_sysipc_close
@@ -2802,7 +3335,7 @@ param_1 is the channel (0 or 1; otherwise returns 1), param_2 the per-channel us
 
 - Addresses by version: 219: 0x0C03171C
 - Peripheral registers: `0x400000a4` (W), `0xe000e100` (A)
-- Called by: `ble_219_0c03bb70`, `ble_219_0c04542c`
+- Called by: `bt_drv_rf_bringup`, `ble_hci_intersys_open`
 - Confidence: low
 
 ## hal_sysipc_rx_irq_disable
@@ -2841,7 +3374,7 @@ Stores param_2 in DAT_2000a984, then enables the NVIC interrupt number from the 
 
 - Addresses by version: 219: 0x0C031978
 - Peripheral registers: `0x400000a0` (W), `0x400000a4` (W), `0xe000e100` (A), `0xe000e423` (W), `0xe000ed08` (R)
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: low
 
 ## hal_sysipc_send
@@ -2863,8 +3396,21 @@ Returns 1 if param_1 (channel) > 1, 2 if param_2 (user/type) > 1, 3 if bit type 
 
 - Addresses by version: 219: 0x0C031884
 - Peripheral registers: `0x400000a0` (RW)
-- Called by: `bt_drv_hci_cmd_send_wait`, `bt_drv_intersys_send_saved_iface`, `ble_219_0c0454d0`
+- Called by: `bt_drv_hci_cmd_send_wait`, `bt_drv_intersys_send_saved_iface`, `ble_hci_send_packet`
 - Calls: `pm_busy_mask_set_bit`
+- Confidence: medium
+
+## hal_sysreg_variant_select
+
+**Select one of two sysreg config addresses from the chip variant byte and apply the low byte**
+
+Stores the result of ble_219_0c038d68 (a variant query, not yet described) in byte DAT_20003CE5. It sets DAT_20003CE8 to 0x24008F58 and, unless the variant equals 1, to 0x2400FF58 instead; the two addresses differ only in bits 12 to 14. It then calls bes_sysreg_set_f8_low_byte (ble_219_0c04124c), which replaces the low byte of register 0x400800F8. The decompile shows that call without an argument, so the selection is assumed to reach it through DAT_20003CE8.
+
+**Notes:** The two addresses 0x24008F58 and 0x2400FF58 are not identified peripherals.
+
+- Addresses by version: 219: 0x0C02ED2C
+- Called by: `ble_soc_bringup_sequence`
+- Calls: `ble_chip_variant_probe`, `bes_sysreg_set_f8_low_byte`
 - Confidence: medium
 
 ## hal_trace_buf_putc
@@ -2883,7 +3429,7 @@ param_1 points to an output-stream object: write callback at +0x50, capacity (u1
 **Notes:** Three callers at 0x0c0356dc, 0x0c0357b8 and 0x0c035900 (print formatting path).
 
 - Addresses by version: 219: 0x0C035684
-- Called by: `trace_fmt_unsigned`, `trace_fmt_signed`, `ble_219_0c035900`
+- Called by: `trace_fmt_unsigned`, `trace_fmt_signed`, `trace_vprintf_core`
 - Confidence: medium
 
 ## hal_trace_get_state_vars
@@ -2913,6 +3459,80 @@ Writes 1 into DAT_2000baa4 and returns. No direct callers - invoked through a fu
 
 - Addresses by version: 219: 0x0C036388
 - Confidence: low
+
+## hal_uart_close
+
+**Close UART instance 0..2 through hal_uart_close_internal, trapping on other values**
+
+Accepts instance numbers 0 to 2 and calls hal_uart_close_internal (ble_219_0c033acc), which disables its NVIC line, frees its DMA channels and resets and gates its clocks. Any other value enters an infinite loop, the firmware trap. The internal call shows no argument in the decompile, so the instance is assumed to reach it in r0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | UART instance 0..2 |
+
+**Notes:** The implicit r0 argument is the same assumption as in hal_i2c_close.
+
+- Addresses by version: 219: 0x0C033C9C
+- Calls: `hal_uart_close_internal`
+- Confidence: high
+
+## hal_uart_open
+
+**Configure and enable UART instance 0..2 in PL011 layout from a config block or defaults**
+
+Traps on instances above 2. On first use it sets the words at 0x2000AA8C, 0x2000AA8E, 0x2000AAB8 and 0x2000AABA to their none value and marks 0x2000AA7C as initialised; if the instance is already enabled it closes it first with hal_uart_close_internal. It enables the clocks and clears the resets of the two CMU module ids taken from the table at 0x0C085895 with stride 12. A null config uses the default table at 0x0C0809B4 with 8-bit words (LCR_H base 0x970), while a config block gives the LCR_H base from the table at 0x0C074574 indexed by byte 0, two stop bits for byte 1 equal to 1, the word length 5 to 8 bits from byte 2 (0 to 3) and RTS/CTS bits from byte 3 times 0x4000. It then disables the UART, waits for busy to clear, clears errors, masks interrupts, sets the divisor through hal_uart_set_baud_divisor from the rate at +8, writes the FIFO levels from bytes 4 and 5 and the DMA control from byte 12, and enables UARTEN, TXE and RXE in CR.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | UART instance 0..2 |
+| `param_2` | `ptr` | config block, or null for defaults: +8 baud rate, byte 0 parity table index, byte 1 stop bits, byte 2 word length, byte 3 flow control, bytes 4 and 5 FIFO levels, byte 12 DMA control |
+
+**Returns** `u32`: always 0
+
+**Notes:** Register offsets match the PL011 layout: +0x2C LCR_H, +0x30 CR, +0x34 IFLS, +0x38 IMSC, +0x44 ICR, +0x48 DMACR, and the busy flag in FR at +0x18. The bits 0x800 and 0x100 in the control words and the word at +0x54 are not identified.
+
+- Addresses by version: 219: 0x0C034008
+- Called by: `ble_uart_port_start`
+- Calls: `hal_uart_set_baud_divisor`, `hal_uart_close_internal`, `hal_cmu_clock_enable`, `hal_cmu_clock_is_enabled`, `hal_cmu_reset_clear`
+- Confidence: medium
+
+## hal_uart_tx_dma_start
+
+**Start a UART TX DMA transfer of one linear buffer in chunks of up to 4095 bytes**
+
+For UART instances 0 to 2 it builds a one-entry segment list from the buffer address param_2 and the length param_3 and calls hal_uart_tx_dma_start_sg (ble_219_0c0336b0) with segment count 1, the arguments param_4 to param_6, mode 0 and a maximum chunk of 0xFFF bytes. Any other instance enters an infinite loop, the firmware trap. The callee's result is not returned.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | UART instance 0..2 |
+| `param_2` | `ptr` | buffer address |
+| `param_3` | `u32` | length in bytes |
+| `param_4` | `u32` | callback argument passed to the DMA start |
+| `param_5` | `u32` | context argument passed to the DMA start |
+| `param_6` | `u32` | flags argument passed to the DMA start |
+
+**Notes:** Mode 0 is read as linear from the callee summary in earlier waves. The callback and context roles of param_4 and param_5 are inferred from the callee signature.
+
+- Addresses by version: 219: 0x0C033DC8
+- Called by: `ble_uart_rx_dma_pump`
+- Calls: `hal_uart_tx_dma_start_sg`
+- Confidence: medium
+
+## hal_uart_tx_dma_stop_checked
+
+**Stop the TX DMA of UART instance 0..2 through hal_uart_tx_dma_stop, with a range check**
+
+For instances 0 to 2 it calls hal_uart_tx_dma_stop (ble_219_0c033bd8), which stops the transfer and frees its channel. That callee returns the bytes not sent, which this wrapper discards. Other values enter an infinite loop, the firmware trap. The internal call shows no argument, so the instance is assumed to be in r0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | UART instance 0..2 |
+
+**Notes:** Callers cannot learn the unsent byte count through this wrapper.
+
+- Addresses by version: 219: 0x0C033DF8
+- Calls: `hal_uart_tx_dma_stop`
+- Confidence: medium
 
 ## hwtimer_handler
 
@@ -3557,7 +4177,7 @@ If param_1 < 32, clears bit param_1 of the 32-bit mask DAT_2000aa68 inside a BAS
 **Notes:** Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain.
 
 - Addresses by version: 219: 0x0C031D2C
-- Called by: `ble_219_0c02f73c`
+- Called by: `hal_analogif_chan_enable`
 - Confidence: low
 
 ## pm_wake_mask_set_bit
@@ -3575,7 +4195,7 @@ If param_1 < 32, sets bit param_1 of the 32-bit mask DAT_2000aa68 inside a BASEP
 **Notes:** Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain.
 
 - Addresses by version: 219: 0x0C031CDC
-- Called by: `ble_219_0c02f73c`
+- Called by: `hal_analogif_chan_enable`
 - Confidence: low
 
 ## systick_measure_loop_us
@@ -3594,7 +4214,7 @@ Configures SysTick: CTRL = 0, VAL = 0, LOAD = 0xFFFFFF, CTRL = 1 (enable, extern
 
 - Addresses by version: 219: 0x0C03F7CC
 - Peripheral registers: `0xe000e010` (RW), `0xe000e014` (W), `0xe000e018` (RW)
-- Called by: `ble_219_0c035da4`
+- Called by: `bogomips_calibrate`
 - Calls: `ble_ram_patch_thunk_20000554`
 - Confidence: high
 

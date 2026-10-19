@@ -77,7 +77,7 @@ Maintains fault code 0x0F as the displayed code. If bit 11 of DAT_20001AEC is se
 **Notes:** The meaning of fault code 0x0F and of bit 11 of DAT_20001AEC is unknown; the function is described for its effect on the displayed code.
 
 - Addresses by version: 148: 0x08002600, 14a: 0x08002678, 14b: 0x08002930, 14e: 0x08002930, 14f: 0x0800298C, 152: 0x080029C8, 153: 0x080029E4, 0159: 0x080029D0
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a264`, `vcu_0159_0800a39c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_0159_0800a39c`, `vcu_0159_0800a5c8`
 - Calls: `vcu_error_code_clear_if_current`, `vcu_fault_code_store`
 - Confidence: medium
 
@@ -149,7 +149,7 @@ Runs every tick and sets or clears codes through vcu_warning_code_set/clear, vcu
 
 - Addresses by version: 148: 0x0800377C, 14a: 0x08003AB4, 14b: 0x08003DD4, 14e: 0x08003DD4, 14f: 0x08003E30, 152: 0x08003E94, 153: 0x08003EB4, 0159: 0x08003F40
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_08009fa4`, `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a264`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_pb14_timed_edge_sequence`, `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
 - Calls: `vcu_error_code_clear_if_current`, `vcu_error_code_clear`, `vcu_warning_code_clear`, `vcu_fault_code_store`, `vcu_fault_code_set`, `vcu_warning_code_set`, `delay_ms`, `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: medium
 
@@ -162,7 +162,7 @@ Clears the counters DAT_20002044, DAT_20002047, DAT_2000202d, DAT_20002030, DAT_
 **Notes:** The argument of the no-flag call is not recovered; the packed word is the likely value. The meanings of the packed words are not established.
 
 - Addresses by version: 148: 0x08007034, 14a: 0x08007458, 14b: 0x080077BC, 14e: 0x080077F4, 14f: 0x08007850, 152: 0x08007914, 153: 0x080079B0, 0159: 0x08007A48
-- Called by: `vcu_0159_0800193c`, `vcu_0159_080047ac`, `vcu_0159_0800673c`, `vcu_0159_080069b4`, `vcu_0159_0800a264`
+- Called by: `vcu_key_sequence_entry_tick`, `vcu_0159_080047ac`, `vcu_code_nibble_entry_tick`, `vcu_code_digit_entry_tick`, `vcu_state2_periodic_tick`
 - Calls: `vcu_count_nonzero_nibbles`
 - Confidence: medium
 
@@ -175,7 +175,7 @@ Compares DAT_20001e62 (the frame 0x420 value divided by 10, see vcu_rx_frame_dis
 **Notes:** The meaning of DAT_20001e62 (frame 0x420 value / 10) and DAT_20001e48 (frame 0x423 field) is taken from vcu_rx_frame_dispatch. The unit is not established.
 
 - Addresses by version: 14a: 0x08002E58, 14b: 0x08003168, 14e: 0x08003168, 14f: 0x080031C4, 152: 0x08003230, 153: 0x08003250, 0159: 0x080032C4
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a500`
+- Called by: `vcu_0159_0800a15c`, `vcu_state0_periodic_tick_v0159`
 - Calls: `app_set_state`
 - Confidence: medium
 
@@ -192,7 +192,7 @@ Clears the active code DAT_2000123d if it equals param_1. For codes 10..57 (9 < 
 **Notes:** Code range 10..57 suggests the warning numbering is offset from the error numbering; unverified.
 
 - Addresses by version: 148: 0x08004B2C, 14a: 0x08004EB8, 14b: 0x080051BC, 14e: 0x080051F4, 14f: 0x08005250, 152: 0x080052B0, 153: 0x080052C8, 0159: 0x08005434
-- Called by: `vcu_fault_warning_evaluate`, `vcu_0159_0800a500`
+- Called by: `vcu_fault_warning_evaluate`, `vcu_state0_periodic_tick_v0159`
 - Confidence: medium
 
 ## vcu_warning_code_set
@@ -208,7 +208,7 @@ Keeps DAT_2000123d as the current warning code: if it is already non-zero and sm
 **Notes:** Semantic labelling (warning, priority rule) inferred from the min-keeping logic only.
 
 - Addresses by version: 148: 0x08007AC8, 14a: 0x08007F04, 14b: 0x0800825C, 14e: 0x0800829C, 14f: 0x080082F8, 152: 0x080083BC, 153: 0x08008458, 0159: 0x080084BC
-- Called by: `vcu_fault_warning_evaluate`, `vcu_speed_mode_snapshot_update`, `vcu_0159_0800a500`
+- Called by: `vcu_fault_warning_evaluate`, `vcu_speed_mode_snapshot_update`, `vcu_state0_periodic_tick_v0159`
 - Confidence: medium
 
 ## vcu_warning_list_rebuild

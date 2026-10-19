@@ -1,10 +1,11 @@
 # MCU - `pwm` functions
 
-12 functions.
+13 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
 | [`mcu_pwm_outputs_set_enable`](#mcu_pwm_outputs_set_enable) | 0x08008594 | Enable or disable the main and complementary outputs of TMR1 channels 1-3 from flag +0x2E5 |
+| [`mcu_pwm_trigger_and_clamp_select`](#mcu_pwm_trigger_and_clamp_select) | 0x08005F08 | Choose the TMR1 C4 trigger compare value and the three-phase clamp code from six inputs |
 | [`mcu_tmr1_pwm_outputs_enable`](#mcu_tmr1_pwm_outputs_enable) | 0x08007BA4 | Set TMR1 CH1-3 compare values to 0x1193 and enable channels 1-3 and their complementary outputs |
 | [`mcu_tmr_output_channel_setup`](#mcu_tmr_output_channel_setup) | 0x0800DECC | Configure one TMR output channel (polarity, output mode, enable) from a 4-byte record |
 | [`mcu_tmr_swevt_brkswtr_set`](#mcu_tmr_swevt_brkswtr_set) | 0x0800E1AC | Set or clear the software brake event bit SWEVT.BRKSWTR (bit 7) |
@@ -33,6 +34,29 @@ Reads-modifies-writes TMR1.CCTRL at 0x40012C20. If the byte at param_1+0x2E5 is 
 - Peripheral registers: `TMR1.CCTRL` (RW)
 - Called by: `mcu_0160_08007364`, `mcu_0160_0800a7f8`
 - Confidence: high
+
+## mcu_pwm_trigger_and_clamp_select
+
+**Choose the TMR1 C4 trigger compare value and the three-phase clamp code from six inputs**
+
+Classifies the first three arguments into a mode in DAT_20000070 and writes a compare value to DAT_20000074 through tmr_channel_value_set(&TMR1, 6, value), which is channel 4 (C4DT at 0x40). For p3 at most 510 the mode depends on p2 minus p3 and p1 minus p2 against 0x3FD: mode 0 with value 10 when all three are close, mode 1 with value p2 + 0x208 when p1 is far from p2, and mode 2 with value p3 + 0x208 when p2 is far from p3. For p3 above 510 it is mode 3 with value 10, because the value p3 - 500 is always above the clamp of 10 in that range. The minimum of p4, p5 and p6 selects a clamp code in DAT_20000071 (0x11 for p4, 0x22 for p5, 0x33 for p6). DAT_20000072 is 0xAA in mode 0, 0 in modes 2 and 3, and 1, 2 or 3 in mode 1 depending on the order of the other two arguments.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | phase or sector quantity A, compared with B in the mode test |
+| `param_2` | `s32` | phase or sector quantity B |
+| `param_3` | `s32` | magnitude that selects the mode (values above 510 give mode 3) |
+| `param_4` | `s32` | first clamp input, compared for the minimum |
+| `param_5` | `s32` | second clamp input |
+| `param_6` | `s32` | third clamp input |
+
+**Notes:** The physical meaning of the six inputs is inferred from the arithmetic (phase or sector quantities in timer counts). The 0x208 and 0x3FD constants are used literally. The caller is mcu_0160_08009a8c.
+
+- Addresses by version: 12b: 0x08005F94, 143: 0x08005E38, 152: 0x08005E68, 0160: 0x08005F08
+- Peripheral registers: `TMR1.CTRL1` (A)
+- Called by: `mcu_0160_08009a8c`
+- Calls: `tmr_channel_value_set`
+- Confidence: medium
 
 ## mcu_tmr1_pwm_outputs_enable
 
@@ -148,7 +172,7 @@ Matches the Artery SDK tmr_channel_value_set. param_2 selects the data register:
 **Notes:** Callers: mcu_0160_080030f4, mcu_0160_08005f08, mcu_0160_0800a6b8.
 
 - Addresses by version: 12b: 0x0800DA46, 143: 0x0800DCA2, 152: 0x0800DD3A, 0160: 0x0800DE7A
-- Called by: `mcu_0160_080030f4`, `mcu_0160_08005f08`, `mcu_0160_0800a6b8`
+- Called by: `mcu_tmr4_ch4_compare_clear`, `mcu_pwm_trigger_and_clamp_select`, `mcu_0160_0800a6b8`
 - Confidence: high
 
 ## tmr_output_channel_config

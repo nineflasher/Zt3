@@ -1,0 +1,216 @@
+{
+  "ble_219_0c0635ac": {
+    "name": "fp_invmod",
+    "summary": "Modular inverse c = a^-1 mod b (TFM fp_invmod): odd modulus uses binary extended Euclid",
+    "description": "wolfSSL TFM fp_invmod. Returns -1 when b is negative or zero, or when a is zero. Otherwise it allocates a scratch block through the allocator thunk thunk_FUN_0c07097c (0x270 bytes = six 104-byte fp_int slots when b is odd, 0x340 bytes = eight slots when b is even) and returns -2 if that fails. For an odd modulus it first reduces a with fp_mod (ble_219_0c0634c4) when fp_cmp (ble_219_0c0628b4) reports a >= b, then runs a binary extended Euclid on u = b and v = a mod b: u (or v) is halved with fp_div_2 (ble_219_0c0623cc) while even, and the matching coefficient slots are adjusted by plus or minus b with fp_add and fp_sub until u reaches 0. If the leftover v equals 1, the coefficient in slot 5 is reduced into [0, b) with fp_add and fp_sub and copied to c, and the function returns 0; any other leftover means there is no inverse and it returns -1. The even-modulus branch runs a similar loop over eight slots with the same helpers, and its details are less certain. Scratch memory is zeroed with memset and released through thunk_FUN_0c07098c on every path.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "value to invert (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "modulus (fp_int), must be positive and nonzero"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int), receives the inverse in [0, b)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success; -1 for invalid input or when a has no inverse mod b; -2 when the scratch block cannot be allocated"},
+    "confidence": "medium",
+    "notes": "The odd/even split is on b->dp[0] & 1, as in TFM (fp_invmod_slow for an odd modulus). The even branch is identified only by its structure. The packet lists ble_219_0c05cba0 and ble_219_0c05cba4 as callees, but no call to them is visible in this decompile, so they are not described here."
+  },
+  "ble_219_0c063ce4": {
+    "name": "fp_sub_d",
+    "summary": "Subtract a 32-bit digit from a big integer: c = a - d",
+    "description": "Builds a one-digit fp_int holding d in a temporary (used = 1 when d is nonzero, dp[0] = d, sign = 0, and the other 23 digits zeroed with memset), calls fp_sub (ble_219_0c062068) to compute c = a - temp, and frees the temporary. The temporary is 0x68 bytes from the allocator thunk thunk_FUN_0c07097c; if that allocation fails the function returns -2 and c is not touched. Callers pass d = 2 to form modulus - 2, the Fermat exponent used by ecc_field_inv_fermat (ble_219_0c063d2c).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "minuend (fp_int)"},
+      {"name": "d", "type": "u32", "description": "digit to subtract (0 allowed)"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -2 if the temporary cannot be allocated, otherwise the status returned by fp_sub"},
+    "confidence": "high",
+    "notes": "Named after TFM fp_sub_d, which is not otherwise present in this build. The decompile passes five arguments to fp_sub; only the three meaningful ones are used here."
+  },
+  "ble_219_0c063d2c": {
+    "name": "ecc_field_inv_fermat",
+    "summary": "Field inverse by Fermat: result = base^(m-2) mod m with an 8-entry run-of-ones table",
+    "description": "Computes base^(m-2) mod m with Montgomery products, which is the field inverse when m is prime. It allocates 0x410 bytes (ten 104-byte fp_int slots) through thunk_FUN_0c07097c, copies the base into table slot 0 and fills slots 1 to 7 by square-then-multiply: fp_sqr (ble_219_0c062880), fp_mul_comba24 (ble_219_0c06237c), then fp_montgomery_reduce (ble_219_0c062a28) with mp. Table entry j therefore holds base^(2^(j+1) - 1), so a run of up to eight one-bits in the exponent costs a single multiply. The exponent m - 2 is produced by fp_sub_d (ble_219_0c063ce4) and scanned from its top bit down: each zero bit costs a square, and at the end of each run of ones the matching table entry is multiplied in, with Montgomery reduction after every product. The result is written to the output slot, and the function returns 0, or -2 (0xFFFFFFFE) when the scratch block cannot be allocated. The scan is bounded to 512 exponent bits by a guard of 0x201.",
+    "category": "crypto",
+    "params": [
+      {"name": "base", "type": "ptr", "description": "value to invert (fp_int, Montgomery form)"},
+      {"name": "modulus", "type": "ptr", "description": "modulus m (fp_int)"},
+      {"name": "result", "type": "ptr", "description": "output (fp_int)"},
+      {"name": "mp", "type": "u32", "description": "Montgomery constant -1/m mod 2^32, passed to fp_montgomery_reduce"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -2 when the scratch block cannot be allocated"},
+    "confidence": "medium",
+    "notes": "Identity (Fermat inverse with a run-of-ones window) is inferred from the exponent m - 2 and the 2^k - 1 table. Use for the P-256 field prime is an assumption and is not verified in this packet. Operands are assumed to be in Montgomery form (R = 2^(32*used)) because every product is Montgomery-reduced."
+  },
+  "ble_219_0c064090": {
+    "name": "fp_mul_checked",
+    "summary": "Checked multiply c = a * b: rejects digit sums above 24, then fp_mul and clears stale digits",
+    "description": "Returns -1 without computing anything when a->used + b->used exceeds 24, the 24-digit capacity of a 104-byte fp_int. Otherwise it calls fp_mul (ble_219_0c062218) to form the product in c, then zeroes the dp digits of c between its new used count and its previous used count so that no stale high digits remain. The return value is fp_mul's status (0 on success).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "multiplicand (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "multiplier (fp_int)"},
+      {"name": "c", "type": "ptr", "description": "product output (fp_int)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 when the digit sum exceeds 24, otherwise fp_mul's status"},
+    "confidence": "high",
+    "notes": "Same contract as fp_mul_comba24 (ble_219_0c06237c) but without its temporary allocation, so it is likely a second copy of the same wrapper in the binary. The name is chosen to keep names unique."
+  },
+  "ble_219_0c0640e0": {
+    "name": "fp_mulmod_thunk",
+    "summary": "Branch-only alias of fp_mulmod (modular multiply c = a * b mod m)",
+    "description": "One-instruction tail branch to ble_219_0c06353c (fp_mulmod). It has no logic of its own and passes all four arguments through unchanged.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "multiplicand (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "multiplier (fp_int)"},
+      {"name": "m", "type": "ptr", "description": "modulus (fp_int)"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int)"}
+    ],
+    "returns": {"type": "s32", "description": "as fp_mulmod: 0 on success, -1 for a digit sum above 24, -2 on allocation failure"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0640ec": {
+    "name": "fp_mod_thunk",
+    "summary": "Branch-only alias of fp_mod (c = a mod b, remainder takes the sign of b)",
+    "description": "One-instruction tail branch to ble_219_0c0634c4 (fp_mod). The target computes the remainder with fp_div (ble_219_0c062fe4) into a heap temporary, copies it to the output when its sign already matches b, and otherwise adds b with fp_add. Arguments pass through unchanged.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "dividend (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "modulus (fp_int)"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int)"},
+      {"name": "param_4", "type": "u32", "description": "forwarded to the target unchanged"}
+    ],
+    "returns": {"type": "s32", "description": "as fp_mod: 0 on success, otherwise the failing status"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0640f0": {
+    "name": "fp_invmod_thunk",
+    "summary": "Branch-only alias of fp_invmod (modular inverse c = a^-1 mod b)",
+    "description": "One-instruction tail branch to ble_219_0c0635ac (fp_invmod). Arguments a, b and c pass through unchanged.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "value to invert (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "modulus (fp_int)"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int)"}
+    ],
+    "returns": {"type": "s32", "description": "as fp_invmod: 0, -1 or -2"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0640f4": {
+    "name": "ecc_field_inv_fermat_thunk",
+    "summary": "Branch-only alias of ecc_field_inv_fermat (base^(m-2) mod m)",
+    "description": "One-instruction tail branch to ble_219_0c063d2c (ecc_field_inv_fermat). Arguments pass through unchanged.",
+    "category": "crypto",
+    "params": [
+      {"name": "base", "type": "ptr", "description": "value to invert (fp_int, Montgomery form)"},
+      {"name": "modulus", "type": "ptr", "description": "modulus m (fp_int)"},
+      {"name": "result", "type": "ptr", "description": "output (fp_int)"},
+      {"name": "mp", "type": "u32", "description": "Montgomery constant -1/m mod 2^32"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -2 when the scratch block cannot be allocated"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0641f0": {
+    "name": "fp_to_unsigned_bin_thunk",
+    "summary": "Branch-only alias of fp_to_unsigned_bin (big-endian export of a big integer)",
+    "description": "One-instruction tail branch to ble_219_0c062c84 (fp_to_unsigned_bin). The target copies the integer into a heap temporary, exports it with fp_to_unsigned_bin_at_pos (ble_219_0c062c20) at offset 0, reverses the byte string in place to make it big-endian, and frees the temporary.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "integer to export (fp_int)"},
+      {"name": "buf", "type": "ptr", "description": "output byte buffer, big-endian"},
+      {"name": "param_3", "type": "u32", "description": "forwarded to the target unchanged"},
+      {"name": "param_4", "type": "u32", "description": "forwarded to the target unchanged"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -2 when the temporary cannot be allocated"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c064230": {
+    "name": "fp_sub_d_thunk",
+    "summary": "Branch-only alias of fp_sub_d (c = a - d)",
+    "description": "One-instruction tail branch to ble_219_0c063ce4 (fp_sub_d). Arguments pass through unchanged. Its caller in the packet list is ble_219_0c05b86c.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "minuend (fp_int)"},
+      {"name": "d", "type": "u32", "description": "digit to subtract"},
+      {"name": "c", "type": "ptr", "description": "output (fp_int)"},
+      {"name": "param_4", "type": "u32", "description": "forwarded to the target unchanged"}
+    ],
+    "returns": {"type": "s32", "description": "as fp_sub_d: 0, -2 or the status of fp_sub"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c06444c": {
+    "name": "fp_sqr_thunk",
+    "summary": "Branch-only alias of fp_sqr (b = a^2, stale high digits cleared)",
+    "description": "One-instruction tail branch to ble_219_0c062880 (fp_sqr). The target squares the source (param_1) into the destination (param_2) through fp_sqr_comba (ble_219_0c0626f4) and then zeroes the destination digits above its new used count.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source (fp_int)"},
+      {"name": "b", "type": "ptr", "description": "destination (fp_int)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c064450": {
+    "name": "fp_montgomery_reduce_thunk",
+    "summary": "Two-instruction wrapper that calls fp_montgomery_reduce and returns",
+    "description": "Calls ble_219_0c062a28 (fp_montgomery_reduce) with whatever the caller left in the argument registers, and returns. It takes no arguments of its own and leaves the callee's result in r0. Its callers in the packet list are ECC code paths.",
+    "category": "crypto",
+    "params": [],
+    "returns": {"type": "s32", "description": "the callee's result in r0 (fp_montgomery_reduce: 0, -1 or -2)"},
+    "confidence": "high",
+    "notes": "The decompile shows an empty argument list, but fp_montgomery_reduce takes three meaningful arguments (x, modulus, mp) that the caller places in r0 to r2."
+  },
+  "ble_219_0c06464c": {
+    "name": "btstack_crypto_cmac_step",
+    "summary": "Advance the BTstack AES-CMAC (RFC 4493) operation: subkeys, CBC-MAC blocks, final block",
+    "description": "BTstack AES-CMAC engine, one step per LE Encrypt round trip, with the key at 0x200172CC and the CBC-MAC state at 0x200172F0. The phase byte DAT_200172DC selects the step: phase 1 starts the operation by encrypting the constant block at 0x0C08625C to obtain L = E_K(0), stored in 0x200172E0, and moves to phase 2 to wait; phase 3 absorbs one 16-byte message block as X = E_K(X xor M_i), where M_i comes from a byte callback at request+0x18 when request+0x0C is 2 (otherwise from the buffer that request+0x18 points to), at offset block_index*16 + i; phase 5 handles the final block, deriving K1 = dbl(L) and K2 = dbl(K1) in GF(2^128) with Rb = 0x87, XORing K1 into a full final block or K2 with 0x80 padding into a partial or empty one, and then encrypting. Phases 2, 4 and 6 are waiting for an LE Encrypt result, and the block index at 0x200172C9 is compared against the block count at 0x200172C8 (ceil(length/16)). Three calls to util_nop_stub_b (ble_219_0c065ce0) are empty trace hooks.",
+    "category": "crypto",
+    "params": [
+      {"name": "request", "type": "ptr", "description": "crypto request record (type, mode, length at +0x14, source at +0x18, callback fields)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The identification as BTstack's CMAC follows the RFC 4493 structure and the shared btstack_crypto request queue. The phase numbers and the 0x0C08625C zero block are inferred from the code. The completion handler that moves phases 2, 4 and 6 on is outside this packet."
+  },
+  "ble_219_0c064ffc": {
+    "name": "btstack_crypto_random_generate",
+    "summary": "Queue a random-bytes request (type 0, LE Rand) on the crypto list and run it",
+    "description": "BTstack btstack_crypto_random_generate. It records the request as callback at +0x04, argument at +0x08, type 0 at +0x0C, output buffer at +0x10 and byte count (u16) at +0x14, then appends it to the crypto list at 0x20017388 through btstack_linked_list_add_tail_impl (ble_219_0c065416). If ble_ctrl_env_get_u8_at_0x198 returns 2 it runs the request loop, which is inlined here as a copy of the loop in btstack_crypto_aes128_encrypt (ble_219_0c065038). For a type 0 request that loop sends the parameterless HCI command template at 0x0C081168, which is most likely LE Rand (0x2018), and sets the busy byte at 0x2001738C. The loop only dispatches while ll_env_is_ready (ble_219_0c066978) holds and the busy byte is clear.",
+    "category": "crypto",
+    "params": [
+      {"name": "request", "type": "ptr", "description": "caller-owned request record (linked-list node)"},
+      {"name": "buffer", "type": "ptr", "description": "output buffer for the random bytes"},
+      {"name": "size", "type": "u16", "description": "number of random bytes requested"},
+      {"name": "callback", "type": "ptr", "description": "completion callback, called with arg when the bytes are ready"},
+      {"name": "arg", "type": "ptr", "description": "argument for the callback"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The signature matches upstream btstack_crypto_random_generate. The LE Rand identification of template 0x0C081168 is an inference, since the template itself is not decoded in this packet. The completion path that fills the buffer is outside this packet."
+  },
+  "ble_219_0c065038": {
+    "name": "btstack_crypto_aes128_encrypt",
+    "summary": "Queue an AES-128 block encryption (type 1, HCI LE Encrypt) and run the crypto request loop",
+    "description": "BTstack btstack_crypto_aes128_encrypt. It stores the key pointer at +0x10, plaintext pointer at +0x14, encrypted-output pointer at +0x18, callback at +0x04, argument at +0x08 and type 1 at +0x0C in the request, appends it to the crypto list at 0x20017388, and runs the loop only when the controller state byte is 2. Type 1 reverses the key and plaintext into HCI byte order with co_reverse_copy_16 and sends LE Encrypt (template 0x0C081148). The loop dispatches the head request by type: 0 random, 1 AES, 2 and 3 CMAC (btstack_crypto_cmac_step), 4 local P-256 public key (answered from a cached 64-byte copy at 0x20017304 once the state byte at 0x20017300 reaches 4), 5 ECDH shared secret (template 0x0C081150, two 32-byte halves), and 6 to 8 AES-CCM requests. The CCM sub-states at +0x10 build B0 from the flags, a 13-byte nonce at +0x18 and a 16-bit message length (state 0), absorb the AAD length prefix and data into the CBC-MAC state at +0x24 (state 2), absorb the final partial block (state 4), and build counter blocks A0 or A(i) with a 16-bit counter (states 6 and 8); even states issue the next step and odd states wait for the LE Encrypt result.",
+    "category": "crypto",
+    "params": [
+      {"name": "request", "type": "ptr", "description": "caller-owned request record (linked-list node)"},
+      {"name": "key", "type": "ptr", "description": "16-byte AES key"},
+      {"name": "plaintext", "type": "ptr", "description": "16-byte input block"},
+      {"name": "encrypted", "type": "ptr", "description": "16-byte output block"},
+      {"name": "callback", "type": "ptr", "description": "completion callback, called with arg"},
+      {"name": "arg", "type": "ptr", "description": "argument for the callback"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The argument layout matches the upstream BTstack request. The CCM sub-state meanings and the type 4 and 5 identities are inferred from the block constructions and the HCI template count. The same loop is inlined into ble_219_0c064ffc (btstack_crypto_random_generate). The HCI template identities for 0x0C081148, 0x0C081150 and 0x0C081168 are not decoded in this packet."
+  }
+}

@@ -1,17 +1,22 @@
 # BMS - `isr` functions
 
-17 functions.
+22 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`Default_Handler`](#default_handler) | 0x080010E6 | Default interrupt handler: spins in an endless loop |
+| [`EXTI0_1_IRQHandler`](#exti0_1_irqhandler) | 0x08001368 | EXTI line 0 interrupt: latches its rising or falling edge into flag word 0x200001C8 |
+| [`EXTI2_3_IRQHandler`](#exti2_3_irqhandler) | 0x080013A0 | EXTI line 2 interrupt: records a falling edge in flag word 0x200001C8 |
+| [`EXTI4_15_IRQHandler`](#exti4_15_irqhandler) | 0x080013C8 | EXTI lines 5, 8, 11 and 12 interrupt: flags their edges into 0x200001C8 and clears pending |
 | [`HardFault_Handler`](#hardfault_handler) | 0x080028F4 | Hard fault vector that resets the MCU via AIRCR.SYSRESETREQ instead of dumping fault state |
 | [`LL_EXTI_Init`](#ll_exti_init) | 0x08002B0C | Programs EXTI line masks, edge triggers and interrupt or event mode from an init record |
 | [`NVIC_SetPriority`](#nvic_setpriority) | 0x08003724 | CMSIS NVIC_SetPriority: set the 2-bit priority of an IRQ or system exception |
 | [`PendSV_Handler`](#pendsv_handler) | 0x0800343C | PendSV exception handler: returns immediately, does no work |
+| [`RCC_CRS_IRQHandler`](#rcc_crs_irqhandler) | 0x08003440 | RCC/CRS interrupt: on HSE ready, bring up HSE/PLL SYSCLK, enable CSS and clear the flag |
 | [`RTC_TAMP_IRQHandler`](#rtc_tamp_irqhandler) | 0x08003614 | RTC/TAMP vector: passes the pointer slot at 0x20005D00 to bms_4168_08002542 |
 | [`SVC_Handler`](#svc_handler) | 0x08003624 | SVCall exception handler: returns immediately, does no work |
 | [`SysTick_Handler`](#systick_handler) | 0x08003662 | SysTick vector: calls bms_counter_accumulate to advance the 32-bit counter at 0x200006A0 |
+| [`TIM16_FDCAN_IT0_IRQHandler`](#tim16_fdcan_it0_irqhandler) | 0x0800366C | Shared TIM16 and FDCAN IT0 vector: forward to the FDCAN handle at 0x20005C50 |
 | [`TIM7_LPTIM2_IRQHandler`](#tim7_lptim2_irqhandler) | 0x0800367C | TIM7 update vector: clear the flag, advance the 0x20000678 tick, count down two timers |
 | [`USART3_4_5_6_LPUART1_IRQHandler`](#usart3_4_5_6_lpuart1_irqhandler) | 0x080036D0 | USART3 vector: on RXNE clear ORE and pass the byte to bms_4168_08007c10; on IDLE clear it |
 | [`__NVIC_DisableIRQ`](#__nvic_disableirq) | 0x08002278 | Disables a device interrupt by writing its bit to NVIC ICER at 0xE000E180 |
@@ -32,6 +37,46 @@ Single infinite loop with no body. The vector table slot labelled CEC_IRQHandler
 
 - Addresses by version: 4130: 0x080010E6, 4139: 0x080010E6, 4148: 0x080010E6, 4168: 0x080010E6
 - Vector: `CEC_IRQHandler`
+- Confidence: high
+
+## EXTI0_1_IRQHandler
+
+**EXTI line 0 interrupt: latches its rising or falling edge into flag word 0x200001C8**
+
+Checks pending bit 0 of EXTI RPR1 (0x4002180C) and FPR1 (0x40021810). For each pending edge it sets flag 0x4 in the 32-bit word at 0x200001C8 (address from bms_ram_200001c8_addr) and clears the pending bit by writing 1 to the EXTI register. Only line 0 is serviced here even though the vector covers lines 0 and 1, and there are no other side effects.
+
+**Notes:** The meaning of flag 0x4 in the word at 0x200001C8 is not established in this packet.
+
+- Addresses by version: 4130: 0x08001368, 4139: 0x08001368, 4148: 0x08001368, 4168: 0x08001368
+- Vector: `EXTI0_1_IRQHandler`
+- Peripheral registers: `EXTI.RPR1` (RW), `EXTI.FPR1` (RW)
+- Calls: `bms_ram_200001c8_addr`
+- Confidence: high
+
+## EXTI2_3_IRQHandler
+
+**EXTI line 2 interrupt: records a falling edge in flag word 0x200001C8**
+
+Tests bit 2 of EXTI FPR1 (0x40021810), the falling-edge pending flag of line 2. When it is set, the function ORs 0x100002 (bits 1 and 20) into the word at 0x200001C8 and clears the pending bit by writing 4 to FPR1. Rising edges and line 3 are not handled here.
+
+**Notes:** The meaning of bits 1 and 20 in the flag word is not established in this packet.
+
+- Addresses by version: 4130: 0x080013A0, 4139: 0x080013A0, 4148: 0x080013A0, 4168: 0x080013A0
+- Vector: `EXTI2_3_IRQHandler`
+- Peripheral registers: `EXTI.FPR1` (RW)
+- Calls: `bms_ram_200001c8_addr`
+- Confidence: high
+
+## EXTI4_15_IRQHandler
+
+**EXTI lines 5, 8, 11 and 12 interrupt: flags their edges into 0x200001C8 and clears pending**
+
+Services four EXTI lines on the EXTI4_15 vector, each checked against its pending bit and cleared by writing 1 back. The checks run in this order: line 8 falling edge (FPR1 bit 8) and line 5 rising edge (RPR1 bit 5) set 0x100002 in the word at 0x200001C8; line 12 rising edge (RPR1 bit 12) and line 12 falling edge (FPR1 bit 12) set 0x400; line 11 rising edge (RPR1 bit 11) sets 0x400.
+
+- Addresses by version: 4130: 0x080013C8, 4139: 0x080013C8, 4148: 0x080013C8, 4168: 0x080013C8
+- Vector: `EXTI4_15_IRQHandler`
+- Peripheral registers: `EXTI.RPR1` (RW), `EXTI.FPR1` (RW)
+- Calls: `bms_ram_200001c8_addr`
 - Confidence: high
 
 ## HardFault_Handler
@@ -92,6 +137,20 @@ Vector-table entry for the PendSV system exception (exception number -2). The bo
 - Vector: `PendSV_Handler`
 - Confidence: high
 
+## RCC_CRS_IRQHandler
+
+**RCC/CRS interrupt: on HSE ready, bring up HSE/PLL SYSCLK, enable CSS and clear the flag**
+
+Vector for the RCC and CRS interrupt. It reads the clock interrupt flag register CIFR (0x4002101C) and acts only when HSERDYF (bit 4) is set. In that case it calls bms_sysclk_hse_pll_bringup (bms_4168_0800a130), calls HAL_RCC_EnableCSS (bms_4168_08002334), clears HSERDYIE in CIER (0x40021018 bit 4) so the interrupt does not refire, writes bit 4 to CICR (0x40021020) to clear the flag, and clears bit 31 of the word at the RAM object returned by bms_ram_200001c8_addr. The other CIFR flags, including CSSF and LSECSSF, are not handled here.
+
+**Notes:** Bit 31 of the word at 0x200001C8 is presumably a wait-for-HSE pending flag that other code polls; its meaning is inferred from the clear only. The register bit names come from the register JSON (CIFR bit 4 = HSERDYF).
+
+- Addresses by version: 4130: 0x08003440, 4139: 0x08003440, 4148: 0x08003440, 4168: 0x08003440
+- Vector: `RCC_CRS_IRQHandler`
+- Peripheral registers: `RCC.CIER` (RW), `RCC.CIFR` (R), `RCC.CICR` (W)
+- Calls: `HAL_RCC_EnableCSS`, `bms_sysclk_hse_pll_bringup`, `bms_ram_200001c8_addr`
+- Confidence: high
+
 ## RTC_TAMP_IRQHandler
 
 **RTC/TAMP vector: passes the pointer slot at 0x20005D00 to bms_4168_08002542**
@@ -102,7 +161,7 @@ Vector handler for the RTC and tamper interrupt. It has no logic of its own: it 
 
 - Addresses by version: 4130: 0x08003614, 4139: 0x08003614, 4148: 0x08003614, 4168: 0x08003614
 - Vector: `RTC_TAMP_IRQHandler`
-- Calls: `bms_4168_08002542`
+- Calls: `HAL_RTCEx_WakeUpTimerIRQHandler`
 - Confidence: high
 
 ## SVC_Handler
@@ -124,6 +183,19 @@ Core SysTick exception handler. It calls bms_counter_accumulate (bms_4168_080021
 - Addresses by version: 4130: 0x08003662, 4139: 0x08003662, 4148: 0x08003662, 4168: 0x08003662
 - Vector: `SysTick_Handler`
 - Calls: `bms_counter_accumulate`
+- Confidence: high
+
+## TIM16_FDCAN_IT0_IRQHandler
+
+**Shared TIM16 and FDCAN IT0 vector: forward to the FDCAN handle at 0x20005C50**
+
+Vector for the interrupt line shared by TIM16 and FDCAN interrupt 0. It does not test any TIM16 flag. It passes the address of the RAM object at 0x20005C50 to bms_4168_0800185a (not yet described; the FDCAN interrupt dispatcher by its role) and returns, so all FDCAN interrupt work happens in that callee.
+
+**Notes:** Whether 0x20005C50 is the same FDCAN handle that bms_fdcan_handle_init configures is not verified. If TIM16 is ever enabled in this build, its update flag would be ignored here.
+
+- Addresses by version: 4130: 0x0800366C, 4139: 0x0800366C, 4148: 0x0800366C, 4168: 0x0800366C
+- Vector: `TIM16_FDCAN_IT0_IRQHandler`
+- Calls: `HAL_FDCAN_IRQHandler`
 - Confidence: high
 
 ## TIM7_LPTIM2_IRQHandler
@@ -166,7 +238,7 @@ CMSIS inline NVIC_DisableIRQ for the Cortex-M0+ core. For IRQn >= 0 it writes 1 
 
 - Addresses by version: 4130: 0x08002278, 4139: 0x08002278, 4148: 0x08002278, 4168: 0x08002278
 - Peripheral registers: `NVIC+0x80` (W)
-- Called by: `bms_4168_08001bf4`
+- Called by: `HAL_FDCAN_MspDeInit`
 - Confidence: high
 
 ## __NVIC_EnableIRQ
@@ -181,7 +253,7 @@ CMSIS inline NVIC_EnableIRQ for the Cortex-M0+ core. For IRQn >= 0 it writes 1 <
 
 - Addresses by version: 4130: 0x08002298, 4139: 0x08002298, 4148: 0x08002298, 4168: 0x08002298
 - Peripheral registers: `NVIC+0x0` (W)
-- Called by: `bms_4168_08001c24`, `bms_4168_08002234`, `bms_rtc_wakeup_period_set`
+- Called by: `HAL_FDCAN_MspInit`, `bms_ucpd_clock_irq_setup`, `bms_rtc_wakeup_period_set`
 - Confidence: high
 
 ## __NVIC_SetPriority
@@ -197,7 +269,7 @@ CMSIS inline NVIC_SetPriority with __NVIC_PRIO_BITS = 2, so the priority is shif
 
 - Addresses by version: 4130: 0x080022B0, 4139: 0x080022B0, 4148: 0x080022B0, 4168: 0x080022B0
 - Peripheral registers: `NVIC+0x300` (A), `SCB+0x1c` (A)
-- Called by: `bms_4168_08001c24`, `bms_4168_080021ec`, `bms_4168_08002234`, `bms_rtc_wakeup_period_set`
+- Called by: `HAL_FDCAN_MspInit`, `bms_systick_1khz_start`, `bms_ucpd_clock_irq_setup`, `bms_rtc_wakeup_period_set`
 - Confidence: high
 
 ## bms_exti11_irq_arm
@@ -210,7 +282,7 @@ Arms the PB11 wake or input interrupt. It sets the EXTI11 source field in EXTI.E
 
 - Addresses by version: 4130: 0x080096A4, 4139: 0x08009BDC
 - Peripheral registers: `EXTI.SWIER1` (A), `EXTI.FPR1` (W), `EXTI.EXTICR3` (RW), `NVIC+0x0` (W), `NVIC+0x304` (RW)
-- Called by: `bms_4139_08007238`
+- Called by: `bms_pb11_trigger_sequence_step`
 - Calls: `LL_EXTI_Init`
 - Confidence: medium
 
@@ -224,7 +296,7 @@ If the armed byte at 0x20000594 is nonzero, it clears the byte, clears EXTI.IMR1
 
 - Addresses by version: 4130: 0x08009670, 4139: 0x08009BA8
 - Peripheral registers: `EXTI.IMR1` (RW), `NVIC+0x80` (W)
-- Called by: `bms_4139_08007238`, `bms_4139_0800e4f8`
+- Called by: `bms_pb11_trigger_sequence_step`, `bms_4139_0800e4f8`
 - Confidence: high
 
 ## bms_nvic_system_reset_plain

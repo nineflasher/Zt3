@@ -1,6 +1,6 @@
 # VCU - `uart` functions
 
-13 functions.
+15 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -14,9 +14,11 @@
 | [`usart_transmitter_enable`](#usart_transmitter_enable) | 0x0800F046 | Enable or disable the USART transmitter (CTRL1.TEN) |
 | [`vcu_rx_ring0_pop_record`](#vcu_rx_ring0_pop_record) | 0x08007B58 | Pop one 20-byte record from receive ring 0 into a caller buffer |
 | [`vcu_rx_ring0_push_record`](#vcu_rx_ring0_push_record) | 0x08007BB0 | Push one 20-byte record into receive ring 0 if it is not full |
+| [`vcu_usart2_init`](#vcu_usart2_init) | 0x08001EE8 | Bring up USART2 at 115200 baud with DMA receive and transmit, then enable it |
 | [`vcu_usart2_pins_init`](#vcu_usart2_pins_init) | 0x08001E7C | Configure PA2 and PA3 as USART2 TX and RX pins |
 | [`vcu_usart2_rx_dma_init`](#vcu_usart2_rx_dma_init) | 0x08001F50 | Set up DMA1 channel 6 as the USART2 receive DMA into a 250-byte circular buffer |
 | [`vcu_usart2_tx_dma_init`](#vcu_usart2_tx_dma_init) | 0x08001FBC | Set up DMA1 channel 7 as the USART2 transmit DMA from RAM, left disabled |
+| [`vcu_usart_baud_frame_config`](#vcu_usart_baud_frame_config) | 0x0800EFD8 | Set a USART's BAUDR, 9-bit word length and stop bits from the peripheral clock |
 
 ## uart_rx_ring0_count
 
@@ -74,7 +76,7 @@ Matches the Artery SDK usart_dma_receiver_enable: writes (param_2 & 1) to bit 6 
 | `param_2` | `u32` | 1 = enable, 0 = disable |
 
 - Addresses by version: 148: 0x0800DF86, 14a: 0x0800E422, 14b: 0x0800E8B2, 14e: 0x0800E952, 14f: 0x0800EA9E, 152: 0x0800ED46, 153: 0x0800EE3A, 0159: 0x0800EFAA
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Confidence: high
 
 ## usart_dma_transmitter_enable
@@ -89,7 +91,7 @@ Matches the Artery SDK usart_dma_transmitter_enable: writes (param_2 & 1) to bit
 | `param_2` | `u32` | 1 = enable, 0 = disable |
 
 - Addresses by version: 148: 0x0800DF90, 14a: 0x0800E42C, 14b: 0x0800E8BC, 14e: 0x0800E95C, 14f: 0x0800EAA8, 152: 0x0800ED50, 153: 0x0800EE44, 0159: 0x0800EFB4
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Confidence: high
 
 ## usart_flag_get
@@ -121,7 +123,7 @@ Matches the Artery SDK usart_receiver_enable: writes (param_2 & 1) to bit 2 (REN
 | `param_2` | `u32` | 1 = enable, 0 = disable |
 
 - Addresses by version: 148: 0x0800E018, 14a: 0x0800E4B4, 14b: 0x0800E944, 14e: 0x0800E9E4, 14f: 0x0800EB30, 152: 0x0800EDD8, 153: 0x0800EECC, 0159: 0x0800F03C
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Confidence: high
 
 ## usart_transmitter_enable
@@ -136,7 +138,7 @@ Matches the Artery SDK usart_transmitter_enable: writes (param_2 & 1) to bit 3 (
 | `param_2` | `u32` | 1 = enable, 0 = disable |
 
 - Addresses by version: 148: 0x0800E022, 14a: 0x0800E4BE, 14b: 0x0800E94E, 14e: 0x0800E9EE, 14f: 0x0800EB3A, 152: 0x0800EDE2, 153: 0x0800EED6, 0159: 0x0800F046
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Confidence: high
 
 ## vcu_rx_ring0_pop_record
@@ -171,6 +173,20 @@ When ring 0 is not full (tail DAT_20002c30 differs from head + 1 modulo 32), it 
 - Calls: `__aeabi_memcpy`
 - Confidence: high
 
+## vcu_usart2_init
+
+**Bring up USART2 at 115200 baud with DMA receive and transmit, then enable it**
+
+Configures the USART2 pins (vcu_usart2_pins_init), sets up DMA channel 6 for receive and channel 7 for transmit (vcu_usart2_rx_dma_init and vcu_usart2_tx_dma_init), enables the USART2 clock (CRM id 0x1C0011, APB1 bit 17) and calls the SDK usart_init routine (vcu_0159_0800EFD8, not yet described) with baud 0x1C200, which is 115200. It then enables the transmitter, the receiver, the DMA transmit request and the DMA receive request, and sets USART2.CTRL1 bit 13 (UEN) to turn the peripheral on.
+
+**Notes:** The data-bit and stop-bit arguments of the usart_init call are 0; their enum meaning was not checked against the SDK. The register write at 0x4000440C is CTRL1 of USART2 (base 0x40004400).
+
+- Addresses by version: 148: 0x08001B04, 14a: 0x08001B6C, 14b: 0x08001E20, 14e: 0x08001E20, 14f: 0x08001E7C, 152: 0x08001EB8, 153: 0x08001ED4, 0159: 0x08001EE8
+- Peripheral registers: `USART2.STS` (A), `USART2.CTRL1` (RW)
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_usart2_pins_init`, `vcu_usart2_rx_dma_init`, `vcu_usart2_tx_dma_init`, `crm_periph_clock_enable`, `usart_dma_receiver_enable`, `usart_dma_transmitter_enable`, `vcu_usart_baud_frame_config`, `usart_receiver_enable`, `usart_transmitter_enable`
+- Confidence: high
+
 ## vcu_usart2_pins_init
 
 **Configure PA2 and PA3 as USART2 TX and RX pins**
@@ -181,7 +197,7 @@ Enables the GPIOA clock and configures PA2 (pin mask 0x4) with packed word 0x010
 
 - Addresses by version: 148: 0x08001A98, 14a: 0x08001B00, 14b: 0x08001DB4, 14e: 0x08001DB4, 14f: 0x08001E10, 152: 0x08001E4C, 153: 0x08001E68, 0159: 0x08001E7C
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Calls: `crm_periph_clock_enable`, `gpio_default_para_init`, `gpio_init`
 - Confidence: medium
 
@@ -195,7 +211,7 @@ Configures DMA1 channel 6 (control block 0x4002006C) to receive from USART2.DT (
 
 - Addresses by version: 148: 0x08001B6C, 14a: 0x08001BD4, 14b: 0x08001E88, 14e: 0x08001E88, 14f: 0x08001EE4, 152: 0x08001F20, 153: 0x08001F3C, 0159: 0x08001F50
 - Peripheral registers: `USART2.DT` (A), `DMA1.C6CTRL` (A)
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Calls: `crm_periph_clock_enable`, `dma_channel_enable`, `dma_default_para_init`, `dma_init`, `dma_reset`
 - Confidence: medium
 
@@ -209,6 +225,26 @@ Configures DMA1 channel 7 (control block 0x40020080) for memory-to-peripheral tr
 
 - Addresses by version: 148: 0x08001BD8, 14a: 0x08001C40, 14b: 0x08001EF4, 14e: 0x08001EF4, 14f: 0x08001F50, 152: 0x08001F8C, 153: 0x08001FA8, 0159: 0x08001FBC
 - Peripheral registers: `USART2.DT` (A), `DMA1.C7CTRL` (A)
-- Called by: `vcu_0159_08001ee8`
+- Called by: `vcu_usart2_init`
 - Calls: `crm_periph_clock_enable`, `dma_channel_enable`, `dma_default_para_init`, `dma_flag_clear`, `dma_init`, `dma_reset`
+- Confidence: medium
+
+## vcu_usart_baud_frame_config
+
+**Set a USART's BAUDR, 9-bit word length and stop bits from the peripheral clock**
+
+Computes the integer baud divisor round(pclk / baud) from the clock frequencies that crm_clocks_freq_get fills in, then writes it into the low 16 bits of BAUDR. It sets CTRL1 bit 12 from bit 0 of param_3 (9-bit word length) and CTRL2 bits 13:12 from bits 1:0 of param_4 (stop-bit code). Rounding is to nearest: the remainder of the division in tenths is compared with 5. The peripheral clock is read from a stack slot only for USART1, because the decompile assigns that slot only when the instance is &USART1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | USART peripheral (USART1 or another instance) |
+| `param_2` | `u32` | baud rate in bit/s |
+| `param_3` | `u32` | word-length flag, bit 0 (1 for 9-bit words) |
+| `param_4` | `u32` | stop-bit code, bits 1:0 |
+
+**Notes:** For USART instances other than USART1 the decompile leaves the clock variable unassigned, so the clock used for them is not determined here and must be checked in the disassembly. Field positions follow the masks in the code.
+
+- Addresses by version: 148: 0x0800DFB4, 14a: 0x0800E450, 14b: 0x0800E8E0, 14e: 0x0800E980, 14f: 0x0800EACC, 152: 0x0800ED74, 153: 0x0800EE68, 0159: 0x0800EFD8
+- Called by: `vcu_usart2_init`
+- Calls: `crm_clocks_freq_get`
 - Confidence: medium

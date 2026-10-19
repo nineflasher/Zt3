@@ -18,13 +18,12 @@ def _load_inputs(comp: str):
     exports = {}
     decomps = {}
     strings = {}
-    for fid, f in fam["functions"].items():
-        img = f["anchor"][0]
-        if img not in exports:
-            ex = json.loads((config.ANALYSIS_DIR / "export" / comp / f"{img}.json").read_text())
-            exports[img] = {x["addr"]: x for x in ex["functions"]}
-            strings[img] = {x["addr"]: x for x in ex["strings"]}
-            decomps[img] = json.loads((config.ANALYSIS_DIR / "decomp" / comp / f"{img}.json").read_text())
+    for img in fam["versions"]:                      # every build: data families may anchor anywhere
+        ex = json.loads((config.ANALYSIS_DIR / "export" / comp / f"{img}.json").read_text())
+        exports[img] = {x["addr"]: x for x in ex["functions"]}
+        strings[img] = {x["addr"]: x for x in ex["strings"]}
+        dp = config.ANALYSIS_DIR / "decomp" / comp / f"{img}.json"
+        decomps[img] = json.loads(dp.read_text()) if dp.exists() else {}
     return fam, exports, decomps, strings
 
 
@@ -239,3 +238,106 @@ def make_waves(comp: str, wave: int | None = None, force: bool = False, replan: 
             p.write_text("\n".join(lines) + "\n")
             written.append(p)
     return written
+
+
+# ---------------------------------------------------------------------------------------------
+# Data packets: RAM variables and flash tables, grouped by the module that uses them.
+# ---------------------------------------------------------------------------------------------
+DATA_PER_PACKET = 60
+_DAT_RE = re.compile(r"\b_?DAT_([0-9a-f]{8})\b")
+
+
+def _accessors(fam: dict, exports: dict, kind: str) -> dict[str, list[tuple[str, str]]]:
+    """family id -> [(function family id, 'R'|'W'|'RW'|'A')], via one reverse index per image."""
+    node_to_fam = {(n, a): fid for fid, f in fam["functions"].items() for n, a in f["members"].items()}
+    index: dict[str, dict[int, list[tuple[str, str]]]] = {}
+    for img, funcs in exports.items():
+        idx: dict[int, list[tuple[str, str]]] = defaultdict(list)
+        for fx in funcs.values():
+            ffid = node_to_fam.get((img, fx["addr"]))
+            if ffid is None:
+                continue
+            if kind == "globals":
+                for a, m in fx["ram"].items():
+                    idx[int(a, 16)].append((ffid, m))
+            else:
+                for a in fx["rodata"]:
+                    idx[a].append((ffid, "R"))
+        index[img] = idx
+    out: dict[str, list[tuple[str, str]]] = {}
+    for oid, f in fam[kind].items():
+        img, addr = f["anchor"]
+        out[oid] = index.get(img, {}).get(addr, [])
+    return out
+
+
+def make_data_waves(comp: str, kind: str = "globals") -> list[Path]:
+    """Write data work packets for every not-yet-covered global (or table) family."""
+    from . import objects
+    from .config import COMPONENTS
+
+    cobj = COMPONENTS[comp]
+    fam, exports, decomps, strings = _load_inputs(comp)
+    funcs = annotations.load_functions(comp)
+    notes = annotations.load_globals(comp) if kind == "globals" else annotations.load_tables(comp)
+    covered = {fid for r in objects.resolve(comp, notes, kind)[0].values() for fid in r["covers"]}
+    handed = packeted(comp)
+    acc = _accessors(fam, exports, kind)
+    todo = [oid for oid in fam[kind] if oid not in covered and oid not in handed]
+    # group by dominant category of the accessing functions, then by address
+    def category(oid: str) -> str:
+        cats = Counter(funcs[f]["category"] for f, _ in acc.get(oid, []) if f in funcs)
+        return cats.most_common(1)[0][0] if cats else "unreferenced"
+
+    groups: dict[str, list[str]] = defaultdict(list)
+    for oid in todo:
+        groups[category(oid)].append(oid)
+    out_dir = config.ANALYSIS_DIR / "work" / comp
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    tag = "data" if kind == "globals" else "table"
+    idx = next_batch_index_named(comp, tag)
+    for cat, oids in sorted(groups.items()):
+        oids.sort(key=lambda o: fam[kind][o]["anchor"][1])
+        for i in range(0, len(oids), DATA_PER_PACKET):
+            batch = oids[i:i + DATA_PER_PACKET]
+            name = f"{tag}_{cat}_batch{idx:02d}"
+            idx += 1
+            p = out_dir / f"{name}.md"
+            lines = [f"# {comp.upper()} {tag} packet `{name}`  ({len(batch)} objects, module `{cat}`)\n",
+                     f"Component: **{cobj.title}**. Chip `{cobj.chip}`.  Kind: **{kind}**.\n",
+                     f"Write your answer to `annotations/{comp}/{kind}/{name}.json` "
+                     f"(and new structs/enums to `annotations/{comp}/types/{name}.json`).\n",
+                     "Objects are listed in address order: adjacent addresses with the same accessors are usually "
+                     "one array or struct - describe them as ONE object with `size` covering all of them.\n"]
+            for oid in batch:
+                f = fam[kind][oid]
+                img, addr = f["anchor"]
+                lines.append(f"\n## `{oid}`  @ {img}:{addr:#010x}")
+                vers = ", ".join(v.split("_")[1] for v in sorted(f["members"], key=lambda n: int(n.split("_")[1], 16)))
+                lines.append(f"- present in builds: {vers}")
+                lines.append("- accessed by: " + ", ".join(
+                    f"`{funcs[fn]['name']}`[{m}]" if fn in funcs else f"`{fn}`[{m}]" for fn, m in acc.get(oid, [])[:12])
+                             + (" ..." if len(acc.get(oid, [])) > 12 else ""))
+                # evidence: decompiled lines mentioning the address, from up to 3 accessors
+                shown = 0
+                for fn, _ in acc.get(oid, [])[:3]:
+                    fimg, faddr = fam["functions"][fn]["anchor"]
+                    c = decomps.get(fimg, {}).get(f"{faddr:#x}", {}).get("c") or ""
+                    hits = [ln.strip() for ln in c.splitlines() if f"{addr:08x}" in ln.lower()]
+                    for ln in hits[:3]:
+                        lines.append(f"  - `{funcs[fn]['name'] if fn in funcs else fn}`: `{ln[:140]}`")
+                        shown += 1
+                if not shown:
+                    lines.append("  - (no decompiled line names this address directly; accessed through a pointer or base register)")
+            p.write_text("\n".join(lines) + "\n")
+            written.append(p)
+    return written
+
+
+def next_batch_index_named(comp: str, tag: str) -> int:
+    pat = re.compile(rf"^{tag}_.*_batch(\d+)")
+    idx = [int(m.group(1)) for d in (config.ANALYSIS_DIR / "work" / comp, config.ANNOTATIONS_DIR / comp / "globals",
+                                     config.ANNOTATIONS_DIR / comp / "tables")
+           if d.exists() for f in d.iterdir() if (m := pat.match(f.name))]
+    return max(idx, default=0) + 1

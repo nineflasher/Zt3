@@ -125,7 +125,7 @@ Decodes a remap code: the top byte selects the IOMUX register, bits 23..16 give 
 
 - Addresses by version: 148: 0x0800C310, 14a: 0x0800C754, 14b: 0x0800CBE0, 14e: 0x0800CC74, 14f: 0x0800CDB0, 152: 0x0800D03C, 153: 0x0800D130, 0159: 0x0800D19C
 - Peripheral registers: `IOMUX.EVTOUT` (A)
-- Called by: `vcu_0159_08002060`, `vcu_spi_pins_remap_init`, `vcu_can1_pins_remap_init`
+- Called by: `vcu_peripheral_init_sequence`, `vcu_spi_pins_remap_init`, `vcu_can1_pins_remap_init`
 - Confidence: high
 
 ## vcu_gpio_b10_high_b2_low
@@ -166,7 +166,7 @@ Board GPIO bring-up for one hardware variant. It calls vcu_0159_0800237c to conf
 
 - Addresses by version: 148: 0x080020A0, 14a: 0x08002110, 14b: 0x080023EC, 14e: 0x080023EC, 14f: 0x08002448, 152: 0x08002484, 153: 0x080024A0, 0159: 0x0800248C
 - Peripheral registers: `GPIOA.CFGLR` (A), `GPIOC.CFGLR` (A)
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Calls: `vcu_gpio_out_pins_config`, `vcu_gpio_pa9_pb67_init`, `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: high
 
@@ -184,7 +184,7 @@ A nonzero argument calls gpio_bits_set on GPIOC; zero calls gpio_bits_reset(&GPI
 
 - Addresses by version: 148: 0x08007FD8, 14a: 0x08008434, 14b: 0x080087AC, 14e: 0x080087EC, 14f: 0x08008848, 152: 0x0800890C, 153: 0x080089A8, 0159: 0x08008A0C
 - Peripheral registers: `GPIOC.CFGLR` (A)
-- Called by: `vcu_pair_pulse_pattern_step`, `vcu_0159_080042f8`, `vcu_0159_080047ac`, `vcu_0159_080057ac`, `vcu_0159_08005938`, `vcu_c14_c15_blink_step`
+- Called by: `vcu_pair_pulse_pattern_step`, `vcu_c14_c15_pulse_sequencer`, `vcu_0159_080047ac`, `vcu_display_frame_render_tick`, `vcu_panel_key_report_telemetry_tick`, `vcu_c14_c15_blink_step`
 - Calls: `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: medium
 
@@ -202,7 +202,7 @@ Same behaviour as vcu_gpio_c14_set on the other pin: nonzero calls gpio_bits_set
 
 - Addresses by version: 148: 0x08007FF4, 14a: 0x08008450, 14b: 0x080087C8, 14e: 0x08008808, 14f: 0x08008864, 152: 0x08008928, 153: 0x080089C4, 0159: 0x08008A28
 - Peripheral registers: `GPIOC.CFGLR` (A)
-- Called by: `vcu_pair_pulse_pattern_step`, `vcu_0159_080042f8`, `vcu_0159_080047ac`, `vcu_0159_080057ac`, `vcu_0159_08005938`, `vcu_c14_c15_blink_step`
+- Called by: `vcu_pair_pulse_pattern_step`, `vcu_c14_c15_pulse_sequencer`, `vcu_0159_080047ac`, `vcu_display_frame_render_tick`, `vcu_panel_key_report_telemetry_tick`, `vcu_c14_c15_blink_step`
 - Calls: `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: medium
 
@@ -237,7 +237,7 @@ Sets the start-up level of 15 output pins using gpio_bits_reset (CLR register) a
 
 - Addresses by version: 148: 0x08001EE8, 14a: 0x08001F58, 14b: 0x08002234, 14e: 0x08002234, 14f: 0x08002290, 152: 0x080022CC, 153: 0x080022E8, 0159: 0x080022D4
 - Peripheral registers: `GPIOA.CFGLR` (A), `GPIOB.CFGLR` (A), `GPIOC.CFGLR` (A), `GPIOF.CFGLR` (A)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Calls: `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: high
 
@@ -251,7 +251,7 @@ Enables the GPIOA clock and configures pin 0 (PA0) through gpio_default_para_ini
 
 - Addresses by version: 148: 0x08001A4C, 14a: 0x08001AB4, 14b: 0x08001D68, 14e: 0x08001D68, 14f: 0x08001DC4, 152: 0x08001E00, 153: 0x08001E1C, 0159: 0x08001E30
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_08001e6c`
+- Called by: `vcu_tmr2_pwm_pa0_bringup`
 - Calls: `crm_periph_clock_enable`, `gpio_default_para_init`, `gpio_init`
 - Confidence: medium
 
@@ -277,7 +277,7 @@ Calls gpio_bits_reset(GPIOA, 0x0200), the low counterpart of vcu_gpio_pa9_set. S
 
 - Addresses by version: 148: 0x0800DD80, 14a: 0x0800E21C, 14b: 0x0800E6AC, 14e: 0x0800E74C, 14f: 0x0800E898, 152: 0x0800EB40, 153: 0x0800EC34, 0159: 0x0800EDA4
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_080057ac`, `vcu_0159_0800ed4c`
+- Called by: `vcu_display_frame_render_tick`, `vcu_led_tm1640_frame_commit`
 - Calls: `gpio_bits_reset`
 - Confidence: high
 
@@ -289,7 +289,7 @@ Calls gpio_bits_set(GPIOA, 0x0200). PA9 is a separate output line whose role is 
 
 - Addresses by version: 148: 0x0800DD70, 14a: 0x0800E20C, 14b: 0x0800E69C, 14e: 0x0800E73C, 14f: 0x0800E888, 152: 0x0800EB30, 153: 0x0800EC24, 0159: 0x0800ED94
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_080057ac`, `vcu_0159_0800ed4c`
+- Called by: `vcu_display_frame_render_tick`, `vcu_led_tm1640_frame_commit`
 - Calls: `gpio_bits_set`
 - Confidence: high
 
@@ -313,7 +313,7 @@ Calls gpio_bits_set(GPIOB, 0x0040), which writes bit 6 to the GPIOB set register
 
 - Addresses by version: 148: 0x0800DCD0, 14a: 0x0800E16C, 14b: 0x0800E5FC, 14e: 0x0800E69C, 14f: 0x0800E7E8, 152: 0x0800EA90, 153: 0x0800EB84, 0159: 0x0800ECF4
 - Peripheral registers: `GPIOB.CFGLR` (A)
-- Called by: `vcu_0159_080057ac`, `led_driver_shift_out_byte`
+- Called by: `vcu_display_frame_render_tick`, `led_driver_shift_out_byte`
 - Calls: `gpio_bits_set`
 - Confidence: high
 
@@ -337,7 +337,7 @@ Calls gpio_bits_set(GPIOB, 0x0080). PB7 is the data line of the byte shifter vcu
 
 - Addresses by version: 148: 0x0800DCE8, 14a: 0x0800E184, 14b: 0x0800E614, 14e: 0x0800E6B4, 14f: 0x0800E800, 152: 0x0800EAA8, 153: 0x0800EB9C, 0159: 0x0800ED0C
 - Peripheral registers: `GPIOB.CFGLR` (A)
-- Called by: `vcu_0159_080057ac`, `led_driver_shift_out_byte`
+- Called by: `vcu_display_frame_render_tick`, `led_driver_shift_out_byte`
 - Calls: `gpio_bits_set`
 - Confidence: high
 
@@ -355,7 +355,7 @@ Computes (mask & ~IDT) == 0, where IDT is the port input data register at offset
 **Returns** `bool`: 1 when all masked pins read high, else 0
 
 - Addresses by version: 148: 0x0800C302, 14a: 0x0800C746, 14b: 0x0800CBD2, 14e: 0x0800CC66, 14f: 0x0800CDA2, 152: 0x0800D02E, 153: 0x0800D122, 0159: 0x0800D18E
-- Called by: `vcu_pb13_input_active_low`, `vcu_pb11_input_active_low`, `vcu_pa1_input_high`, `vcu_pb12_input_active_low`, `vcu_gpio_b10_high_b2_low`, `vcu_gpio_b10_low_b2_high`, `vcu_0159_08009fa4`
+- Called by: `vcu_pb13_input_active_low`, `vcu_pb11_input_active_low`, `vcu_pa1_input_high`, `vcu_pb12_input_active_low`, `vcu_gpio_b10_high_b2_low`, `vcu_gpio_b10_low_b2_high`, `vcu_pb14_timed_edge_sequence`
 - Confidence: high
 
 ## vcu_pa11_pulse_step
@@ -400,7 +400,7 @@ Writes GPIOA pin 0x40 (PA6) with gpio_bits_set when the argument is nonzero and 
 
 - Addresses by version: 148: 0x0800539C, 14a: 0x08005788, 14b: 0x08005AB0, 14e: 0x08005AE8, 14f: 0x08005B44, 152: 0x08005B9C, 153: 0x08005C38, 0159: 0x08005D9C
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_pa6_output_status_update`, `vcu_0159_080047ac`, `vcu_0159_080057ac`, `vcu_0159_08005938`, `vcu_0159_08008614`, `vcu_double_pulse_indicator_step`
+- Called by: `vcu_pa6_output_status_update`, `vcu_0159_080047ac`, `vcu_display_frame_render_tick`, `vcu_panel_key_report_telemetry_tick`, `vcu_input_edge_actions`, `vcu_double_pulse_indicator_step`
 - Calls: `gpio_bits_reset`, `gpio_bits_set`
 - Confidence: high
 
@@ -428,7 +428,7 @@ Calls vcu_gpio_pins_all_high on GPIOB with mask 0x1000 and returns 1 only when P
 
 - Addresses by version: 148: 0x0800708C, 14a: 0x080074C8, 14b: 0x0800782C, 14e: 0x08007864, 14f: 0x080078C0, 152: 0x08007984, 153: 0x08007A20, 0159: 0x08007AB8
 - Peripheral registers: `GPIOB.CFGLR` (A)
-- Called by: `vcu_0159_080047ac`, `vcu_0159_08007ecc`, `vcu_input_sm_c_tick`, `vcu_0159_0800a120`, `vcu_0159_0800a39c`
+- Called by: `vcu_0159_080047ac`, `vcu_sensor_threshold_pulse_count`, `vcu_input_sm_c_tick`, `vcu_0159_0800a120`, `vcu_0159_0800a39c`
 - Calls: `vcu_gpio_pins_all_high`
 - Confidence: high
 

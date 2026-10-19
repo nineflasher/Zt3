@@ -1,28 +1,54 @@
 # BMS - `protection` functions
 
-19 functions.
+27 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
+| [`bms_current_limit_derate`](#bms_current_limit_derate) | 0x08007704 | Derate charge and discharge current limits from a derate input, SOC and cell voltage |
 | [`bms_fault_class_get`](#bms_fault_class_get) | 0x0800A2BC | Priority-encode three RAM flags into a 0..3 class code |
 | [`bms_fault_record_service`](#bms_fault_record_service) | 0x0800FABC | Run the fault sub-state handler with a 20-tick window, then commit the fault record to status bits |
 | [`bms_fault_timers_step`](#bms_fault_timers_step) | 0x08003FCC | Advance the fault-timer accumulators by one step; return 1 when one passes its limit |
 | [`bms_history_ring_commit`](#bms_history_ring_commit) | 0x08005CDC | Fill the history ring on first call; later calls commit staged blocks and queue a snapshot |
 | [`bms_level_hysteresis_update`](#bms_level_hysteresis_update) | 0x0800AACC | Two-threshold hysteresis from the level byte at 0x20000630 into the flag at 0x2000062F |
 | [`bms_limit_derate_legacy_4130`](#bms_limit_derate_legacy_4130) | (removed) | Derate the two current limits and the gated output from one sampled reading and a SOC-like byte |
+| [`bms_limit_status_update`](#bms_limit_status_update) | 0x08004774 | Once per 1000 ticks: compute current limits and status word, publish them to the state block |
+| [`bms_mode_fsm_step`](#bms_mode_fsm_step) | 0x0800CE64 | Step the four-state mode machine that writes the mode field in bits 0 to 2 of +0x124 |
 | [`bms_profile_block_fill_4139`](#bms_profile_block_fill_4139) | (removed) | Fill the 4139 parameter block for profile id 0x20000016 (nine cases, default otherwise) |
 | [`bms_profile_block_fill_4168`](#bms_profile_block_fill_4168) | 0x08004128 | Fill the 4168 parameter block for profile id 0x20000026 (13 ids, default set otherwise) |
+| [`bms_profile_select_from_code`](#bms_profile_select_from_code) | 0x08003CC0 | Decode the identity code into table and block profile ids, store a date value, load defaults |
 | [`bms_profile_table_fill_4130`](#bms_profile_table_fill_4130) | (removed) | Write the 4130 table of 12-byte limit records and set the thresholds for profile id 0x20000014 |
 | [`bms_profile_table_fill_4139`](#bms_profile_table_fill_4139) | (removed) | Fill the 4139 record table and threshold bytes for profile id 0x20000014 |
 | [`bms_profile_table_fill_4168`](#bms_profile_table_fill_4168) | 0x08004488 | Fill the 4168 record table and threshold bytes for profile id 0x20000024 |
 | [`bms_prot_debounce_quad`](#bms_prot_debounce_quad) | 0x0800C380 | Run four debounced protection timers over a measurement record and update latch bits |
 | [`bms_prot_latch_pairs_update`](#bms_prot_latch_pairs_update) | 0x0800CE78 | Update seven debounced set/clear timer pairs and mirror the latch word into status bits |
 | [`bms_prot_latch_pairs_update_alt`](#bms_prot_latch_pairs_update_alt) | (removed) | BMS_4130/4139 variant of the latch-pair update: seven timer pairs and latch word 0x2000019C |
+| [`bms_protect_dwell_flags_update`](#bms_protect_dwell_flags_update) | 0x0800C018 | Advance protection latch dwell timers and mirror the latch word into BMS control words |
 | [`bms_protect_latch_evaluate`](#bms_protect_latch_evaluate) | 0x0800D2EC | Evaluate eight dwell-timed threshold latches and update protection status word 0x20000254 |
+| [`bms_setpoint_service_step`](#bms_setpoint_service_step) | 0x08008006 | Main-loop service: run the setpoint window sampler, then the percent hysteresis step |
+| [`bms_status_bit4_from_reply`](#bms_status_bit4_from_reply) | 0x0800549C | Copy reply bit 9 into state bit 0x10 when no limit flag is active; set the request byte at +0xF9 |
 | [`bms_status_event_snapshot`](#bms_status_event_snapshot) | 0x08005AB0 | Maintain the status-flag byte at 0x2000056B and snapshot the state when a flag rises |
+| [`bms_status_latch_step`](#bms_status_latch_step) | 0x08005FC4 | Latch state bit 0 and clear bit 2 at once, or after 3000 units of low current when bit 5 is set |
 | [`bms_status_timeout_latch_4139`](#bms_status_timeout_latch_4139) | (removed) | Set a status flag after 2000 units of a low-value condition (4139 switch case body) |
 | [`bms_window_latch_narrow`](#bms_window_latch_narrow) | 0x080038C8 | Debounced latch for the narrow window (+8 < 40, +10 > 5); counts whole units while latched |
 | [`bms_window_latch_wide`](#bms_window_latch_wide) | 0x08003954 | Debounced latch for the wide window (+8 < 55, +10 > -15); counts whole units while latched |
+
+## bms_current_limit_derate
+
+**Derate charge and discharge current limits from a derate input, SOC and cell voltage**
+
+Computes the current limits once per tick. param_2 points to an s16 derate input x (at +0; the scale is not given in this packet, but the breakpoints suggest a temperature) and an s16 level index at +2 (0 to 9). Factor 1 is piecewise-linear in x with breakpoints 0x20000ED8, 0x20000ED9, 0x20000EDB and 0x20000EDA, floor 0x20000EDE and plateau 100. Factor 2 is a second ramp in x with floor 0x20000EDF, which is scaled by the SOC percent (0x20000E24) between 0x20000EDC and 0x20000EDD when x is low, and factor 3 is nonzero only inside the window 0x20000EE0 to 0x20000EE5. Limit 0x20000E50 = factor 1 * factor 2 * 0x20000ED5 * 0x20000ECC / 1000, clamped to 10 times 0x20000E90. Limit 0x20000E4C = SOC taper (100 minus 0x20000EE6 times (SOC - 80) above 80 percent) * factor 3 * 0x20000ED5 * 0x20000ECE / 1000, clamped to 10 times 0x20000E92, and forced to 5000 when the reply flag and 0x20000DDF are set. In modes 6, 7 and 8 at SOC below 25 the first limit is capped at 5000, 6000 or 7000 depending on the level index, and while the highest cell voltage at param_1+8 is at or above 4140 mV (released below 4130, flag 0x200001E8) the second limit is capped at 1000. The published value 0x20000E54 = 0x20000EE7 * limit 2 / 10, forced to zero outside the window 0x20000EE0 to 0x20000EE1. In those modes the u16 at state+0x192 is set to 380 when the level index is above 5 (with flag 0x200001E7) and to 338 otherwise.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | status record; u16 at +8 is the highest cell voltage in mV, compared with 4130 and 4140 |
+| `param_2` | `ptr` | s16 derate input x at +0 and s16 level index at +2 |
+
+**Notes:** Several operands come from a one-argument FUN_08001110(100) call whose second argument does not appear in the decompile, so the window logic around 0x20000EE0 to 0x20000EE5 is reproduced as read and not verified. The charge or discharge direction of each limit is inferred: the SOC taper above 80 percent suggests limit 2 (0x20000E4C) is the charge side. The 338 and 380 values at +0x192 could be temperature thresholds in tenths of a degree, which is a guess.
+
+- Addresses by version: 4139: 0x08006C24, 4148: 0x08007450, 4168: 0x08007704
+- Called by: `bms_meas_interp_filter_dispatch`
+- Calls: `bms_udiv32`, `bms_sdiv32`, `bms_ram_20000bdc_addr`, `bms_reply_buffer_get`
+- Confidence: low
 
 ## bms_fault_class_get
 
@@ -79,7 +105,7 @@ Two-pass history routine for the buffers at 0x200010A8 to 0x200012FC. The first 
 **Notes:** The record layout is inferred from the stores. The first-call records overlap the snapshot written by bms_status_event_snapshot at 0x200010A8, and the packet does not show how the two layouts line up. Tag 5 is not identified.
 
 - Addresses by version: 4130: 0x08005460, 4139: 0x0800567C, 4148: 0x08005B88, 4168: 0x08005CDC
-- Called by: `bms_4168_0800a8a0`
+- Called by: `bms_snapshot_logger_tick`
 - Calls: `memcpy`, `bms_rtc_datetime_pack`, `bms_slot_pool_register`, `bms_ram_20000bdc_addr`
 - Confidence: medium
 
@@ -111,8 +137,42 @@ The signed 16-bit sample at sample selects a trapezoid factor f1 (0..100) betwee
 **Notes:** No direct caller in this packet (entry point, callback or indirect). Helper at 0x0800AEAC (id unresolved: not a function in any BMS build) is called first with no result used; its role is not in this packet.
 
 - Addresses by version: 4130: 0x08006830
-- Called by: `bms_4168_0800c638`
-- Calls: `bms_udiv32`, `bms_4168_0800113c`, `bms_ram_20000bdc_addr`
+- Called by: `bms_meas_interp_filter_dispatch`
+- Calls: `bms_udiv32`, `bms_sdiv32`, `bms_ram_20000bdc_addr`
+- Confidence: medium
+
+## bms_limit_status_update
+
+**Once per 1000 ticks: compute current limits and status word, publish them to the state block**
+
+Accumulates the elapsed time in 0x2000000C and returns until it passes 1000, then resets it. It computes the working current limit (sVar1) from the state word at +0x120: it is capped at 400 while DAT_20000DDC and the latched high-current flag DAT_20000DE6 are set, is forced to 100 when the word at +0x198 has bit 6 or 7 set, and when flag 0x20000B57 is set it subtracts the reserve DAT_200001C4 (derived in bms_4168_080054f8). The flag DAT_20000DE6 latches when the current at +0x11A exceeds 799 on three updates (counter DAT_20000010 reaching 3) while DAT_20000DDF is clear. It packs a 32-bit status from the current, the state-of-charge fields at +0x104 and +0x11E, and the 1-bit flags DAT_20000DDC to DAT_20000DE5 and the byte at +0x194. A second limit comes from the block at 0x20000E58 (+0x3A), overridden with 500 when DAT_20000DDF is set, and a small-current hysteresis accumulator (DAT_20000004 with latch DAT_20000003 and counter DAT_20000014, capped at 500) adjusts it. The seven resulting words are copied to 0x20002BF0 with bms_block_store_u16x7, eight reply values are cached at +0x15C to +0x16A, and the flag words are copied to +0x16C to +0x17A.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | elapsed ticks since the last call; 1000 ticks make one update |
+
+**Notes:** bms_reply_buffer_get is called, and it clears the reply buffer while its busy flag is clear. The 0x1554 constant in the status pack, the field at +0x118 and the reserve value are inferred from use. The names of the limits are based on how they are used and are not confirmed.
+
+- Addresses by version: 4148: 0x08004690, 4168: 0x08004774
+- Called by: `bms_4168_08007a0c`
+- Calls: `bms_app_flag_b57_get`, `bms_ram_20000bdc_addr`, `bms_get_block_20000e58_ptr`, `bms_block_store_u16x7`, `bms_reply_buffer_get`, `bms_get_200005c1_bit0`
+- Confidence: medium
+
+## bms_mode_fsm_step
+
+**Step the four-state mode machine that writes the mode field in bits 0 to 2 of +0x124**
+
+Four-state mode controller for the BMS state block at 0x20000BDC. The state is DAT_20000E20 and the mode written to bits 0 to 2 of the u16 at +0x124 is 0 in idle, 1 in monitoring, 4 in hold and 2 in recovery. Each call adds param_1 ticks to the timers at 0x20000E10, 0x20000E14, 0x20000E18 and 0x20000E1C. Idle waits until bit 0 or bit 5 of the u16 at +0x194 is set, then enters monitoring. Monitoring goes to hold after 1000 ticks when bit 5 is set and either the s16 at +0x11A is above 9 or the reply status is negative, goes to recovery after 2000 ticks when bit 0 is set and +0x11A is at or below -10, and returns to idle when bits 0 and 5 are both clear. Hold waits for 3000 ticks with +0x11A below 5 and a non-negative reply status before returning to monitoring, and returns at once when bit 5 clears. Recovery resets its 6000-tick timer while +0x11A is below -4 and the reply status is non-negative, otherwise accumulates, and returns to monitoring once the timer reaches 6000 or immediately when the reply status is negative or bit 0 is clear.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | elapsed ticks added to the state timers |
+
+**Notes:** The meaning of the status bits at +0x194 and of the measurement at +0x11A is not identified; the state names describe behaviour, not function. The reply status is the s16 at +0x10 of the buffer returned by bms_reply_buffer_get. The first state-machine transition through the default code path (state 2) is taken from the fall-through after the switch, which the decompiler marks as a jump-table warning.
+
+- Addresses by version: 4130: 0x0800BB08, 4139: 0x0800C0D8, 4148: 0x0800CA7C, 4168: 0x0800CE64
+- Called by: `bms_4168_08007a0c`
+- Calls: `bms_status_latch_step`, `bms_ram_20000bdc_addr`, `bms_reply_buffer_get`
 - Confidence: medium
 
 ## bms_profile_block_fill_4139
@@ -124,7 +184,7 @@ Chooses one parameter set from the profile id at DAT_20000016: ids 0, 2, 3, 4, 5
 **Notes:** The values are constants from this code, not measurements, and the units of the capacity-like value and of the block are not in the packet. Sibling fills: bms_profile_block_fill_4168, bms_profile_table_fill_4130 and bms_profile_table_fill_4139, which have different record layouts.
 
 - Addresses by version: 4139: 0x080040E4
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Calls: `bms_udiv32`, `bms_get_block_20000e58_ptr`
 - Confidence: medium
 
@@ -137,8 +197,21 @@ Picks one of nine sets from the profile id at DAT_20000026: ids 4 and 12 share a
 **Notes:** Same role as bms_profile_block_fill_4139 for the 4168 build, with a different id-to-set mapping and different fixed bytes. The meaning of the capacity-like value is not in the packet.
 
 - Addresses by version: 4148: 0x080040FC, 4168: 0x08004128
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Calls: `bms_udiv32`, `bms_get_block_20000e58_ptr`
+- Confidence: medium
+
+## bms_profile_select_from_code
+
+**Decode the identity code into table and block profile ids, store a date value, load defaults**
+
+Reads the identity block whose pointer is stored at 0x2000002C. If the first byte at block+4 has bit 7 set, the 7-bit packed string is unpacked with bms_unpack_7bit_string (bms_4168_080033ce) into a 16-byte stack buffer and fields are read from offset 7; otherwise they are read in place from offset 9. It decodes a two-character decimal field and two alphanumeric characters into a 16-bit value stored at block+0x14, a date-like code. It then matches the model code starting with 'Z0' against a table: Z01M gives (2,2), Z020 (0,0), Z050 (3,3), Z060 (4,4), Z056 (5,5), Z0B8 (6,6), Z0AB (7,7), Z0AN (8,8), Z0EC, Z0ED, Z0EE, Z0EF give (1,9), (2,10), (3,11), (4,12); anything else gives (1,1). The two results go into the bytes at 0x20000024 (table profile, used by bms_profile_table_fill_4168) and 0x20000026 (block profile, used by bms_profile_block_fill_4168). It stores five constants into 0x2000051C with bms_4168_0800bffc, fills the blocks returned by bms_4168_0800c378, bms_4168_0800c370 and bms_4168_0800b8a4 (the last holds mV and degC thresholds, with a 2500 or 2700 mV low limit and profile-class-dependent bytes for profiles 6 to 8 versus the others), calls both profile fill routines, and writes 7 to the word at block+0x1D8.
+
+**Notes:** The decode of the date-like field is inconsistent: the first digit is ASCII-decoded while the second is used raw, and the two alphanumeric characters use a letter map where I and O decode to the same values as H and N. The field offsets also differ by two between the packed path (+7) and the plain path (+5 from the prefix). These may be real firmware quirks or decoder artifacts. The threshold values (4200, 4100, 4000, 3000, 2500 or 2700 mV; 58, 55, 65, 60 and negative degC limits) are read from the stores and are medium confidence. Helper routines bms_4168_0800c378, bms_4168_0800c370 and bms_4168_0800b8a4 are described elsewhere under the names in the packet; their use here is a pointer return followed by stores.
+
+- Addresses by version: 4130: 0x08003CAC, 4139: 0x08003CAC, 4148: 0x08003CC0, 4168: 0x08003CC0
+- Called by: `bms_state_restore_or_init`, `bms_4168_080082f0`
+- Calls: `bms_unpack_7bit_string`, `bms_profile_block_fill_4168`, `bms_profile_table_fill_4168`, `bms_byte_2000063e_addr`, `bms_u16x5_block_store`, `bms_u32_200004dc_addr`, `bms_byte_200004f4_addr`
 - Confidence: medium
 
 ## bms_profile_table_fill_4130
@@ -150,7 +223,7 @@ Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fourteen of them (1, 
 **Notes:** The purpose of individual records is not stated in the packet. The 4000 and 10000 words are probably limits or durations, which is an inference. The 4139 counterpart is bms_profile_table_fill_4139, which writes its threshold to +0x192 rather than +0x52.
 
 - Addresses by version: 4130: 0x08004208
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Calls: `bms_record12_addr`
 - Confidence: medium
 
@@ -163,7 +236,7 @@ Fills 18 records through bms_record12_addr for the 4139 build (its accessor is F
 **Notes:** Same structure as bms_profile_table_fill_4130 with different ids, record numbers and offsets. The purpose of individual records is not stated in the packet.
 
 - Addresses by version: 4139: 0x08004388
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Calls: `bms_record12_addr`
 - Confidence: medium
 
@@ -176,7 +249,7 @@ Fills 20 records through bms_record12_addr for the 4168 build (accessor FUN_0800
 **Notes:** Sibling of bms_profile_table_fill_4139 and bms_profile_table_fill_4130 with a different id mapping and record set. The purpose of each record is not stated in the packet.
 
 - Addresses by version: 4148: 0x080043A4, 4168: 0x08004488
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Calls: `bms_record12_addr`
 - Confidence: medium
 
@@ -238,6 +311,24 @@ Per-tick fault evaluator for the BMS_4130 and BMS_4139 builds, structured like b
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 
+## bms_protect_dwell_flags_update
+
+**Advance protection latch dwell timers and mirror the latch word into BMS control words**
+
+Per-tick update of the protection latch word at 0x2000025C and its dwell timers. param_1 carries request bits: bit 6 sets latch 0x08 and control-word bit 0x800, bit 7 sets 0x400, bit 8 sets 0x1000 (control word at 0x200001C8). param_2 is the elapsed tick count added to each armed timer, and an unarmed timer is zeroed. Timer 0x20001070 arms latch 0x02 while bit 2 of the u16 at +0x124 (BMS state block at 0x20000BDC) is set and the s16 at +0x11A is at least DAT_20000474*100, and sets 0x02 when it reaches DAT_20000478. Timer 0x20001074 is the release timer for latches 0x02/0x04/0x08/0x10 (limit 0x2000047C, gated by bit 5 of the byte at +0x194). Timers 0x20001090 and 0x20001094 set and release latch 0x80 (limits 0x200004A8 and 0x200004AC), and timer 0x20001098 sets latch 0x100 once +0x11A stays at or below DAT_200004B0*100 for DAT_200004B4 ticks. The sticky byte DAT_20000251 is set when accumulator 0x20000260 passes DAT_200004B4+5000 while bit 12 is clear, and is cleared when timer 0x2000109C expires. The routine ends by mirroring the latch word into +0x124 (bits 5 and 6), +0x126 (bit 2) and +0x198 (bits 5 and 6), and driving bit 0x1000 of the control word.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | request flags: bit 6 sets latch 0x08, bit 7 sets latch 0x400, bit 8 sets latch 0x1000 |
+| `param_2` | `u32` | elapsed ticks added to the armed dwell timers |
+
+**Notes:** The meaning of the request bits and of the measurement at +0x11A is not identified; the thresholds are only named by RAM address. The bit mapping was read from shift tests and is high confidence, the naming of the latches is not. The latch word 0x2000025C is not the status word 0x20000254 described in bms_protect_latch_evaluate; the two may be separate latch groups.
+
+- Addresses by version: 4130: 0x0800B090, 4139: 0x0800B5E8, 4148: 0x0800BD04, 4168: 0x0800C018
+- Called by: `bms_4168_08007a0c`
+- Calls: `bms_ram_20000bdc_addr`, `bms_ram_200001c8_addr`, `bms_reply_buffer_get`
+- Confidence: medium
+
 ## bms_protect_latch_evaluate
 
 **Evaluate eight dwell-timed threshold latches and update protection status word 0x20000254**
@@ -258,6 +349,38 @@ Runs the protection latch engine once per call over eight channels. Each channel
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 
+## bms_setpoint_service_step
+
+**Main-loop service: run the setpoint window sampler, then the percent hysteresis step**
+
+Wrapper that calls bms_setpoint_window_sample (0x0800E478) without arguments and then bms_pct_hysteresis_step (0x0800E67C) with param_1. The window sampler runs a comparator with hysteresis on 30000-tick sampling and restores the control shadows, as described in its own entry.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | forwarded to bms_pct_hysteresis_step |
+
+- Addresses by version: 4130: 0x08006FBE, 4139: 0x080074BE, 4148: 0x08007CFE, 4168: 0x08008006
+- Called by: `bms_4168_08010558`
+- Calls: `bms_setpoint_window_sample`, `bms_pct_hysteresis_step`
+- Confidence: high
+
+## bms_status_bit4_from_reply
+
+**Copy reply bit 9 into state bit 0x10 when no limit flag is active; set the request byte at +0xF9**
+
+Clears the byte at the context's +0x103. When neither DAT_20000A53 nor flag 0x20000B57 is set, it copies bit 9 of the reply-buffer word at +0x10 into bit 4 (0x10) of the 16-bit state word at +0x194 and clears DAT_200001BA. It then sets the byte at the context's +0xF9 to 1, which marks the context as ready for its next step. The reply-buffer getter is called and can clear the reply buffer when its busy flag is clear.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | unused |
+| `param_2` | `ptr` | per-channel context: byte +0x103 cleared, byte +0xF9 set to 1 |
+
+**Notes:** The meaning of bit 0x10 in the state word at +0x194 and of DAT_20000A53 is not identified. The caller is bms_4168_08007a0c's family and is not in this packet.
+
+- Addresses by version: 4130: 0x08004C94, 4139: 0x08004EB0, 4148: 0x08005350, 4168: 0x0800549C
+- Calls: `bms_ram_20000bdc_addr`, `bms_reply_buffer_get`
+- Confidence: medium
+
 ## bms_status_event_snapshot
 
 **Maintain the status-flag byte at 0x2000056B and snapshot the state when a flag rises**
@@ -267,8 +390,25 @@ Keeps a flag byte at 0x2000056B that mirrors status bits with hysteresis. Bits 0
 **Notes:** The bit mapping is read from the shift tests, so the status-bit names are not given in the packet. The snapshot layout is as stored and the field meanings are inferred.
 
 - Addresses by version: 4130: 0x0800524C, 4139: 0x08005468, 4148: 0x08005964, 4168: 0x08005AB0
-- Called by: `bms_4168_0800a8a0`
+- Called by: `bms_snapshot_logger_tick`
 - Calls: `bms_rtc_datetime_pack`, `bms_ram_20000bdc_addr`, `bms_u16_20000dfc_addr`
+- Confidence: medium
+
+## bms_status_latch_step
+
+**Latch state bit 0 and clear bit 2 at once, or after 3000 units of low current when bit 5 is set**
+
+Called from the switch in bms_4168_0800ce64 with the elapsed time as its argument. If bit 5 (0x20) of the byte at state +0x194 is set, it adds the argument to DAT_20000E14 while the current at +0x11A is below 5 and the reply word +0x10 is not negative, resets DAT_20000E14 otherwise, and latches only after it exceeds 2999. If bit 5 is clear it latches immediately. Latching clears bit 2 and sets bit 0 of the 16-bit state word at +0x124 and sets DAT_20000E20 to 1. The reply-buffer getter is called and can clear the reply buffer when its busy flag is clear.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | elapsed time added to the 3000-unit timer |
+
+**Notes:** The purpose of the latch and of bit 5 at +0x194 is not identified; the name describes the mechanics only. The caller, bms_4168_0800ce64, is not in this packet.
+
+- Addresses by version: 4148: 0x08005E70, 4168: 0x08005FC4
+- Called by: `bms_mode_fsm_step`
+- Calls: `bms_ram_20000bdc_addr`, `bms_reply_buffer_get`
 - Confidence: medium
 
 ## bms_status_timeout_latch_4139
@@ -284,7 +424,7 @@ This is a case body of a switch (decompiler label switchD_0800c0e2::caseD_2); th
 **Notes:** Because the decompiled structure runs the flag set when bit 5 is clear, the delay applies only in the bit-5-set case. The switch dispatcher and the meaning of bit 0 of +0x124 are not in the packet.
 
 - Addresses by version: 4130: 0x08005748, 4139: 0x08005964
-- Called by: `bms_4168_0800ce64`
+- Called by: `bms_mode_fsm_step`
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 

@@ -1,6 +1,6 @@
 # VCU - `protocol` functions
 
-15 functions.
+21 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -14,11 +14,17 @@
 | [`vcu_can_tp_sender_tick`](#vcu_can_tp_sender_tick) | 0x0800D34A | Advance the J1939 TP sender state machine of one session on each timer tick |
 | [`vcu_can_tp_session_on_frame`](#vcu_can_tp_session_on_frame) | 0x0800D414 | Process one received TP.CM or TP.DT frame against a J1939 transport session |
 | [`vcu_frame_checksum`](#vcu_frame_checksum) | 0x080054D0 | Ones'-complement of the 16-bit sum of bytes (Ninebot-style frame checksum) |
+| [`vcu_input_b_event_frame_send`](#vcu_input_b_event_frame_send) | 0x0800683C | Queue Ninebot command 0x61 with a 3-byte payload when the input-B event flag is set |
+| [`vcu_link_activity_heartbeat_tick`](#vcu_link_activity_heartbeat_tick) | 0x08003A7C | Track link activity: hold the link flag about 400 ticks, send a 0x7F0 record every 51 ticks |
+| [`vcu_link_keepalive_0x51_tick`](#vcu_link_keepalive_0x51_tick) | 0x08002F30 | While the link is up, send a 0x51 keep-alive frame to peer 4 every 102 ticks |
 | [`vcu_ninebot_frame_build`](#vcu_ninebot_frame_build) | 0x08008A9E | Build a 9+n byte Ninebot-style frame: 5A A5 LEN SRC DST CMD ARG DATA CKSUM |
+| [`vcu_ninebot_rx_cmd_handle`](#vcu_ninebot_rx_cmd_handle) | 0x08006B24 | Dispatch one inbound Ninebot-style command frame and queue its reply |
+| [`vcu_ninebot_send_cmd51_u16`](#vcu_ninebot_send_cmd51_u16) | 0x08008FE0 | Store a 16-bit value in DAT_20001d02 and queue Ninebot command 0x51 with it |
 | [`vcu_ninebot_tx_queue_push`](#vcu_ninebot_tx_queue_push) | 0x08008BB0 | Build a Ninebot frame into the next free slot of an 8-entry TX ring, drop it when full |
 | [`vcu_record_send_chunked`](#vcu_record_send_chunked) | 0x0800AC44 | Submit a byte buffer as a series of up to 8-byte records via FUN_08007bec |
 | [`vcu_record_send_short`](#vcu_record_send_short) | 0x0800B088 | Submit one record of up to 8 bytes with tag param_1 and type byte 1 |
 | [`vcu_rx_frame_dispatch`](#vcu_rx_frame_dispatch) | 0x08006D6C | Decode one received message record by its 32-bit ID and store its payload fields |
+| [`vcu_startup_announce_burst`](#vcu_startup_announce_burst) | 0x08006668 | Send a one-time startup announce burst of two frames to peer 2 |
 
 ## can_get_tx_payload_for_id
 
@@ -129,7 +135,7 @@ Send-side entry point of the protocol layer. It calls proto_session_find_or_allo
 **Returns** `bool`: 1 = frame built, 0 = no session or the build check failed
 
 - Addresses by version: 148: 0x0800C466, 14a: 0x0800C8AE, 14b: 0x0800CD3A, 14e: 0x0800CDCE, 14f: 0x0800CF0A, 152: 0x0800D196, 153: 0x0800D28A, 0159: 0x0800D2F6
-- Called by: `vcu_0159_0800d018`
+- Called by: `vcu_can_ef00_message_send`
 - Calls: `proto_session_find_or_alloc`, `proto_session_build_frame`
 - Confidence: high
 
@@ -180,7 +186,7 @@ Tick routine for the transmit side of a transport session. The state byte at ses
 **Notes:** Timeouts are counts divided by the u16 at +0x14 (the fragment size, 1 in proto_sessions_init), so they are read as milliseconds here.
 
 - Addresses by version: 148: 0x0800C4BA, 14a: 0x0800C902, 14b: 0x0800CD8E, 14e: 0x0800CE22, 14f: 0x0800CF5E, 152: 0x0800D1EA, 153: 0x0800D2DE, 0159: 0x0800D34A
-- Called by: `vcu_0159_0800d25e`
+- Called by: `vcu_can_tp_session_table_tick`
 - Calls: `vcu_can_tp_session_timeout_tick`, `vcu_can_tp_rts_frame_build`, `vcu_can_tp_dt_frame_build`
 - Confidence: high
 
@@ -222,6 +228,54 @@ Sums param_2 bytes starting at param_1 into a 16-bit accumulator (wraparound) an
 - Called by: `vcu_ninebot_frame_build`
 - Confidence: high
 
+## vcu_input_b_event_frame_send
+
+**Queue Ninebot command 0x61 with a 3-byte payload when the input-B event flag is set**
+
+If the one-shot event flag DAT_200021b5 is 1, it calls vcu_ninebot_tx_queue_push with kind 0x16, arguments 4 and 2, length 3, command 0x61 and the 32-bit word 0x00000020 as payload (bytes 0x20 0x00 0x00), then returns the pair (3, 0x61). When the flag is clear it does nothing and returns its two arguments unchanged. The flag is not cleared here, and a full TX ring drops the frame inside vcu_ninebot_tx_queue_push.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | returned unchanged when no frame is queued |
+| `param_2` | `u32` | returned unchanged when no frame is queued |
+
+**Returns** `u64`: r0:r1 = (3, 0x61) when a frame was queued, otherwise param_1:param_2
+
+**Notes:** DAT_200021b5 is treated as the input-B press event, following the vcu_input_sm_b_tick naming. Command 0x61 is not documented elsewhere in this packet.
+
+- Addresses by version: 148: 0x08005E10, 14a: 0x08006230, 14b: 0x080065A0, 14e: 0x080065D8, 14f: 0x08006634, 152: 0x080066B4, 153: 0x08006750, 0159: 0x0800683C
+- Called by: `vcu_state0_periodic_tick_v0159`
+- Calls: `vcu_ninebot_tx_queue_push`
+- Confidence: medium
+
+## vcu_link_activity_heartbeat_tick
+
+**Track link activity: hold the link flag about 400 ticks, send a 0x7F0 record every 51 ticks**
+
+If the activity event flag DAT_20001F47 was set since the last call, the link flag DAT_20001F48 becomes 1 and the timeout DAT_200013CC is reloaded to 400; otherwise the timeout counts down and at zero the link flag and DAT_20001F58 are cleared, along with the record counter DAT_200013D0. The event flag is consumed on every call. While the link flag is set, DAT_20001FBC toggles every call and, every 51 calls (the counter is reloaded to 50), the function sets DAT_2000185C bit 0, sets DAT_2000185E to 500, calls the handler pointer at DAT_20001864 with 0x7F0 and submits its result as a record with vcu_record_send_chunked(length 8, tag 0x7F0, buffer). It returns the link flag.
+
+**Returns** `u8`: link flag DAT_20001F48 after this call, 1 when the link is considered up
+
+**Notes:** Other annotations gate standby on DAT_20001F48 (vcu_standby_entry_timer) and gate the keep-alive on it (vcu_link_keepalive_0x51_tick), which suggests it means that the peer link is alive; that reading is not confirmed here. The callback behind DAT_20001864 is not in this packet.
+
+- Addresses by version: 148: 0x080033D0, 14a: 0x080035E8, 14b: 0x0800390C, 14e: 0x0800390C, 14f: 0x08003968, 152: 0x080039D0, 153: 0x080039F0, 0159: 0x08003A7C
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Calls: `vcu_record_send_chunked`
+- Confidence: medium
+
+## vcu_link_keepalive_0x51_tick
+
+**While the link is up, send a 0x51 keep-alive frame to peer 4 every 102 ticks**
+
+If the link-active flag DAT_20001F48 is not exactly 1, it clears the tick counter DAT_20001894 and returns. Otherwise it increments the counter and, when the value before the increment is above 100, it sets DAT_20001D02 to 1, sends a frame with vcu_ninebot_tx_queue_push (source 0x16, peer 4, command 0x51, one-byte payload 1) and clears the counter. The frame therefore goes out once every 102 calls while the link is up.
+
+**Notes:** The period is 102 because the test uses the value before the increment. Frame arguments 2 and 3 of the queue call are not identified. Callers: vcu_0159_0800A1D0 and vcu_0159_0800A264 (not described).
+
+- Addresses by version: 148: 0x08002AD8, 14a: 0x08002B5C, 14b: 0x08002E14, 14e: 0x08002E14, 14f: 0x08002E70, 152: 0x08002EDC, 153: 0x08002EF8, 0159: 0x08002F30
+- Called by: `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`
+- Calls: `vcu_ninebot_tx_queue_push`
+- Confidence: high
+
 ## vcu_ninebot_frame_build
 
 **Build a 9+n byte Ninebot-style frame: 5A A5 LEN SRC DST CMD ARG DATA CKSUM**
@@ -247,6 +301,43 @@ Serialises one frame into the caller's buffer: bytes 0x5A and 0xA5, then LEN (th
 - Calls: `vcu_frame_checksum`
 - Confidence: high
 
+## vcu_ninebot_rx_cmd_handle
+
+**Dispatch one inbound Ninebot-style command frame and queue its reply**
+
+Dispatches on command byte frame[3]. Byte frame[1] is the requester address used as the reply target, and frame[4] and frame[5] are the arguments. Command 1 queues four bytes from DAT_20001ab4 + frame[4] and clears DAT_2000102e. Command 2 calls app_set_state(4) when frame[4] is 0x7E and frame[5] is 1, then acknowledges. Command 3 with frame[4] 0x86 starts TMR2 channel 1 PWM at 0xAAA (vcu_tmr2_ch1_pwm_start, DAT_20001fe8 = 10) when frame[5] is 1 or stops it (tmr2_pwm_output_disable, DAT_20001fe8 = 11) when frame[5] is 0. Command 4 stores a 16-bit value into DAT_20001cfe when frame[4] is ':' and into DAT_20001d00 when frame[4] is ' ', and that path replies with a value 3 or 2 chosen from it. Commands 7 and 10 set DAT_20001f47 and DAT_20001f58 to (1, 1) and (1, 0). Command 0x7A stores frame[4] (0 or 1) in DAT_20001fd0 and replies, and command 0x7B stores frame[4] (0..4) in DAT_20001d10, manages DAT_20001fb5 and DAT_20001fbc, and replies. Replies go through vcu_ninebot_tx_queue_push with kind 0x16.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | received frame: byte 1 requester address, byte 3 command, bytes 4 and 5 arguments |
+| `param_2` | `u32` | not used by the handler |
+
+**Returns** `u64`: last command and argument pair passed to the reply builder; not used by the caller
+
+**Notes:** Frame byte layout and command meanings are inferred from the RAM each branch updates. The reply argument order is copied from the calls as decompiled.
+
+- Addresses by version: 148: 0x080060B8, 14a: 0x080064D8, 14b: 0x08006848, 14e: 0x08006880, 14f: 0x080068DC, 152: 0x08006980, 153: 0x08006A1C, 0159: 0x08006B24
+- Called by: `vcu_0159_080054ec`
+- Calls: `app_set_state`, `vcu_tmr2_ch1_pwm_start`, `tmr2_pwm_output_disable`, `vcu_ninebot_tx_queue_push`
+- Confidence: medium
+
+## vcu_ninebot_send_cmd51_u16
+
+**Store a 16-bit value in DAT_20001d02 and queue Ninebot command 0x51 with it**
+
+Stores its 16-bit argument in DAT_20001d02, then calls vcu_ninebot_tx_queue_push with kind 0x16, arguments 4 and 2, length 3 and command 0x51, with DAT_20001d02 as the payload pointer. The payload is three bytes starting at DAT_20001d02, so it is the 16-bit value followed by one more byte. A full TX ring drops the frame.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | value to report |
+
+**Notes:** The meaning of command 0x51 is not documented in the packet. The third payload byte is whatever follows DAT_20001d02 in RAM.
+
+- Addresses by version: 148: 0x080084E8, 14a: 0x08008974, 14b: 0x08008D44, 14e: 0x08008DA8, 14f: 0x08008E04, 152: 0x08008EC8, 153: 0x08008F64, 0159: 0x08008FE0
+- Called by: `vcu_0159_080047ac`
+- Calls: `vcu_ninebot_tx_queue_push`
+- Confidence: medium
+
 ## vcu_ninebot_tx_queue_push
 
 **Build a Ninebot frame into the next free slot of an 8-entry TX ring, drop it when full**
@@ -266,7 +357,7 @@ Enqueue operation on a ring object at param_1: +1 is the write index (wraps at 8
 **Notes:** The slot length word is written as a 32-bit store at +8. Who drains the ring is not in this packet.
 
 - Addresses by version: 148: 0x0800817C, 14a: 0x080085D8, 14b: 0x08008950, 14e: 0x08008990, 14f: 0x080089EC, 152: 0x08008AB0, 153: 0x08008B4C, 0159: 0x08008BB0
-- Called by: `vcu_0159_0800193c`, `vcu_0159_08002f30`, `vcu_0159_080031f4`, `vcu_0159_080054ec`, `vcu_0159_08006184`, `vcu_0159_0800683c`, `vcu_0159_08006b24`, `vcu_0159_08007ecc`, `vcu_0159_08008614`, `vcu_0159_08008fe0`
+- Called by: `vcu_key_sequence_entry_tick`, `vcu_link_keepalive_0x51_tick`, `vcu_0159_080031f4`, `vcu_0159_080054ec`, `vcu_fw_update_frame_handler`, `vcu_input_b_event_frame_send`, `vcu_ninebot_rx_cmd_handle`, `vcu_sensor_threshold_pulse_count`, `vcu_input_edge_actions`, `vcu_ninebot_send_cmd51_u16`
 - Calls: `vcu_ninebot_frame_build`
 - Confidence: medium
 
@@ -285,7 +376,7 @@ For a zero length it submits one empty record: the length byte at 0x20002986 and
 **Notes:** As decompiled, the memcpy source is param_3 on every iteration and the per-chunk offset is not shown, so either the decompile dropped an offset or only the first chunk's bytes are sent for longer buffers. The memcpy byte count is also not visible (presumably the chunk size). Verify in the disassembly before relying on it.
 
 - Addresses by version: 148: 0x08009CBC, 14a: 0x0800A198, 14b: 0x0800A620, 14e: 0x0800A6B4, 14f: 0x0800A7F0, 152: 0x0800AA70, 153: 0x0800AB64, 0159: 0x0800AC44
-- Called by: `vcu_0159_08003a7c`, `vcu_0159_0800eac4`
+- Called by: `vcu_link_activity_heartbeat_tick`, `vcu_can_periodic_telemetry_tick`
 - Calls: `__aeabi_memcpy`, `vcu_can_tx_queue_push`
 - Confidence: medium
 
@@ -304,7 +395,7 @@ Builds a record on the stack: the tag param_1 at +4, a type byte 1 at +8, a zero
 **Notes:** The first word of the record (uninitialised stack) is not written. The type byte is 1 here and 0 in vcu_record_send_chunked. Check the callers before assuming the overflow is reachable.
 
 - Addresses by version: 148: 0x0800A100, 14a: 0x0800A5DC, 14b: 0x0800AA64, 14e: 0x0800AAF8, 14f: 0x0800AC34, 152: 0x0800AEB4, 153: 0x0800AFA8, 0159: 0x0800B088
-- Called by: `vcu_0159_0800d018`, `vcu_0159_0800ef5a`
+- Called by: `vcu_can_ef00_message_send`, `vcu_can_msg_obj_send`
 - Calls: `vcu_can_tx_queue_push`
 - Confidence: medium
 
@@ -323,4 +414,17 @@ Takes a pointer to a received record whose first word is the message ID and whos
 - Addresses by version: 148: 0x08006314, 14a: 0x08006734, 14b: 0x08006A88, 14e: 0x08006AC0, 14f: 0x08006B1C, 152: 0x08006BC8, 153: 0x08006C64, 0159: 0x08006D6C
 - Called by: `vcu_0159_08007ad4`
 - Calls: `util_hex_char_to_nibble`
+- Confidence: medium
+
+## vcu_startup_announce_burst
+
+**Send a one-time startup announce burst of two frames to peer 2**
+
+Until DAT_20001F6D is set, every fifth call sends two frames through vcu_0159_0800D018 (not yet described): one from 0x16 to peer 2 with command 0xDA carrying the constant 0x14, and one with command 0xD0 carrying the word at DAT_20001FF0. After four rounds (DAT_20001398 reaching 4) it sets DAT_20001F6D and stops, so the burst lasts about 16 ticks and runs only once after start-up.
+
+**Notes:** The argument order of vcu_0159_0800D018 is not decoded here, so the command is taken from the position of the 0xDA and 0xD0 values. Callers: vcu_0159_0800A1D0, vcu_0159_0800A264, vcu_0159_0800A55C and vcu_0159_0800A5C8 (not described).
+
+- Addresses by version: 148: 0x08005C54, 14a: 0x08006074, 14b: 0x080063CC, 14e: 0x08006404, 14f: 0x08006460, 152: 0x080064E0, 153: 0x0800657C, 0159: 0x08006668
+- Called by: `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Calls: `vcu_can_ef00_message_send`
 - Confidence: medium

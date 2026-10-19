@@ -1,0 +1,413 @@
+{
+  "bms_4168_0800c018": {
+    "name": "bms_protect_dwell_flags_update",
+    "summary": "Advance protection latch dwell timers and mirror the latch word into BMS control words",
+    "description": "Per-tick update of the protection latch word at 0x2000025C and its dwell timers. param_1 carries request bits: bit 6 sets latch 0x08 and control-word bit 0x800, bit 7 sets 0x400, bit 8 sets 0x1000 (control word at 0x200001C8). param_2 is the elapsed tick count added to each armed timer, and an unarmed timer is zeroed. Timer 0x20001070 arms latch 0x02 while bit 2 of the u16 at +0x124 (BMS state block at 0x20000BDC) is set and the s16 at +0x11A is at least DAT_20000474*100, and sets 0x02 when it reaches DAT_20000478. Timer 0x20001074 is the release timer for latches 0x02/0x04/0x08/0x10 (limit 0x2000047C, gated by bit 5 of the byte at +0x194). Timers 0x20001090 and 0x20001094 set and release latch 0x80 (limits 0x200004A8 and 0x200004AC), and timer 0x20001098 sets latch 0x100 once +0x11A stays at or below DAT_200004B0*100 for DAT_200004B4 ticks. The sticky byte DAT_20000251 is set when accumulator 0x20000260 passes DAT_200004B4+5000 while bit 12 is clear, and is cleared when timer 0x2000109C expires. The routine ends by mirroring the latch word into +0x124 (bits 5 and 6), +0x126 (bit 2) and +0x198 (bits 5 and 6), and driving bit 0x1000 of the control word.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "request flags: bit 6 sets latch 0x08, bit 7 sets latch 0x400, bit 8 sets latch 0x1000"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "elapsed ticks added to the armed dwell timers"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the request bits and of the measurement at +0x11A is not identified; the thresholds are only named by RAM address. The bit mapping was read from shift tests and is high confidence, the naming of the latches is not. The latch word 0x2000025C is not the status word 0x20000254 described in bms_protect_latch_evaluate; the two may be separate latch groups."
+  },
+  "bms_4168_0800c638": {
+    "name": "bms_meas_interp_filter_dispatch",
+    "summary": "Interpolate a 16-bit level estimate, low-pass filter it and run the measurement update chain",
+    "description": "Measurement update over a channel record param_1 that holds a 16-bit target at +4 and a threshold at +0xE. It computes uVar3 = (DAT_20000ECA - DAT_20000EB6) masked to 16 bits; if uVar3 exceeds the threshold and the sample DAT_20000EB6 is below the target, the value is DAT_20000EB6 + uVar3*(target - DAT_20000EB6)/(uVar3 - threshold), using bms_udiv32, and otherwise it is the target. The first call only sets DAT_200001E9 to 1. Later calls, unless bit 5 of the byte at 0x200001C8 is set, low-pass filter the value as (3*DAT_200001F0 + new + 1) >> 2 before storing it back to DAT_200001F0. param_4 == 0 runs bms_4168_080068E8, bms_4168_0800746C and bms_4168_08007704 with param_2 and param_3, otherwise bms_4168_080071C8 and bms_4168_080076B4 run; then bms_state_refresh_scaled and bms_4168_08004A40 are called.",
+    "category": "soc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "channel record: u16 target at +4, u16 threshold at +0xE"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "passed through to the param_4 == 0 chain (bms_4168_080068E8, bms_4168_08007704)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "passed through to the param_4 == 0 chain (bms_4168_080068E8, bms_4168_0800746C)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "selects the primary chain when zero, the alternate chain when nonzero"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The units of DAT_20000EB6 and DAT_20000ECA are not identified (type not shown by the decompiler). The filter constant and the interpolation form are read directly from the code. Callees bms_4168_080068E8, bms_4168_0800746C, bms_4168_08007704, bms_4168_080071C8, bms_4168_080076B4 and bms_4168_08004A40 are not described yet, so the meaning of the two chains is inferred only from the names of the RAM they touch."
+  },
+  "bms_4139_0800cd7c": {
+    "name": "bms_telemetry_sched_11_step",
+    "summary": "Run the 11-record telemetry scheduler: refill and send one due record per call",
+    "description": "Background scheduler for the 11 telemetry records at 0x20001B90 (16 bytes each): u32 stamp at +0, CAN message ID at +4 (0x420, 0x421, 0x310, 0x422, 0x500, 0x423, 0x311, 0x501, 0x502, 0x424, 0x425), period byte at +6 in units of 100 ms (5, 5, 2, 5, 20, 5, 2, 20, 20, 10, 5), and eight payload bytes at +7. State DAT_200004FC: 0 initialises all stamps from bms_tick_get and the table, then moves to 1; 2 waits until bms_tick_timeout_check(DAT_20000500, 2000) expires and then moves to 1; 1 examines one record per call at index DAT_200004FD (wrapping after 10). When the record's period has elapsed it calls bms_telemetry_block_fill for that index, builds a frame of the ID word, bytes 0x00, 0x00, 0x08 and the eight payload bytes, sends it through bms_record_send_multiframe (FUN_0800AFC2 in this build), and advances the index. The frame buffer is zero-filled first with bms_4168_08001246.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The stamp at +0 is not reset here; it is assumed to be written by bms_telemetry_block_fill when the record is packed, which is what makes the period test work. The 'period in 100 ms units' reading relies on the *100 scaling of the threshold and on the 2000 ms timeout in state 2. The state 2 entry point is not set anywhere in this function. FUN_080097E8 (tick source at init) is not in this packet's callee list and is named only by its tick role."
+  },
+  "bms_4168_0800ce4e": {
+    "name": "bms_meas_alt_steps_run",
+    "summary": "Run the alternate measurement steps bms_4168_080071C8 and bms_4168_080076B4 in order",
+    "description": "Thin wrapper that calls bms_4168_080071C8 and then bms_4168_080076B4. These are the same two calls that bms_4168_0800C638 makes on its param_4 != 0 branch, so this is the alternate measurement path invoked on its own. Both callees are described in other packets, so what they update is not repeated here. The only caller in this packet's scope is bms_4168_080082F0.",
+    "category": "soc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The wrapper behaviour is certain from the four instructions. The category is inferred from the sibling call in bms_4168_0800C638."
+  },
+  "bms_4168_0800ce64": {
+    "name": "bms_mode_fsm_step",
+    "summary": "Step the four-state mode machine that writes the mode field in bits 0 to 2 of +0x124",
+    "description": "Four-state mode controller for the BMS state block at 0x20000BDC. The state is DAT_20000E20 and the mode written to bits 0 to 2 of the u16 at +0x124 is 0 in idle, 1 in monitoring, 4 in hold and 2 in recovery. Each call adds param_1 ticks to the timers at 0x20000E10, 0x20000E14, 0x20000E18 and 0x20000E1C. Idle waits until bit 0 or bit 5 of the u16 at +0x194 is set, then enters monitoring. Monitoring goes to hold after 1000 ticks when bit 5 is set and either the s16 at +0x11A is above 9 or the reply status is negative, goes to recovery after 2000 ticks when bit 0 is set and +0x11A is at or below -10, and returns to idle when bits 0 and 5 are both clear. Hold waits for 3000 ticks with +0x11A below 5 and a non-negative reply status before returning to monitoring, and returns at once when bit 5 clears. Recovery resets its 6000-tick timer while +0x11A is below -4 and the reply status is non-negative, otherwise accumulates, and returns to monitoring once the timer reaches 6000 or immediately when the reply status is negative or bit 0 is clear.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "elapsed ticks added to the state timers"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the status bits at +0x194 and of the measurement at +0x11A is not identified; the state names describe behaviour, not function. The reply status is the s16 at +0x10 of the buffer returned by bms_reply_buffer_get. The first state-machine transition through the default code path (state 2) is taken from the fall-through after the switch, which the decompiler marks as a jump-table warning."
+  },
+  "bms_4168_0800d76c": {
+    "name": "bms_telemetry_block_fill_16",
+    "summary": "Pack telemetry record N (0 to 15) from the BMS state block and stamp it with the time base",
+    "description": "Fills telemetry record param_1 (0 to 15) of the 16-record table at 0x20001C8C (16-byte records: u32 stamp at +0, u16 CAN ID at +4, period byte at +6, 8-byte payload at +7) and writes bms_tick_get into the record's stamp at +0. The payload depends on the record: record 0 takes state bytes +0x118 to +0x11B, +0x1E and +0x1F and the u16 at +0x11E times 10; record 1 writes four ASCII hex digits of the u16 at +0x1C plus bytes +0x26, +0x27, +0xB6 and +0xB7; record 4 converts the eight s16 values at +0x12C to bytes as value+50, with 0xFF for missing, 0xFD below -29 and 0xFE at 121 and above; records 7 and 8 take 8-byte slices of a 14-byte copy of state bytes +4 onward; record 9 stores the packed RTC from bms_rtc_datetime_pack. Records 2, 5, 6 and 10 copy fixed state bytes with constant tags, and records 3, 11, 12, 13, 14 and 15 pack status bitfields and short fields from the state block and the reply buffer (for example, a 0x5AA5 check at +0x108 in record 3).",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "record index, 0 to 15; values above 15 match no case but still write the stamp at index param_1 (out of range)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Per-record byte layouts were read from the decompile and are not all named. The units of the packed values (hours, percent, temperature scale) are inferred from the encodings only. The helper bms_4168_08001246 is treated as a zero-fill, following bms_reply_buffer_get. Case 3 and records 11 to 15 use several bitfield masks that were not decoded bit by bit."
+  },
+  "bms_4168_0800ddb0": {
+    "name": "bms_telemetry_sched_16_step",
+    "summary": "Run the 16-record telemetry scheduler: pack and send one due record per call",
+    "description": "Background scheduler for the 16 telemetry records at 0x20001C8C, used by the 4148 and 4168 builds (the 11-record variant is bms_telemetry_sched_11_step). Initialisation (DAT_200005D0 == 0) stamps the table with bms_tick_get, sets CAN IDs 0x420 to 0x425, 0x429, 0x430 to 0x432 and 0x435, sets periods of 500, 500, 200, 500, 2000, 500, 200, 2000, 2000, 1000, 500, 500, 500, 500, 200 and 200 ms, and moves to state 1. State 2 waits for bms_tick_timeout_check(DAT_200005D4, 2000). State 1 examines one record per call at index DAT_200005D1: the index wraps at 12 when the u16 at +6 of the reply buffer is zero (so only records 0 to 11 are scanned), otherwise at 16. For a due record it calls bms_telemetry_block_fill_16 to pack the payload, sends the ID, 0x00, 0x00, DLC 8 and the payload through bms_record_send_multiframe (FUN_0800B9F2 in this build), and advances the index.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 2000 ms state 2 timeout and the 100 ms period unit follow the *100 scaling and are read from the code. The reply-buffer test at +6 selecting 12 or 16 records is read literally; its meaning (for example a link or session flag) is not identified."
+  },
+  "bms_4168_0800e67c": {
+    "name": "bms_pct_hysteresis_step",
+    "summary": "Track commanded and estimated percent values with a 30 s trim timer and a hysteresis output",
+    "description": "Percent-level supervisor run once per tick. uVar1 is the u16 at +0x104 of the BMS state block at 0x20000BDC (the commanded percent, written by the CAN handler bms_can_cmd_set_handler) and uVar2 is the u16 at +0x11E (the estimate). While bit 0 of 0x200005C0 is set, param_1 is accumulated into DAT_200005CC and every 30000 ticks bits 1 and 2 are set when the estimate is at or above the command and cleared when it is below; bit 0 is cleared when the command is exactly 100 and bit 1 is clear. When bit 0 is clear, bit 1 and the timer are cleared. The output DAT_20000DE7 is forced to 0, and DAT_200005C5 to 0, when the u16 at +6 of the reply buffer is zero or DAT_20000DDC or DAT_20000DDF is set. Otherwise the reference is min(command, 90): an estimate below 76 forces output 0 and latches DAT_200005C5 to 1; an estimate at or above the reference clears the latch and sets output 1; in between the output is 1 only when the latch is clear.",
+    "category": "soc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "elapsed ticks added to the 30 s trim timer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of uVar1 and uVar2 as commanded and estimated percent is inferred from the 76 and 90 limits, the 100 test and the CAN handler that writes +0x104. The flags DAT_20000DDC and DAT_20000DDF are not identified. Bits 1 and 2 of 0x200005C0 are set but not read by this function; their readers are not in this packet."
+  },
+  "bms_4168_0800e8dc": {
+    "name": "bms_tp_send_block_5",
+    "summary": "Send the 64-byte block at 0x20001DB0 as a type-5 TP message to the stored peer",
+    "description": "Builds a 65-byte message: byte 0 is 5 and the next 64 bytes are copied from 0x20001DB0, inside a zeroed 68-byte buffer. It is sent through bms_tp_session_send on the TP session at 0x200024C0 with command 0xAB, peer key bytes DAT_200005E8 and DAT_200005E9 (stored by bms_msg_dispatch_request), and length 0x41. It has no direct callers in this packet; it runs as the pool callback that bms_msg_dispatch_request registers for request type 5.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Sub-type 5 and the 0x41 length are read from the code. The meaning of the 64-byte block at 0x20001DB0 is not identified."
+  },
+  "bms_4168_0800e930": {
+    "name": "bms_tp_send_block_4",
+    "summary": "Send the 20-byte block at 0x20001D9C as a type-4 TP message to the stored peer",
+    "description": "Builds a 21-byte message: byte 0 is 4 and the next 20 bytes are copied from 0x20001D9C, with the buffer otherwise zeroed. It is sent through bms_tp_session_send on the TP session at 0x200024C0 with command 0xAB, peer key bytes DAT_200005E2 and DAT_200005E3 (stored by bms_msg_dispatch_request), and length 0x15. It runs as the pool callback that bms_msg_dispatch_request registers for request type 4, and has no direct callers in this packet.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Sub-type 4 and the 0x15 length are read from the code. The meaning of the 20-byte block at 0x20001D9C is not identified."
+  },
+  "bms_4168_0800e988": {
+    "name": "bms_tp_send_block_6",
+    "summary": "Send the 64-byte block at 0x20001DF0 as a type-6 TP message to the stored peer",
+    "description": "Builds a 65-byte message: byte 0 is 6 and the next 64 bytes are copied from 0x20001DF0, inside a zeroed 68-byte buffer. It is sent through bms_tp_session_send on the TP session at 0x200024C0 with command 0xAB, peer key bytes DAT_200005EE and DAT_200005EF (stored by bms_msg_dispatch_request), and length 0x41. It runs as the pool callback that bms_msg_dispatch_request registers for request type 6, and has no direct callers in this packet.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Sub-type 6 and the 0x41 length are read from the code. The meaning of the 64-byte block at 0x20001DF0 is not identified."
+  },
+  "bms_4168_0800e9dc": {
+    "name": "bms_msg_dispatch_request",
+    "summary": "Dispatch incoming BMS requests: data-block requests 4, 5, 6 and control commands of type 3",
+    "description": "Receive-side dispatcher for the BMS request protocol; the first payload byte is the message type. Type 4 queues a 20-byte block: it proceeds only when the u32 from bms_u32_20001348_get is at least the u16 in bytes 1 and 2, stores that u16 and the requester pair, and registers pool type 2 with bms_4168_0800E930 as callback. Type 5 proceeds when the u32 at 0x20001348 is at least the u16 in bytes 3 and 4 and the u16 in bytes 1 and 2 is at most 10, and registers pool type 3 with bms_4168_0800E8DC. Type 6 proceeds when the u32 in bytes 1 to 4 is at most the word from bms_get_word_20001354, and registers pool type 4 with bms_4168_0800E988. Type 3 is a command: 0x81 and 0x89 are time/RTC commands answered through bms_tp_session_send, 0x82 stores a 4-byte value through bms_4168_08009F78 when the length byte is 4, 0x83 registers a pool type 1 entry with no buffer, and 0x84 reads the 0x20001348 word; 0x82, 0x83, 0x84 and any other command are answered with a short extended CAN reply built by bms_can_pack_ext_frame. Messages of other types are dropped.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "requester address; its low byte is stored as the first peer key byte"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "incoming message: byte 0 is the type, the following bytes are the request fields"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "reply argument passed to the TP and CAN reply encoders"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "requester address; its low byte is stored as the second peer key byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Callers bms_4168_0800F2E0 and bms_4168_0800F8E0 are not in this packet. The meaning of bms_4168_08009F78 (the 0x82 store) is not described yet; the 4-byte value matches the packed RTC format of bms_rtc_datetime_pack, so it may set the RTC. The 0x80 to 0x89 status names are not defined in the packet."
+  },
+  "bms_4168_0800ec04": {
+    "name": "bms_can_cmd_set_handler",
+    "summary": "Validate CAN commands 0x82, 0x87 and 0xFA, store valid payloads in the state block and reply",
+    "description": "CAN request handler for three commands. A valid payload is copied to the BMS state block at offset 2 times the command byte (0x82 to +0x104, 0x87 to +0x10E, 0xFA to +0x1F4). If the u16 at +2 of the state block differs from param_4, the request is not processed: its header and payload are queued through bms_txq_enqueue as an echo. Command 0x82 needs a 2-byte value from 0x50 to 0x64 (80 to 100) and sets bit 0x80 of the control word at 0x200001C8 when the value changes, while setting bit 0 and bit 1 or 2 of 0x200005C0 (the timer trim flags used by bms_pct_hysteresis_step). Command 0x87 needs a 4-byte packed time with hour and minute fields in range, and sets bit 3 of 0x200005C0 before the check. Command 0xFA needs two bytes that each lie from 91 to 109 and sets bit 4 of 0x200005C0 when the value changes. A payload whose length/2 plus command minus 1 exceeds 255 gets status 7. Replies carry status 0 (ok), 3 (0x82 rejected), 4 (0x87 or 0xFA rejected) or 7, and are sent as an extended CAN frame through bms_can_pack_ext_frame and bms_frame_send_when_ready unless param_6 is 3; an unknown command gets status 0.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "command byte (for example 0x82, 0x87, 0xFA)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "payload bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "requester word compared with the state block u16 at +2"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "reply field placed in the echo header"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "reply mode: 3 suppresses the CAN reply, 0x2C selects reply code 0xAC"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The status numbers are read from the literal values returned to the reply encoder; their wire meaning is not documented here. The reply code 0x05 and 0xAC are the unexplained literals passed to bms_can_pack_ext_frame. The 0x50 to 0x64 and 91 to 109 ranges are read directly from the comparisons; the physical units are not known."
+  },
+  "bms_4168_0800eddc": {
+    "name": "bms_fw_upload_handle",
+    "summary": "Handle firmware upload messages: start, TEA-CBC decrypt and flash 2 KB pages, verify, commit",
+    "description": "Message handler for the image download sequence over CAN. If the low byte of param_1 is 6 the message is forwarded to the TX queue with a 4-byte header and no processing. Sub-command 7 takes a 4-byte image length (1 to 0x1F000 bytes allowed), clears the valid flag in the 4-byte record at 0x0803F800 through bms_4168_08008DE8, and stores the length in DAT_20000590. Sub-command 8 carries chunks of up to 128 bytes: each 8-byte block is decrypted with 32-round TEA (key: four little-endian words at 0x20001C68, sum starting at 0xC6EF3720), XORed with the previous ciphertext block at 0x200005A8 (CBC chaining), and staged in 0x20001468. Every 2 KB the staged page is programmed at 0x08020000 plus the page offset, the 16 key bytes are each advanced by their index every 1 KB, and a running 32-bit sum (rotated and complemented) is checked against the final word of the image. The first page must hold the 16 bytes \"STD_BMS_V3\" at 0x20001568. Sub-command 9 commits by writing the page count and a valid flag to the record at 0x0803F800 once the image has verified; sub-command 10 rewrites that record when a commit is pending and sets bit 29 (and bit 30 on success) of the control word at 0x200001C8. Replies are three or four bytes 0x01, 0x0B, status (and the chunk sequence for sub-command 8) sent with bms_frame_send_when_ready on CAN ID param_1, with status 0 ok, 1 bad length or no open transfer, 3 flash failure, 5 bad sequence, 7 bad start length, 8 commit before verification and 10 wrong header.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "message ID; its low byte 6 selects the forwarding path, and it is the CAN ID for replies"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "sub-command: 7 start, 8 data chunk, 9 finish, 10 commit"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "payload length (for sub-command 7 it includes a 3-byte header)"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "payload bytes"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "chunk sequence number (low byte)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The TEA identification rests on the delta constant (0xC6EF3720 is 32*0x9E3779B9), the decrement by 0x9E3779B9 and the round equations, and the CBC chaining is read from the XOR and copy steps. The 'STD_BMS_V3' check reads the 16 bytes at 0x20001568, which is 0x100 into the 2 KB staging buffer at 0x20001468, not its start; this may be a header offset or a mismatch in the decompile, so it is open. The flash helper bms_4168_08008DE8 is not described in this packet, so the write and erase semantics of the commit record are inferred from the call sites. The sum check uses a 32-bit running sum with the last word compared against the rotated-complemented total."
+  },
+  "bms_4168_0800f8b4": {
+    "name": "bms_tp_service_tick",
+    "summary": "Run the TP session channel service once each time the time base advances",
+    "description": "Calls bms_tick_timeout_check on DAT_200005DC with a threshold of one tick. When the time base has moved on, it runs bms_chan_service_all on the TP session object at 0x200024C0 and restarts the stamp at DAT_200005DC with bms_tick_get. It acts as a once-per-tick gate for the transport channel loop, so the channel service is never run more than once per tick.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The 1 ms tick rate is assumed from the ms-based timeouts elsewhere in the component. Caller bms_4168_08007F48 is not in this packet."
+  },
+  "bms_4168_0800fa88": {
+    "name": "bms_frame_record_send",
+    "summary": "Send a queued CAN record: 29-bit ID, length byte and payload through the frame sender",
+    "description": "Queue callback that transmits one record. The low 29 bits of the 32-bit word at param_2 are the CAN identifier, the byte at offset 4 is the length, and the payload starts at offset 5. These go to bms_frame_send_when_ready, and the function returns 1 whatever the send result. It is reached through a queue or pool function pointer, so it has no direct callers in this packet.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "unused by this callback"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "queue record: u32 ID word, u8 length at +4, payload from +5"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "The return value is a constant 1; whether the caller uses it as done or accepted is not visible here."
+  },
+  "bms_4168_0800ff8e": {
+    "name": "bms_tp_session_send",
+    "summary": "Find or allocate the TP slot for a peer key pair, then prepare the transport message in it",
+    "description": "Looks up the 36-byte TP slot for the key (param_4, param_5) in the session table at param_1 with bms_slot_table_find, with its fourth argument fixed at 0. If a slot is returned, it calls bms_tp_tx_prepare with the remaining arguments to build a multi-frame TP message, consisting of a 3-byte header, the payload and a 16-bit complement trailer. When no slot is available, the message is dropped. All callers in this packet pass the session object 0x200024C0, message fields 7 and 1, the TP command 0xAB, and a length of 0x41 or 0x15.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP session object (0x200024C0 in every caller here)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "message field (7 in callers)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "message field (1 in callers)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "first peer key byte"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "second peer key byte"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "TP command byte (0xAB in callers)"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "message field"
+      },
+      {
+        "name": "param_8",
+        "type": "ptr",
+        "description": "message bytes"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "message length in bytes"
+      },
+      {
+        "name": "param_10",
+        "type": "u32",
+        "description": "flags, 0 in callers"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the fourth argument of bms_slot_table_find (fixed at 0) is not stated in the packet and is taken as a no-allocate or default flag. The TP framing is taken from the bms_tp_tx_prepare summary in this packet. The meaning of the message fields 7 and 1 is not identified."
+  }
+}

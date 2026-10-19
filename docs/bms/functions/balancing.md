@@ -19,6 +19,6 @@ Advances a 30000-tick re-evaluation timer (DAT_20000510) for the state byte DAT_
 **Notes:** The meaning of +0x104, +0x11E, +0x19C and of bits 1 and 2 is inferred from the timing and the comparisons; the function itself does not confirm it. The packet lists the state block accessor as bms_ram_20000bdc_addr, which is FUN_0800bb00 in this build.
 
 - Addresses by version: 4130: 0x0800CC40, 4139: 0x0800D228, 4148: 0x0800E228
-- Called by: `bms_4168_08008006`
+- Called by: `bms_setpoint_service_step`
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium

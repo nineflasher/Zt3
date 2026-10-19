@@ -20,7 +20,7 @@ SDK exint_flag_clear. It writes the caller's line mask to EXINT.INTSTS (0x400104
 
 - Addresses by version: 12b: 0x0800C7D8, 143: 0x0800CA30, 152: 0x0800CA70, 0160: 0x0800CAD0
 - Peripheral registers: `EXINT.INTSTS` (W)
-- Called by: `mcu_0160_0800850c`, `mcu_0160_08009f40`
+- Called by: `mcu_0160_0800850c`, `mcu_pvm_init`
 - Confidence: high
 
 ## exint_flag_get
@@ -37,7 +37,7 @@ SDK exint_flag_get. It reads EXINT.INTSTS (0x40010414), ANDs it with the line ma
 
 - Addresses by version: 12b: 0x0800C7E4, 143: 0x0800CA3C, 152: 0x0800CA7C, 0160: 0x0800CADC
 - Peripheral registers: `EXINT.INTSTS` (R)
-- Called by: `mcu_0160_0800850c`, `mcu_0160_08009f40`
+- Called by: `mcu_0160_0800850c`, `mcu_pvm_init`
 - Confidence: high
 
 ## exint_init
@@ -52,5 +52,5 @@ SDK exint_init, with the EXINT base at 0x40010400. It takes an exint_init_type r
 
 - Addresses by version: 12b: 0x0800C7FC, 143: 0x0800CA54, 152: 0x0800CA94, 0160: 0x0800CAF4
 - Peripheral registers: `EXINT.INTEN` (RW), `EXINT.EVTEN` (RW), `EXINT.POLCFG1` (RW), `EXINT.POLCFG2` (RW)
-- Called by: `mcu_0160_08009f40`
+- Called by: `mcu_pvm_init`
 - Confidence: high

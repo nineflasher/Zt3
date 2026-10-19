@@ -1,0 +1,977 @@
+{
+  "ble_219_0c05cadc": {
+    "name": "ble_pending_flags_enqueue",
+    "summary": "Enqueue one notification packet when any byte of the 12-byte pending-flag array is set",
+    "description": "Scans the 12 bytes at 0x20012310..0x2001231B (a pending-flag array, read byte by byte) and returns at once when they are all zero. On the first non-zero byte it calls ble_pktq_enqueue(0, 0, &LAB_0C0540D8) once, which queues one packet built from the template at 0x0C0540D8, and then returns, so at most one packet is queued per call even when several flags are set. The meaning of the individual flag bytes is not established from this function.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Flag meaning and the template at 0x0C0540D8 are unknown. Callers are not visible in this packet (entry point or callback)."
+  },
+  "ble_219_0c05cba0": {
+    "name": "ble_ecc_heap_free",
+    "summary": "Release a block to the BLE crypto heap pool at DAT_200049A8",
+    "description": "Thunk that calls the pool free routine 0x0C070F40 with the pool handle stored at DAT_200049A8 as the first argument and the block as the second. The ECC routines in this packet release their 0x68-byte fp_int and 0x138-byte ecc_point temporaries through it, usually after zeroing them. The handle is used only by this pair and ble_ecc_heap_alloc, and every observed caller is ECC code, so this is most likely a dedicated ECC heap, although the pool may be shared with other users. 0x0C070F40 itself is not yet described.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "block previously returned by ble_ecc_heap_alloc"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cba4": {
+    "name": "ble_ecc_heap_alloc",
+    "summary": "Allocate a block of the given size from the BLE crypto heap pool at DAT_200049A8",
+    "description": "Thunk that returns 0x0C071080(DAT_200049A8, size), the pool allocation routine (not yet described), for the same pool handle that ble_ecc_heap_free uses. Callers request 0x68 bytes (one fp_int), 0x138 bytes (one ecc_point) or 0x208 bytes (one ecc_curve_spec) and treat a NULL result as MEMORY_E (-0x7D). The block is not zeroed here; callers clear it themselves with memset or mp_init.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "size",
+        "type": "u32",
+        "description": "block size in bytes"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "block, or NULL when the pool is exhausted"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cc28": {
+    "name": "ble_mode_set_and_persist",
+    "summary": "Apply the BLE mode: 1 persists NV record 0xFA9 = 3, any other value persists 0xFD",
+    "description": "Persists a BLE mode choice in NV record 0x0FA9 (one byte, written through ble_nv_record_write). When the argument is 1 it writes 3 to the record and then calls 0x0C055244 (not yet described). For any other value it calls 0x0C055268 (not yet described) first and then writes 0xFD to the record. It always returns 0. This is the apply-and-persist counterpart of ble_mode_nv_enable and ble_mode_nv_disable, which use the same record and the same values; it is called from 0x0C02A8F8 (not yet described).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "mode",
+        "type": "s32",
+        "description": "1 = enable, any other value = disable"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05ccb4": {
+    "name": "ble_mode_persist_enabled",
+    "summary": "Call the mode helper 0x0C05376C(0), then persist NV record 0xFA9 = 3 (enabled)",
+    "description": "Calls 0x0C05376C with argument 0 (a mode/slot helper, not yet described), then writes the single byte 3 to NV record 0x0FA9 through ble_nv_record_write. The value 3 is the 'enabled' value that ble_mode_nv_enable also writes. Takes no arguments and returns nothing. Called from 0x0C02A8F8 (not yet described).",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05ce14": {
+    "name": "ble_mode_persist_enabled_alt",
+    "summary": "Duplicate of ble_mode_persist_enabled, kept for a second call site (0x0C055B90)",
+    "description": "Same body as ble_mode_persist_enabled (0x0C05CCB4): 0x0C05376C(0), then NV record 0x0FA9 = 3. It is kept as a separate function because its caller is 0x0C055B90 (not yet described), so the source most likely contains two copies of the same helper. The two can be merged once the callers are understood.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cf1c": {
+    "name": "ble_mode_state_update",
+    "summary": "Apply a new BLE mode byte and reconcile it with NV record 0xFA9",
+    "description": "Takes a pointer to the new mode byte. If it differs from the stored mode in DAT_20004994, the new value is stored and 0x0C054534 is called with it (not yet described). Modes below 3 take the 'active' branch: when the pending flag DAT_20004993 is set, NV record 0x0FA9 is read; if the record is not 1 or 3 (or is 0xEB) and ble_slot_mgr_is_ready() passes, ble_mode_nv_enable() runs together with 0x0C0555D4 (not yet described) and the flag is cleared, otherwise the flag is simply cleared. Modes 3 and above take the 'off' branch: when the flag is not already 1 the record is read; a record outside {1, 3} only sets the flag to 1, while a record of 1 or 3 calls 0x0C055268, ble_mode_nv_disable() and then sets the flag to 1. The flag therefore records whether the NV record still needs a write.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "mode",
+        "type": "ptr",
+        "description": "pointer to the new mode byte (u8)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Mode names are inferred from the ble_mode_nv_* callers. 0xEB is treated as an invalid record value, as in the source test."
+  },
+  "ble_219_0c05cfe0": {
+    "name": "ble_link_state_event",
+    "summary": "Handle a link state event: 0 stops and clears flag 0x8000, 1 starts and sets it",
+    "description": "Event 0 sets the state byte DAT_20012ED0 to 0. If flag bit 0x8000 in the word at 0x200042FC is set, the handle at 0x200042F6 is valid (not -1) and 0x0C06B818() returns 0, the bit is cleared with ble_flags_clear(0x8000). Event 1 calls 0x0C056DD0(0, 0x500, 2) (not yet described), sets DAT_20012ED0 to 3, and when bit 0x8000 is clear and the handle is valid and 0x0C06B7BC(handle, 0) returns 0, it sets the bit with ble_flags_set(0x8000) (the source makes that call twice). Other events are ignored. Bit 0x8000 records that an operation on handle 0x200042F6 is active; the 'link' wording is an inference from the handle usage.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "event",
+        "type": "s32",
+        "description": "0 = stop, 1 = start, others ignored"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05d004": {
+    "name": "ble_adv_control",
+    "summary": "Start or stop the broadcast operation; start arms a 40 s timeout",
+    "description": "Event 0 calls 0x0C0567D8 (not yet described) and returns. Event 1 picks an interval of 0x140 units by default, or 0xC80 units when the optional hook at DAT_20014608 fills its 16-byte local buffer with first byte 3. It then calls 0x0C056A50(0, interval, 2) (not yet described), sets DAT_20012ED0 to 1, and if bit 0x10 of 0x200042FC is clear and the handle DAT_200042F4 is valid it calls 0x0C06B7BC(handle, 0). Finally it re-arms the BTstack timer DAT_20012EC0 for 40000 ms with the expiry callback at 0x0C056D19 through ble_host_timer_restart. At 0.625 ms per unit the two intervals are 200 ms and 2 s, which fits BLE advertising.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "action",
+        "type": "s32",
+        "description": "0 = stop, 1 = start, others ignored"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Advertising is inferred from the interval values. The 0x0C056A50 operation is not yet named."
+  },
+  "ble_219_0c05d018": {
+    "name": "ble_host_reset_step",
+    "summary": "Run a host reset step: call 0x0C029230(0), then post event 0x0C to 0x0C055440",
+    "description": "Entry point with no visible arguments. It calls 0x0C029230 with 0 and then 0x0C055440 with event code 0x0C plus three register values the decompiler could not name. Both callees are not yet described, so the purpose is inferred from the call pattern only, most likely a host-side reset or teardown step reached through a callback.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Nothing in this function shows what state it changes."
+  },
+  "ble_219_0c05d108": {
+    "name": "btstack_run_loop_task_main",
+    "summary": "BTstack embedded run-loop task: drain callbacks, run timers, wait on the event group",
+    "description": "Main loop of the BTstack embedded run-loop task. It clears the quit flag at 0x2001729C, calls 0x0C036328 once (not yet described), and then repeats until the quit flag becomes non-zero. Each iteration checks in with the watchdog (hal_wdt_task_checkin), polls the data sources, and drains the deferred-call list at DAT_200190A4: each pop takes the lock 0x20017180, gives it back, and calls the item's handler at +4 with its context at +8. It then drains the command queue 0x20017188 with xQueueReceive (zero ticks), calling each (function, argument) pair, runs hal_time_ms and the expired timers, and computes the sleep: the next timer delay, or 0xFFFFFFFF when no timer exists, capped at 100 ms unless the flag at 0x20017284 is non-zero. Finally it waits on event group 0x20017184 for bit 0x01 (any bit, clear on exit), which other tasks set to wake the loop.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The task entry point is not in this packet. The sleep value is passed to xEventGroupWaitBits unconverted, so the tick rate must be 1 kHz for the delays to be in milliseconds."
+  },
+  "ble_219_0c05d260": {
+    "name": "ble_xfer_pump_chunk_a_and_notify",
+    "summary": "Under the recursive lock, move one chunk of channel A and notify the run loop",
+    "description": "Takes the recursive lock 0x2001722C (xQueueTakeMutexRecursive, wait forever). If the 16-bit remaining count at 0x20017294 is non-zero it asks 0x0C0454D0 (not yet described) how many bytes it can accept from the cursor at 0x20017290. A zero answer clears both the cursor and the count, abandoning the transfer; a non-zero answer advances the cursor by that many bytes and subtracts the same amount from the count. In the non-empty case it then calls xEventGroupSetBits on 0x20017184 with bit 0x01 to wake the run loop. The lock is released on every path. This is the channel-A twin of ble_xfer_pump_chunk_and_notify (0x0C05D2F4), which handles channel B at 0x20017288/0x2001728C.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05d2c0": {
+    "name": "ble_xfer_submit_chan_a",
+    "summary": "Queue a buffer on transfer channel A (cursor and 16-bit length) and pump one chunk",
+    "description": "Takes the recursive lock 0x2001722C, stores the buffer cursor in DAT_20017290 and the 16-bit length in DAT_20017294, calls ble_xfer_pump_chunk_a_and_notify to move the first chunk, and releases the lock. The lock is taken recursively, so the nested acquisition inside the pump is safe.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "cursor",
+        "type": "ptr",
+        "description": "start of the buffer to send"
+      },
+      {
+        "name": "length",
+        "type": "u16",
+        "description": "number of bytes to send"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05d358": {
+    "name": "ble_xfer_submit_chan_b",
+    "summary": "Queue a buffer on transfer channel B (cursor and 16-bit length) and pump one chunk",
+    "description": "Same pattern as ble_xfer_submit_chan_a for channel B. It takes the lock 0x2001722C, stores the cursor in DAT_20017288 and the 16-bit length in DAT_2001728C, and calls ble_xfer_pump_chunk_and_notify (0x0C05D2F4) to move the first chunk. The lock is released afterwards, so the caller sees a single atomic submit.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "cursor",
+        "type": "ptr",
+        "description": "start of the buffer to send"
+      },
+      {
+        "name": "length",
+        "type": "u16",
+        "description": "number of bytes to send"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05d40e": {
+    "name": "ble_xfer_service_tick",
+    "summary": "Advance both transfer channels: run completion callbacks and pump pending chunks",
+    "description": "Services both channels once per run-loop pass. Channel A: when its in-progress flag DAT_200172A0 is set and the remaining count DAT_20017294 is zero, the flag is cleared and the completion callback at DAT_2001712C is called if present; when the count is non-zero, ble_xfer_pump_chunk_a_and_notify runs. Channel B: when its in-progress flag DAT_20017298 is set and its count DAT_2001728C is zero, the flag is cleared and the callback at DAT_20017128 is tail-called if present; if neither the flag nor the count is set the function returns; otherwise ble_xfer_pump_chunk_and_notify runs, but only when hci_stream_buffer_is_empty returns 0.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The channel-B pump being gated on the HCI stream buffer being non-empty is taken from the code as written; its rationale is not clear from this packet."
+  },
+  "ble_219_0c05e558": {
+    "name": "ecc_point_to_montgomery",
+    "summary": "Convert the X, Y and Z coordinates of a point to Montgomery form",
+    "description": "Computes t = R mod modulus with fp_montgomery_calc_normalization (0x0C062940, R = 2^(32*used)). For each coordinate (offsets 0, 0x68, 0xD0) of the source point it writes the product with t, reduced modulo the modulus (0x0C06353C), into the destination point. When t equals 1 the three coordinates are plain-copied with mp_copy instead. The temporary t comes from ble_ecc_heap_alloc(0x68) and is freed with ble_ecc_heap_free, and an allocation failure returns MEMORY_E (-0x7D). Used before each ladder run in ecc_mulmod_ex, ecc_mulmod_ex2 and the verify path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source ecc_point in plain form"
+      },
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination ecc_point in Montgomery form"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int modulus"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, MEMORY_E (-0x7D), or the first failing arithmetic result"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05e868": {
+    "name": "ecc_projective_dbl_point",
+    "summary": "Double a Jacobian point (a = -3 shortcut): out = 2 * in, with constant-time field operations",
+    "description": "wolfSSL-style Jacobian doubling. The input point (X, Y, Z at offsets 0, 0x68, 0xD0) is copied to the output and then computed with the a = -3 sequence: t1 = Z^2, t2 = (X - t1)(X + t1), M = 3 * t2, Z3 = 2 * Y * Z, followed by the X and Y updates. Every multiply is followed by Montgomery reduction with the modulus and rho, and additions, subtractions and halvings use the constant-time helpers fp_addmod_ct, fp_submod_ct and fp_div_2_mod_ct. The curve parameter a (third argument) is not read by the decompiled body, so the routine is correct only for a = -3, which holds for the NIST prime curves. Two temporaries are allocated and freed; NULL input returns ECC_BAD_ARG_E (-0xAA). Called by ecc_projective_add_point when both inputs are the same point and by ecc_mulmod_ladder_ct to form 2P.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "in",
+        "type": "ptr",
+        "description": "input point P (X at +0, Y at +0x68, Z at +0xD0)"
+      },
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "output point, receives 2P"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a (not read by the body)"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "rho",
+        "type": "u32",
+        "description": "Montgomery reduction digit"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, or an error code (-0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error)"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05eb00": {
+    "name": "ecc_projective_add_point",
+    "summary": "Add two Jacobian points, R = P + Q, with constant-time field helpers; equal inputs double",
+    "description": "wolfSSL-style Jacobian addition. If the two operands alias (Q and R the same pointer) they are swapped first. When the operands are the same point (x and y compare equal, with the Z tests passing) it returns ecc_projective_dbl_point(P, R, a, modulus, rho) instead. The general path uses squarings and multiplications with Montgomery reduction, constant-time modular add and subtract (fp_addmod_ct, fp_submod_ct), and zero tests on the Z coordinates (mp_iszero, get_digit_count) to detect the point at infinity and select the other operand. Two temporaries are allocated with ble_ecc_heap_alloc and freed on every path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "P",
+        "type": "ptr",
+        "description": "first input point"
+      },
+      {
+        "name": "Q",
+        "type": "ptr",
+        "description": "second input point"
+      },
+      {
+        "name": "R",
+        "type": "ptr",
+        "description": "output point"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "rho",
+        "type": "u32",
+        "description": "Montgomery reduction digit"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, or an error code (-0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error)"
+    },
+    "confidence": "medium",
+    "notes": "Exact formula sequence for the general (non-doubling) case was not traced line by line; the description covers the structure."
+  },
+  "ble_219_0c05efc0": {
+    "name": "ecc_map_ex",
+    "summary": "Map a Jacobian point to affine (x*z^-2, y*z^-3, z=1); infinity is encoded as (0, 0, 1)",
+    "description": "wolfSSL-style affine mapping. If z is zero the point is set to (0, 0, 1), the infinity encoding that ecc_check_pubkey_order tests for. Otherwise, with montgomeryRepr 0 z is first reduced out of Montgomery form and inverted with the modular inverse at 0x0C0635AC; with a non-zero flag the Montgomery-domain inverse at 0x0C063D2C (not yet described) is used instead. With t = z^-1 it computes t2 = t^2, x = x * t2 mod p, t = t * t2 = z^-3, y = y * t mod p, and sets z = 1. Two temporaries are allocated (MEMORY_E on failure) and zeroed before being freed.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "P",
+        "type": "ptr",
+        "description": "point, overwritten with its affine form"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "rho",
+        "type": "u32",
+        "description": "Montgomery reduction digit"
+      },
+      {
+        "name": "montgomeryRepr",
+        "type": "s32",
+        "description": "0 when the coordinates are in Montgomery form, non-zero otherwise"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the flag is inferred from which inverse path it selects."
+  },
+  "ble_219_0c05f164": {
+    "name": "wc_ecc_new_point_h",
+    "summary": "Allocate and zero an ecc_point (0x138 bytes) and initialise its three fp_ints",
+    "description": "wolfSSL wc_ecc_new_point_h(heap). Allocates 0x138 bytes with ble_ecc_heap_alloc, zeroes them with memset, and calls mp_init_multi on x (+0), y (+0x68) and z (+0xD0). If the initialisation fails the block is released and NULL is returned. The heap argument is accepted but not used, because the BLE pool handle is fixed at DAT_200049A8.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "heap",
+        "type": "ptr",
+        "description": "heap hint, ignored"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "new point, or NULL on allocation or init failure"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05f1a8": {
+    "name": "wc_ecc_new_point",
+    "summary": "Allocate a new ecc_point with no heap hint (wc_ecc_new_point)",
+    "description": "Calls wc_ecc_new_point_h (0x0C05F164) with a NULL heap hint and returns its result. The result is the new zeroed point, or NULL when the allocation or initialisation fails. It is the usual constructor used by the ECC routines in this packet.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "new point, or NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05f1b0": {
+    "name": "wc_ecc_del_point",
+    "summary": "Zero the three coordinates of an ecc_point and free it (wc_ecc_del_point)",
+    "description": "If the pointer is not NULL, it zeroes the x, y and z fp_ints (offsets 0, 0x68 and 0xD0) with fp_clear (0x0C063FEC) and then frees the block through ble_ecc_heap_free. NULL is ignored. The explicit zeroing matters because mp_clear is empty in this build, so the secret-bearing digits would otherwise survive the free.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "p",
+        "type": "ptr",
+        "description": "ecc_point to release, may be NULL"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05f218": {
+    "name": "wc_ecc_gen_k",
+    "summary": "Draw a random ECC scalar: size+8 RNG bytes read as an integer and reduced modulo the order",
+    "description": "wolfSSL wc_ecc_gen_k(rng, size, k, order). Fills a stack buffer with size+8 random bytes from the RNG routine at 0x0C061834 (not yet described), reads them into k with fp_read_unsigned_bin (0x0C062BAC), and when k >= order reduces it modulo order with 0x0C0634C4. A zero result returns RNG_FAILURE_E (-0x79). The stack buffer is zeroed over its full 80 bytes before returning on every path. The 8 extra bytes keep the bias from the modular reduction small. Used by wc_ecc_make_key_ex and ecc_randomize_projective.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG state"
+      },
+      {
+        "name": "size",
+        "type": "s32",
+        "description": "key size in bytes"
+      },
+      {
+        "name": "k",
+        "type": "ptr",
+        "description": "output fp_int scalar"
+      },
+      {
+        "name": "order",
+        "type": "ptr",
+        "description": "curve order fp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, the RNG routine's error code, or -0x79 (RNG_FAILURE_E) when k is zero"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05f28c": {
+    "name": "ecc_randomize_projective",
+    "summary": "Re-randomise a point's projective coordinates with a random factor r (Z*=r, X*=r^2, Y*=r^3)",
+    "description": "Draws r with wc_ecc_gen_k (0x0C05F218) into temp2, then multiplies Z by r, computes t1 = r^2 and r = r^3, and multiplies X by r^2 and Y by r^3, with a Montgomery reduction after each product. This is the Coron-style projective blinding that hides intermediate values during the ladder. It runs only when the ladder is given an RNG (see ecc_mulmod_ladder_ct), and a failed random draw returns before any coordinate is touched.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG state"
+      },
+      {
+        "name": "size",
+        "type": "s32",
+        "description": "key size in bytes"
+      },
+      {
+        "name": "point",
+        "type": "ptr",
+        "description": "ecc_point to re-randomise"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "rho",
+        "type": "u32",
+        "description": "Montgomery reduction digit"
+      },
+      {
+        "name": "t1",
+        "type": "ptr",
+        "description": "temporary fp_int"
+      },
+      {
+        "name": "t2",
+        "type": "ptr",
+        "description": "temporary fp_int, receives r"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 or the error from wc_ecc_gen_k"
+    },
+    "confidence": "medium",
+    "notes": "The bound used when drawing r is uncertain: the decompiled call to 0x0C05F218 passes only three arguments, so the fourth is not known."
+  },
+  "ble_219_0c05f338": {
+    "name": "ecc_mulmod_ladder_ct",
+    "summary": "Constant-time Montgomery-ladder scalar multiply over a table of points, optional RNG blinding",
+    "description": "Core of the scalar multiplication. It copies P into table entry 0, computes entry 1 = 2P with ecc_projective_dbl_point, and copies entries 0 and 1 into entries 3 and 4. When the RNG argument is non-zero, entries 3 and 4 are first randomised with ecc_randomize_projective. It then walks the digits and bits of the scalar from the top; each bit performs one ecc_projective_add_point and conditional copies (mp_cond_copy) that select the accumulator, so the sequence of operations does not depend on the bit values. The top digit is located with get_digit_count of the modulus, and bits are read with get_digit. The final accumulator is written to R, and errors from any step are returned.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "k",
+        "type": "ptr",
+        "description": "scalar fp_int"
+      },
+      {
+        "name": "P",
+        "type": "ptr",
+        "description": "input point, Montgomery form"
+      },
+      {
+        "name": "R",
+        "type": "ptr",
+        "description": "output point"
+      },
+      {
+        "name": "table",
+        "type": "ptr",
+        "description": "array of point pointers, entries 0..4 used"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "rho",
+        "type": "u32",
+        "description": "Montgomery reduction digit"
+      },
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG for projective blinding, NULL for none"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 or the first error from the point or field operations"
+    },
+    "confidence": "medium",
+    "notes": "The exact ladder update is not traced line by line; the constant-time structure (fixed add plus cond-copy per bit) is what the code shows."
+  },
+  "ble_219_0c05f71c": {
+    "name": "ecc_mulmod_ex",
+    "summary": "Scalar multiply R = k * P without blinding; optional affine mapping of the result",
+    "description": "wolfSSL-style ecc_mulmod_ex(k, P, R, a, modulus, map, heap). Validates the pointers, creates five table points and one temporary with wc_ecc_new_point, converts P to Montgomery form with ecc_point_to_montgomery, and computes rho with mp_montgomery_setup. It then runs ecc_mulmod_ladder_ct with no RNG and, when map is non-zero, maps R to affine with ecc_map_ex(R, modulus, rho, 0). The table and the temporary are freed with wc_ecc_del_point before returning. The verify path uses it for u1 * G and u2 * Q, and ecc_check_pubkey_order uses it with k = order.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "k",
+        "type": "ptr",
+        "description": "scalar fp_int"
+      },
+      {
+        "name": "P",
+        "type": "ptr",
+        "description": "input point"
+      },
+      {
+        "name": "R",
+        "type": "ptr",
+        "description": "output point"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "map",
+        "type": "s32",
+        "description": "non-zero maps R to affine"
+      },
+      {
+        "name": "heap",
+        "type": "ptr",
+        "description": "heap hint for temporaries"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05f818": {
+    "name": "ecc_mulmod_ex_thunk",
+    "summary": "Branch-only alias of ecc_mulmod_ex; the argument registers pass straight through",
+    "description": "Tail-calls ecc_mulmod_ex (0x0C05F71C) without setting up any arguments, so the caller (0x0C05B86C, not yet described) must already hold the argument registers. Like the other *_thunk entries it is a pure branch alias.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05f830": {
+    "name": "ecc_check_pubkey_order",
+    "summary": "Check that order * Q is the point at infinity (encoded as x = y = 0) for a public key",
+    "description": "Computes order * Q with ecc_mulmod_ex on a temporary point, mapping the result to affine (map flag 1). It returns 0 only when both mapped coordinates are zero, which is the (0, 0) encoding of infinity written by ecc_map_ex; any other result returns ECC_INF_E (-0xD7). A NULL key returns BAD_FUNC_ARG (-0xAD). Only the heap field (key+0x14) is read from the key, and the temporary is zeroed and freed on every path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key, only its heap field is read"
+      },
+      {
+        "name": "pub",
+        "type": "ptr",
+        "description": "public point Q"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "prime",
+        "type": "ptr",
+        "description": "field prime fp_int"
+      },
+      {
+        "name": "order",
+        "type": "ptr",
+        "description": "curve order fp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when order * Q is infinity, -0xD7 (ECC_INF_E) otherwise, -0xAD for NULL key"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05f8c4": {
+    "name": "ecc_mulmod_ex2",
+    "summary": "Blinded scalar multiply R = k * G: k + order blinding, optional RNG, optional affine map",
+    "description": "wolfSSL-style ecc_mulmod_ex2(k, G, R, a, modulus, order, rng, map, heap). Converts G to Montgomery form, takes rho, and rejects a scalar wider than the order (-0xD9). It computes the blinded scalar k + order, adding the order a second time only when that sum still has the order's bit length, so the ladder always runs over a fixed number of bits. It then calls ecc_mulmod_ladder_ct with the RNG enabling projective blinding. If k is 1 modulo the order the result is replaced by the input point through a constant-time conditional copy. Finally it maps R to affine when map is non-zero and frees its temporaries. Callers are ecc_shared_secret, ecc_make_pub_ex and ecc_check_privkey_gen.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "k",
+        "type": "ptr",
+        "description": "private scalar fp_int"
+      },
+      {
+        "name": "G",
+        "type": "ptr",
+        "description": "input point"
+      },
+      {
+        "name": "R",
+        "type": "ptr",
+        "description": "output point"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "fp_int field modulus"
+      },
+      {
+        "name": "order",
+        "type": "ptr",
+        "description": "curve order fp_int"
+      },
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG for blinding, may be NULL"
+      },
+      {
+        "name": "map",
+        "type": "s32",
+        "description": "non-zero maps R to affine"
+      },
+      {
+        "name": "heap",
+        "type": "ptr",
+        "description": "heap hint"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xAA for NULL input, -0xD9 for an over-wide scalar, MEMORY_E, or an arithmetic error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05fb10": {
+    "name": "ecc_shared_secret",
+    "summary": "ECDH core: X coordinate of (private scalar * peer point) written to the output buffer",
+    "description": "wolfSSL-style ecc_shared_secret(key, point, out, outlen). It loads prime, a and order from key->dp with wc_ecc_curve_load (mask 0x0B), requires an RNG on the key (MISSING_RNG_E, -0xEC, otherwise), and multiplies the private scalar at key+0x150 by the peer point with ecc_mulmod_ex2 (RNG on), then maps the product to affine with ecc_map_ex. The big-endian X coordinate is written right-aligned into out with leading zero padding up to the field size. A too-small out returns BUFFER_E (-0x84), and *outlen is set to the required field size in that case and on success. The other failure paths set *outlen to 0. Temporaries and the curve context are zeroed and freed.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "private ecc_key (dp at +0x10, rng at +0x1b8, scalar at +0x150)"
+      },
+      {
+        "name": "point",
+        "type": "ptr",
+        "description": "peer public point"
+      },
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "outlen",
+        "type": "ptr",
+        "description": "in: buffer size, out: bytes written (u32)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xEC (MISSING_RNG_E), -0x84 (BUFFER_E), -0x7D, or an ECC arithmetic error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05fccc": {
+    "name": "wc_ecc_shared_secret",
+    "summary": "wc_ecc_shared_secret state machine: validate keys, run the ECDH core, retry on pending",
+    "description": "wolfSSL-style wc_ecc_shared_secret wrapper with a non-blocking state machine. It requires non-NULL out and outlen (BAD_FUNC_ARG -0xAD), a private key type of 2 or 3, and matching curve identity (dp id) between the two keys, otherwise it returns -0xAA. The state word at key+8 selects the step: state 0 or 1 runs ecc_shared_secret with the state set to 1; a WC_PENDING (-0x6C) result leaves the state at 2 so the call can be repeated; state 2 on entry returns 0; any other state returns BAD_STATE_E (-0xC0). Other results reset the state to 0.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "private_key",
+        "type": "ptr",
+        "description": "private ecc_key, state word at +8"
+      },
+      {
+        "name": "public_key",
+        "type": "ptr",
+        "description": "peer ecc_key"
+      },
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "outlen",
+        "type": "ptr",
+        "description": "in/out byte count (u32)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0x6C (WC_PENDING, retry), or an error code (-0xAD, -0xAA, -0xC0, or from ecc_shared_secret)"
+    },
+    "confidence": "medium",
+    "notes": "The exact key-validation conditions were read from the decompiled comparisons and are not fully named."
+  },
+  "ble_219_0c05fd18": {
+    "name": "ecc_make_pub_ex",
+    "summary": "Compute the public point k*G for a private key, check its order, and set the key type",
+    "description": "wolfSSL-style ecc_make_pub_ex(key, curve, pubOut, rng). If no curve context is given it allocates a 0x208-byte ecc_curve_spec and loads prime, a, order, Gx and Gy from key->dp (mask 0x3B). When pubOut is NULL the key's own public point (key+0x18) is used and the key type is set to ECC_PRIVATEKEY_ONLY (3) on entry and to ECC_PRIVATEKEY (2) on exit. The private scalar at key+0x150 must satisfy 0 < k < order, otherwise ECC_PRIV_KEY_E (-0xD8) is returned. pubOut = k * G is then computed with ecc_mulmod_ex2 (RNG blinding), mapped to affine, and checked with ecc_check_pubkey_order. Temporaries are freed on every path. ecc_verify_hash_ex calls it with (key, NULL, NULL) to fill in the public point of a private-only key.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key"
+      },
+      {
+        "name": "curve",
+        "type": "ptr",
+        "description": "curve context, or NULL to load one"
+      },
+      {
+        "name": "pubOut",
+        "type": "ptr",
+        "description": "output point, or NULL for key->pubkey"
+      },
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG for blinding"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xD8 (ECC_PRIV_KEY_E) for an out-of-range scalar, or an error from the steps above"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05ff44": {
+    "name": "ecc_check_privkey_gen",
+    "summary": "Check a private key by recomputing k*G and comparing it with the stored public key",
+    "description": "wolfSSL-style ecc_check_privkey_gen(key, a, prime). Loads order, Gx and Gy (mask 0x38) with wc_ecc_curve_load, sets a temporary point to (Gx, Gy, 1), and computes R = k * G with ecc_mulmod_ex2 using the key's RNG, then maps R to affine. R's x, y and z are compared with the stored public point (key+0x18, +0x80, +0xE8). A match returns 0 and a mismatch returns ECC_PRIV_KEY_E (-0xD8). Temporaries and the curve context are zeroed and freed on every path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key with private scalar and stored public point"
+      },
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "curve parameter a"
+      },
+      {
+        "name": "prime",
+        "type": "ptr",
+        "description": "field prime fp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on match, -0xD8 (ECC_PRIV_KEY_E) on mismatch, -0xAD for NULL key, or a setup error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0600c0": {
+    "name": "wc_ecc_make_key_ex",
+    "summary": "Generate an ECC key pair: select the curve, draw k, derive the public point (wc_ecc_make_key_ex)",
+    "description": "wolfSSL wc_ecc_make_key_ex(rng, keysize, key, curve_id). Sets the key state at +8 to 0, selects the curve by keysize or curve id with wc_ecc_set_curve, initialises the private scalar at key+0x150 with mp_init, and loads a 0x208-byte curve context (mask 0x3B). It draws k with wc_ecc_gen_k over the order and calls ecc_make_pub_ex to derive the public point. On success the key type is set to ECC_PRIVATEKEY (2); on failure the scalar is force-zeroed with mp_forcezero. A NULL rng or key returns BAD_FUNC_ARG (-0xAD) and an allocation failure returns MEMORY_E (-0x7D).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "RNG state"
+      },
+      {
+        "name": "keysize",
+        "type": "s32",
+        "description": "key size in bytes, used when curve_id is not set"
+      },
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key to fill (0x1bc bytes)"
+      },
+      {
+        "name": "curve_id",
+        "type": "s32",
+        "description": "ecc_curve_id, or 0 to choose by keysize"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, -0xAD (BAD_FUNC_ARG), -0x7D (MEMORY_E), or the error from curve selection or key generation"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0601fc": {
+    "name": "ecc_verify_hash_ex",
+    "summary": "ECDSA verify core: check x(u1*G + u2*Q) mod n against r and set *res",
+    "description": "wolfSSL-style ecc_verify_hash_ex(r, s, hash, hashlen, res, key). *res is cleared first. It rejects r or s that are zero or not below the order (-0x79), reads the digest with fp_read_unsigned_bin and truncates it to the order's bit length, then computes w = s^-1 mod n (0x0C0635AC), u1 = e * w mod n and u2 = r * w mod n. The point R = u1 * G + u2 * Q is formed with two ecc_mulmod_ex calls (G from the curve context, Q = key->pubkey) and ecc_projective_add_point, then mapped to affine with ecc_map_ex. *res is set to 1 when x(R) mod n equals r. A private-only key (type 3) first gets its public point from ecc_make_pub_ex. All temporaries are freed on every path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "r",
+        "type": "ptr",
+        "description": "signature r fp_int"
+      },
+      {
+        "name": "s",
+        "type": "ptr",
+        "description": "signature s fp_int"
+      },
+      {
+        "name": "hash",
+        "type": "ptr",
+        "description": "message digest"
+      },
+      {
+        "name": "hashlen",
+        "type": "s32",
+        "description": "digest length in bytes"
+      },
+      {
+        "name": "res",
+        "type": "ptr",
+        "description": "output verdict, 1 = valid, 0 = invalid (s32)"
+      },
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key with public point"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the check ran (verdict in *res), -0x79 for out-of-range r or s, or an error code"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c060720": {
+    "name": "wc_ecc_verify_hash",
+    "summary": "wc_ecc_verify_hash state machine: decode the DER signature, then verify",
+    "description": "wolfSSL wc_ecc_verify_hash(sig, siglen, hash, hashlen, res, key) with a state machine in key+8. It rejects NULL sig, hash, res or key (ECC_BAD_ARG_E -0xAA) and allocates two temporary mp_ints for r and s. State 0 or 5 sets the state to 5, clears *res and decodes the DER ECDSA signature into r and s with DecodeECC_DSA_Sig (0x0C05E474); state 6 runs ecc_verify_hash_ex (0x0C0601FC) on r, s, hash, res and key; state 7 returns 0 at once. A WC_PENDING (-0x6C) from a step advances the state so the call can be repeated. A completed run resets the state to 0 and returns 0 with the verdict in *res. Any other state returns BAD_STATE_E (-0xC0).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "sig",
+        "type": "ptr",
+        "description": "DER-encoded ECDSA signature"
+      },
+      {
+        "name": "siglen",
+        "type": "u32",
+        "description": "signature length in bytes"
+      },
+      {
+        "name": "hash",
+        "type": "ptr",
+        "description": "message digest"
+      },
+      {
+        "name": "hashlen",
+        "type": "u32",
+        "description": "digest length in bytes"
+      },
+      {
+        "name": "res",
+        "type": "ptr",
+        "description": "output verdict, 1 = valid, 0 = invalid (s32)"
+      },
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "ecc_key, state word at +8"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the check completed (verdict in *res), -0x6C (WC_PENDING), or an error code"
+    },
+    "confidence": "high"
+  }
+}

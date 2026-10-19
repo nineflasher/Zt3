@@ -34,7 +34,7 @@ Serial output of one byte, least significant bit first, to an external shift-reg
 **Notes:** Latching on the rising edge of PB6 is inferred from the order of operations and is not checked against the driver part.
 
 - Addresses by version: 148: 0x0800DD00, 14a: 0x0800E19C, 14b: 0x0800E62C, 14e: 0x0800E6CC, 14f: 0x0800E818, 152: 0x0800EAC0, 153: 0x0800EBB4, 0159: 0x0800ED24
-- Called by: `vcu_0159_080057ac`, `vcu_0159_0800ed4c`
+- Called by: `vcu_display_frame_render_tick`, `vcu_led_tm1640_frame_commit`
 - Calls: `vcu_gpio_pb6_set`, `vcu_gpio_pb6_reset`, `vcu_gpio_pb7_set`, `vcu_gpio_pb7_reset`
 - Confidence: medium
 
@@ -47,7 +47,7 @@ Switch on DAT_20002047: mode 1 ORs 0x0f into DAT_200021c6 and DAT_200021ca; mode
 **Notes:** DAT_20002047 is written by wave2/3 mode code; its meaning (drive mode / light mode?) is not established here.
 
 - Addresses by version: 148: 0x0800B6F0, 14a: 0x0800BB34, 14b: 0x0800BFC0, 14e: 0x0800C054, 14f: 0x0800C190, 152: 0x0800C41C, 153: 0x0800C510, 0159: 0x0800C57C
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Confidence: low
 
 ## led_frame_set_bit16
@@ -80,7 +80,7 @@ Clears bit4 (0x10) of DAT_200021cf, then sets it again when param_1 != 0. Caller
 **Notes:** What the bit drives is unknown.
 
 - Addresses by version: 148: 0x0800B124, 14a: 0x0800B56C, 14b: 0x0800B9F8, 14e: 0x0800BA8C, 14f: 0x0800BBC8, 152: 0x0800BE54, 153: 0x0800BF48, 0159: 0x0800BFB4
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Confidence: low
 
 ## led_frame_set_d3_bit2
@@ -112,7 +112,7 @@ Clears bytes 0x200021ce and 0x200021d0 and bit0 of 0x200021cf and 0x200021d1; if
 **Notes:** 9-bit group structure matches the 9-segment helpers vcu_0159_0800c420/0800c488; meaning unconfirmed.
 
 - Addresses by version: 148: 0x0800AFF0, 14a: 0x0800B3E8, 14b: 0x0800B874, 14e: 0x0800B908, 14f: 0x0800BA44, 152: 0x0800BCD0, 153: 0x0800BDC4, 0159: 0x0800BE30
-- Called by: `vcu_0159_080057ac`, `vcu_channel_sweep_animation`
+- Called by: `vcu_display_frame_render_tick`, `vcu_channel_sweep_animation`
 - Confidence: low
 
 ## led_frame_set_pair_d1_d4
@@ -128,7 +128,7 @@ param_1 != 0: DAT_200021d1 |= 0x10 and DAT_200021d4 |= 0x08; param_1 == 0 clears
 **Notes:** Which indicator this is is unknown.
 
 - Addresses by version: 148: 0x0800B0C8, 14a: 0x0800B4BC, 14b: 0x0800B948, 14e: 0x0800B9DC, 14f: 0x0800BB18, 152: 0x0800BDA4, 153: 0x0800BE98, 0159: 0x0800BF04
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Confidence: low
 
 ## led_frame_set_segment_a
@@ -178,7 +178,7 @@ Clamps the argument to 100 and stores its 0..10 level in DAT_20001507 (util_map_
 **Notes:** The byte passed to vcu_0159_0800bf84 comes from r3 after the bee8 call, so its source is uncertain.
 
 - Addresses by version: 148: 0x0800D5F4, 14a: 0x0800DA88, 14b: 0x0800DF14, 14e: 0x0800DFB4, 14f: 0x0800E100, 152: 0x0800E3A8, 153: 0x0800E49C, 0159: 0x0800E60C
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Calls: `led_frame_set_d3_bit2`, `vcu_level_bar_draw`, `util_map_range_clamp_high`
 - Confidence: medium
 
@@ -191,7 +191,7 @@ Called each tick from vcu_0159_080057ac. If flag DAT_20001cfa is nonzero the cou
 **Notes:** Meaning of 0x81 vs 0x86 and of flag 0x20001cfa not confirmed; only the counter arithmetic is certain.
 
 - Addresses by version: 14a: 0x0800B4E8, 14b: 0x0800B974, 14e: 0x0800BA08, 14f: 0x0800BB44, 152: 0x0800BDD0, 153: 0x0800BEC4, 0159: 0x0800BF30
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Confidence: low
 
 ## vcu_c14_c15_blink_step
@@ -203,7 +203,7 @@ Called once per tick. When DAT_20001fe8 is 10 the counter DAT_20001368 increment
 **Notes:** Meaning of the request codes 10 and 11 is inferred from the blink pattern. What the two pins drive is not traced.
 
 - Addresses by version: 148: 0x0800910C, 14a: 0x080095B4, 14b: 0x08009A34, 14e: 0x08009AC8, 14f: 0x08009C04, 152: 0x08009E18, 153: 0x08009F0C, 0159: 0x08009FE4
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a264`, `vcu_0159_0800a500`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_state0_periodic_tick_v0159`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
 - Calls: `vcu_gpio_c14_set`, `vcu_gpio_c15_set`
 - Confidence: medium
 
@@ -216,7 +216,7 @@ Latches bit 6 of DAT_20001e68 into DAT_20001512. When the latch is 0 it calls le
 **Notes:** vcu_chan_mask_update (FUN_0800aa9c) sets or clears one of the ten channel bits in the byte masks at 0x200021ce, as described in the packet callee list.
 
 - Addresses by version: 148: 0x0800B024, 14a: 0x0800B41C, 14b: 0x0800B8A8, 14e: 0x0800B93C, 14f: 0x0800BA78, 152: 0x0800BD04, 153: 0x0800BDF8, 0159: 0x0800BE64
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Calls: `vcu_chan_mask_update`, `led_frame_set_group_all`
 - Confidence: medium
 
@@ -244,7 +244,7 @@ Loops over bar segments 0..9 calling led_frame_set_bit16 (FUN_0800bdf4) with 1 f
 | `param_1` | `u32` | level, nominally 0..100 |
 
 - Addresses by version: 148: 0x0800B0F4, 14a: 0x0800B53C, 14b: 0x0800B9C8, 14e: 0x0800BA5C, 14f: 0x0800BB98, 152: 0x0800BE24, 153: 0x0800BF18, 0159: 0x0800BF84
-- Called by: `vcu_0159_0800b0c4`, `lighting_brightness_percent_set`
+- Called by: `vcu_level_gauge_update_v0159`, `lighting_brightness_percent_set`
 - Calls: `led_frame_set_bit16`
 - Confidence: high
 
@@ -261,6 +261,6 @@ Quantises the level into two 10-step values: DAT_200014f6 (lower) and DAT_200014
 **Notes:** The meaning of the level input (state of charge, speed or other) is not established here. The 60/119 redraw points and the bands are read from the compare constants.
 
 - Addresses by version: 148: 0x0800AE0C, 14a: 0x0800B204, 14b: 0x0800B690, 14e: 0x0800B724, 14f: 0x0800B860, 152: 0x0800BAEC, 153: 0x0800BBE0, 0159: 0x0800BC4C
-- Called by: `vcu_0159_080057ac`
+- Called by: `vcu_display_frame_render_tick`
 - Calls: `app_set_state`, `led_frame_set_bit16`, `led_frame_set_d3_bit2`
 - Confidence: medium

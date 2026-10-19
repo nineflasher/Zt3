@@ -1,6 +1,6 @@
 # BMS - `app` functions
 
-36 functions.
+40 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -31,6 +31,10 @@
 | [`bms_record_queue_flush`](#bms_record_queue_flush) | 0x0800B904 | Empty the 256-entry record queue and set the handler word at 0x20000684 |
 | [`bms_record_queue_pop`](#bms_record_queue_pop) | 0x0800B91C | Pop the oldest 24-byte record from the 256-slot queue at 0x20002C18; 0 if empty |
 | [`bms_record_set_or_clear`](#bms_record_set_or_clear) | 0x0800E38C | Clear the six-word record at 0x200024CC when param_4 is 0xFFFF, else store its fields |
+| [`bms_snapshot_logger_thunk`](#bms_snapshot_logger_thunk) | 0x0800871C | Thunk that runs the snapshot logger tick |
+| [`bms_snapshot_logger_tick`](#bms_snapshot_logger_tick) | 0x0800A8A0 | Snapshot logger: every 5000 units capture and queue a record; commit history every 1000 |
+| [`bms_state_restore_or_init`](#bms_state_restore_or_init) | 0x08008060 | Restore the state block from flash, or rebuild defaults and identity if the marker is missing |
+| [`bms_telemetry_sched_thunk`](#bms_telemetry_sched_thunk) | 0x08007F10 | Thunk that runs the telemetry 16-step scheduler |
 | [`bms_u16_2000067c_get`](#bms_u16_2000067c_get) | 0x0800A55C | Return the u16 at RAM 0x2000067C |
 | [`bms_u16_2000067c_set`](#bms_u16_2000067c_set) | 0x0800A568 | Store a u16 into RAM 0x2000067C |
 | [`bms_u16_2000067e_get`](#bms_u16_2000067e_get) | 0x0800A510 | Return the u16 at RAM 0x2000067E |
@@ -74,7 +78,7 @@ Returns true when the byte at 0x20000B57 is nonzero and false otherwise, with no
 **Returns** `bool`: true when the flag is set
 
 - Addresses by version: 4148: 0x08007A8C, 4168: 0x08007D94
-- Called by: `bms_4168_08004774`, `bms_4168_0800c96c`, `bms_4168_0800fb94`
+- Called by: `bms_limit_status_update`, `bms_4168_0800c96c`, `bms_4168_0800fb94`
 - Confidence: high
 
 ## bms_app_state_reset
@@ -86,7 +90,7 @@ Zeroes 24 byte-sized RAM variables, 22 of them in the 0x20000A49..0x20000B57 ran
 **Notes:** The 2 and 0x5A defaults and the list of cleared variables are certain from the code. Their roles are inferred from the reset pattern and the other families. Shared by the 4148 and 4168 builds.
 
 - Addresses by version: 4148: 0x08007B98, 4168: 0x08007EA0
-- Called by: `bms_4168_08007da4`, `bms_4168_08010558`
+- Called by: `bms_comm_pool_state_step`, `bms_4168_08010558`
 - Confidence: medium
 
 ## bms_app_state_reset_legacy
@@ -140,7 +144,7 @@ Copies param_1[0] through param_1[6] (16-bit each) into the halfwords at 0x20002
 **Notes:** The destination words are not named in this packet; their use is in the callers. The function does not check the source pointer.
 
 - Addresses by version: 4148: 0x0800D358, 4168: 0x0800D740
-- Called by: `bms_4168_08004774`
+- Called by: `bms_limit_status_update`
 - Confidence: high
 
 ## bms_byte_200004f4_addr
@@ -152,7 +156,7 @@ Returns &DAT_200004f4 as a byte pointer. The object is not identified in this pa
 **Returns** `ptr`: address of the RAM byte at 0x200004F4
 
 - Addresses by version: 4130: 0x0800B328, 4139: 0x0800B880, 4148: 0x0800C064, 4168: 0x0800C378
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Confidence: medium
 
 ## bms_byte_20000628_addr
@@ -164,7 +168,7 @@ Returns &DAT_20000628 so the caller can read or write the byte through the point
 **Returns** `ptr`: address of the RAM byte at 0x20000628
 
 - Addresses by version: 4130: 0x0800AB7C, 4139: 0x0800B0B4, 4148: 0x0800B7D0, 4168: 0x0800BAE4
-- Called by: `bms_timeout_arm_from_record`, `bms_4168_08005768`
+- Called by: `bms_timeout_arm_from_record`, `bms_extlog_request_dispatch`
 - Confidence: medium
 
 ## bms_byte_2000063e_addr
@@ -176,7 +180,7 @@ Returns &DAT_2000063e so the caller can read or write the byte through the point
 **Returns** `ptr`: address of the RAM byte at 0x2000063E
 
 - Addresses by version: 4130: 0x0800A93C, 4139: 0x0800AE74, 4148: 0x0800B590, 4168: 0x0800B8A4
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Confidence: medium
 
 ## bms_chan_bind
@@ -281,7 +285,7 @@ Initialises the software state for external-flash journalling. It loops over ten
 **Notes:** The meaning of the slot flags and the journal layout are inferred from the field sizes and range checks. Caller chain includes bms_4168_08008724.
 
 - Addresses by version: 4130: 0x08009860, 4139: 0x08009D98, 4148: 0x0800A4B4, 4168: 0x0800A7C8
-- Called by: `bms_4168_08008724`
+- Called by: `bms_extflash_probe_and_init`
 - Calls: `bms_extflash_read`
 - Confidence: medium
 
@@ -334,7 +338,7 @@ Returns &DAT_200001c8 for pointer access. The object's width is unknown. It is c
 **Notes:** The packet's caller list is truncated.
 
 - Addresses by version: 4130: 0x0800AEB4, 4139: 0x0800B3EC, 4148: 0x0800BB08, 4168: 0x0800BE1C
-- Called by: `bms_4168_08001368`, `bms_4168_080013a0`, `bms_4168_080013c8`, `bms_4168_08003290`, `bms_4168_08003440`, `bms_4168_080068e8`, `bms_charge_integrate_step`, `bms_4168_08008060`, `bms_4168_0800c018`, `bms_4168_0800c638`, `bms_4168_0800c80c`, `bms_4168_0800c96c` ...
+- Called by: `EXTI0_1_IRQHandler`, `EXTI2_3_IRQHandler`, `EXTI4_15_IRQHandler`, `bms_4168_08003290`, `RCC_CRS_IRQHandler`, `bms_soc_main_step`, `bms_charge_integrate_step`, `bms_state_restore_or_init`, `bms_protect_dwell_flags_update`, `bms_meas_interp_filter_dispatch`, `bms_4168_0800c80c`, `bms_4168_0800c96c` ...
 - Confidence: medium
 
 ## bms_ram_2000068f_addr
@@ -362,7 +366,7 @@ Returns &DAT_20000bdc. The object's width and role are not shown, since the deco
 **Notes:** Callers include bms_4130_08004410, bms_4130_08005d2c, bms_4130_08006830 and bms_4139_08004618, among others; the packet's list is truncated.
 
 - Addresses by version: 4130: 0x0800AEAC, 4139: 0x0800B3E4, 4148: 0x0800BB00, 4168: 0x0800BE14
-- Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_comm_await_reply_cmd03`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_timeout_arm_from_record`, `bms_4168_08005768`, `bms_status_event_snapshot`, `bms_history_ring_commit`, `bms_4168_08005fc4`, `bms_state_refresh_scaled`, `bms_4168_080068e8` ...
+- Called by: `bms_limit_status_update`, `bms_remaining_time_4168`, `bms_comm_await_reply_cmd03`, `bms_status_bit4_from_reply`, `bms_limit_report_cmd08`, `bms_timeout_arm_from_record`, `bms_extlog_request_dispatch`, `bms_status_event_snapshot`, `bms_history_ring_commit`, `bms_status_latch_step`, `bms_state_refresh_scaled`, `bms_soc_main_step` ...
 - Confidence: medium
 
 ## bms_record_queue_flush
@@ -415,6 +419,63 @@ When param_4 is 0xFFFF, all six 32-bit words from 0x200024CC to 0x200024E0 are z
 - Addresses by version: 4130: 0x0800C93C, 4139: 0x0800CF38, 4148: 0x0800DF38, 4168: 0x0800E38C
 - Called by: `bms_record_store_from_state`, `bms_4168_0800f8e0`
 - Confidence: medium
+
+## bms_snapshot_logger_thunk
+
+**Thunk that runs the snapshot logger tick**
+
+Calls bms_snapshot_logger_tick (0x0800A8A0) with no explicit arguments and returns. It is one of the main-loop periodic calls and keeps no state of its own.
+
+**Notes:** The decompile shows no arguments, which suggests a tail call that passes the caller's registers through. If so, param_1 and param_2 of the logger come from the main loop and not from this thunk.
+
+- Addresses by version: 4130: 0x080076D0, 4139: 0x08007BD0, 4148: 0x0800841C, 4168: 0x0800871C
+- Called by: `bms_4168_08010558`
+- Calls: `bms_snapshot_logger_tick`
+- Confidence: medium
+
+## bms_snapshot_logger_tick
+
+**Snapshot logger: every 5000 units capture and queue a record; commit history every 1000**
+
+Called every tick with the elapsed time in param_1. A zero param_2 resets the 5000-unit accumulator at 0x20000570. Otherwise the accumulator advances by param_1, and at 5000 the routine captures a record at 0x20001360 to 0x20001395: the RTC date-time from bms_rtc_datetime_pack, 13 u16 words from state+0x140, the current at +0x11A, six low bytes from the u16 words at +0x12C to +0x13C, bytes at +0x11E and +0x19C, u32 words from +0x124 and +0x194, two u16 words at +0x13C and +0x13E, and bytes at +0x180 and +0x1D2. The record is registered in the 10-slot pool with bms_slot_pool_register under tag 6. A separate 1000-unit accumulator at 0x20000574 triggers bms_history_ring_commit. Each call ends with bms_status_event_snapshot(param_1).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | elapsed time since the previous call |
+| `param_2` | `s32` | mode: 0 resets the 5000-unit accumulator, otherwise the accumulator advances |
+| `param_3` | `u32` | not used in this routine |
+| `param_4` | `u32` | scratch word; overwritten with the RTC pack result |
+
+**Notes:** The record field layout is taken from the offsets read in the decompile and has no names of its own here. The reset in the mode 0 case clears only the 5000-unit accumulator.
+
+- Addresses by version: 4130: 0x08009938, 4139: 0x08009E70, 4148: 0x0800A58C, 4168: 0x0800A8A0
+- Called by: `bms_snapshot_logger_thunk`
+- Calls: `bms_status_event_snapshot`, `bms_history_ring_commit`, `bms_rtc_datetime_pack`, `bms_slot_pool_register`, `bms_ram_20000bdc_addr`
+- Confidence: medium
+
+## bms_state_restore_or_init
+
+**Restore the state block from flash, or rebuild defaults and identity if the marker is missing**
+
+Boot-time routine. It points the state block at 0x2000002C and the status word at 0x200001C8 (bms_ram_200001c8_addr), and copies the 512-byte block back from flash 0x0803F000 with bms_memcpy_args_swap. It clamps the u16 scale fields at +0xAE and +0x1E0 to 1000 when they are outside 800 to 1000, sets bit 25 of the status word and bit 5 of +0x196, and loads three factory UID words (bms_get_uid_word_by_index 0 to 2) into 0x200008F8, 0x200008FC and 0x20000900. If the marker 0x5A5A at +0x1FE is present and the 12 bytes at +0x186 match the UID words (bms_memcmp_prefix), the restored block is kept; a mismatch clears bit 25 and sets bit 7. Otherwise the block is cleared with bms_mem_zero, a 16-character identity built from the constants 0x3130305A, 0x32303041, 0x41314133 and 0x31303030 (ASCII Z001A0023A1A0001 in memory order) is packed to 14 bytes with bms_pack_7bit_string and copied to +0x02, ten ascending default u16 values from 3474 to 4150 are written at +0x2A to +0x3D, the UID copy is written at +0x186, the marker 0x5A5A is stored, and bit 7 is set. Both paths then write the model code 0x4168 at +0x1C and defaults (+0x00 = 0, +0x18 = 4, +0x20 = 13, +0x22 = 0x01E0, +0x24 = 6, +0x11C = 100, +0x1F4 = 0x6464), clear bit 4 of +0x196 and bit 7 and 8 of +0x126, call bms_index_debounce_step, call bms_4168_08003CC0 (not described here) and set bit 5 of +0x1D4.
+
+**Notes:** The identity string order and the 7-bit packing are inferred from the constants and the callee name. The later write of 7 to the u16 at +0x02 overwrites the first two identity bytes; this may be a bug or intended, and should be checked. Field meanings beyond the model code and the 0x11C capacity value are not established here.
+
+- Addresses by version: 4130: 0x08007018, 4139: 0x08007518, 4148: 0x08007D58, 4168: 0x08008060
+- Called by: `bms_4168_08010558`
+- Calls: `memcpy`, `bms_mem_zero`, `bms_memcmp_prefix`, `bms_pack_7bit_string`, `bms_profile_select_from_code`, `bms_index_debounce_step`, `bms_memcpy_args_swap`, `bms_get_uid_word_by_index`, `bms_ram_20000bdc_addr`, `bms_ram_200001c8_addr`
+- Confidence: medium
+
+## bms_telemetry_sched_thunk
+
+**Thunk that runs the telemetry 16-step scheduler**
+
+Tail-call wrapper with no state of its own. It calls bms_telemetry_sched_16_step (0x0800DDB0) and returns, and the main loop calls it as one of its periodic services.
+
+- Addresses by version: 4130: 0x08006EC8, 4139: 0x080073C8, 4148: 0x08007C08, 4168: 0x08007F10
+- Called by: `bms_4168_08010558`
+- Calls: `bms_telemetry_sched_16_step`
+- Confidence: high
 
 ## bms_u16_2000067c_get
 
@@ -491,7 +552,7 @@ Copies the five halfwords of the source array param_1 to RAM at 0x2000051C, 0x20
 | `param_1` | `ptr` | source array of five u16 values |
 
 - Addresses by version: 4130: 0x0800B074, 4139: 0x0800B5CC, 4148: 0x0800BCE8, 4168: 0x0800BFFC
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Confidence: high
 
 ## bms_u32_200004dc_addr
@@ -503,7 +564,7 @@ Returns &DAT_200004dc as a 32-bit pointer so the caller can read or write the wo
 **Returns** `ptr`: address of the RAM word at 0x200004DC
 
 - Addresses by version: 4130: 0x0800B320, 4139: 0x0800B878, 4148: 0x0800C05C, 4168: 0x0800C370
-- Called by: `bms_4168_08003cc0`
+- Called by: `bms_profile_select_from_code`
 - Confidence: medium
 
 ## bms_u32_20000dec_addr
@@ -527,5 +588,5 @@ Returns DAT_20001348. In this packet it is read only by bms_4168_0800e9dc. The n
 **Returns** `u32`: value of the word at 0x20001348
 
 - Addresses by version: 4130: 0x0800AEBC, 4139: 0x0800B3F4, 4148: 0x0800BB10, 4168: 0x0800BE24
-- Called by: `bms_4168_0800e9dc`
+- Called by: `bms_msg_dispatch_request`
 - Confidence: medium

@@ -1,0 +1,828 @@
+{
+  "mcu_0160_08008bb4": {
+    "name": "mcu_msg_ring2_tx_step",
+    "summary": "Send the head record of message ring 2 on a free CAN1 mailbox, one frame per call",
+    "description": "Drains one record per call from message ring 2, the 32-entry ring of 20-byte records with the write index at 0x20001880 and the read index at 0x20001884 (group with mcu_msg_ring2_push, mcu_msg_ring2_peek and mcu_msg_ring2_count). It returns 0 at once when the ring is empty. If CAN1.MSTS bit 8 (CUSS, the unit is still sending) is set it leaves the ring alone and returns the pending count. Otherwise it peeks the head record, passes it to can_message_transmit on CAN1, and advances the read index modulo 32 only when that call did not return 4, the code's no-free-mailbox result.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "u16",
+      "description": "0 if the ring was empty on entry, otherwise the number of records still queued after the attempt"
+    },
+    "confidence": "high",
+    "notes": "The name CUSS for MSTS bit 8 is from the SVD header; the meaning of the return value 4 is taken from the code."
+  },
+  "mcu_0160_08008dc0": {
+    "name": "system_clock_config",
+    "summary": "Start HEXT and the PLL, switch SYSCLK to the PLL and store the resulting SYSCLK frequency",
+    "description": "System clock bring-up with the call order of the Artery demo system_clock_config: clock tree reset (crm_reset), FLASH.PSR = 0x14 (prefetch on, 4 wait states), HEXT enable and a retry loop around crm_hext_stable_wait, PLL from HEXT with multiplier code 7 (x9) through crm_pll_config, PLL enable and wait for the PLL stable flag (0x19), AHB /1, APB1 /2 and APB2 /2, auto step-up mode on, SYSCLK switched to the PLL and confirmed by reading back 2, auto step-up mode off. Every wait is an unbounded loop, so the function does not return until HEXT and the PLL are stable. Finally it recomputes SYSCLK from the CRM registers, applies the AHB prescaler and stores the result in the global at 0x200000A8 (SystemCoreClock). With the 16 MHz HEXT of this board and the HEXT/2 bit clear, SYSCLK is 144 MHz.",
+    "category": "clock",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The name is the usual Artery BSP routine name, matched by call sequence to the SDK demo at utilities/at32f415_usb_iap_demo style clock code. HEXT is 16 MHz from this function's own frequency branch; the SDK template constant is 8 MHz."
+  },
+  "mcu_0160_08008e30": {
+    "name": "mcu_block_table_load_verified",
+    "summary": "Copy a 544-byte block table into RAM and verify its block checksums, up to five attempts",
+    "description": "Copies a 0x220-byte table from the caller's source pointer into RAM at 0x20001D90 with mcu_copy_bytes, then checks it block by block. Each block is a 32-byte window summed with mcu_byte_sum16_store at a 16-byte stride, and the 16-bit sum is compared with the expected halfword in the table at 0x20001F90 (offset 0x200). The first mismatch restarts the copy. The function returns 1 once a full pass verifies and 0 after five failed attempts, so the caller can reject a corrupt table.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source address of the table; not shown in this packet"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 when the table verified, 0 after five failed attempts"
+    },
+    "confidence": "medium",
+    "notes": "The element width and the 16-byte stride are as the decompiler shows them; the windows overlap by half. The 0x20001F90 checksum base agrees with the packet's RAM reference list. Source table identity is not visible here."
+  },
+  "mcu_0160_08009598": {
+    "name": "mcu_hall_position_update",
+    "summary": "Update the hall-sensor rotor angle and speed estimate, resyncing at sector edges",
+    "description": "Per-tick position and speed tracker for the hall-sensor drive context. It reads the current hall sector through the callback at +0x0C, stores it at +0x00 and loads the reference angle of that sector from the 32-bit table at 0x20000714. It integrates the speed-scaled step (from the helper at 0x08001E0C, result at +0x64) into the electrical angle at +0x4C and wraps it modulo 0x6487E, which is 2*pi in Q16. On a sector change it snaps the angle into the expected-sector window (bounds at +0x50 and +0x54) and nudges the correction counter at +0xA4 within -0x145E..0x145E. When the byte at +0x08 is set it also smooths the angle through the Q30 low-pass step and recomputes the window through mcu_hall_sector_window_update, and the result goes to +0x44. Group with mcu_hall_sector_window_update.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "hall drive context: sector +0x00, flags +0x03, +0x04, +0x06, +0x08, sector callback +0x0C, angle +0x4C, output +0x44, direction word +0x38"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "signed rate input, multiplied by the direction word at +0x38"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Field roles are read from the arithmetic and the callee summaries. The two branches and the constants 0x5C273, 0x860A and 0x53C69 are not fully resolved. Reading 0x6487E as 2*pi in Q16 is an inference from the value."
+  },
+  "mcu_0160_08009f40": {
+    "name": "mcu_pvm_init",
+    "summary": "Set up the PVM on EXINT line 16, select its threshold, enable it and wait for the first event",
+    "description": "Power-voltage-monitor setup. It enables the PWC clock, configures EXINT line 16 (mask 0x10000, the PVM line) in interrupt mode through an exint_init_type record, selects threshold level 7 with pwc_pvm_level_select and enables the monitor with pwc_power_voltage_monitor_enable. It then polls exint_flag_get on line 16 until the event is pending, with no time limit, clears the flag with exint_flag_clear, and writes 0x2 to 0xE000E280 (NVIC ICPR0 in the ARMv7-M layout), which clears any pending state of IRQ1 (PVM) so that the first real interrupt is not stale.",
+    "category": "power",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "IRQ1 is PVM in the image's IRQ table (at32f415_irqs.json). The edge code and the level meaning come from packed record values that are not decoded here."
+  },
+  "mcu_0160_0800a0f8": {
+    "name": "mcu_param_record_load",
+    "summary": "Decode the stored motor parameter record into the runtime block, rejecting blank or erased records",
+    "description": "Loads the stored parameter record at param_2 into the runtime block at param_1. Byte 0 of the record is a validity marker: 0x00 and 0xFF (erased flash) are rejected, the function returns 1 and writes nothing. For a valid record the 16-bit big-endian fields at record offsets 0x02, 0x04, 0x06, 0x10, 0x12, 0x14, 0x3A, 0x3D and 0x83 are read with mcu_read_be16 and stored as halfwords, the values at 0x10, 0x12 and 0x14 are halved, and the fields at 0x51, 0x53 and 0x55 become floats divided by 1e6, 1000 and 1000. Fields the record does not carry get fixed defaults: halfwords 0x73, 0x99, 0x32, 0x96 and 1, floats 0.1, 1.1, 7.0, 2.0 and 1.0, and a float of about 0.288 built from the halfword pair 0x74BC/0x3E93. The byte at block +0x4D is cleared.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "runtime parameter block, about 0x4E bytes of halfword and float slots"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "stored parameter record, validity byte at offset 0"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "0 when the record was loaded, 1 when it was rejected as blank or erased"
+    },
+    "confidence": "medium",
+    "notes": "The physical meaning of each record field is not visible in this packet; the defaults are the values the code writes."
+  },
+  "mcu_0160_0800a4e8": {
+    "name": "mcu_motor_calib_apply",
+    "summary": "Pass the stored calibration words to the controller block setup when the record is valid",
+    "description": "Called every tick. When the validity byte at 0x20001F40 is neither 0x00 nor 0xFF it calls mcu_ctrl_block_init_default (mcu_0160_080029ac) on the controller object at 0x20000E3C, with eight 16-bit calibration words from 0x20001F30 to 0x20001F3E (even offsets), each scaled by 128, and with the validity byte as the last argument. Nothing is written when the record is blank or erased. The wrapper keeps no state of its own.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The last argument (0x20001F40) may be a count or a mode rather than a validity byte; the packet does not say which."
+  },
+  "mcu_0160_0800a56c": {
+    "name": "mcu_get_field_0x0c_ashr_scale_thunk1",
+    "summary": "Tail-call thunk to mcu_get_field_0x0c_ashr_scale",
+    "description": "Single branch instruction that tail-calls mcu_0160_0800a588 (mcu_get_field_0x0c_ashr_scale). The target returns the signed 32-bit word at +0x0C of the object, arithmetic-shifted right by the signed count byte at +0x32. This entry is the thunk the caller mcu_0160_080039e0 uses; the decompiler shows the target's body here.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object: s32 value at +0x0C, signed shift count byte at +0x32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "the value at +0x0C shifted right by the count at +0x32"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800a570": {
+    "name": "mcu_get_field_0x0c_ashr_scale_thunk2",
+    "summary": "Second tail-call thunk to mcu_get_field_0x0c_ashr_scale",
+    "description": "Single branch instruction, the same shape as mcu_get_field_0x0c_ashr_scale_thunk1, that tail-calls mcu_0160_0800a588. It returns the signed 32-bit word at +0x0C arithmetic-shifted right by the signed count byte at +0x32. The caller here is mcu_0160_08003d2c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object: s32 value at +0x0C, signed shift count byte at +0x32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "the value at +0x0C shifted right by the count at +0x32"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_143_0800a580": {
+    "name": "mcu_pos_tracker_update_v143",
+    "summary": "Update the 12b/143 position tracker: scaled delta, Q30 filter, jump and holdoff state",
+    "description": "Per-sample update of the position tracker object in the MCU_12b and MCU_143 builds (group with mcu_pos_tracker_init and mcu_pos_tracker_filter_pair_step). The raw sample is stored at +0x20, the delta from the range minimum at +0x24 is scaled by the Q15 factor at +0x2C and clamped to the range ceiling at +0x1C into the target at +0x08, and that target is low-pass filtered into +0x0C (mcu_lpf_q30_step, alternate copy at 0x08007242). Globals: 0x20000338 flags a large step, 0x20000340 is a holdoff counter that is cleared by very large steps, reloaded from the halfword at +0x30 times 150/1000 on fast changes and decremented otherwise, and 0x2000033C is the filter bound (at least 0x18000, set to 0x190000 on a jump). A second filter step uses the coefficient x/(1+x) with x = 2*pi*bound/rate, converted to Q30 with __ARM_scalbnf and __aeabi_f2iz, and the output at +0x18 is the fixed-point square root helper applied to a Q28 product of the filtered value.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "position tracker object (see mcu_pos_tracker_init for the fields)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "new raw sample"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Field roles are inferred from the arithmetic and sibling routines. The float chain and the sqrt helper mcu_0160_08001D60 (mcu_math_sqrt_fixed_v143) are only partly resolved."
+  },
+  "mcu_0160_0800a594": {
+    "name": "mcu_pos_tracker_init",
+    "summary": "Initialise the position tracker object: range, Q15 scale, filter coefficient and gains",
+    "description": "Constructor for the position tracker object used by mcu_pos_tracker_update_v143 and mcu_pos_tracker_filter_pair_step. It validates the arguments (min >= 0, min <= max, rate >= 50) and stores the range minimum at +0x24 and maximum at +0x28. The ceiling at +0x1C is 0x10000000, and the Q15 scale at +0x2C is 2^28 divided by the range width (saturating division). The Q30 coefficient at +0x00 is t/(t+1) with t = 100*pi/rate (the constant 315.16 is about 100*pi). The shift count 13 at +0x32 scales three gain constants, 0x50000, 0x30000 and 0x3D7, stored at +0x40, +0x44 and +0x48. The bounds +0x38 = 0x190000 and +0x3C = 0x147 are set, and the validity byte at +0x34 is 1 when every argument was accepted.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "position tracker object, at least 0x35 bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "range minimum, must be >= 0"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "range maximum, must be >= param_2"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "filter rate, must be >= 50"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The validity byte is written even when the arguments are rejected (as 0), so callers must test +0x34 before use."
+  },
+  "mcu_0160_0800a644": {
+    "name": "mcu_pos_tracker_filter_pair_step",
+    "summary": "Run one tracker filter step on the scaled primary sample and on the global second channel",
+    "description": "Two-channel update used by the MCU_152 and MCU_0160 builds. The primary sample in param_2 is stored at +0x20, its delta from the minimum at +0x24 is scaled by the Q15 factor at +0x2C and clamped to the ceiling at +0x1C, the target goes to +0x08, and one Q30 low-pass step runs into the filtered output at +0x0C (mcu_lpf_q30_step). The second input param_3 gets the same scaling, clamped at zero below the minimum, and is filtered into the global state at 0x2000034C with the same coefficient at +0x00. Group with mcu_pos_tracker_init.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "position tracker object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "primary sample"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "secondary sample"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "mcu_0160_0800a90c": {
+    "name": "mcu_indicator_update",
+    "summary": "Drive the GPIOC.8 and GPIOB.2 indicator pins from request bits and latch fault 0x4 after 50 ticks",
+    "description": "Called once per tick. GPIOC pin 8 (mask 0x100) follows bit 0 of the request byte at 0x20001FDA, and GPIOB pin 2 (mask 0x4) follows bit 1, written through the set register (GPIO offset 0x10, via mcu_ctx_set_field_0x10) and the clear register (offset 0x14, via mcu_ctx_set_field_0x14). When neither request bit is set it clears the counter at 0x20000679 and bit 2 (0x4) of the status word 0x20001FF8. Otherwise it reads the 16-bit value from mcu_get_var_f60 (0x20000F60). Above 299 the counter and the latch are cleared. At 299 or below, the counter counts up to 50 ticks and then sets bit 2 of 0x20001FF8, which latches the indication.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The role of the two pins and of the latch bit in the wider system is inferred from the code shape only."
+  },
+  "mcu_0160_0800abda": {
+    "name": "mcu_dma_channel_start",
+    "summary": "Configure and start one DMA channel, then store one context byte",
+    "description": "Sets up and starts a DMA channel. It enables the DMA controller clock (crm_periph_clock_enable with the packed code in param_2), resets the channel (dma_reset), and fills a dma_init_type record that dma_default_para_init has set to defaults: peripheral address = param_1 + 4, memory address = param_4, param_8 as a halfword field (most likely the transfer count), a halfword 0x00FA and several byte flags set to fixed values. It calls dma_init, stores one context byte with mcu_ctx_cfg_byte_set (param_5 context, param_6 index, param_7 value), and enables the channel with dma_channel_enable.",
+    "category": "dma",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object whose address + 4 is used as the DMA peripheral address"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "packed DMA clock code for crm_periph_clock_enable"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "DMA channel register block"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "memory (buffer) address"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "context struct for mcu_ctx_cfg_byte_set"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "context field index, 1..7"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "value; only the low byte is stored"
+      },
+      {
+        "name": "param_8",
+        "type": "u16",
+        "description": "transfer count, stored as a halfword in the init record"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Transfer direction and width flags are the record's fixed values; the exact enum values are not decoded here."
+  },
+  "mcu_0160_0800ad62": {
+    "name": "mcu_req_queue_submit",
+    "summary": "Queue a request into a 4-slot ring of 256-byte request slots when a slot is free and code is below 243",
+    "description": "Four-slot request queue. The object has a busy byte at +0x00 used as a re-entrancy guard (a non-zero byte at +0x02 also refuses), a write index at +0x405 and a free-slot count at +0x406. When the guard is clear, param_4 is below 0xF3 and a slot is free, it calls mcu_0160_08006460 with the forwarded arguments and a pointer to the payload of the slot at 0x100*index + 8, stores the returned word in the slot header at +4, advances the write index modulo 4 and decrements the free count. Otherwise the request is dropped and the guard is cleared.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "queue object: guard +0x00, gate +0x02, write index +0x405, free count +0x406, slots of 0x100 bytes from +0x100"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "forwarded to mcu_0160_08006460"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "forwarded to mcu_0160_08006460"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "request code, accepted when below 0xF3"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "forwarded to mcu_0160_08006460"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "forwarded to mcu_0160_08006460"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "forwarded to mcu_0160_08006460"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the 0xF3 limit and of the callee mcu_0160_08006460 are not visible in this packet."
+  },
+  "mcu_0160_0800adf0": {
+    "name": "mcu_cmd_ramp_update",
+    "summary": "Per-tick command conditioning: scale the VCU command words to Q15 and slew-limit them",
+    "description": "Per-tick conditioning of the drive command words. When the byte at 0x20001FCE is non-zero (mcu_flag_1fce_is_clear returns 0) the ramp integrators at 0x20000664 and 0x200001F8 are cleared. Otherwise the command words at 0x20001FD6, 0x20001FD8 and 0x20001FDA are converted to Q15 (shifted left 15) and moved toward their targets with mcu_ramp_toward_target_s32, at most 0x333 per tick for the first and 0xCCC per tick for the second. A third value at 0x200001FC is slewed toward 0x20000684, or toward 0x20000174 when 0x20000E33 is set. The outputs 0x20000668, 0x20000204 and 0x20000214 are published and the flag at 0x2000066D is set on every active pass. Rises at 0x20000214 are rate-limited and falls are immediate.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The command words are the decoded frame fields at 0x20001FD0 to 0x20001FE8; their origin in the VCU frame is inferred, not shown here."
+  },
+  "mcu_0160_0800b4e8": {
+    "name": "mcu_watchdog_start",
+    "summary": "Start the independent watchdog with prescaler 128 and reload 0x61A (about 5 s on a 40 kHz LICK)",
+    "description": "Initialises and starts the independent watchdog. It unlocks the WDT registers (wdt_register_write_enable with 0x5555), sets the prescaler to WDT_CLK_DIV_128 (code 5 in WDT.DIV), writes the reload value 0x61A (1562) with wdt_reload_value_set, re-locks the registers (0x0000), and writes 0xCCCC (WDT_CMD_ENABLE) to WDT.CMD to start the counter. With a LICK near 40 kHz the timeout is about 5 s.",
+    "category": "watchdog",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The LICK frequency is not checked in this packet; the 5 s figure assumes the usual 40 kHz."
+  },
+  "mcu_0160_0800b65c": {
+    "name": "mcu_can_tp_timeout_tick",
+    "summary": "Advance a J1939 TP session timer; on expiry report a timeout and send TP.CM abort",
+    "description": "Timer tick for one J1939 transport-protocol session (group with mcu_can_tp_sender_step and mcu_can_tp_rx_dispatch). It increments the 16-bit timer at session +0x16 and compares it with the limit at +0x18. When the limit is reached it calls the error callback at ops +0x04 (if present) with reason 1 for timeout, builds a TP.CM connection-abort frame for PGN 0xEF00 (mcu_can_tp_abort_frame_build), sends it through the send callback at ops +0x0C, and sets the session state byte at +0x02 to 1, which marks it finished. Before the limit it only advances the counter.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP session: id bytes at +0x00 and +0x01, state at +0x02, timer +0x16, limit +0x18"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "operations table: error callback +0x04, send callback +0x0C"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800bc70": {
+    "name": "mcu_msg_ring2_enqueue_frames",
+    "summary": "Split a payload into 8-byte CAN records and push them onto message ring 2",
+    "description": "Queues an outgoing message on message ring 2 as one 20-byte record per frame of up to 8 data bytes. It does nothing when bit 1 of the flag byte at 0x20000320 is set. A zero-length message becomes one empty record. Otherwise it loops over the payload: each pass sets the identifier word at 0x20001858, the zero index halfword at 0x20001860 and the length byte at 0x20001862 (min of remaining and 8), copies the bytes with __aeabi_memcpy into 0x20001863, and pushes the record with mcu_msg_ring2_push. Frames are dropped by the ring when it is full, so the caller gets no status.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "payload length in bytes, 16-bit arithmetic"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "CAN identifier written into every record"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "payload source"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of flag bit 1 at 0x20000320 (output disabled) is inferred from the early return."
+  },
+  "mcu_0160_0800c058": {
+    "name": "mcu_gpioa_pin_cfg_init",
+    "summary": "Enable the GPIOA clock and build the shadow configuration for PA11 and PA12",
+    "description": "Enables the GPIOA bus clock (crm_periph_clock_enable with code 0x180002), fills an 8-byte pin record with mcu_rec8_reset_defaults, and then folds two pin configurations into the shadow CFGLR words through mcu_gpio_cfg_shadow_build: pin mask 0x1000 (PA12) with its fixed mode and pull bytes, then pin mask 0x800 (PA11) with its own bytes. The GPIOA.CFGLR register is written from those shadow words later. PA11 and PA12 are the CAN1 RX and TX pins on the default remap, so this is the CAN1 pin setup, an inference from the pin numbers.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The exact per-pin mode and pull codes are not decoded in this packet."
+  },
+  "mcu_0160_0800c278": {
+    "name": "mcu_can1_reset_pulse",
+    "summary": "Pulse the CAN1 peripheral reset line: assert, then release",
+    "description": "Asserts and then releases the CAN1 peripheral reset bit (APB1RST bit 25, packed code 0x100019) through crm_periph_reset. The CAN1 controller registers are cleared by the pulse. It is called from the peripheral setup sequence mcu_0160_0800dc08.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800c294": {
+    "name": "mcu_can_frame_enqueue",
+    "summary": "Queue one classic CAN frame of up to 8 data bytes on message ring 2",
+    "description": "Builds a 20-byte ring record for one CAN frame and pushes it onto message ring 2 with mcu_msg_ring2_push (group with mcu_msg_ring2_tx_step). Lengths of 8 or less store the identifier, set the flag byte to 1, store the DLC in the low nibble of the length byte and copy the data. Longer lengths are dropped and the 32-bit counter at 0x20000340 is incremented instead.",
+    "category": "can",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "CAN identifier"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "data length; lengths 0..8 are queued"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompiler puts the identifier one word after the pointer that it passes to the push routine. This disagrees with the layout in mcu_msg_ring2_enqueue_frames, so the exact record offsets are uncertain."
+  },
+  "mcu_0160_0800c398": {
+    "name": "crm_clocks_freq_get",
+    "summary": "Compute SYSCLK, AHB, APB2, APB1 and ADC clock frequencies from the CRM registers",
+    "description": "SDK crm_clocks_freq_get, compiled. The SYSCLK source comes from crm_sysclk_switch_status_get. HICK gives 8 MHz, or 48 MHz when MISC2 hick_to_sclk and MISC1 hickdiv are both set. HEXT gives 16 MHz on this board, where the SDK constant is 8 MHz. For the PLL the input is HICK/2 or HEXT (halved when the pllhextdiv bit is set) and the multiplier is either the CFG pllmult field plus 2 (with the high bits handled as in the SDK) or, when PLL bit 31 is set, the NS/MS/FR fields divided through __udivdi3. The results are written in SDK order: sclk_freq, ahb_freq, apb2_freq, apb1_freq, adc_freq, shifted by the AHB, APB2 and APB1 prescaler tables and divided by the ADC table (2, 4, 6, 8, 2, 12, 8, 16).",
+    "category": "clock",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "crm_clocks_freq_type output: sclk, ahb, apb2, apb1, adc frequencies in Hz, five u32 words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The SDK source at libraries/drivers/src/at32f415_crm.c matches this function's structure. The HEXT value 16 MHz is from this build."
+  },
+  "mcu_0160_0800c4f8": {
+    "name": "crm_hext_stable_wait",
+    "summary": "Wait up to 0x3000 polls for the HEXT stable flag and return 1 if it is set",
+    "description": "SDK crm_hext_stable_wait. It polls CRM_HEXT_STABLE_FLAG (packed code 0x11, CRM.CTRL bit 17) until the flag is set or HEXT_STARTUP_TIMEOUT (0x3000) polls have elapsed, then returns 1 (SUCCESS) when the flag is set and 0 (ERROR) otherwise. It has no side effects beyond reading the flag.",
+    "category": "clock",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when HEXT reports stable within the timeout, 0 otherwise"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800c6f0": {
+    "name": "mcu_telemetry_group_get",
+    "summary": "Return the 8-byte value group for a telemetry request ID, packed into the shared buffer at 0x20000310",
+    "description": "Builds the 8-byte reply for a request ID in the shared buffer at 0x20000310 and returns its address. Each ID selects one group: 0x42 takes the 32-bit word at +0x64 of the object at the global 0x2000002C (mcu_get_global_ctx_field_0x64, one call per byte); 0x211 packs a status byte, the clamped speed at 0x20000F48, and a bit from 0x200000EC; 0x210 and 0x212 return fixed values with the 0x20001FEE, FF0, FF4 and FF6 fields; 0x341 and 0x344 return the 0x2000033x and 0x20000340 state words; 0x342 and 0x343 pack the 0x20001FD6 to FDC command words and status bits; 0x401 returns the percent value of the Q15 at 0x20000A50 (mcu_q15_to_percent_s16), a scaled current byte and a clamped mcu_get_cfg_field_0x28 value. Unknown IDs leave the buffer unchanged.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "request ID, 16-bit values such as 0x42, 0x210 to 0x212, 0x341 to 0x344, 0x401"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "address of the 8-byte buffer at 0x20000310; its contents depend on the request ID"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the IDs and of each byte is inferred from the store pattern and the callee summaries; the request ID space is not documented in this packet."
+  },
+  "mcu_0160_0800c8f8": {
+    "name": "mcu_systick_free_run_start",
+    "summary": "Start SysTick as a free-running 24-bit counter on the AHB clock with no interrupt",
+    "description": "Sets the SysTick clock source to the undivided AHB clock (systick_clock_source_config(4)), loads the reload value 0xFFFFFF, clears the current value and sets CTRL.ENABLE. TICKINT stays clear, so SysTick runs as a polled time base and raises no interrupt.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800ca8c": {
+    "name": "mcu_ratio_110_to_q15",
+    "summary": "Return the byte at 0x20001FD3 divided by 110 in Q15, saturated at 1.0",
+    "description": "Converts the byte at 0x20001FD3 to a Q15 fraction of 110, computed as mcu_q15_div_sat of the value shifted left 15 by the constant 0x370000 (which is 110 << 15). Values of 110 and above return 0x8000 (full scale). A zero byte returns 0.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "Q15 value of byte/110, between 0 and 0x8000"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the scale 110 is not visible in this packet."
+  },
+  "mcu_0160_0800cba4": {
+    "name": "flash_halfword_program",
+    "summary": "Program one halfword in internal flash: set PG, write, wait, clear PG",
+    "description": "SDK flash_halfword_program. It sets FLASH.CTRL bit 0 (FPRGM), writes the 16-bit value to the address, waits with flash_operation_wait_for(0x100000), and clears FPRGM. This build discards the wait status, so the function returns nothing.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "halfword-aligned flash address"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "value to program"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800cc04": {
+    "name": "flash_operation_wait_for",
+    "summary": "Poll the flash status until it is no longer busy or the poll count runs out",
+    "description": "SDK flash_operation_wait_for. It calls flash_operation_status_get repeatedly while the result is FLASH_OPERATE_BUSY (0) and the poll counter is non-zero, decrementing the counter on each poll. It returns the last status, or FLASH_OPERATE_TIMEOUT (4) when the counter reaches zero.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "poll count, passed in r0 by the callers (the decompiler shows the function as taking no argument)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "flash status: 0 busy, 1 program error, 2 EPP error, 3 done, 4 timeout"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800cc80": {
+    "name": "flash_sector_erase",
+    "summary": "Erase the flash sector at an address: set SER, write FLASH.ADDR, start with ERSTRT, wait, clear SER",
+    "description": "SDK flash_sector_erase. It sets FLASH.CTRL bit 1 (SER), writes the sector address to FLASH.ADDR, sets bit 6 (ERSTRT) to start the erase, waits with flash_operation_wait_for using a large poll count, and clears SER. This build discards the wait status.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "address of the sector to erase"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "mcu_0160_0800cd18": {
+    "name": "mcu_xfer_queue_init",
+    "summary": "Arm five 300-byte transfer requests and publish the table when the control pointers are set",
+    "description": "Arms five transfer request objects of 0x24 bytes starting at 0x2000212C, each with a 300-byte buffer starting at 0x200021E0, through mcu_xfer_request_arm with a repeat count of 1 and user argument 0. If the pointers at 0x200006F0 and 0x200006FC are both non-zero it stores the table in the globals 0x200027BC (base), 0x200027C0 (count 5) and 0x200027C4 (address of the 0x200006F0 control block) and returns 1; otherwise it returns 0 and publishes nothing.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when the table was published, 0 otherwise"
+    },
+    "confidence": "medium",
+    "notes": "The owner of the control block at 0x200006F0 is not visible in this packet."
+  },
+  "mcu_0160_0800cdd8": {
+    "name": "mcu_can_ef00_message_send",
+    "summary": "Send a PGN 0xEF00 message: one frame for up to 5 bytes, otherwise start a TP session",
+    "description": "Sends a J1939 PGN 0xEF00 proprietary message. Payloads under six bytes go out as one 29-bit frame built by mcu_can_ef00_frame_build (priority 6, header bytes 1, the given header bytes, source and destination addresses), then queued with mcu_can_frame_enqueue. Longer payloads go through mcu_0160_0800d0b0 (mcu_can_tp_session_start) on the session table at 0x200027BC, using the same arguments.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "source address"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "destination address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "header byte 1 of the message"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "header byte 2 of the message"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload source"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The header semantics are not documented in this packet."
+  },
+  "mcu_0160_0800ce3c": {
+    "name": "mcu_limit_ratio_with_floor",
+    "summary": "Map two values against a limit to a Q15 ratio with a 10 percent floor, saturating at full scale",
+    "description": "Returns a Q15 derating factor. The limit comes from mcu_get_limit_min3_or_unbounded (DAT_20000660, at least 0x18000). If the limit is at or below param_1 the result is full scale (0x8000). Otherwise the larger of the two inputs is divided by the limit in Q15 and mapped to 0.9 times that ratio plus 0.1 (0x8E38 is 1/0.9 and 0xCCC is 0.1 in Q15), so the result runs from about 0.1 up to 1.0.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "first input, compared with the limit"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "second input"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "Q15 factor, 0x8000 at full scale"
+    },
+    "confidence": "medium",
+    "notes": "Which physical quantities the two inputs are is not visible in this packet."
+  },
+  "mcu_0160_0800d038": {
+    "name": "mcu_can_tp_rx_dispatch",
+    "summary": "Route an incoming J1939 TP frame: start a session on RTS, otherwise hand it to the open sessions",
+    "description": "Receive-side dispatcher for J1939 transport-protocol frames (PGN 0xEC00 TP.CM and 0xEB00 TP.DT, group with mcu_can_tp_session_start). For a TP.CM frame whose first data byte is 0x10 (request to send), it asks the accept callback at table +0x08 whether to accept, using the source and destination addresses. If accepted it finds or allocates the receive session with mcu_pair_table_find_or_alloc in mode 1 (lookup or allocate) and passes the frame to mcu_can_tp_session_handle_frame (mcu_0160_0800d1f0). Any other TP.CM or TP.DT frame goes to that handler for every 36-byte session entry in the table, counted at table +0x04. Other PGNs are ignored.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP table header: entry base +0x00, u16 entry count +0x04, accept callback +0x08, handler callback in the entries"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "received CAN frame: identifier word at +0x00, first data byte at +0x05"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The callback signatures are taken from the code shape only."
+  },
+  "mcu_0160_0800d0b0": {
+    "name": "mcu_can_tp_session_start",
+    "summary": "Find or allocate a strict pair-table session for a multi-packet send and build its frame",
+    "description": "Multi-packet send entry used by mcu_can_ef00_message_send for payloads of six bytes or more (group with mcu_can_tp_rx_dispatch). It finds or allocates a session for the (source, destination) pair with mcu_pair_table_find_or_alloc in strict mode (mode 0, which refuses a reversed duplicate). When it gets a session it passes the arguments to mcu_frame_build_checksum16, which fills the session frame and its repeat count and returns that result; when no session is free it returns 0 and queues nothing.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP table header (pair table at 0x200027BC)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "service argument, 7 at the call site from mcu_can_ef00_message_send"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "argument, 1 at the call site"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "source address"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "destination address"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "header byte 1"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "header byte 2"
+      },
+      {
+        "name": "param_8",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_10",
+        "type": "s32",
+        "description": "total to cover, passed through; 0 at the call site"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 when the frame was built, 0 when no session was available or a check failed"
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "mcu_0160_0800d10a": {
+    "name": "mcu_can_tp_sender_step",
+    "summary": "Advance the J1939 TP sender state machine by one event: RTS, data blocks, CTS wait, end of message",
+    "description": "Sender side state machine of a J1939 transport-protocol session for PGN 0xEF00 (group with mcu_can_tp_timeout_tick and mcu_can_tp_rx_dispatch). The state byte at +0x02 selects the action. State 3 builds and sends the TP.CM request to send (mcu_can_tp_rts_frame_build), sets the timer limit to 1250 ms divided by the tick period at +0x14, and moves to state 4 (wait for CTS). States 4, 6, 7, 9 and 10 pass to mcu_0160_0800b65c (the timeout tick). State 5 sends 7-byte TP.DT frames (mcu_can_tp_dt_frame_build) from the offset at +0x0A, paced by the burst counter at +0x1A and the burst size at +0x1C. It moves to state 6 when the block end at +0x12 is reached, or to state 9 (end-of-message wait) when the total length at +0x0C is covered. Frames go out through the send callback at ops +0x0C.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP sender session: state +0x02, id bytes +0x00 and +0x01, data pointer +0x04, offset +0x0A, total +0x0C, block end +0x12, tick period +0x14, timer +0x16, limit +0x18, burst counter +0x1A, burst size +0x1C"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "operations table: send callback at +0x0C"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Several states (7, 10) only pass to the timeout tick here; their own transitions are in other code."
+  }
+}

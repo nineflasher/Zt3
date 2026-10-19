@@ -90,7 +90,7 @@ Enables the GPIOA clock (RCC.IOPENR bit 0) and the ADC clock (RCC.APBENR2 bit 20
 
 - Addresses by version: 4130: 0x08007844, 4139: 0x08007D44, 4148: 0x08008590, 4168: 0x08008890
 - Peripheral registers: `TIM2.CR1` (A), `ADC.ADC_ISR` (ARW), `ADC.ADC_IER` (RW), `ADC.ADC_CR` (RW), `ADC.ADC_CFGR1` (RW), `ADC.ADC_CFGR2` (RW), `ADC.ADC_SMPR` (RW), `ADC.CHSELR_1` (RW), `RCC.IOPENR` (RW), `RCC.APBENR2` (RW), `RCC.CCIPR` (RW), `SysTick+0x0` (R)
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
 - Calls: `bms_udiv32`, `LL_ADC_Init`, `LL_ADC_REG_Init`, `LL_GPIO_Init`
 - Confidence: medium
 
@@ -129,5 +129,5 @@ Takes a sample from the helper at 0x08008A18 with argument 0 and returns -30 whe
 
 - Addresses by version: 4130: 0x0800A958, 4139: 0x0800AE90, 4148: 0x0800B5AC, 4168: 0x0800B8C0
 - Called by: `bms_4168_0800c6dc`
-- Calls: `bms_4168_0800113c`, `bms_adc_read_mv`
+- Calls: `bms_sdiv32`, `bms_adc_read_mv`
 - Confidence: medium

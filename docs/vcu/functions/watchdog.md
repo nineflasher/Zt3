@@ -20,7 +20,7 @@ Configures and starts the independent watchdog. It unlocks register writes (wdt_
 
 - Addresses by version: 148: 0x0800250C, 14a: 0x08002588, 14b: 0x08002840, 14e: 0x08002840, 14f: 0x0800289C, 152: 0x080028D8, 153: 0x080028F4, 0159: 0x080028E0
 - Peripheral registers: `WDT.CMD` (W)
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Calls: `wdt_counter_reload`, `wdt_divider_set`, `wdt_register_write_enable`, `wdt_reload_value_set`
 - Confidence: high
 

@@ -1,0 +1,914 @@
+{
+ "ble_219_0c060828": {
+  "name": "ecc_point_on_curve_check",
+  "summary": "Test y^2 == x^3 - 3x + b (mod p) for the point at param 1; returns 0 when it is on the curve",
+  "description": "ECC on-curve test for a short Weierstrass curve with a = -3 (the NIST prime-curve family). Parameter 1 points at the x coordinate of the point and y is the fp_int 0x68 bytes further on, the same layout as pubkey.x/pubkey.y in the ECC key. It computes t1 = y^2 (fp_sqr), t2 = x^2 mod p (fp_mod), t2 = x * t2 through the 3-operand multiply thunk ble_219_0c064090 (not yet described), t1 = t1 - t2 (fp_sub), then adds x three times, which leaves t1 = y^2 - x^3 + 3x. t1 is reduced with fp_mod and normalised into [0, p) by repeated add or subtract of p, then compared with the curve constant b (param 3) using mp_cmp. Two temporaries come from mp_init_multi and are released with fp_clear. Parameter 2 (the a coefficient) is never read because a = -3 is built in.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "point; x fp_int at +0, y fp_int at +0x68"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "curve a coefficient slot; not read (a = -3 is built in)"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "curve constant b as an fp_int"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "field prime p as an fp_int"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 when y^2 == x^3 - 3x + b (mod p); -214 (0xffffff2a) when not equal; -2 on allocation failure, -125 (0xffffff83) if a temporary cannot be allocated"
+  },
+  "confidence": "medium",
+  "notes": "Identity of the test is inferred from the arithmetic (the a = -3 form, the three additions of x, and the final compare with the constant). Callee ble_219_0c064090 is taken to be a 3-operand multiply and is not verified."
+ },
+ "ble_219_0c060974": {
+  "name": "wc_ecc_check_key",
+  "summary": "Validate an ECC key: coordinates in range, point on curve, point order, and private scalar range",
+  "description": "wolfSSL-style wc_ecc_check_key. It loads the key's curve (key->dp at +0x10) with wc_ecc_curve_load and mask 0x0b (prime, A, order) into a 0x138-byte pool of three fp_ints, and reads the curve constant b from the ecc_set_type hex string at dp+0x14 into a temporary with fp_read_radix (radix 16). If both x and y have zero digits it returns -215 (point at infinity). If x or y is not less than p it returns -217. Otherwise ble_219_0c060828 (on-curve test with b) must return 0, and the point-order check ble_219_0c05f830 (not yet described) is run with (key, x, A, p, n). For a private key (key->type == 2) the scalar k at +0x150 must be non-zero, non-negative and less than the order n, else -216, and ble_219_0c05ff44 (not yet described) checks the public point against k. The curve spec is released with wc_ecc_curve_free and both temporaries with fp_clear.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ecc_key: type +0, dp +0x10, pubkey x/y/z at +0x18/+0x80/+0xe8, private scalar k at +0x150"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 when the key is valid; -215, -216, -217 or the failing check's code otherwise; -173 for NULL"
+  },
+  "confidence": "medium",
+  "notes": "The final order and private-key checks are delegated to ble_219_0c05f830 and ble_219_0c05ff44, which are not yet named; their roles are guessed from the wolfSSL structure. The curve-spec field offsets follow wc_ecc_curve_free."
+ },
+ "ble_219_0c060ae4": {
+  "name": "wc_ecc_import_x963_ex",
+  "summary": "Import an ECC public key from an X9.63 uncompressed point (0x04 || X || Y) and validate it",
+  "description": "wolfSSL wc_ecc_import_x963_ex. The input length must be odd (1 + 2 * coordinate size) or -170 is returned. The first byte selects the format: 0x04 is uncompressed, 0x02 and 0x03 (compressed) return -174 because they are not compiled in, anything else returns -140. The coordinate size is (len - 1) / 2. The key is initialised with mp_init_multi on x (+0x18), y (+0x80), z (+0xe8) and the scalar k (+0x150), wc_ecc_set_curve picks the curve from that size and the curve id, key->type (+0) is set to 1 (public key), X and Y are read big-endian with fp_read_unsigned_bin, z is set to 1 with mp_set, and wc_ecc_check_key (0c060974) validates the result. On any failure x, y, z and k are cleared with fp_clear and the error is returned.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "input octet string"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "input length in bytes"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "ecc_key to fill"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "curve id, or 0 to select by size"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for NULL, -170 for an odd length, -174 for a compressed point, -140 for an unknown format byte, -125 on allocation failure, or the error from wc_ecc_check_key"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c060be8": {
+  "name": "wc_X963_KDF",
+  "summary": "ANSI X9.63 KDF: out = Hash(Z || counter || SharedInfo) blocks with a counter from 1 (SHA-256 only)",
+  "description": "wolfSSL wc_X963_KDF. The hash type must lie in 4..8 (the wolfSSL SHA-family range), but only SHA-256 (type 6) is built, so the other types fail with -232 from wc_HashInit. The shared secret Z (param 2, length param 3) and the optional SharedInfo (param 4 and 5, skipped when NULL) are hashed after a 4-byte big-endian counter. The counter starts at 0 and is incremented before each block, so the first block uses counter 1. Each digest is copied to the output with memcpy and the last block is truncated. The hash context is a 0x70-byte heap object driven by wc_HashInit, wc_HashUpdate, wc_HashFinal and wc_HashFree.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "hash type (wolfSSL enum; 6 = SHA-256)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "shared secret Z"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "length of Z"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "SharedInfo, may be NULL"
+   },
+   {
+    "name": "param_5",
+    "type": "u32",
+    "description": "length of SharedInfo"
+   },
+   {
+    "name": "param_6",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_7",
+    "type": "u32",
+    "description": "requested output length"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for NULL pointers or zero lengths, -232 for a hash type that is not built in, -125 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c060d3c": {
+  "name": "wc_HashUpdate",
+  "summary": "Feed bytes into a wolfSSL hash context of a given type; only SHA-256 (type 6) is implemented",
+  "description": "wolfSSL wc_HashUpdate, dispatching on the hash type. Type 6 forwards to wc_Sha256Update (0c061b7c). Types 3, 4, 5, 7, 8 and 10 to 13 return -232 (HASH_TYPE_E) because they are not built in. A NULL context or NULL data pointer, and any other type, return -173. This is the update half of the hash group that also holds wc_HashInit (0c060d0c), wc_HashFinal (0c060d80), wc_HashFree (0c060dac) and wc_HashGetDigestSize (0c060ce0), and it is used by wc_X963_KDF.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "hash context"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "wc_HashType"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "input data"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "input length"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for bad arguments or unsupported type, -232 for types not built in, or the Sha256Update error"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c060d80": {
+  "name": "wc_HashFinal",
+  "summary": "Finish a wolfSSL hash of a given type into a digest buffer; only SHA-256 (type 6) is implemented",
+  "description": "wolfSSL wc_HashFinal with the same type dispatch as wc_HashUpdate. Type 6 calls wc_Sha256Final (0c061c80), which writes the 32-byte digest to the output and resets the context. A NULL context or NULL output returns -173. Types 3, 4, 5, 7, 8 and 10 to 13 return -232 and other values return -173. It is the finish half of the wc_Hash* group.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "hash context"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "wc_HashType"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "digest output buffer"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for bad arguments, -232 for a type that is not built in, or the Sha256Final error"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c060de0": {
+  "name": "wc_HmacSetKey",
+  "summary": "Key an HMAC-SHA-256: build the ipad and opad blocks, hashing keys longer than 64 bytes first",
+  "description": "wolfSSL wc_HmacSetKey, restricted to SHA-256. The Hmac object (layout: inner SHA-256 context at +0x00, ipad at +0x70, opad at +0xb0, inner digest at +0xf0, macType byte at +0x114, update flag byte at +0x115) is first checked for a previous SHA-256 key (macType == 6), in which case wc_Sha256Free is called. The new type is stored at +0x114 and the update flag cleared. Types outside 3..8 and 10..13 return -173. Then wc_InitSha256 resets the inner context. A key of up to 64 bytes is copied into the ipad block and zero-padded. A longer key is hashed with wc_Sha256Update and wc_Sha256Final to 32 bytes and zero-padded to 64. The ipad block is XORed with 0x36 and the opad block (+0xb0) is filled with key ^ 0x5c. Non-SHA-256 types return -173 after the state reset. The word at +0x110 is also cleared (see notes). This is part of the HMAC group with wc_HmacUpdate, wc_HmacFinal, wc_HmacInit and wc_HmacFree.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "Hmac context"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "wc_HashType; only 6 (SHA-256) is accepted"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "key bytes"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "key length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for bad arguments or a non-SHA-256 type, -125 or the hash error otherwise"
+  },
+  "confidence": "high",
+  "notes": "The store of zero at +0x110 is a 32-bit write to the word wc_HmacInit uses for the heap pointer. The decompile does not show why wolfSSL clears it here; it may be a leftover field clear that is harmless with a NULL heap. Worth checking against the wolfSSL source."
+ },
+ "ble_219_0c060ef4": {
+  "name": "wc_HmacUpdate",
+  "summary": "Absorb message bytes into an HMAC-SHA-256; the first update hashes the ipad block",
+  "description": "wolfSSL wc_HmacUpdate. On the first update after wc_HmacSetKey (update flag at +0x115 == 0) the 64-byte ipad block (+0x70) is absorbed into the inner SHA-256 and the flag is set. For a macType other than 6 it only sets the flag and returns 0 without hashing. For SHA-256 the message bytes are then forwarded to wc_Sha256Update (0c061b7c). A NULL Hmac, or a NULL data pointer with a non-zero length, returns -173.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "Hmac context"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "message bytes"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "message length"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for bad arguments, or the Sha256Update error"
+  },
+  "confidence": "high",
+  "notes": "A zero-initialised Hmac that was never keyed (macType 0) is accepted and produces no error at update time; the error surfaces only in wc_HmacFinal."
+ },
+ "ble_219_0c060f58": {
+  "name": "wc_HmacFinal",
+  "summary": "Finish HMAC-SHA-256: H((K ^ opad) || H((K ^ ipad) || message)) written to the output",
+  "description": "wolfSSL wc_HmacFinal. A non-NULL output is required. If no update has been made yet, the ipad block is absorbed first. The inner hash is finished with wc_Sha256Final into the inner-digest slot (+0xf0, 32 bytes). Because Final resets the context to the IV, the same context then absorbs the opad block (+0xb0, 64 bytes) and the inner digest (+0xf0, 32 bytes) and is finalised into the caller's buffer. The update flag is cleared and 0 returned. A non-SHA-256 type returns -173 and so does a NULL output.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "Hmac context"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "output buffer (32 bytes for SHA-256)"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for NULL output or a non-SHA-256 type, or the underlying SHA-256 error"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061034": {
+  "name": "Hash_df",
+  "summary": "NIST SP 800-90A Hash_df: derive 55 bytes from two SHA-256 blocks over a counter, tag and two inputs",
+  "description": "wolfSSL Hash_df from random.c. It produces the 55-byte seed (0x37, 440 bits) in two SHA-256 blocks. Block i (counter byte 1, then 2) hashes the counter, the 4-byte big-endian bit length 0x000001B8 (440), an optional tag byte (param 2, omitted when it equals 0x04), input 1 and, when non-NULL, input 2. Each digest is appended to out: 32 bytes for the first block and the remaining 23 for the second. Each block uses a fresh SHA-256 context (wc_InitSha256, wc_Sha256Update, wc_Sha256Final, wc_Sha256Free). Callers are Hash_DRBG_Instantiate (V with tag 0x04, C with tag 0x00) and Hash_DRBG_Reseed (tag 0x01).",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output, 55 bytes"
+   },
+   {
+    "name": "param_2",
+    "type": "u8",
+    "description": "tag byte; 0x04 means no tag"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "input 1"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "input 1 length"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "input 2, may be NULL"
+   },
+   {
+    "name": "param_6",
+    "type": "u32",
+    "description": "input 2 length"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true (1) when any SHA-256 step failed, false (0) on success"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061174": {
+  "name": "Hash_DRBG_Instantiate",
+  "summary": "Instantiate a Hash_DRBG: V = Hash_df(entropy || nonce), C = Hash_df(0x00 || V), counter = 1",
+  "description": "wolfSSL Hash_DRBG_Instantiate. It zeroes the 0x78-byte DRBG object. V (55 bytes at +0x08) is derived with Hash_df using tag 0x04 (no tag) over the entropy (param 2 and 3) and the nonce or personalisation string (param 4 and 5). C (55 bytes at +0x3f) is then Hash_df(0x00 || V). The reseed counter at +0x00 is set to 1 and the word at +0x04 (the previous output block for the continuous test) and the flag byte at +0x76 are cleared. Layout of the DRBG object: counter +0, previous block +4, V +8..+62, C +63..+117, flag +118.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "DRBG object (0x78 bytes)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "entropy input"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "entropy length"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "nonce or personalisation string, may be NULL"
+   },
+   {
+    "name": "param_5",
+    "type": "u32",
+    "description": "its length"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if either Hash_df fails"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0611d0": {
+  "name": "Hash_DRBG_Reseed",
+  "summary": "Reseed a Hash_DRBG: V = Hash_df(0x01 || V || entropy), C = Hash_df(0x00 || V), counter reset to 1",
+  "description": "wolfSSL Hash_DRBG_Reseed. A new V is computed into a 55-byte temporary as Hash_df with tag 0x01 over the current V and the supplied entropy, then copied into V and the temporary is zeroed. C is recomputed as Hash_df(0x00 || V). The reseed counter at +0x00 is set to 1, the word at +0x04 and the flag byte at +0x76 are cleared.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "DRBG object"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "fresh entropy input"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "entropy length"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if a Hash_df fails"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061270": {
+  "name": "Hash_DRBG_Generate",
+  "summary": "Hash_DRBG generate: stream SHA-256 of V with a counter, run a repeat test, then update V",
+  "description": "wolfSSL Hash_DRBG_Generate with a continuous test. It returns 2 (reseed needed) when the reseed counter at +0x00 equals 1000000. Otherwise it produces outLen bytes in 32-byte blocks: each block is SHA-256 of a local copy of V, copied to out (truncated on the last block), and the copy of V is incremented as a 55-byte big-endian number. The continuous test compares the first 32-bit word of each block with the previous one, kept at +0x04. The first repeat sets the flag at +0x76 and costs one extra block, and a second repeat fails with 1. After the output H = SHA-256(0x03 || V) is computed and V := V + H + C + counter (mod 2^440), following the SP 800-90A step, then the reseed counter at +0x00 is incremented. The counter, the previous-block word and the flag live in the same DRBG object that Instantiate and Reseed set up.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "DRBG object"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "number of bytes to produce"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 on a hash or continuous-test failure, 2 when a reseed is required"
+  },
+  "confidence": "medium",
+  "notes": "The V update step (V + H + C + counter) is read from the decompile and not checked against a reference. The reseed-required value 1000000 is taken as the wolfSSL reseed interval."
+ },
+ "ble_219_0c0615c0": {
+  "name": "hash_drbg_kat_generate",
+  "summary": "Known-answer self-test: instantiate, generate twice, return the 128-byte second output",
+  "description": "One-shot Hash_DRBG run used only as the FIPS-style known-answer test in the RNG init and reseed paths (wc_rng_seed_instantiate and wc_RNG_GenerateBlock). It requires entropy (param 4) and an output buffer, and when param 1 is non-zero it also requires the reseed input (param 6). Only a 128-byte request (param 9 == 0x80) is accepted. It allocates a 0x78-byte DRBG, instantiates it from the entropy and the personalisation string (param 2 and 3), optionally reseeds from param 6 and 7, generates once and discards the output, then generates again into out. The DRBG object is wiped, the wipe is verified with an OR-accumulated check, and it is freed. The callers pass an extra argument (0xfffffffe) that the decompiled signature does not declare.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero to run the reseed step"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "personalisation string, may be NULL"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "personalisation length"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "entropy input"
+   },
+   {
+    "name": "param_5",
+    "type": "u32",
+    "description": "entropy length"
+   },
+   {
+    "name": "param_6",
+    "type": "ptr",
+    "description": "reseed entropy, required when param 1 is non-zero"
+   },
+   {
+    "name": "param_7",
+    "type": "u32",
+    "description": "reseed entropy length"
+   },
+   {
+    "name": "param_8",
+    "type": "ptr",
+    "description": "128-byte output"
+   },
+   {
+    "name": "param_9",
+    "type": "s32",
+    "description": "output length; must be 128"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 when the known answer runs cleanly; -1 on any instantiate, reseed or generate failure or a failed wipe check; -173 for bad arguments; -125 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061688": {
+  "name": "wc_rng_seed_instantiate",
+  "summary": "Init an RNG: DRBG known-answer checks, TRNG entropy with a continuous test, then instantiate",
+  "description": "Initialises an RNG object (param 1) in four steps. It stores param 4 at +0x04 and clears the DRBG pointer at +0x08 and the status byte at +0x0c. It runs two known-answer checks with hash_drbg_kat_generate. Each 128-byte result is compared with a flash-resident expected vector using an OR-accumulated XOR. A mismatch sets status 3 and returns -209. Entropy is then read from ble_219_0c04585c (not yet described): 52 bytes, or 36 bytes when a nonce is supplied. The four leading bytes are checked and the whole buffer goes through the continuous test wc_RNG_TestSeed. A 0x78-byte DRBG is allocated and instantiated from the remaining bytes (entropy plus nonce, param 2 and 3). Status values in the RNG object are 1 for ready, 2 for an entropy or instantiate failure (returns -199) and 3 for a self-test or continuous-test failure (returns -209).",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "RNG object (status +0x0c, DRBG pointer +0x08, heap +0x04)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "nonce, may be NULL"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "nonce length; must be 0 when param 2 is NULL"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "value stored at +0x04 (heap or devId in wolfSSL terms)"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 when the RNG is ready; -199 on an entropy or instantiate failure; -209 on a self-test or continuous-test failure; -173 for bad arguments; -125 on allocation failure"
+  },
+  "confidence": "medium",
+  "notes": "Which argument goes to which wolfSSL field is inferred. The signature matches neither wc_InitRng_ex nor a plain nonce API, so the name is descriptive rather than a library name."
+ },
+ "ble_219_0c061828": {
+  "name": "wc_InitRng",
+  "summary": "wolfSSL wc_InitRng(rng): seed and instantiate the RNG with no nonce, discarding the status",
+  "description": "wolfSSL wc_InitRng wrapper. It calls the RNG seed-and-instantiate routine ble_219_0c061688 with a NULL nonce and zero length and returns nothing. A caller therefore learns about failure only through the status byte at +0x0c of the RNG object, which is 1 when the RNG is ready.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "RNG object"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061834": {
+  "name": "wc_RNG_GenerateBlock",
+  "summary": "Generate up to 65536 random bytes; reseed from the entropy source when the DRBG asks for it",
+  "description": "wolfSSL wc_RNG_GenerateBlock. The output must be non-NULL and at most 0x10000 bytes, else -173. The status byte at +0x0c must be 1 (ready), else -199. Hash_DRBG_Generate is called first. When it returns 2 (reseed needed) the reseed path runs: a known-answer check with hash_drbg_kat_generate and reseed input, compared against a flash-resident vector; 36 bytes of entropy from ble_219_0c04585c (not yet described); wc_RNG_TestSeed over that entropy; Hash_DRBG_Reseed with the last 32 bytes; then Hash_DRBG_Generate again. A failed known-answer check sets status 3 and returns -209. Any other generate failure sets status 2 and returns -199.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "RNG object"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "number of bytes, 1..65536"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for bad arguments; -199 when the RNG is not ready or generate failed; -209 on a self-test failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06156c": {
+  "name": "wc_FreeRng",
+  "summary": "Wipe and free the Hash_DRBG object of an RNG; returns -199 if the wipe did not zero it",
+  "description": "wolfSSL wc_FreeRng. A NULL RNG returns -173. If the DRBG pointer at +0x08 is set, the 0x78-byte object is overwritten with zeros, read back and OR-accumulated, which gives -199 (0xffffff39) if any byte is still non-zero. The object is then freed. The DRBG pointer and the status byte at +0x0c are cleared and 0 returned otherwise.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "RNG object"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -199 if the wipe check fails; -173 for NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061950": {
+  "name": "Transform_Sha256",
+  "summary": "SHA-256 compression: process one 64-byte block into the eight-word state",
+  "description": "wolfSSL Transform_Sha256, the SHA-256 block function. It allocates a 256-byte message schedule on the heap (malloc 0x100) and copies the 16 message words from the block (param 2) into it. The schedule is extended to 64 words with sigma0 (rotr7 ^ rotr18 ^ shr3) and sigma1 (rotr17 ^ rotr19 ^ shr10). The 64 rounds use the SHA-256 round constants at 0x0c074668 and keep the eight working variables in a stack array that rotates index by index. At the end the working variables are added to the state (param 1 digest words) and the schedule is freed. The caller has already converted the buffer words to host order.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "SHA-256 context; digest words at +0x00"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "64-byte block, words in host order"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success, -125 (0xffffff83) if the schedule cannot be allocated"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061b7c": {
+  "name": "wc_Sha256Update",
+  "summary": "Absorb bytes into a SHA-256 context: fill and transform 64-byte blocks, count bytes in loLen/hiLen",
+  "description": "wolfSSL wc_Sha256Update. The 64-byte buffer is at +0x20 and the bytes buffered so far at +0x60. The byte count is kept in loLen (+0x64) with a carry into hiLen (+0x68), in bytes, and converted to bits only at Final. Partial data is copied into the buffer first. When the buffer fills it is byte-swapped in place to big-endian words and Transform_Sha256 (0c061950) runs. Full 64-byte blocks in the input are swapped and transformed directly. The tail goes back into the buffer. A corrupt buffer length returns -132 (BUFFER_E).",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "SHA-256 context"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "input data"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "input length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for a NULL context or a NULL pointer with non-zero length; -132 for a corrupt buffer length; or the transform error"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c061c80": {
+  "name": "wc_Sha256Final",
+  "summary": "Finish SHA-256: pad with 0x80 and bit length, write digest big-endian, reset to IV",
+  "description": "wolfSSL wc_Sha256Final. It appends 0x80 and zero bytes, then the total length in bits as a 64-bit big-endian value (hiLen * 8 plus loLen >> 29 for the high word, loLen << 3 for the low word), transforms the block, and byte-swaps the eight digest words. The digest is written to param 2 as 32 big-endian bytes. The context is then reset to the SHA-256 IV with buffLen, loLen and hiLen cleared, so the same object can be reused. This Final resetting is what lets wc_HmacFinal reuse the context for the outer hash.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "SHA-256 context"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "32-byte digest output"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -173 for NULL pointers; or the transform error"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c062218": {
+  "name": "fp_mul",
+  "summary": "Multiply two fp_ints, c = a * b (comba column accumulation); fails when the digit sum exceeds 23",
+  "description": "TFM fp_mul in comba form. It requires used(a) + used(b) <= 23, otherwise -1 (FP_VAL), and allocates a 0x68-byte scratch fp_int, returning -2 on allocation failure. Column by column it accumulates 32x32 to 64-bit products with carry propagation, writing one result digit per column. The result sign is the XOR of the operand signs, zero is normalised to positive, and the scratch value is copied into c with memcpy before the scratch is freed. The shared group of big-integer routines (fp_sqr, fp_div and so on) sits next to it.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "operand a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "operand b"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "destination c"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 when the digit sum exceeds 23; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06237c": {
+  "name": "fp_mul_comba24",
+  "summary": "Fixed-capacity multiply wrapper c = a * b for digit sums up to 24; clears stale digits of c",
+  "description": "TFM-style fp_mul_comba24 wrapper. It rejects operand digit sums above 24 with -1, multiplies through fp_mul (0c062218), and then zeroes the digits of c above its new used count so no stale digits remain from an earlier, larger value.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "operand a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "operand b"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "destination c"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 when the digit sum exceeds 24; -2 on allocation failure"
+  },
+  "confidence": "medium",
+  "notes": "The name follows the TFM fixed-size variant with a 24-digit cutoff; the decompile only shows the size guard and the call to fp_mul."
+ },
+ "ble_219_0c0626f4": {
+  "name": "fp_sqr_comba",
+  "summary": "Square a fp_int, b = a^2, with the comba method that doubles the cross products",
+  "description": "TFM comba squaring. The result digit count is 2 * used(a), clamped to 23 digits. The routine accumulates each cross product a[i] * a[j] (i < j) once and then doubles the running sum, and adds the diagonal square a[i]^2 in the even columns. The sign of the result is zero (positive). The destination may alias the source, in which case a scratch fp_int is used. Returns 0, or -2 on allocation failure.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination b"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c062880": {
+  "name": "fp_sqr",
+  "summary": "Square wrapper b = a^2: runs fp_sqr_comba and clears stale digits of b above the new used count",
+  "description": "TFM fp_sqr wrapper. The source a is passed through to fp_sqr_comba (0c0626f4) in the first argument register, so the decompile shows it as unused. After squaring it zeroes the digits of b above the new used count, so stale digits from an earlier value are cleared.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source a (passed through to fp_sqr_comba)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination b"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c062a28": {
+  "name": "fp_montgomery_reduce",
+  "summary": "Montgomery reduction x = x * R^-1 mod m, word by word, with a final conditional subtract of m",
+  "description": "TFM fp_montgomery_reduce. The modulus must have at most 12 digits (384 bits), else -1. It works on a scratch copy of x. For each of the low digits it computes u = x[i] * rho (mod 2^32), where rho = -1/m mod 2^32, and adds u * m shifted by i digits with carry propagation. After all digits the high half is shifted down by the modulus digit count. A final s_fp_sub subtracts m when the result is at least m, comparing from the top digit. Returns 0 on success, -1 for a modulus too big, -2 on allocation failure.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "x, in and out (reduced value)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "modulus m, at most 12 digits"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "rho = -1/m mod 2^32"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 for a modulus above 12 digits; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c062c84": {
+  "name": "fp_to_unsigned_bin",
+  "summary": "Export a fp_int as big-endian bytes: emit little-endian then reverse in place",
+  "description": "TFM fp_to_unsigned_bin. It copies the source into a scratch fp_int, calls fp_to_unsigned_bin_at_pos (0c062c20) to write the magnitude in little-endian order at offset 0 and gets the byte count, then reverses the byte run in place so the output is big-endian. The extra arguments in the decompile are not used by the logic (decompiler artifacts of the memset call). Returns 0, or -2 on allocation failure.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source fp_int"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "output buffer (at least the magnitude byte count)"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "unused"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "unused"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c062fe4": {
+  "name": "fp_div",
+  "summary": "Divide two fp_ints: quotient c = a / b and remainder d = a mod b (Knuth algorithm D)",
+  "description": "TFM fp_div. A zero divisor returns -1 (FP_VAL). When |a| < |b| the quotient is 0 and the remainder is a. Otherwise both operands are normalised by a left shift (fp_mul_2d) so the top divisor digit has its high bit set. The quotient digits are estimated with 64-bit division (__udivdi3), corrected with fp_mul_d, fp_sub and fp_cmp, and the remainder is un-normalised with fp_div_2d. Either output (c or d) may be NULL. A 0x208-byte scratch structure is used. Returns 0 on success, -1 for a zero divisor, -2 on allocation failure.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dividend a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "divisor b"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "quotient c, may be NULL"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "remainder d, may be NULL"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 for a zero divisor; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0634c4": {
+  "name": "fp_mod",
+  "summary": "Modular reduction c = a mod b with the remainder taking the sign of b",
+  "description": "TFM fp_mod. It takes the remainder of a divided by b with fp_div (0c062fe4) into a scratch value. If the remainder's sign matches b's sign it is copied to c. Otherwise b is added to it (fp_add), so the result lies in [0, b) for positive b.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dividend a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "modulus b"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "result c"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "unused"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 for a zero modulus; -2 on allocation failure"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06353c": {
+  "name": "fp_mulmod",
+  "summary": "Modular multiply c = a * b mod m for total digit counts up to 24",
+  "description": "TFM fp_mulmod. It requires used(a) + used(b) <= 24, otherwise -1. It multiplies a and b into a scratch fp_int with fp_mul (0c062218) and reduces the product modulo m with fp_mod (0c0634c4) into the result. Returns 0 on success.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "operand a"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "operand b"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "modulus m"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "result c"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success; -1 when the digit sum exceeds 24; -2 on allocation failure"
+  },
+  "confidence": "high"
+ }
+}

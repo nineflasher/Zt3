@@ -64,7 +64,7 @@ Brings up SPI2: it calls vcu_spi_pins_remap_init for the pins, enables the SPI2 
 
 - Addresses by version: 148: 0x080021E4, 14a: 0x08002254, 14b: 0x08002518, 14e: 0x08002518, 14f: 0x08002574, 152: 0x080025B0, 153: 0x080025CC, 0159: 0x080025B8
 - Peripheral registers: `SPI2.CTRL1` (A)
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Calls: `vcu_spi_pins_remap_init`, `crm_periph_clock_enable`, `spi_default_para_init`, `spi_enable`, `spi_init`
 - Confidence: medium
 

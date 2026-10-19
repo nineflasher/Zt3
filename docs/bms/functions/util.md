@@ -1,6 +1,6 @@
 # BMS - `util` functions
 
-46 functions.
+49 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -29,6 +29,7 @@
 | [`bms_nibble_debounce_1s`](#bms_nibble_debounce_1s) | 0x080064A0 | Once per 1000 ticks, debounce the low nibble of a pointed byte; latch after equal samples |
 | [`bms_noop_hook_08009a98`](#bms_noop_hook_08009a98) | 0x08009A98 | Empty hook: returns immediately with no side effects |
 | [`bms_noop_hook_08009a9a`](#bms_noop_hook_08009a9a) | 0x08009A9A | Empty hook: returns immediately with no side effects |
+| [`bms_pack_7bit_string`](#bms_pack_7bit_string) | 0x0800334C | Packs a NUL-terminated string of 7-bit characters at a 7-bit stride into a bit stream |
 | [`bms_rand_next`](#bms_rand_next) | 0x08001164 | Advances the LCG seed in RAM word 0x200006A8 and returns 31 pseudo-random bits |
 | [`bms_record12_addr`](#bms_record12_addr) | 0x0800CE3C | Return the address of 12-byte record N in the table at 0x20000264 |
 | [`bms_record_store_from_state`](#bms_record_store_from_state) | 0x08007FC0 | Store selected state-block fields into the record at 0x200024CC through bms_record_set_or_clear |
@@ -36,6 +37,7 @@
 | [`bms_request_is_done`](#bms_request_is_done) | 0x08003070 | Returns bit 0 of the request block's status word at offset 0x10 |
 | [`bms_request_reset`](#bms_request_reset) | 0x08002E84 | Clears the done bit of a request block by writing 0xFFFFFFFE to its word at offset 0x10 |
 | [`bms_rotate_word_bytes`](#bms_rotate_word_bytes) | 0x0800325C | Rotates the 4 bytes at param_1 by (param_2 & 3) positions, as in an AES RotWord step |
+| [`bms_sdiv32`](#bms_sdiv32) | 0x0800113C | Signed 32-bit division truncating toward zero, built on bms_udiv32 |
 | [`bms_seq_restart_stamp`](#bms_seq_restart_stamp) | 0x08007F18 | Restart a timed step sequence: store the start stamp and clear the step word |
 | [`bms_session_state_reset`](#bms_session_state_reset) | 0x0800660C | Reset the session RAM variables and write four 32-bit constants at 0x20001C68 |
 | [`bms_set_state_word`](#bms_set_state_word) | 0x08002E78 | Stores its argument into the RAM word at 0x200006A4 |
@@ -48,6 +50,7 @@
 | [`bms_tail_call_unnamed_b`](#bms_tail_call_unnamed_b) | 0x08008780 | Tail-call thunk to bms_4168_0800fabc (not described in this packet) |
 | [`bms_u8_to_bcd`](#bms_u8_to_bcd) | 0x08003514 | Convert an 8-bit binary value to packed BCD |
 | [`bms_udiv32`](#bms_udiv32) | 0x08001110 | Unsigned 32-bit restoring division; returns the quotient |
+| [`bms_unpack_7bit_string`](#bms_unpack_7bit_string) | 0x080033CE | Unpacks a stream written at 7-bit stride into a NUL-terminated character buffer |
 | [`crc16_usb_compute`](#crc16_usb_compute) | 0x08004DA4 | Bitwise CRC-16, reflected poly 0x8005, init 0xFFFF, final complement |
 | [`crc8_msb_compute`](#crc8_msb_compute) | 0x08003626 | CRC-8 over a byte buffer, MSB-first, init 0, polynomial supplied by the caller |
 
@@ -65,7 +68,7 @@ With reset_request equal to 0 it calls bms_app_state_reset_legacy. Otherwise it 
 **Notes:** The per-bank handlers in the flash table are not in this packet. The 499 wrap window may be a 500-tick period, which is a guess.
 
 - Addresses by version: 4130: 0x08006DE0, 4139: 0x080072E0
-- Called by: `bms_4139_08007238`
+- Called by: `bms_pb11_trigger_sequence_step`
 - Calls: `bms_app_state_reset_legacy`
 - Confidence: medium
 
@@ -102,7 +105,7 @@ Copies 8 bytes from src to dst one byte at a time, fully unrolled, with no loop,
 **Notes:** The 8-byte size is certain; the payload type is a guess.
 
 - Addresses by version: 4130: 0x08003700, 4139: 0x08003700, 4148: 0x08003700, 4168: 0x08003700
-- Called by: `bms_4168_0800d76c`, `bms_4168_0800ddb0`, `bms_4168_0800f2e0`
+- Called by: `bms_telemetry_block_fill_16`, `bms_telemetry_sched_16_step`, `bms_4168_0800f2e0`
 - Confidence: medium
 
 ## bms_counter_accumulate
@@ -148,7 +151,7 @@ The body is a single bx lr with no reads or writes. It is a placeholder that is 
 **Notes:** The purpose is inferred from the empty body and the caller list. Which callback or hook it stands in for cannot be determined from this packet.
 
 - Addresses by version: 4130: 0x08002540, 4139: 0x08002540, 4148: 0x08002540, 4168: 0x08002540
-- Called by: `bms_4168_08002542`
+- Called by: `HAL_RTCEx_WakeUpTimerIRQHandler`
 - Confidence: low
 
 ## bms_event_capture_on_match
@@ -174,7 +177,7 @@ Reads the byte at 0x200005C1 and returns its least significant bit, 0 or 1. It i
 **Notes:** The meaning of the flag is not visible in this packet.
 
 - Addresses by version: 4130: 0x0800CD24, 4139: 0x0800D30C, 4148: 0x0800E30C, 4168: 0x0800E7A0
-- Called by: `bms_4168_08004774`, `bms_4168_0800c96c`
+- Called by: `bms_limit_status_update`, `bms_4168_0800c96c`
 - Confidence: high
 
 ## bms_get_block_200005c0_ptr
@@ -188,7 +191,7 @@ Returns the address of the byte at 0x200005C0 without reading or writing it. The
 **Notes:** Only the address is certain. The structure of the block is inferred from the adjacent byte.
 
 - Addresses by version: 4130: 0x0800CD1C, 4139: 0x0800D304, 4148: 0x0800E304, 4168: 0x0800E798
-- Called by: `bms_state_refresh_scaled`, `bms_4168_0800c96c`, `bms_4168_0800ec04`
+- Called by: `bms_state_refresh_scaled`, `bms_4168_0800c96c`, `bms_can_cmd_set_handler`
 - Confidence: high
 
 ## bms_get_block_20000e58_ptr
@@ -202,7 +205,7 @@ Returns the address of the 16-bit RAM object at 0x20000E58 without reading or wr
 **Notes:** The object's purpose is not visible from this packet. The name is based only on the address.
 
 - Addresses by version: 4130: 0x0800BB00, 4139: 0x0800C0D0, 4148: 0x0800CA74, 4168: 0x0800CE5C
-- Called by: `bms_profile_block_fill_4168`, `bms_4168_08004774`, `bms_4168_08007a0c`
+- Called by: `bms_profile_block_fill_4168`, `bms_limit_status_update`, `bms_4168_08007a0c`
 - Confidence: high
 
 ## bms_get_ram_word_200006a0
@@ -214,7 +217,7 @@ Returns DAT_200006a0, a RAM word that sits 8 bytes below the LCG seed at 0x20000
 **Returns** `u32`: raw value of the RAM word at 0x200006A0
 
 - Addresses by version: 4130: 0x08002184, 4139: 0x08002184, 4148: 0x08002184, 4168: 0x08002184
-- Called by: `bms_4168_08001460`, `bms_4168_080019d0`, `bms_4168_08002348`, `bms_4168_080023ca`, `bms_4168_08002470`, `bms_4168_08002868`, `bms_4168_0800352c`, `bms_rtc_wait_synchro`
+- Called by: `bms_flash_wait_idle_check`, `HAL_FDCAN_Init`, `HAL_RTCEx_DeactivateWakeUpTimer`, `HAL_RTCEx_SetSynchroShift`, `HAL_RTCEx_SetWakeUpTimer_IT`, `HAL_RTC_WaitForSynchro`, `RTC_EnterInitMode`, `bms_rtc_wait_synchro`
 - Confidence: low
 
 ## bms_get_uid_word0
@@ -266,7 +269,7 @@ Dispatches to the three unique-ID word readers. Index 0 returns bms_get_uid_word
 **Returns** `u32`: UID word for index 0 to 2, otherwise 0
 
 - Addresses by version: 4130: 0x080091B0, 4139: 0x080096B0, 4148: 0x08009EFC, 4168: 0x0800A210
-- Called by: `bms_4168_08003c3c`, `bms_4168_08008060`, `bms_4168_080082f0`
+- Called by: `bms_4168_08003c3c`, `bms_state_restore_or_init`, `bms_4168_080082f0`
 - Calls: `bms_get_uid_word0`, `bms_get_uid_word1`, `bms_get_uid_word2`
 - Confidence: high
 
@@ -281,7 +284,7 @@ Takes no arguments and returns the value of the 32-bit RAM word at 0x20001354. T
 **Notes:** The word's meaning is not visible in this packet.
 
 - Addresses by version: 4130: 0x0800E8BC, 4139: 0x0800EF10, 4148: 0x08010170, 4168: 0x080106BC
-- Called by: `bms_4168_0800e9dc`
+- Called by: `bms_msg_dispatch_request`
 - Confidence: high
 
 ## bms_index_debounce_step
@@ -293,7 +296,7 @@ Samples an index with bms_4168_08008f50 (not described here). The status field a
 **Notes:** The counter at 0x20000022 is not cleared when samples agree, so the two differing samples need not be consecutive. The index's source and meaning are not in the packet; a slot or cell index is an inference from the 0-7 limit. The BMS_4139 image has a different body at the same address (bms_4139_080040e4); the packet lists both, so check the family map.
 
 - Addresses by version: 4130: 0x080041C4, 4139: 0x080040A0, 4148: 0x080040B8, 4168: 0x080040E4
-- Called by: `bms_4168_08008060`, `bms_4168_080082f0`
+- Called by: `bms_state_restore_or_init`, `bms_4168_080082f0`
 - Calls: `gpio_pb13_15_strap_read`
 - Confidence: medium
 
@@ -327,7 +330,7 @@ param_1 selects the mapping. Mode 0 divides (DAT_20001348 - param_2) by 5, multi
 **Notes:** The mode-0 remainder is read from the second return word of bms_udiv32 (the decompiler shows a 64-bit return), but the wave-1 summary says only the quotient is returned. This needs checking. Net effect of the folds: -0x258000 in mode 0 and -0x110000 in mode 1.
 
 - Addresses by version: 4130: 0x080039D4, 4139: 0x080039D4, 4148: 0x080039E8, 4168: 0x080039E8
-- Called by: `bms_4168_08005768`
+- Called by: `bms_extlog_request_dispatch`
 - Calls: `bms_udiv32`
 - Confidence: low
 
@@ -392,7 +395,7 @@ Bare return with no instructions: a placeholder callback that the build leaves e
 **Notes:** Name carries the address because it is the same empty body as bms_noop_hook_08009a9a and bms_empty_callback.
 
 - Addresses by version: 4130: 0x08008A38, 4139: 0x08008F38, 4148: 0x08009784, 4168: 0x08009A98
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
 - Confidence: high
 
 ## bms_noop_hook_08009a9a
@@ -406,6 +409,28 @@ Bare return with no instructions, identical in body to bms_noop_hook_08009a98. I
 - Addresses by version: 4130: 0x08008A3A, 4139: 0x08008F3A, 4148: 0x08009786, 4168: 0x08009A9A
 - Called by: `bms_4168_080082f0`
 - Confidence: high
+
+## bms_pack_7bit_string
+
+**Packs a NUL-terminated string of 7-bit characters at a 7-bit stride into a bit stream**
+
+Zeroes the destination with bms_mem_zero, then for each source byte up to a NUL writes its low 7 bits doubled (value << 1) at bit offset 7*i of the output, LSB first. Character i therefore occupies bits 7i+1 to 7i+7, and bit 0 of the stream stays 0. Overlapping bytes are combined with OR, which is harmless because the doubled value has a zero bit 0. Packing stops at the end of the source, at a NUL, or when the destination holds param_4 bytes, and it returns the number of output bytes used, rounded up, or -1 for NULL or negative arguments.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `src` | `ptr` | param_1, source string |
+| `src_len` | `s32` | param_2, source length limit in bytes |
+| `dst` | `ptr` | param_3, output buffer |
+| `dst_len` | `s32` | param_4, output buffer size in bytes |
+
+**Returns** `s32`: bytes written, or -1 for bad arguments
+
+**Notes:** The packing format is inferred from the code. It is the inverse of bms_unpack_7bit_string (bms_4168_080033ce), but it is not checked against any standard packing scheme.
+
+- Addresses by version: 4130: 0x0800334C, 4139: 0x0800334C, 4148: 0x0800334C, 4168: 0x0800334C
+- Called by: `bms_state_restore_or_init`
+- Calls: `bms_mem_zero`
+- Confidence: medium
 
 ## bms_rand_next
 
@@ -433,7 +458,7 @@ Computes base + 12 * index with base 0x20000264 (a multiply by 0xC and an add, w
 **Notes:** The decompiled return type is int, but the value is used as an address. The record fields are not visible in this function.
 
 - Addresses by version: 4130: 0x0800BAE0, 4139: 0x0800C0B0, 4148: 0x0800CA54, 4168: 0x0800CE3C
-- Called by: `bms_profile_table_fill_4168`, `bms_4168_08007d48`
+- Called by: `bms_profile_table_fill_4168`, `bms_comm_pool_tick_with_threshold`
 - Confidence: high
 
 ## bms_record_store_from_state
@@ -460,8 +485,8 @@ When the busy flag DAT_20002612 (used by bms_comm_service_step) is zero it clear
 **Notes:** The reason the buffer is left alone while busy is inferred from the flag name and the callers, not stated in the code. bms_4168_08001246 is not identified in this packet.
 
 - Addresses by version: 4148: 0x0800DE54, 4168: 0x0800E2A8
-- Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_4168_08005fc4`, `bms_4168_080068e8`, `bms_4168_08007704`, `bms_4168_08007d48`, `bms_4168_08007da4`, `bms_4168_0800c018`, `bms_4168_0800c96c`, `bms_4168_0800ce64` ...
-- Calls: `bms_4168_08001246`
+- Called by: `bms_limit_status_update`, `bms_remaining_time_4168`, `bms_status_bit4_from_reply`, `bms_limit_report_cmd08`, `bms_status_latch_step`, `bms_soc_main_step`, `bms_current_limit_derate`, `bms_comm_pool_tick_with_threshold`, `bms_comm_pool_state_step`, `bms_protect_dwell_flags_update`, `bms_4168_0800c96c`, `bms_mode_fsm_step` ...
+- Calls: `bms_mem_zero`
 - Confidence: medium
 
 ## bms_request_is_done
@@ -516,6 +541,26 @@ Copies the 4-byte word at param_1 into a stack temporary and writes it back rota
 - Called by: `bms_seed_key_transform`
 - Confidence: medium
 
+## bms_sdiv32
+
+**Signed 32-bit division truncating toward zero, built on bms_udiv32**
+
+Takes the absolute values of both operands, divides them with bms_udiv32 (bms_4168_08001110), and negates the quotient when the operand signs differ. The quotient matches ARM EABI __aeabi_idiv (truncation toward zero). A zero divisor returns the bms_udiv32 result (0xFFFFFFFF), negated when the signs differ. Callers in this packet read the high word of this call's 64-bit result as a remainder, so the remainder register is set here as well.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `dividend` | `s32` | param_1, signed dividend |
+| `divisor` | `s32` | param_2, signed divisor |
+
+**Returns** `s32`: truncated quotient of param_1 / param_2
+
+**Notes:** bms_4168_08001188 reads r1 of this call as a remainder. That remainder comes from the unsigned division of the absolute values, so it is not sign-corrected for negative dividends. The wave1 description of bms_udiv32 says only the quotient is returned, which conflicts with callers reading r1; its owner should check.
+
+- Addresses by version: 4130: 0x0800113C, 4139: 0x0800113C, 4148: 0x0800113C, 4168: 0x0800113C
+- Called by: `bms_tm_to_epoch`, `bms_remaining_time_4168`, `bms_soc_from_ocv_table`, `bms_table_interp_permille`, `bms_state_refresh_scaled`, `bms_soc_main_step`, `bms_charge_integrate_step`, `bms_voltage_error_track`, `bms_soc_update_from_voltage`, `bms_soc_tick_update`, `bms_capacity_integrate_step`, `bms_capacity_seed_from_voltage` ...
+- Calls: `bms_udiv32`
+- Confidence: high
+
 ## bms_seq_restart_stamp
 
 **Restart a timed step sequence: store the start stamp and clear the step word**
@@ -536,8 +581,8 @@ Clears a group of RAM variables (0x20000584 to 0x20000598, 0x200005A0 to 0x20000
 **Notes:** The 128-bit reading of the constants is an inference from their count and size. The meaning of bms_4168_08001246 is not in the packet; the 0x800 size suggests a memory-clear or copy helper.
 
 - Addresses by version: 4130: 0x08005A5C, 4139: 0x08005C78, 4148: 0x080064A0, 4168: 0x0800660C
-- Called by: `bms_4168_0800eddc`
-- Calls: `bms_4168_08001246`
+- Called by: `bms_fw_upload_handle`
+- Calls: `bms_mem_zero`
 - Confidence: medium
 
 ## bms_set_state_word
@@ -574,7 +619,7 @@ Allocates one of ten 20-byte slots at 0x200013A0 and appends it to a singly link
 **Notes:** The duplicate path leaks a pool slot, which is a plausible defect since the slot is never freed. The payload words' meaning is not in this packet. Callers: bms_4168_08005cdc, bms_4168_080082f0, bms_4168_0800a8a0, bms_4168_0800e9dc. The dispatch array at 0x20000578 used by bms_dispatch_call_current is a separate structure.
 
 - Addresses by version: 4130: 0x080097E4, 4139: 0x08009D1C, 4148: 0x0800A438, 4168: 0x0800A74C
-- Called by: `bms_history_ring_commit`, `bms_4168_080082f0`, `bms_4168_0800a8a0`, `bms_4168_0800e9dc`
+- Called by: `bms_history_ring_commit`, `bms_4168_080082f0`, `bms_snapshot_logger_tick`, `bms_msg_dispatch_request`
 - Confidence: medium
 
 ## bms_slot_table_find
@@ -595,7 +640,7 @@ Searches a table of 36-byte (0x24) records. param_1 points to a header whose poi
 **Notes:** The table most likely maps a link between two 8-bit IDs to a slot; what the IDs are is not in this packet. The state value 1 = free is read from the loops and should be checked against the writers. The record stride 0x24 and the header layout are certain from the code.
 
 - Addresses by version: 4130: 0x08005668, 4139: 0x08005884, 4148: 0x08005D90, 4168: 0x08005EE4
-- Called by: `bms_j1939_tp_rx_dispatch`, `bms_4168_0800ff8e`
+- Called by: `bms_j1939_tp_rx_dispatch`, `bms_tp_session_send`
 - Confidence: medium
 
 ## bms_state_ptr_cache_set
@@ -639,8 +684,8 @@ Same segment-interpolation pattern as bms_soc_from_ocv_table, over a different t
 **Notes:** The quantity is not identified. The exact stride of the interleaved input and output tables is not resolved by the packet, so the table layout is medium-low. Callers bms_4168_0800746c and bms_4168_080076b4 are outside the packet.
 
 - Addresses by version: 4130: 0x08005B20, 4139: 0x08005D48, 4148: 0x08006570, 4168: 0x080066DC
-- Called by: `bms_4168_0800746c`, `bms_4168_080076b4`
-- Calls: `bms_4168_0800113c`
+- Called by: `bms_capacity_integrate_step`, `bms_capacity_seed_from_voltage`
+- Calls: `bms_sdiv32`
 - Confidence: low
 
 ## bms_tail_call_unnamed_a
@@ -678,7 +723,7 @@ Converts a byte to packed BCD by repeatedly subtracting 10 and counting the tens
 **Returns** `u8`: packed BCD: tens in bits 7:4, ones in bits 3:0
 
 - Addresses by version: 4130: 0x08003514, 4139: 0x08003514, 4148: 0x08003514, 4168: 0x08003514
-- Called by: `bms_4168_08002704`, `bms_4168_080027a4`
+- Called by: `HAL_RTC_SetDate`, `HAL_RTC_SetTime`
 - Confidence: high
 
 ## bms_udiv32
@@ -697,8 +742,28 @@ Bit-serial restoring division for unsigned 32-bit operands, needed because Corte
 **Notes:** Could be a hand-written replacement for libgcc __aeabi_uidiv; the name is generic, not confirmed.
 
 - Addresses by version: 4130: 0x08001110, 4139: 0x08001110, 4148: 0x08001110, 4168: 0x08001110
-- Called by: `bms_4168_0800113c`, `bms_4168_08001278`, `bms_4168_080021ec`, `bms_4168_08003140`, `bms_4168_080034b4`, `bms_banded_offset_compute`, `bms_throughput_accumulate`, `bms_logical_addr_map`, `bms_profile_block_fill_4168`, `bms_4168_08004a40`, `bms_4168_080054f8`, `bms_state_refresh_scaled` ...
+- Called by: `bms_sdiv32`, `bms_epoch_to_tm`, `bms_systick_1khz_start`, `bms_usart_init_from_config`, `HAL_RCC_GetSysClockFreq`, `bms_banded_offset_compute`, `bms_throughput_accumulate`, `bms_logical_addr_map`, `bms_profile_block_fill_4168`, `bms_remaining_time_4168`, `bms_limit_report_cmd08`, `bms_state_refresh_scaled` ...
 - Confidence: high
+
+## bms_unpack_7bit_string
+
+**Unpacks a stream written at 7-bit stride into a NUL-terminated character buffer**
+
+Zeroes the output with bms_mem_zero, then reads an 8-bit window at bit offset 7*i of the input and stores window >> 1 as a character, so character i is the 7 bits at 7i+1. This is the inverse of bms_pack_7bit_string (bms_4168_0800334c). It stops at a zero character, when the output holds param_4 bytes, or when the input's param_2 bytes are used up, and returns the number of characters written, or -1 for NULL or negative arguments.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `src` | `ptr` | param_1, packed input stream |
+| `src_len` | `s32` | param_2, input length in bytes |
+| `dst` | `ptr` | param_3, output character buffer |
+| `dst_len` | `s32` | param_4, output buffer size in bytes |
+
+**Returns** `s32`: characters written, or -1 for bad arguments
+
+- Addresses by version: 4130: 0x080033CE, 4139: 0x080033CE, 4148: 0x080033CE, 4168: 0x080033CE
+- Called by: `bms_profile_select_from_code`
+- Calls: `bms_mem_zero`
+- Confidence: medium
 
 ## crc16_usb_compute
 
@@ -736,5 +801,5 @@ Computes an 8-bit CRC over len bytes starting at data, with the polynomial passe
 **Notes:** The decompiler shows a void return, but the CRC accumulator is the only live value at exit, so the result is presumably returned in r0; this is unverified. The only caller in the packet is bms_4168_0800b7bc, which would confirm it.
 
 - Addresses by version: 4130: 0x08003626, 4139: 0x08003626, 4148: 0x08003626, 4168: 0x08003626
-- Called by: `bms_4168_0800b7bc`
+- Called by: `bms_i2c_frame_write_crc8`
 - Confidence: medium

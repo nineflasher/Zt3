@@ -1,0 +1,879 @@
+{
+  "mcu_12b_08005b60": {
+    "name": "mcu_sensor_filter_tick_v12b",
+    "summary": "12b periodic tick: sample two inputs, run seven Q30 low-pass stages and mirror two status bits",
+    "description": "Periodic routine of the 12b build with no direct caller in this packet. It returns at once while the ready byte DAT_20000B14 is zero. Otherwise it stores a Q15 product from mcu_mul_q15_f5e_by_3f2 as the first sample (0x20000A28) and a second value from the routine at 0x0800216C (mcu_0160_08002148, not yet described) into 0x20000AEC; that routine also reports a flag in 0x20000AF4, and when the flag is set the value is forced to 0x368000. On the first pass after reset (DAT_200000B1 == 0) seven mcu_lpf_q30_step stages run with Q30 weights 0x000A49B4 (about 0.0006), 0x23A3A3C0 (0.557), 0x07250810 (0.112, used for two stages), 0x00664D0B (0.006), 0x01F30A72 (0.030) and 0x0014901A (0.001), with the states at 0x20000A30, 0x20000A2C, 0x20000A38, 0x20000A40, 0x20000A48, 0x20000A50 and 0x20000AF0. When DAT_200000B1 is set it clears it, reseeds the states from the current inputs and sets 0x20000A48 to 0x8000 (1.0 in Q15). It then calls mcu_12b_080059ec (not yet described) and mcu_12b_08005d30, and mirrors bits 0x2 and 0x4 of DAT_20000BD0 into bits 0x100 and 0x200 of the flag word 0x20000AF8 with mcu_bits_set and mcu_bits_clear.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The signals behind the inputs are not visible in this packet. Stage order and weights were read from the call list and the decompiled constants. Larger Q30 weights track faster."
+  },
+  "mcu_12b_08005d30": {
+    "name": "mcu_hall_transition_counter_update_v12b",
+    "summary": "12b: count hall transition codes in two edge counters and raise event flags 0x400 and 0x80000",
+    "description": "Takes the hall transition status of the object pointed to by DAT_2000002C from mcu_hall_get_transition_status, stores it in DAT_200000B0, and uses it to drive two edge counters with mcu_edge_counter_step. Counter 0x20000AC4 steps up only when the status is 7 and down otherwise. Counter 0x20000AD8 steps up when the status is 1 to 6, the invalid-transition codes, and down for 0 or 7. An output of 1 from the first counter sets flag bit 0x400 in 0x20000AF8, and an output of 1 from the second sets 0x80000, both through mcu_bits_set. Each counter output changes only after its limit is reached, so the two counters filter the transition stream.",
+    "category": "hall",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Status code 7 is outside the 0..6 range documented for mcu_hall_get_transition_status, so its meaning is open. Counter limits are set elsewhere and are not visible here."
+  },
+  "mcu_0160_08005d3c": {
+    "name": "mcu_ratio_gain_clamped_q15",
+    "summary": "Compute a Q15 gain clamped to 0.8..1.3 when both inputs reach the 0x18000 gate, else unity",
+    "description": "Works on the object at param_1. If the word at +0x18 and the global DAT_20000F30 are both at least 0x18000 (the gate threshold), it divides the word at +0x10 with mcu_q15_div_sat and clamps the quotient to [0x6666, 0xA666], which is 0.8 to 1.3 in Q15, storing it at +0x1C. Otherwise it stores unity (0x8000) at +0x1C. The DAT_20000F30 value is noted elsewhere as a Q16 speed, voltage or current quantity, which is not confirmed.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object: +0x10 numerator, +0x18 gated value, +0x1C receives the gain"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The second operand of the division is not visible in the decompile: it is passed in a register without an argument, so the exact ratio is unknown."
+  },
+  "mcu_0160_08005f08": {
+    "name": "mcu_pwm_trigger_and_clamp_select",
+    "summary": "Choose the TMR1 C4 trigger compare value and the three-phase clamp code from six inputs",
+    "description": "Classifies the first three arguments into a mode in DAT_20000070 and writes a compare value to DAT_20000074 through tmr_channel_value_set(&TMR1, 6, value), which is channel 4 (C4DT at 0x40). For p3 at most 510 the mode depends on p2 minus p3 and p1 minus p2 against 0x3FD: mode 0 with value 10 when all three are close, mode 1 with value p2 + 0x208 when p1 is far from p2, and mode 2 with value p3 + 0x208 when p2 is far from p3. For p3 above 510 it is mode 3 with value 10, because the value p3 - 500 is always above the clamp of 10 in that range. The minimum of p4, p5 and p6 selects a clamp code in DAT_20000071 (0x11 for p4, 0x22 for p5, 0x33 for p6). DAT_20000072 is 0xAA in mode 0, 0 in modes 2 and 3, and 1, 2 or 3 in mode 1 depending on the order of the other two arguments.",
+    "category": "pwm",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "phase or sector quantity A, compared with B in the mode test"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "phase or sector quantity B"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "magnitude that selects the mode (values above 510 give mode 3)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "first clamp input, compared for the minimum"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "second clamp input"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "third clamp input"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The physical meaning of the six inputs is inferred from the arithmetic (phase or sector quantities in timer counts). The 0x208 and 0x3FD constants are used literally. The caller is mcu_0160_08009a8c."
+  },
+  "mcu_0160_080061f6": {
+    "name": "mcu_irq_enable_tail_veneer",
+    "summary": "One-instruction tail call into mcu_irq_enable_thunk to re-enable interrupts",
+    "description": "A single branch to 0x08006B6C, the body of mcu_irq_enable_thunk, which clears PRIMASK through enableIRQinterrupts. Its caller in this packet, mcu_0160_0800a01c, uses it as the exit half of a critical section. The veneer adds no logic of its own.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_080061fc": {
+    "name": "mcu_fault_owner_arbitrate",
+    "summary": "Request or withdraw fault IDs in the owner byte at 0x200003BC, driven by bits of 0x20000B1C",
+    "description": "Reads the request word at 0x20000B1C and, for each bit group, either requests an ID or withdraws it. A set bit calls mcu_track_min_nonzero_u8, which keeps the smallest non-zero ID in the byte at 0x200003BC. A clear bit calls mcu_owner_release_if_match, which clears the owner byte if it holds that ID. The groups are: ID 0x18 from bit 0x1 or 0x2, ID 0x37 from 0x4, ID 0x29 from 0x20, ID 0x28 from 0x80, ID 0x12 from 0x400, and ID 0x38 from 0x4000. ID 0x0E is driven by bit 0x100 and then overwritten by bit 0x200, so bit 0x200 alone decides it. The owner byte therefore holds the most urgent active request, and withdrawing the owner leaves it at zero until another request arrives.",
+    "category": "protection",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meanings of IDs 0x0E, 0x12, 0x18, 0x28, 0x29, 0x37 and 0x38 are not known from this packet. The caller is mcu_0160_0800a320."
+  },
+  "mcu_0160_08006402": {
+    "name": "mcu_angle_sincos_update",
+    "summary": "Store the sine and cosine of the Q15 angle at +0x30 into the object's +0x34 and +0x38 fields",
+    "description": "Reads the Q15 angle word at +0x30 of the object, computes its sine with mcu_math_sin_q15 and stores it at +0x34, then computes the cosine with mcu_math_cos_q15 and stores it at +0x38. It returns 1 unconditionally. The only caller in this packet is mcu_0160_08007364, and the pair is the usual input to a Park or inverse-Park transform.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object with the angle at +0x30 and the sine and cosine outputs at +0x34 and +0x38"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08006460": {
+    "name": "mcu_frame_build_5aa5_checksum",
+    "summary": "Build a 5A A5 frame: 7-byte header, payload, and a little-endian byte-sum checksum",
+    "description": "Writes a frame into the buffer at param_7: bytes 0x5A and 0xA5, then the payload length, then param_1, param_2, param_4 and param_5, then the payload bytes copied from param_6 starting at byte 7. The checksum is mcu_byte_sum_checksum16 over bytes 2 through 6 plus the payload, which is the length, the four header bytes and the payload, and it is stored little-endian in the last two bytes. The return value is the total frame length, 9 plus the payload length, truncated to 8 bits.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "header byte 3 of the frame"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "header byte 4 of the frame"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "payload length"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "header byte 6 of the frame"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "header byte 7 of the frame"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "output buffer"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "total frame length, 9 + payload length"
+    },
+    "confidence": "high",
+    "notes": "Not the same routine as mcu_frame_build_checksum16 (0x0800D4A8), which uses a three-byte header."
+  },
+  "mcu_0160_080064b4": {
+    "name": "mcu_gpio_port_clock_enable",
+    "summary": "Enable the APB2 clock of GPIO port A, B, C, D or F from its peripheral pointer",
+    "description": "Maps the GPIO peripheral pointer to its clock-enable bit in the APB2 enable register (CRM offset 0x18): GPIOA bit 2, GPIOB bit 3, GPIOC bit 4, GPIOD bit 5 and GPIOF bit 7. It calls crm_periph_clock_enable with the packed register and bit codes 0x180002, 0x180003, 0x180004, 0x180005 or 0x180007 and enable 1. GPIOE and unknown pointers are ignored, and the routine never disables a clock.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO peripheral pointer (GPIO_Type)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08006524": {
+    "name": "mcu_gpio_pin_setup",
+    "summary": "Enable a port clock and fold one pin group's mode settings into the port's shadow config",
+    "description": "When the port pointer is not null it enables the port clock through mcu_0160_080064b4 and builds an 8-byte record: the pin mask (param_2, low halfword) at +0, the output type (param_4) at +4, the pull or input byte (param_5) at +5, the mode (param_3) at +6, and the drive value 1 at +7. It passes the record and the port pointer to mcu_gpio_cfg_shadow_build, which converts the mode and pin mask into CFGLR and CFGHR nibbles. A null port does nothing. The routine itself writes no peripheral register.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "GPIO port pointer, 0 to skip"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "pin mask in the low halfword"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "pin mode"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "output type"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "pull or input configuration"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The pin-mode and pull semantics come from the low-confidence description of mcu_gpio_cfg_shadow_build. Callers include mcu_0160_08001fb0, 08002068, 08003060, 08006028, 08009800, 0800A6B8 and 0800A9DC."
+  },
+  "mcu_0160_080065c4": {
+    "name": "mcu_nvic_motor_irqs_init",
+    "summary": "Set NVIC priority group 4, then enable PVM (IRQ 1), TMR3 (IRQ 29) and TMR4 (IRQ 30)",
+    "description": "Sets the NVIC priority grouping to 4 with nvic_priority_group_config, then calls nvic_irq_enable for IRQ 1 (PVM, preempt 0), IRQ 0x1D (TMR3_GLOBAL, preempt 2) and IRQ 0x1E (TMR4_GLOBAL, preempt 3), each with sub-priority 0. The IRQ names come from the AT32F415 vector table in the repository's hardware data. The decompile shows only two arguments for IRQ 1, so its sub-priority is not visible and is taken as 0.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08006624": {
+    "name": "mcu_gpioc_pin10_follow_flag",
+    "summary": "Drive GPIOC pin 10 from bit 0x200 of the word at 0x20001FD4 through SCR or CLR",
+    "description": "If bit 0x200 of the word at 0x20001FD4 is set, it writes mask 0x400 to the GPIOC set register (SCR, offset 0x10) to drive pin 10 high. Otherwise it writes 0x400 to the GPIOC clear register (CLR, offset 0x14) to drive it low. Each write goes through one of the setter helpers mcu_ctx_set_field_0x10 or mcu_ctx_set_field_0x14, so exactly one register is written per call. This is an output mirror of a status flag that sits in the 0x20001FD2 block refreshed by the 0x100 frame in mcu_0160_080085bc.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The packet's register list names GPIOC.CFGLR, but the code writes SCR and CLR, and the register file confirms those offsets."
+  },
+  "mcu_152_08006a7c": {
+    "name": "mcu_auth_key16_init",
+    "summary": "Clear the 0x200006AC state block and load a 16-byte key from a constant or a fallback",
+    "description": "Clears the state words at 0x200006AC through 0x200006D4, then selects the 16-byte key stored at 0x20002044 through 0x20002050. It compares a hard-coded 16-byte constant with the 16 bytes at flash 0x08001420 using mcu_bytes_equal_n8. The hard-coded constant is stored when the bytes match or when the 16-bit word at 0x20001F54 equals 0x4D43. Otherwise a 16-byte ASCII fallback is stored instead. No caller appears in this packet, so the routine likely runs at startup, and the use of the key is not visible here.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Present in the 12b, 143 and 152 builds. Reading the key as an authentication or identity value is a guess. The constant values are not copied into the documentation."
+  },
+  "mcu_0160_08006b70": {
+    "name": "mcu_pulse_burst_decode",
+    "summary": "Decode a sampled input into a pulse count per burst, or 0xFF after a long high level",
+    "description": "Operates on the decoder object at param_1, whose layout is set by mcu_pulse_burst_decoder_init. It steps the object's edge counter with mcu_edge_counter_step, which gives a debounced level, and then tracks rising edges (count at +0x24), high time in calls (+0x20) and low time in calls (+0x18). A rising edge resets the low counter and clears the done flag at +0x29. After a falling edge the low counter counts up until it reaches the gap threshold at +0x14; the routine then returns the burst's rising-edge count, clears it, and sets the done flag. If the level stays high for at least the threshold at +0x1C calls it returns 0xFF, and a falling edge after such a long high calls mcu_ctrl_block_reset_flags and returns 0.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pulse decoder object (0x20001FFC in this build)"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "0 while idle, the burst's rising-edge count when a burst ends, or 0xFF after a long high"
+    },
+    "confidence": "medium",
+    "notes": "The direction argument of mcu_edge_counter_step is not a parameter of this routine. Its only caller, mcu_0160_08008978, leaves bit 3 of GPIOC.IDT in r1, so the counter follows pin PC3. Group with mcu_pulse_burst_sample_pc3 and mcu_pulse_burst_decoder_init."
+  },
+  "mcu_0160_08006c9c": {
+    "name": "mcu_dynamic_bound_clamp_update",
+    "summary": "Derive upper and lower bounds for a target from two limits, filter them and clamp the input",
+    "description": "When the enable byte at +0x3C is zero it copies the input *(+0x18) to the output and returns. Otherwise it forms a threshold from DAT_200003DE divided by 70.0 and converted to Q15, then moves the local target *(+0x08) by the step at +0x00: up when the reference at *(+0x14) is at most minus the threshold, down when it is at least the threshold, and unchanged in between. Two bound candidates are formed from the parameters times 0x39BC29 (Q15) minus the Q15 product of +0x0C and +0x10, and they are divided by the target with mcu_q15_div_sat, with the sign of the target swapping them. Below a magnitude of 0x8000 the bounds are left open (0x7FFFFFF and -0x8000000). The three bounds are then low-passed with coefficient 0xF4CB6C8 into +0x30, +0x34 and +0x38, and the output is the input clamped to [lower, upper]. The filtered upper bound is also written to DAT_2000036C.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "limiter object (see the body for offsets)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "upper reference"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "lower reference"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The mechanism is read from the arithmetic and the offsets. The physical quantity being limited is not identified. The shape resembles a voltage-limited current or torque bound, which is a guess. Shares the DAT_200003DE/70 reference with mcu_dq_power_estimate."
+  },
+  "mcu_0160_08006f74": {
+    "name": "mcu_sqrt_limit_setup_float",
+    "summary": "Store float-coded limit parameters and derive a sqrt-based Q15 limit; 0 if rejected",
+    "description": "Rejects the call (returns 0) when either float argument is zero or subnormal, or when any of param_2 to param_8 is zero. On success it stores the raw words of param_2 through param_10 in the object, with param_9 at +0x1C and param_10 at +0x20. It then computes the Q15 integer of param_9 (stored at +0x28), the Q15 integer of 16000 times param_10, and a square root of their Q15 product with mcu_math_sqrt_fixed. It stores at +0x2C the value 1.414 times the root (0xB4FD in Q15) minus the Q15 integer of param_9, and returns 1.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "raw parameter 1, stored at +0x00, must be non-zero"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "raw parameter 2, stored at +0x04, must be non-zero"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "raw parameter 3, stored at +0x08, must be non-zero"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "raw parameter 4, stored at +0x0C, must be non-zero"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "raw parameter 5, stored at +0x10, must be non-zero"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "raw parameter 6, stored at +0x14, must be non-zero"
+      },
+      {
+        "name": "param_8",
+        "type": "u32",
+        "description": "raw parameter 7, stored at +0x18, must be non-zero"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "IEEE-754 single bits, stored at +0x1C"
+      },
+      {
+        "name": "param_10",
+        "type": "u32",
+        "description": "IEEE-754 single bits, stored at +0x20"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 if stored and derived, 0 if rejected"
+    },
+    "confidence": "low",
+    "notes": "The physical meaning of the limit is not identified. The caller is mcu_0160_080078F0."
+  },
+  "mcu_0160_0800702c": {
+    "name": "mcu_scaled_ratio_clamp_q15",
+    "summary": "Scale the first argument, divide by the second register argument, clamp to +/-100.0 (Q15)",
+    "description": "Multiplies param_1 by 0x569A40 and shifts the 64-bit product right by 15, then divides it with mcu_q15_div_sat by the value passed in the second argument register, which the decompile does not show. The caller mcu_0160_080072FC passes DAT_20000A44 there. The quotient is clamped to [-0x320000, +0x320000], which is plus or minus 100.0 in Q15.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "value to scale; the divisor is the second argument register"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "clamped Q15 ratio in [-0x320000, 0x320000]"
+    },
+    "confidence": "medium",
+    "notes": null
+  },
+  "mcu_0160_0800705c": {
+    "name": "mcu_q30_lerp",
+    "summary": "Q30 blend of two values: a*t + b*(1 - t), with rounded products",
+    "description": "Computes param_1 times t plus param_2 times (0x40000000 - t), where t is the Q30 weight in param_3, using mcu_q30_mul_round for both products. A weight of 0x40000000 gives the first argument and 0 gives the second, up to rounding. Its caller in this packet is mcu_0160_08009598.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "value a"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "value b"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "Q30 weight t"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "a*t + b*(1 - t), rounded"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_080070ac": {
+    "name": "mcu_lpf_or_step_tracker_update",
+    "summary": "Update a tracked value: mode 0 asymmetric Q30 low-pass, mode 1 stepped tracker with wrap",
+    "description": "The input is read through the pointer in word 0 of the object, and the state is word 1. When the enable byte at +0x22 is zero the input is copied to the state and returned. Mode 0 (byte +0x18 zero) low-passes the input with the Q30 coefficient at +0x08, or with the falling coefficient at +0x1C when the direction flag at +0x20 is set and the input is below the state. Mode 1 is a stepper: when the input is at least the threshold at +0x14 above the state the target is the state plus the step at +0x0C, and when it is at least the threshold below the state the target is the state minus the step, otherwise the target is the state. The target is low-passed toward the input with the coefficient at +0x08, then wrapped by one step (+0x0C) against the limit at +0x10. Any other mode returns 0 without changing the state.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "tracker object: word 0 input pointer, word 1 state, +0x08 coefficient, +0x0C step, +0x10 wrap limit, +0x14 threshold, +0x18 mode, +0x1C falling coefficient, +0x20 direction flag, +0x22 enable"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "updated state, or 0 for an unknown mode"
+    },
+    "confidence": "medium",
+    "notes": "Mode 1 is a guess at a periodic or angle-tracking use: the step and wrap behaviour fits an angle or position unwrapper. Group with mcu_lpf_asym_update, which is the same filter without the stepper."
+  },
+  "mcu_0160_08007160": {
+    "name": "mcu_lpf_asym_update",
+    "summary": "Enable-gated Q30 low-pass with separate rising and falling coefficients",
+    "description": "The input pointer is word 0 of the object and the filtered state is word 1. When the enable byte at +0x1E is set it filters the input with mcu_lpf_q30_step_alt. If the direction-select byte at +0x1C is zero it uses the coefficient in word 2 for all steps; otherwise it uses word 2 when the input is above the state and word 6 when it is not. When the enable byte is zero it copies the input into the state and returns it.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "filter object: word 0 input pointer, word 1 state, word 2 coefficient, word 6 falling coefficient, +0x1C direction select, +0x1E enable"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "filtered state"
+    },
+    "confidence": "high",
+    "notes": "Same algorithm as the mode-0 path of mcu_lpf_or_step_tracker_update with different offsets. Callers: mcu_0160_08002B64, mcu_12b_08002A3C and mcu_12b_08002D0C."
+  },
+  "mcu_0160_08007268": {
+    "name": "mcu_hall_dispatch_pc12_output",
+    "summary": "Run the hall dispatcher, then drive GPIOC pin 12 from bit 0x4000 of the word at 0x20001FDA",
+    "description": "Calls mcu_hall_state_dispatch, then the routine at 0x0800A90C (mcu_0160_0800a90c, not yet described). It then writes mask 0x1000 to the GPIOC set register (SCR) when bit 0x4000 of the word at 0x20001FDA is set, and to the clear register (CLR) otherwise. The dispatcher's notes place this routine at interrupt level.",
+    "category": "hall",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The packet's register list names GPIOC.CFGLR, but the code uses the SCR and CLR offsets."
+  },
+  "mcu_0160_080072fc": {
+    "name": "mcu_foc_loops_enable",
+    "summary": "Enable PID blocks at +0x7C, +0xC0 and +0x15C and latch the speed-scaled limit at +0xAC",
+    "description": "Calls mcu_pid_enable_bumpless on the block at +0x7C with param_2, on the block at +0xC0 with param_3, and on the block at +0x15C with param_5. When param_2 is non-zero it also computes the limit stored at +0xAC: it multiplies the word at +0x2E0 by 0x145F (Q15), multiplies the word at +0x10 by that, and divides it by DAT_20000A44 through mcu_scaled_ratio_clamp_q15. The routine returns 1.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "control object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "enable for the block at +0x7C, also gates the limit"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "enable for the block at +0xC0"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused in the decompile"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "enable for the block at +0x15C"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "Group with mcu_foc_pid_limits_set and mcu_foc_control_tick, which act on the same three blocks."
+  },
+  "mcu_0160_0800763c": {
+    "name": "mcu_fscale_mul_div_a",
+    "summary": "Return p1 * 1088.31 * p2 / p3 in soft-float single precision (tail call)",
+    "description": "Multiplies param_1 by the single-precision constant 0x448809F1 (about 1088.31), multiplies by param_2, and divides by param_3, using the soft-float routines __aeabi_fmul and __aeabi_fdiv. The last call is a tail call, so the quotient is returned in r0 even though the decompile shows void. The body is identical to mcu_fscale_mul_div_b at 0x0800765C.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "IEEE-754 single bits of p1 * 1088.31 * p2 / p3"
+    },
+    "confidence": "medium",
+    "notes": "The purpose of the constant is not identified. Callers: mcu_0160_08004DB8 and mcu_0160_080078F0."
+  },
+  "mcu_0160_0800765c": {
+    "name": "mcu_fscale_mul_div_b",
+    "summary": "Return p1 * 1088.31 * p2 / p3 (soft-float single), twin of mcu_fscale_mul_div_a",
+    "description": "Same code as mcu_fscale_mul_div_a at 0x0800763C: multiplies param_1 by the constant 0x448809F1, multiplies by param_2, and divides by param_3 with __aeabi_fmul and __aeabi_fdiv. The final divide is a tail call that returns the quotient in r0.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "IEEE-754 single bits of p1 * 1088.31 * p2 / p3"
+    },
+    "confidence": "medium",
+    "notes": "Two identical copies at adjacent addresses, probably one per channel or per build. Callers match mcu_fscale_mul_div_a."
+  },
+  "mcu_0160_0800767c": {
+    "name": "mcu_dq_power_estimate",
+    "summary": "Step the value at +0x18 toward a limit, then return 1.5 times a two-term Q15 product sum",
+    "description": "Reads the value at +0x18 and the reference DAT_200003DE / 70.0 in Q15 as in mcu_dynamic_bound_clamp_update. If the word at +0x28 is at least the reference, the value at +0x18 drops by the step at +0x23C, and if it is at most the negative reference it rises by the step, otherwise it is unchanged. It then forms two products in Q30 with the constant 0x5E97D0: the word at +0x28 times the adjusted value at +0x18, and the word at +0x24 times the value at +0x14. The return value is 1.5 (0xC000 in Q15) times the sum of the two products shifted right by 15.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "estimator object (offsets +0x14, +0x18, +0x23C and the words at +0x24 and +0x28)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "Q15 value, 1.5 times the sum of the two products"
+    },
+    "confidence": "low",
+    "notes": "The 1.5 factor fits an amplitude-invariant dq-to-abc power or torque relation, which is a guess. The meaning of the inputs is not identified."
+  },
+  "mcu_0160_0800772c": {
+    "name": "mcu_foc_control_tick",
+    "summary": "Per-cycle FOC supervisor: filter a sample, run PID +0x15C, gate TMR1 outputs, time itself",
+    "description": "Stores the value from mcu_0160_080031b8 (not yet described) at +0x1A0 and low-passes it into +0x1A4 with Q30 coefficient 0x05832848 (about 0.086). If the output-enable byte at +0x2E6 is zero, it clears the six channel-enable bits 0x555 of TMR1.CCTRL (mask 0xFFFFFAAA) and leaves the other bits alone, then clears the byte at +0x2E5. Otherwise, if the run byte at +0x19A is set, it sets the value at +0x168 to the word at +0x15C scaled by one third of the absolute difference of two pointed-to values (when that difference is below 0x18000, else the full word), copies +0x164 to +0x170, and calls mcu_pid_update_q15 on the block at +0x15C with zero feed-forward. Finally it stores in +0x2D8 the SysTick cycles the call took: SysTick VAL at 0xE000E018 is read at entry and exit, a fixed 10 cycles of overhead are subtracted, and the 24-bit down-counter wrap is corrected. It returns 1.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "FOC control object"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "The meanings of the flags at +0x19A and +0x2E6 and of the pointers at +0x174 and +0x17C are not known. The timing word at +0x2D8 is the only self-timing output. Group with mcu_foc_loops_enable and mcu_foc_pid_limits_set."
+  },
+  "mcu_0160_08007822": {
+    "name": "mcu_foc_pid_limits_set",
+    "summary": "Set the output limits of the PID blocks at +0x7C, +0xC0 and +0x15C; 1 if all accepted",
+    "description": "Calls mcu_pid_set_limits on the block at +0x7C with the word at +0x2A4 as the minimum argument and the word at +0x2A0 as the maximum, on the block at +0xC0 with +0x2AC and +0x2A8, and on the block at +0x15C with +0x2B4 and +0x2B0, in the argument order the decompile shows. The three results are ANDed, so the return value is 1 only when every block accepts its limits, which means each minimum is below its maximum.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "control object"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 if all three limit pairs were accepted"
+    },
+    "confidence": "high",
+    "notes": "The minimum and maximum words are taken as the decompile passes them, so the +0x2A4 and +0x2A0 order should be confirmed against the caller."
+  },
+  "mcu_0160_08007bd4": {
+    "name": "mcu_speed_range_setup_wrap",
+    "summary": "Call the speed-range setup core, store a flag byte at +0x36 and return the accept byte",
+    "description": "Forwards its six value arguments to mcu_speed_range_setup_core, stores the byte argument at +0x36 of the object, and returns the byte at +0x35 that the core sets to 1 when it accepted the parameters. The +0x36 byte is written whether or not the core accepted them.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "forwarded to the core as its minimum"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "forwarded to the core, stored at +0x04"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "forwarded to the core as the candidate maximum"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "forwarded to the core as the scale factor"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "forwarded to the core, stored at +0x10"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "forwarded to the core as the divisor"
+      },
+      {
+        "name": "param_8",
+        "type": "u8",
+        "description": "flag stored at +0x36"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "accept byte at +0x35: 1 if accepted, 0 if rejected"
+    },
+    "confidence": "medium",
+    "notes": "Group with mcu_speed_range_setup_core."
+  },
+  "mcu_0160_08007c08": {
+    "name": "mcu_speed_range_setup_core",
+    "summary": "Validate and store a speed range, derive a 1/p7 count and a 0.01*(max^2-min^2)*p5 term",
+    "description": "Takes the bound max(param_4, param_2) as the upper value and accepts the call only when that bound, param_2, param_5 and param_7 are all positive. On acceptance it stores param_2 at +0x00, param_3 at +0x04, the bound at +0x08, param_5 at +0x0C, param_6 at +0x10 and param_7 at +0x14, and sets the accept byte at +0x35 to 1. It derives the count k = floor(32768 / param_7) rounded down to a multiple of 10 at +0x18, and the term 0.01 times (bound^2 - param_2^2) times param_5 at +0x20 (0x147 in Q15 as the 0.01 factor). The accumulator at +0x1C is kept at 0 or above when the term is non-negative. A rejected call clears the accept byte and returns 0.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "minimum value"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "stored at +0x04"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "candidate maximum"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "scale factor"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "stored at +0x10"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "divisor for the count"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "accept byte: 1 if accepted, 0 if rejected"
+    },
+    "confidence": "low",
+    "notes": "The meaning of the speed range and of the term is a guess; the squared-difference term resembles a kinetic-energy or ramp term. Group with mcu_speed_range_setup_wrap."
+  },
+  "mcu_0160_08007dc8": {
+    "name": "mcu_cmd_state_clear",
+    "summary": "Clear the command-pending word and byte, release owner 10 and clear bit 0x8 of 0x20000B1C",
+    "description": "Sets the 32-bit word at 0x200003B8 and the byte at 0x20001FCE to zero, calls mcu_owner_release_if_match with ID 10 so the owner byte is cleared if this ID holds it, and clears bit 0x8 of the request word 0x20000B1C with mcu_bits_clear. Its only caller in this packet is mcu_can_rx_command_dispatch, which runs it at the start of each command.",
+    "category": "protection",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": null
+  },
+  "mcu_0160_080082ac": {
+    "name": "mcu_pid_enable_bumpless",
+    "summary": "Set a PID block's enable byte and resync its integrator on an off-to-on transition",
+    "description": "Takes the controller object as param_1 and the enable flag as param_2. If the flag is non-zero and the enable byte at +0x3E was zero, it calls mcu_pid_sync_integrator first, so the integrator starts from the current output and the derivative does not see a step. It then stores the flag at +0x3E. Used by mcu_foc_loops_enable for each of the three blocks.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "PID controller object"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "enable flag"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_080082c8": {
+    "name": "mcu_gain_triple_q15_from_float",
+    "summary": "Convert three float parameters into six Q15 controller words, using a float from +0x2C",
+    "description": "If each of the three float arguments has bits below 0x80800000 (non-negative values and -0.0), it passes the float at +0x2C of the object through mcu_0160_080013e4 (not yet described) to get u, then stores the Q15 value of param_2 at +0x00 and +0x0C, the Q15 value of param_3 divided by u at +0x04 and +0x10, and the Q15 value of param_4 times u at +0x08 and +0x14. It returns 1 when stored and 0 when any argument is rejected.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "controller object"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "IEEE-754 single bits"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 if stored, 0 if any input was rejected"
+    },
+    "confidence": "low",
+    "notes": "The pairs at +0x00 and +0x0C, +0x04 and +0x10, +0x08 and +0x14 are written identically, so the duplicates may be a current copy and an active copy. Callers: mcu_0160_08004DB8 and mcu_0160_08008204."
+  },
+  "mcu_0160_080085bc": {
+    "name": "mcu_can_rx_command_dispatch",
+    "summary": "Dispatch a received command frame to its handler by message ID",
+    "description": "Reads the message ID word at the start of the frame (param_1), the payload length byte at +0x0A and the payload at +0x0B. It handles IDs 0x482, 0x100, 0x20C, 0x310, 0x311, 0x485, 0x486, 0x7F0 and 0x7F1, and most handlers call mcu_cmd_state_clear first. The 0x100 frame copies its payload into the block at 0x20001FD2, bumps the 32-bit counter at 0x2000062C (split into halfwords at 0x20001F1C and 0x20001F1E), updates the saturating counter 0x200003BE from bit 0x10 of 0x20001FD4, and passes the first payload byte to mcu_sample_history3_rise_detect. The 0x20C frame copies its payload into 0x20001FDA, the status word read by mcu_hall_dispatch_pc12_output and mcu_status_drive_pb6_pc11. The 0x311 frame stores its 16-bit value divided by 10 at 0x200003E6, limited to 33 to 42 with a default of 40. The 0x485 frame stores a u16 at +0x0F divided by 32768 and a byte at +0x11 divided by 10 as floats, and the 0x486 frame stores two bytes. Frames 0x7F0 and 0x7F1 count heartbeats in 0x20000628 and copy bit 0x2 of their first payload byte into bit 1 of 0x20000320. Most handled frames refresh a timeout word of 200 ticks, set in 0x2000032C, 0x20000332 or 0x20000322.",
+    "category": "can",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received frame record: message ID word at +0, payload length at +0x0A, payload at +0x0B"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The frame layout is inferred from the handler offsets. The bus is probably CAN, since the MCU receives from the VCU over CAN1. Group with mcu_cmd_state_clear and mcu_take_pending_200003ba."
+  },
+  "mcu_0160_08008978": {
+    "name": "mcu_pulse_burst_sample_pc3",
+    "summary": "Sample GPIOC pin 3 into the pulse-burst decoder and store its result at 0x20002026",
+    "description": "Reads the GPIOC input data register at 0x40011008, takes bit 3 (pin PC3) as the direction, calls mcu_pulse_burst_decode on the decoder object at 0x20001FFC, and stores the returned byte at 0x20002026. The stored byte is read through the getter mcu_get_var_2026, which is called by mcu_0160_08008a14.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08008998": {
+    "name": "mcu_pulse_burst_decoder_init",
+    "summary": "Initialise the PC3 pulse-burst decoder: 6-sample debounce, gap 40, long high 400",
+    "description": "Calls mcu_edge_counter_init on the decoder object at 0x20001FFC with limit 6, reload 6 and output mode 1 (phase high), so the counter output changes only after six consecutive steps in one direction. It then sets the gap threshold to 40 calls at +0x14 and the long-high threshold to 400 calls at +0x1C, and clears the low and high counters at +0x18 and +0x20, the pulse count at +0x24, the last level at +0x28 and the done flag at +0x29. It returns 1.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "Group with mcu_pulse_burst_decode and mcu_pulse_burst_sample_pc3."
+  },
+  "mcu_0160_080089cc": {
+    "name": "mcu_status_drive_pb6_pc11",
+    "summary": "Drive GPIOB pin 6 from status bit 0x1000 and GPIOC pin 11 from bits 0x180 of 0x20001FDA",
+    "description": "If bit 0x1000 of the status word at 0x20001FDA is clear, it clears GPIOB pin 6 through the CLR register (offset 0x14, mask 0x40), otherwise it sets it through SCR (offset 0x10). Then, if either bit of mask 0x180 in the same word is set, it sets GPIOC pin 11 (mask 0x800) through SCR, otherwise it clears it through CLR. This is the output side of the status word that mcu_0160_080085bc refreshes from the 0x20C frame.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  }
+}

@@ -1,6 +1,6 @@
 # BLE - `hal_wdt` functions
 
-7 functions.
+10 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -11,6 +11,9 @@
 | [`hal_wdt_stop`](#hal_wdt_stop) | 0x0C034388 | Disable the watchdog counter and clear the running flag |
 | [`hal_wdt_task_checkin`](#hal_wdt_task_checkin) | 0x0C0362BC | Mark the running task in the check-in mask; ping the watchdog once all required tasks ran |
 | [`hal_wdt_write_load`](#hal_wdt_write_load) | 0x0C0342D4 | Write the stored reload value of watchdog param_1 to the watchdog LOAD register |
+| [`wdt_task_monitor_cli`](#wdt_task_monitor_cli) | 0x0C0360D4 | Shell command: list monitored tasks, mask (-m N) or resume (-r N) their watchdog check-in |
+| [`wdt_task_monitor_enable`](#wdt_task_monitor_enable) | 0x0C036394 | Enable or disable watchdog monitoring through the watchdog arm helper |
+| [`wdt_task_monitor_register_current`](#wdt_task_monitor_register_current) | 0x0C036328 | Add the calling task to the watchdog-required set and arm the watchdog on the first one |
 
 ## hal_wdt_irq_enable
 
@@ -25,7 +28,7 @@ Reads VTOR (0xe000ed08) and copies the handler address from table DAT_20003e28[p
 
 - Addresses by version: 219: 0x0C03442C
 - Peripheral registers: `0xe000e100` (W), `0xe000e280` (W), `0xe000e405` (W), `0xe000ed08` (R)
-- Called by: `ble_219_0c046838`
+- Called by: `ble_wdt_enable`
 - Confidence: medium
 
 ## hal_wdt_ping
@@ -37,7 +40,7 @@ If the flag/word DAT_2000aadc is non-zero, calls hal_wdt_write_load(0), which re
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C046830
-- Called by: `hal_wdt_task_checkin`, `ble_219_0c041d28`
+- Called by: `hal_wdt_task_checkin`, `ble_boot_mode_set`
 - Calls: `hal_wdt_write_load`
 - Confidence: medium
 
@@ -55,7 +58,7 @@ Passes param_2 to RAM-patch thunk 0x20000570 and stores the result minus one int
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C0343F8
-- Called by: `ble_219_0c046838`
+- Called by: `ble_wdt_enable`
 - Calls: `ble_ram_patch_thunk_20000570`
 - Confidence: medium
 
@@ -69,7 +72,7 @@ Reloads the counter with hal_wdt_write_load first. Then, under a BASEPRI section
 
 - Addresses by version: 219: 0x0C034328
 - Peripheral registers: `0x40082008` (W), `0x4008200c` (W), `0x40082c00` (RW)
-- Called by: `ble_219_0c046838`
+- Called by: `ble_wdt_enable`
 - Calls: `hal_wdt_write_load`
 - Confidence: high
 
@@ -81,7 +84,7 @@ Runs in a critical section by raising BASEPRI to 0x40; if it was not already 0x4
 
 - Addresses by version: 219: 0x0C034388
 - Peripheral registers: `0x40082008` (W), `0x40082c00` (RW)
-- Called by: `ble_219_0c03d69c`, `ble_219_0c046838`
+- Called by: `bt_ctrl_crash_dump`, `ble_wdt_enable`
 - Confidence: medium
 
 ## hal_wdt_task_checkin
@@ -91,7 +94,7 @@ Runs in a critical section by raising BASEPRI to 0x40; if it was not already 0x4
 Called from RTOS paths at 0x0C02DC50, 0x0C02EB60, 0x0C0599D4 and 0x0C05D108. It takes the current TCB from xTaskGetCurrentTaskHandle (0x0C04462C). If monitoring is on (DAT_2000BAA4 nonzero) and the TCB lies in the static task table at 0x20004A18..0x20004B99, it sets bit (offset / 0x60) in DAT_2000BAA8. When every required task bit in DAT_2000BAAC is set (tasks in DAT_2000BAB0 are excluded), it calls hal_wdt_ping (0x0C046830) and clears DAT_2000BAA8, so the watchdog is fed only after all monitored tasks have run. The 0x60-byte stride is inferred from the division.
 
 - Addresses by version: 219: 0x0C0362BC
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02eb60`, `ble_219_0c0599d4`, `ble_219_0c05d108`
+- Called by: `ble_nvdata_write_task`, `uart_disp_rx_task`, `ble_bts_task_handler`, `btstack_run_loop_task_main`
 - Calls: `xTaskGetCurrentTaskHandle`, `hal_wdt_ping`
 - Confidence: medium
 
@@ -110,4 +113,53 @@ Runs in a critical section by raising BASEPRI to 0x40; if it was not already 0x4
 - Addresses by version: 219: 0x0C0342D4
 - Peripheral registers: `0x40082000` (W), `0x40082c00` (RW)
 - Called by: `hal_wdt_start`, `hal_wdt_ping`
+- Confidence: medium
+
+## wdt_task_monitor_cli
+
+**Shell command: list monitored tasks, mask (-m N) or resume (-r N) their watchdog check-in**
+
+Parses options with the getopt-style parser ble_219_0c0707bc using optstring 'm:r:', converting the arguments with strtoul. With no options left it reads the task count (uxTaskGetNumberOfTasks) and a snapshot (uxTaskGetSystemState) into a stack array of 36-byte TaskStatus_t entries. Each task gets a state label: 0 when its TCB lies outside the static task table 0x20004A18..0x20004B98, 1 when it is inside but not in the required mask DAT_2000BAAC, 2 when it is required. It prints the required, alive and mask bit sets (DAT_2000BAAC, DAT_2000BAA8, DAT_2000BAB0), signals command completion (ble_219_0c0354cc), and applies a -m request by setting the task's bit in DAT_2000BAB0 (excluded from the check-in requirement) or a -r request by clearing it. Any other option prints 'unknown option' and returns -3000.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | argc |
+| `param_2` | `ptr` | argv |
+
+**Returns** `s32`: 0 on success, -3000 for an unknown option
+
+**Notes:** The state labels come from a string table at 0x0C0856D4 that is not decoded here. The task index is (TCB - 0x20004A18) / 0x60. The getopt-style parser at ble_219_0c0707bc is not yet annotated.
+
+- Addresses by version: 219: 0x0C0360D4
+- Calls: `app_cmd_complete_signal`, `trace_printf`, `uxTaskGetNumberOfTasks`, `uxTaskGetSystemState`, `xTaskGetCurrentTaskHandle`, `ble_219_0c0707bc`, `strtoul`
+- Confidence: medium
+
+## wdt_task_monitor_enable
+
+**Enable or disable watchdog monitoring through the watchdog arm helper**
+
+With a non-zero argument it calls ble_219_0c046838(10000), arming watchdog 0 with a 10 s timeout, and with zero it calls ble_219_0c046838() without an argument. It is a thin switch around that helper, which wdt_task_monitor_register_current also uses.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | non-zero to enable monitoring, zero to disable |
+
+**Notes:** The helper ble_219_0c046838 is unnamed; the disarm behaviour is inferred.
+
+- Addresses by version: 219: 0x0C036394
+- Called by: `app_system_init`
+- Calls: `ble_wdt_enable`
+- Confidence: medium
+
+## wdt_task_monitor_register_current
+
+**Add the calling task to the watchdog-required set and arm the watchdog on the first one**
+
+Gets the current TCB with xTaskGetCurrentTaskHandle and checks it lies in the static task table 0x20004A18..0x20004B98. If it does not, it prints 'task %s is not monitored task' using pcTaskGetName and returns. For a valid task, when the required mask DAT_2000BAAC is still empty it first calls ble_219_0c046838(10000), which arms watchdog 0 with a 10 s timeout (inferred), then sets bit (TCB offset / 0x60) in DAT_2000BAAC. hal_wdt_task_checkin needs this bit set before it pings the watchdog.
+
+**Notes:** ble_219_0c046838 is not yet named; its effect is inferred from the 10000 argument and the hal_wdt family. The check-in path also needs DAT_2000BAA4 set, which is presumably done by that helper.
+
+- Addresses by version: 219: 0x0C036328
+- Called by: `ble_nvdata_write_task`, `uart_disp_rx_task`, `ble_bts_task_handler`, `btstack_run_loop_task_main`
+- Calls: `trace_printf`, `pcTaskGetName`, `xTaskGetCurrentTaskHandle`, `ble_wdt_enable`
 - Confidence: medium

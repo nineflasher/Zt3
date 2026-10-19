@@ -1,10 +1,11 @@
 # VCU - `crypto` functions
 
-7 functions.
+8 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
 | [`crc32_ieee_calc`](#crc32_ieee_calc) | 0x0800EF70 | Bitwise CRC-32 (IEEE 802.3, poly 0xEDB88320) over a byte buffer |
+| [`vcu_crypto_identity_record_init`](#vcu_crypto_identity_record_init) | 0x080060B8 | Boot-time key and identity check, reload the 12-byte record, load the working key |
 | [`vcu_crypto_key_load`](#vcu_crypto_key_load) | 0x08006538 | Load the 16-byte key at RAM 0x200020DC from flash 0x08001440, or the built-in default |
 | [`vcu_crypto_state_clear`](#vcu_crypto_state_clear) | (removed) | Zero 18 bytes of key RAM from 0x200020E4, overlapping the last 8 bytes of the key |
 | [`vcu_tea_decrypt_block`](#vcu_tea_decrypt_block) | (removed) | TEA decryption of one 64-bit block with a 128-bit key (32 rounds) |
@@ -29,6 +30,21 @@ Standard reflected CRC-32 as used by zlib/PNG/Ethernet: starts with 0xFFFFFFFF, 
 - Called by: `vcu_0159_080054ec`
 - Confidence: high
 
+## vcu_crypto_identity_record_init
+
+**Boot-time key and identity check, reload the 12-byte record, load the working key**
+
+Compares a built-in 16-byte key constant (0xB21C80FE, 0xA641EFD1, 0xF53117A4, 0xF02468A0) with the key at flash 0x08001440. If the flash key differs, it compares the 6-byte identifier at flash 0x08001430 with RAM DAT_20001C7C and, on mismatch or when DAT_20001C82 is 0, sets DAT_20001C82 to 1 and writes the default identifier words 0x364E726A and 0x3758. If the flash key equals the built-in key it clears DAT_20001C82 and writes the same default identifier. It then reads the 12-byte record at 0x0801F800 into DAT_200020D0 to DAT_200020D8, and when the record tag DAT_200020D0 differs from DAT_200014BC it copies DAT_200014C0 and DAT_200014C4 into the record, updates the tag and rewrites the record with vcu_upgrade_record_store. Finally it calls vcu_crypto_key_load and vcu_0159_08007D88 (not yet described) twice.
+
+**Returns** `u64`: the first 8 bytes of the built-in key constant; no caller in this packet uses it
+
+**Notes:** The identifier and key blocks at flash 0x08001430 and 0x08001440 are the same values that vcu_fw_update_frame_handler checks against a new image. The purpose of the 6-byte identifier and the 12-byte record fields is inferred from their use. Caller: vcu_0159_0800D858 (not described).
+
+- Addresses by version: 148: 0x0800560C, 14a: 0x08005A2C, 14b: 0x08005D84, 14e: 0x08005DBC, 14f: 0x08005E18, 152: 0x08005E98, 153: 0x08005F34, 0159: 0x080060B8
+- Called by: `vcu_0159_0800d858`
+- Calls: `vcu_copy_bytes_src_dst`, `vcu_crypto_key_load`, `vcu_upgrade_record_store`, `vcu_flash_record_pingpong_save`, `util_mem_equal`
+- Confidence: medium
+
 ## vcu_crypto_key_load
 
 **Load the 16-byte key at RAM 0x200020DC from flash 0x08001440, or the built-in default**
@@ -40,7 +56,7 @@ Clears a block of RAM variables at 0x20001490 to 0x200014b8 (the byte and word v
 **Notes:** The key bytes are deliberately not recorded here. DAT_20001495 = 1 means the default key is in use.
 
 - Addresses by version: 148: 0x08005A90, 14a: 0x08005EB0, 14b: 0x08006208, 14e: 0x08006240, 14f: 0x0800629C, 152: 0x0800631C, 153: 0x080063B8, 0159: 0x08006538
-- Called by: `vcu_0159_080060b8`, `vcu_0159_08006184`
+- Called by: `vcu_crypto_identity_record_init`, `vcu_fw_update_frame_handler`
 - Calls: `__aeabi_memcpy`, `util_mem_equal`
 - Confidence: medium
 
@@ -71,7 +87,7 @@ Tiny Encryption Algorithm decrypt: v0 = param_1[0], v1 = param_1[1], sum starts 
 **Notes:** Plain TEA (not XTEA): the key index is fixed per half-round, no key schedule on sum. What data it protects is not known from this function.
 
 - Addresses by version: 148: 0x08005B68, 14a: 0x08005F88, 14b: 0x080062E0, 14e: 0x08006318, 14f: 0x08006374, 152: 0x080063F4, 153: 0x08006490
-- Called by: `vcu_0159_08006184`
+- Called by: `vcu_fw_update_frame_handler`
 - Confidence: high
 
 ## vcu_xtea_decrypt_inplace
@@ -110,7 +126,7 @@ Loads the 16-byte key at param_2 into a local four-word array with vcu_xtea_key_
 **Notes:** The return value looks wrong for a decrypt routine. Check the caller at vcu_0159_08006184 before relying on the result.
 
 - Addresses by version: 0159: 0x0800DCD8
-- Called by: `vcu_0159_08006184`
+- Called by: `vcu_fw_update_frame_handler`
 - Calls: `vcu_xtea_key_load`, `vcu_xtea_decrypt_inplace`
 - Confidence: medium
 

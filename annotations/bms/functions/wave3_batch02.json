@@ -1,0 +1,719 @@
+{
+  "bms_4168_080071c8": {
+    "name": "bms_soc_update_from_voltage",
+    "summary": "Recompute SOC percent from IR-compensated voltage and refresh the capacity words",
+    "description": "Runs once per SOC tick on the BMS state block (bms_ram_20000bdc_addr). It takes the IR-drop term bms_sdiv32(0x20000E96 * current at state+0x11A, 100) and subtracts it from the voltage word at 0x200001F0 to get a compensated voltage, which it stores in the eight 16-bit words at 0x20000F00 to 0x20000F0E. That voltage is mapped to a percent with bms_soc_from_ocv_table and kept at 0x20000E26. For modes 6, 7 and 8 (byte at 0x20000024) the percent is held or pinned inside the 50 to 97 band using the byte at 0x200001E6, and while the current is within +/-50 units it is forced to 100 above 4101 and to 0 below 3100. The result is copied to 0x20000E24 (clamped to 100), and the remaining-capacity words 0x20000E28, 0x20000E2C, 0x20000EE8, 0x20000EEC and 0x20000EF0 are recomputed as percent times a full capacity (state+0x11C scaled by 0x20000E88 * 97 / 100) divided by 100 with bms_udiv32.",
+    "category": "soc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none; results are written to RAM"
+    },
+    "confidence": "medium",
+    "notes": "Units of 0x200001F0 (taken as mV from the 4101 and 3100 limits) and of state+0x11A are inferred. 0x20000E88 is treated as a health percent and the 97 factor as a derating; neither is named elsewhere in this packet. The byte at 0x200001E6 is copied from state+0x11E at entry."
+  },
+  "bms_4139_08007238": {
+    "name": "bms_pb11_trigger_sequence_step",
+    "summary": "Advance the PB11 trigger sequence (phases 0 to 2) and publish record 0x2C thresholds",
+    "description": "Per-tick sequencer for the PB11 trigger input in the 4139 build (the 4130 build has the same routine). It resets the phase byte at 0x20000117 to 0 and returns unless bit 5 of the state byte at +0x194 is set. Phase 0 calls the dual-bank step with 0 and moves to phase 1. Phase 1 calls the dual-bank step with 1, and when 0x20000112 is 1 it moves to phase 2, starts USART3 TX (bms_usart3_tx_setup), arms EXTI line 11 (bms_exti11_irq_arm) and sets the phase to 2. Every phase-1 pass writes record 0x2C (bms_record12_addr) as two s16 values: state+0x6C when 0x20000113 is 1 otherwise 6, and that value minus 2. Phase 2 waits for bit 10 of the word returned by the accessor at 0x0800B3EC to be set, or for bms_pb11_hold_timer_step to report the latched PB11 hold; it then clears bit 10, disarms EXTI line 11 (bms_exti11_irq_disarm), runs the USART3 RX bring-up bms_4168_0800a574 and returns to phase 0.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "passed unchanged to the dual-bank step and to the PB11 hold timer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Call sites are matched to the callee names through the existing 4139 entries (bms_4139_08009b70, bms_4139_08009ba8, bms_4139_08009bdc, bms_4139_08009c78, bms_4139_080072e0). The accessors at 0x0800B3E4 and 0x0800B3EC are not described in this packet, and the meaning of bit 10 is inferred. The USART3 call at the end of phase 2 is the 4168 family name from the callee list, not the 4139 USART3 setup."
+  },
+  "bms_4168_08007348": {
+    "name": "bms_soc_tick_update",
+    "summary": "Refresh SOC percent, capacity words and OCV resync timers on each SOC tick",
+    "description": "Runs once per SOC tick and works on the same capacity words as bms_soc_update_from_voltage. It recomputes the IR-compensated voltage, calls bms_soc_from_ocv_table on it (the result is discarded here, but the call refreshes the OCV percent at 0x200001DC), and rebuilds 0x20000E28 and 0x20000E2C from the percents in 0x20000E24 and 0x20000E26 with 0x20000E34 as the full capacity. In modes 6, 7 and 8 while the OCV percent is in the 50 to 97 band, the percent is recalculated from the charge counter 0x20000EEC and bms_charge_integrate_step is called with param_1 / 100. Outside that band a counter at 0x2000020C advances and after 1800 ticks the percent and the counters 0x20000EE8, 0x20000EEC and 0x20000E28 are resynchronised to the OCV percent; in other modes the same resync happens after 1200 ticks. The percent is clamped to 100, and when it stays below the displayed percent at 0x20000E26 for 14400 ticks (counter 0x20000208) the displayed percent is lowered by one.",
+    "category": "soc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "charge step passed to bms_charge_integrate_step after division by 100"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 1800, 1200 and 14400 tick periods depend on the tick rate, which this packet does not state. Mode numbers 6, 7 and 8 are taken as given by the decompile."
+  },
+  "bms_4168_0800746c": {
+    "name": "bms_capacity_integrate_step",
+    "summary": "Integrate current into hour and remainder counters with rest-time voltage correction",
+    "description": "Coulomb-count integrator run once per sample. param_1 points to a sample record whose s32 at +0 is the current sample and whose u16 at +4 is compared with 0x1022 (4130). Status bit 4 at state+0x124 zeroes the counters, and status bit 2 with the u16 above 4130 and a current below 20 pins them to full (permille 1000, hour counter at 0x20000E44, remainder at 0x20000E48). Otherwise, while |current| is above 9, current times param_2 (elapsed time) divided by 10 with bms_sdiv32 is added to the sub-hour accumulator 0x2000024C, and each 3600000 units move the hour counter 0x20000E3C one step toward its full value 0x20000E44 (or down when negative). The permille 0x20000E38 = hours * 1000 / full is compared with the reference permille 0x20000E3A, and the remainder 0x20000E40 is reduced (status bit 1) or increased (status bit 2, capped at 0x20000E48) by a gain that depends on the gap between the two permille values. At rest, after 3600000 units in 0x20000248, bms_table_interp_permille of the voltage gives a new permille, the reference 0x20000E3A is lowered by one when it is above that value, and the hour counter is re-derived from the percent 0x20000E24.",
+    "category": "soc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "sample record: s32 current sample at +0, u16 at +4 compared with 4130"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "elapsed time since the previous call (units inferred as ms from the 3600000 rollover)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The gain table is read off the decompile: x3, x2, x1.5 and x1.25 when the reference permille is larger, and x1/3, x1/2, x2/3 and x4/5 when the new permille is larger, with the largest gap tested first. The direction and purpose of each counter (charge or discharge, Ah or hours) are inferred."
+  },
+  "bms_4168_080076b4": {
+    "name": "bms_capacity_seed_from_voltage",
+    "summary": "Seed the capacity counters from the IR-compensated voltage permille",
+    "description": "Restarts the counters from the voltage. It computes the IR-compensated voltage (0x200001F0 minus bms_sdiv32(state+0x11A * 0x20000E96, 100)), converts it with bms_table_interp_permille to a permille and stores that in 0x20000E38 and 0x20000E3A. The full-scale words 0x20000E44 and 0x20000E48 are both set from 0x20000E84, and the hour counter 0x20000E3C and the remainder 0x20000E40 become permille * 0x20000E84 / 1000 (bms_udiv32).",
+    "category": "soc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "0x20000E84 is read as the full-scale capacity value; its name is not established in this packet."
+  },
+  "bms_4168_08007704": {
+    "name": "bms_current_limit_derate",
+    "summary": "Derate charge and discharge current limits from a derate input, SOC and cell voltage",
+    "description": "Computes the current limits once per tick. param_2 points to an s16 derate input x (at +0; the scale is not given in this packet, but the breakpoints suggest a temperature) and an s16 level index at +2 (0 to 9). Factor 1 is piecewise-linear in x with breakpoints 0x20000ED8, 0x20000ED9, 0x20000EDB and 0x20000EDA, floor 0x20000EDE and plateau 100. Factor 2 is a second ramp in x with floor 0x20000EDF, which is scaled by the SOC percent (0x20000E24) between 0x20000EDC and 0x20000EDD when x is low, and factor 3 is nonzero only inside the window 0x20000EE0 to 0x20000EE5. Limit 0x20000E50 = factor 1 * factor 2 * 0x20000ED5 * 0x20000ECC / 1000, clamped to 10 times 0x20000E90. Limit 0x20000E4C = SOC taper (100 minus 0x20000EE6 times (SOC - 80) above 80 percent) * factor 3 * 0x20000ED5 * 0x20000ECE / 1000, clamped to 10 times 0x20000E92, and forced to 5000 when the reply flag and 0x20000DDF are set. In modes 6, 7 and 8 at SOC below 25 the first limit is capped at 5000, 6000 or 7000 depending on the level index, and while the highest cell voltage at param_1+8 is at or above 4140 mV (released below 4130, flag 0x200001E8) the second limit is capped at 1000. The published value 0x20000E54 = 0x20000EE7 * limit 2 / 10, forced to zero outside the window 0x20000EE0 to 0x20000EE1. In those modes the u16 at state+0x192 is set to 380 when the level index is above 5 (with flag 0x200001E7) and to 338 otherwise.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "status record; u16 at +8 is the highest cell voltage in mV, compared with 4130 and 4140"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "s16 derate input x at +0 and s16 level index at +2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none; results are written to RAM and the state block"
+    },
+    "confidence": "low",
+    "notes": "Several operands come from a one-argument FUN_08001110(100) call whose second argument does not appear in the decompile, so the window logic around 0x20000EE0 to 0x20000EE5 is reproduced as read and not verified. The charge or discharge direction of each limit is inferred: the SOC taper above 80 percent suggests limit 2 (0x20000E4C) is the charge side. The 338 and 380 values at +0x192 could be temperature thresholds in tenths of a degree, which is a guess."
+  },
+  "bms_4148_08007a70": {
+    "name": "bms_comm_pool_tick_gated_4148",
+    "summary": "Step the 4148 message pool with the bit-5 enable from the state status byte",
+    "description": "Thin 4148 wrapper. It fetches the state block through the accessor at 0x0800BB00 (not described in this packet), takes bit 5 of the byte at +0x194 as a 0 or 1 gate, and calls bms_4168_08007da4 (bms_comm_pool_state_step) with param_1 and that gate. A zero gate resets the message pool and a one gate steps it.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "elapsed time forwarded to the message pool step"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The 4148 image reaches the 4168 family of the pool step, so the pool logic is shared with the 4168 build."
+  },
+  "bms_4168_08007d48": {
+    "name": "bms_comm_pool_tick_with_threshold",
+    "summary": "Step the message pool and publish the threshold pair in record 0x2C",
+    "description": "4168 wrapper run once per tick. It calls bms_comm_pool_state_step with param_1 and the bit-5 gate of the state byte at +0x194. It then writes record 0x2C (bms_record12_addr) as two s16 values: state+0x6C when 0x200001AB is 1 or the reply buffer word at +6 (bms_reply_buffer_get) is nonzero, and otherwise 6, followed by that value minus 2 as the hysteresis partner.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "elapsed time forwarded to the message pool step"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The 4139 image writes the same record 0x2C pair in bms_pb11_trigger_sequence_step, so the record is shared by both builds."
+  },
+  "bms_4168_08007da4": {
+    "name": "bms_comm_pool_state_step",
+    "summary": "Advance the message-pool state machine: busy timer, handler dispatch and transitions",
+    "description": "State machine of the message pool. A zero gate (param_2) resets it: the busy timer 0x200001BA is cleared, bms_app_state_reset runs, bms_comm_service_step sets the send flag at 0x200001B8, and the state byte 0x200001AE becomes 2. A nonzero gate adds param_1 to the time counters 0x20000954 and 0x20000A58 and to the busy timer 0x200001BA, which saturates at 3000 while the not-timed-out flag 0x200001AF tracks it. In state 2 the routine calls bms_comm_service_step and moves on when the flag is set. In any other state it calls the handler selected by index 0x20000A49 (state 1, buffer 0x20000950) or 0x20000B4D (other states, buffer 0x20000A54) from the pointer table at 0x08010800. A handler index of 0 or an odd value, or a set service flag, ends the pass with a transition: the next-state table at 0x080107F7 is used while the reply buffer word at +6 is set (busy), otherwise 0x080107F4 when the byte 0x20000A53 is zero and 0x080107FA when it is not.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "elapsed time since the last call (added to the time counters)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "gate: 0 resets the pool, nonzero steps it"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The next-state tables at 0x080107F4, 0x080107F7 and 0x080107FA and the handler table at 0x08010800 are read from the decompile but not decoded here. The send and frame formats are in bms_comm_service_step and the handlers, not in this packet."
+  },
+  "bms_4168_08007f10": {
+    "name": "bms_telemetry_sched_thunk",
+    "summary": "Thunk that runs the telemetry 16-step scheduler",
+    "description": "Tail-call wrapper with no state of its own. It calls bms_telemetry_sched_16_step (0x0800DDB0) and returns, and the main loop calls it as one of its periodic services.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_08007f48": {
+    "name": "bms_timed_step_sequence_run",
+    "summary": "Run one step of the 5000-unit timed sequence and rewind it on expiry",
+    "description": "Called from the main loop. It checks bms_tick_timeout_check on the start stamp at 0x200008E8 against 5000 time units, writing the elapsed value back through that word. On expiry it clears bit 8 (0x0100) of the u16 at +0x196 of the state block (pointer at 0x200008F0) and resets the step word 0x200008F4 to 0. It then calls the function at index 0x200008F4 in the pointer table at 0x080107D8 and finishes with bms_tp_service_tick (0x0800F8B4).",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The step functions in the 0x080107D8 table are outside this packet. The sibling restart routine is bms_seq_restart_stamp."
+  },
+  "bms_4168_08008006": {
+    "name": "bms_setpoint_service_step",
+    "summary": "Main-loop service: run the setpoint window sampler, then the percent hysteresis step",
+    "description": "Wrapper that calls bms_setpoint_window_sample (0x0800E478) without arguments and then bms_pct_hysteresis_step (0x0800E67C) with param_1. The window sampler runs a comparator with hysteresis on 30000-tick sampling and restores the control shadows, as described in its own entry.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "forwarded to bms_pct_hysteresis_step"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_08008018": {
+    "name": "bms_nvm_save_state_snapshot",
+    "summary": "Save the 512-byte state block to flash at 0x0803F000, retrying up to four times",
+    "description": "Runs with interrupts masked. It calls bms_flash_write_bytes (0x08008DE8) with flash address 0x0803F000, source the state block pointer at 0x2000002C, and length 0x200. The write is attempted up to four times, and the first success ends the routine with interrupts restored. After four failures the routine sets bit 14 (0x4000) of the u16 at +0x194 of the state block as a save-failure flag.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The flag bit 0x4000 at +0x194 is the only status left behind; no caller in this packet reads it."
+  },
+  "bms_4168_08008060": {
+    "name": "bms_state_restore_or_init",
+    "summary": "Restore the state block from flash, or rebuild defaults and identity if the marker is missing",
+    "description": "Boot-time routine. It points the state block at 0x2000002C and the status word at 0x200001C8 (bms_ram_200001c8_addr), and copies the 512-byte block back from flash 0x0803F000 with bms_memcpy_args_swap. It clamps the u16 scale fields at +0xAE and +0x1E0 to 1000 when they are outside 800 to 1000, sets bit 25 of the status word and bit 5 of +0x196, and loads three factory UID words (bms_get_uid_word_by_index 0 to 2) into 0x200008F8, 0x200008FC and 0x20000900. If the marker 0x5A5A at +0x1FE is present and the 12 bytes at +0x186 match the UID words (bms_memcmp_prefix), the restored block is kept; a mismatch clears bit 25 and sets bit 7. Otherwise the block is cleared with bms_mem_zero, a 16-character identity built from the constants 0x3130305A, 0x32303041, 0x41314133 and 0x31303030 (ASCII Z001A0023A1A0001 in memory order) is packed to 14 bytes with bms_pack_7bit_string and copied to +0x02, ten ascending default u16 values from 3474 to 4150 are written at +0x2A to +0x3D, the UID copy is written at +0x186, the marker 0x5A5A is stored, and bit 7 is set. Both paths then write the model code 0x4168 at +0x1C and defaults (+0x00 = 0, +0x18 = 4, +0x20 = 13, +0x22 = 0x01E0, +0x24 = 6, +0x11C = 100, +0x1F4 = 0x6464), clear bit 4 of +0x196 and bit 7 and 8 of +0x126, call bms_index_debounce_step, call bms_4168_08003CC0 (not described here) and set bit 5 of +0x1D4.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The identity string order and the 7-bit packing are inferred from the constants and the callee name. The later write of 7 to the u16 at +0x02 overwrites the first two identity bytes; this may be a bug or intended, and should be checked. Field meanings beyond the model code and the 0x11C capacity value are not established here."
+  },
+  "bms_4168_08008294": {
+    "name": "bms_peripheral_bringup",
+    "summary": "Bring up IWDG, GPIO, ADC, TIM6/7, I2C, FDCAN, USART3 and SPI1 in turn",
+    "description": "Board initialisation run after the clock setup. In call order it calls bms_iwdg_start, bms_gpio_board_init, bms_adc_hw_init, bms_tim6_tim7_start, bms_i2c_bb_bus_init, bms_4168_08008B98 (FDCAN handle init), bms_4168_0800A574 (USART3 bring-up), bms_noop_hook_08009A98 and bms_spi1_master_init. Nothing is passed or returned, and each step depends on the clock set up earlier in the boot path.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The order is taken from the call sites in the decompile, and the names come from the existing entries for each address."
+  },
+  "bms_4168_080086d4": {
+    "name": "bms_system_clock_setup",
+    "summary": "Set the vector table, bring up SYSCLK from HSE/PLL, enable CSS and set the SysTick base",
+    "description": "Startup clock sequence. It calls bms_4168_0800A260 (VTOR and reset-cause latch), bms_sysclk_hse_pll_bringup (HSE and PLL as SYSCLK with HSI16 fallback, recorded as 16 MHz), bms_css_enable_sram_parity_lock (clock security system and SRAM parity lock in SYSCFG_CFGR2) and bms_systick_base_set with 16, which stores the SysTick base count used by the busy-wait helpers.",
+    "category": "clock",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800871c": {
+    "name": "bms_snapshot_logger_thunk",
+    "summary": "Thunk that runs the snapshot logger tick",
+    "description": "Calls bms_snapshot_logger_tick (0x0800A8A0) with no explicit arguments and returns. It is one of the main-loop periodic calls and keeps no state of its own.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompile shows no arguments, which suggests a tail call that passes the caller's registers through. If so, param_1 and param_2 of the logger come from the main loop and not from this thunk."
+  },
+  "bms_4168_08008724": {
+    "name": "bms_extflash_probe_and_init",
+    "summary": "Probe the external SPI flash ID, init the journal, or flag status bit 0x1000 when absent",
+    "description": "Checks the external flash identity. It reads the manufacturer and device ID with bms_extflash_read_device_id up to three times and accepts 0xC815 or 0x8515. When neither ID is seen it sets bit 12 (0x1000) of the u16 at +0x196 of the state block; otherwise it clears that bit and calls bms_extflash_journal_init. Both paths finish with bms_seq_state_reset.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_08008788": {
+    "name": "bms_flash_erase_program_page",
+    "summary": "Erase one 2 KB flash page, program it by doubleword and verify, with up to five attempts",
+    "description": "Writes a full 2 KB flash page at 0x08000000 + page * 0x800. The page index is checked against the flash size read from FLASHSIZE and PACKAGE_DATA. FLASH.SR is cleared, then flash is unlocked with HAL_FLASH_Unlock (returns 1 if it stays locked). For up to five attempts the page is erased (HAL_FLASHEx_Erase, bms_4168_08001DBC) and the buffer is programmed eight bytes at a time with HAL_FLASH_Program (bms_4168_08001E90). After each doubleword the routine checks an abort flag at 0x20000680 (which increments the error counter at 0x20000682), the ECC double-error bit 30 of FLASH.ECCR (cleared by writing 0x40000000), and reads the doubleword back with bms_memcmp_prefix. Any failure starts the next attempt. On success the flash is locked with HAL_FLASH_Lock and 0 is returned; after five failed attempts 2 is returned.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "page index counted from 0x08000000 in 2 KB steps"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "2 KB source buffer in RAM"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 1 for an out-of-range page or a lock or unlock failure, 2 when all five attempts failed"
+    },
+    "confidence": "medium",
+    "notes": "On the return-2 path the decompile shows no HAL_FLASH_Lock call, so flash may be left unlocked; this should be checked. The page size of 2 KB and the bit meanings are taken from the code and the G0 register layout, not from the reference manual."
+  },
+  "bms_4168_08008b98": {
+    "name": "bms_fdcan_nominal_500k_setup",
+    "summary": "Fill the FDCAN handle with 500 kbit/s nominal timing and init it, resetting on failure",
+    "description": "Writes the FDCAN handle at 0x20005C50: the instance pointer (&FDCAN2) at +0, then the HAL-style init fields at 0x20005C58 to 0x20005C8C. The values are classic CAN frame format, normal mode, automatic retransmission on, nominal prescaler 4 with SJW 1 and time segments 5 and 2, data prescaler 4 with SJW 1 and segments 5 and 2, 4 standard and 5 extended filters, and FIFO queue mode 0. With a 16 MHz FDCAN kernel clock this gives 500 kbit/s (16 MHz / (4 * 8)). It then calls bms_fdcan_handle_init (bms_4168_080019C8, the FDCAN init routine described in wave3_batch01) and calls NVIC_SystemReset if that returns nonzero.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompile uses FDCAN2 as the instance, but the BMS brief lists FDCAN1 with message RAM at 0x4000B400; check which instance is wired. The 16 MHz kernel clock is taken from the clock setup recorded in bms_sysclk_hse_pll_bringup."
+  },
+  "bms_4168_08008bec": {
+    "name": "bms_fdcan_irq_service_thunk",
+    "summary": "Forward to the FDCAN handle service routine bms_4168_0800172A (likely HAL_FDCAN_IRQHandler)",
+    "description": "Passes the address of the FDCAN handle at 0x20005C50 (see bms_fdcan_nominal_500k_setup) to bms_4168_0800172A, which is not described in this packet. The handle layout, with the instance pointer first, matches the HAL FDCAN handle, so the callee is probably HAL_FDCAN_IRQHandler.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_08008de8": {
+    "name": "bms_flash_write_bytes",
+    "summary": "Write a byte range to internal flash through a 2 KB staging buffer, page by page",
+    "description": "Read-modify-write of an arbitrary byte range into internal flash. It returns 1 at once when the flag at 0x20000681 is set. Otherwise each affected 2 KB page is staged at 0x20005450. A partial first or last page is copied from flash and overlaid with the new bytes, and whole middle pages are taken from the source. Each staged page is programmed with bms_flash_erase_program_page (0x08008788). The first failure is returned immediately; otherwise 0 is returned after the last page.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "destination flash address"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "source bytes in RAM"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 1 when the flag at 0x20000681 blocks writes, otherwise the error from bms_flash_erase_program_page"
+    },
+    "confidence": "medium",
+    "notes": "The decompile calls the page copy with only two arguments, so the 2 KB length of the flash-to-staging copy is inferred. The flag at 0x20000681 is read here only; its setter is not in this packet."
+  },
+  "bms_4168_080094b4": {
+    "name": "bms_i2c_bb_read_block",
+    "summary": "Bit-banged I2C read: address and register, repeated START, then N bytes with NACK on the last",
+    "description": "Reads param_4 bytes from device param_1 starting at register param_2 on the bit-banged bus. It sends START and the address byte with bms_4168_080097D8 (START on, STOP off), sends the register byte, then sends a repeated START with the read address (param_1 | 1). It reads bytes 0 to N-2 with ACK through bms_i2c_bb_read_ack and the last byte with NACK and STOP. Any failing step returns its ACK status, and after a failed last byte a STOP is also issued with bms_i2c_bb_stop.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "device address byte in write form (bit 0 is set for the read phase)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "register or command byte"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "number of bytes to read"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, otherwise the nonzero ACK status of the failing step"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800954c": {
+    "name": "bms_i2c_bb_write_block",
+    "summary": "Bit-banged I2C write: address, register, then N data bytes with STOP on the last",
+    "description": "Writes param_4 bytes from param_3 to register param_2 of device param_1 on the bit-banged bus. It sends START with the address through bms_4168_080097D8, sends the register byte, then sends data bytes 0 to N-2 with no STOP and the last byte with STOP. The first nonzero ACK status is returned.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "device address byte in write form"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "register or command byte"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "source bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "number of data bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, otherwise the nonzero ACK status of the failing byte"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_080097d8": {
+    "name": "bms_i2c_bb_write_byte_ack",
+    "summary": "Send one I2C byte with optional START and STOP, returning the ACK status",
+    "description": "Single-byte transfer on the bit-banged bus. When param_2 is 1 it first generates START (bms_i2c_bb_start, or a repeated START). It shifts out param_1 MSB first with bms_i2c_bb_write_byte, samples the ACK slot with bms_pa12_ready_handshake, and generates STOP with bms_i2c_bb_stop when param_3 is 1. It returns the ACK level: 0 for ACK, 1 for NACK or a timeout.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "byte to send"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "START flag (1 to send START first)"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "STOP flag (1 to send STOP last)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "initial status word; the ACK sample overwrites it"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the byte was ACKed, 1 for NACK or timeout"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_08009bec": {
+    "name": "bms_rtc_select_lse_and_start",
+    "summary": "Select LSE as the RTC clock in the backup domain and start the RTC",
+    "description": "Clears RTCEN in RCC.BDCR and sets RTCSEL to LSE (0x100). If the select does not take, it pulses BDRST (bit 16) and selects LSE again. It clears the LSE timeout flag at 0x20000692, sets the LSE-in-use flag at 0x20000690 to 1, sets RTCEN and calls bms_4168_08009D08 (RTC init). It returns true when the RTC initialises; on failure bms_4168_08009D08 clears 0x20000690, which tells the caller to fall back to LSI.",
+    "category": "rtc",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the RTC initialised on LSE"
+    },
+    "confidence": "high",
+    "notes": "The routine assumes LSEON is already set by the caller, since BDCR bit 0 is not written here."
+  },
+  "bms_4168_08009c4c": {
+    "name": "bms_rtc_fallback_lsi_start",
+    "summary": "Fall back to the LSI clock for the RTC: enable LSI, wait, select it and init the RTC",
+    "description": "Clears BDCR bit 0 (LSEON), bit 5 and RTCEN, sets PWR_CR1 bit 8 (DBP) to unlock backup writes, pulses the backup-domain reset (BDCR bit 16), then sets RCC_CSR LSION and polls LSIRDY for up to 0x88000 iterations. The timeout result is stored in 0x20000692 and copied to 0x20000694. It then selects LSI (RTCSEL = 0x200), sets RTCEN, clears 0x20000690 so that the 0x7C prescaler is used, and calls bms_4168_08009D08. It returns 1 when the RTC initialises and 0 otherwise.",
+    "category": "rtc",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the RTC initialised on LSI, 0 otherwise"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of BDCR bit 5 is not established here. The fallback is entered from bms_4168_080065E0 and bms_4168_080082BC."
+  },
+  "bms_4168_08009d08": {
+    "name": "bms_rtc_hal_init",
+    "summary": "Fill the RTC handle (async prescaler 0x7C or 0x7F, sync 0xFF) and call HAL_RTC_Init",
+    "description": "Fills the RTC handle at 0x20005D00 (the RTC instance first) in HAL layout: hour format 0, asynchronous prescaler 0x7C when 0x20000690 is 0 (LSI) or 0x7F when it is 1 (LSE), synchronous prescaler 0xFF, and output fields zero, with one further field set to 0x40000000. The prescalers give 32768 Hz / 1 Hz on LSE (128 * 256) and 32000 Hz / 1 Hz on a nominal 32 kHz LSI (125 * 256). It calls HAL_RTC_Init (bms_4168_08002628); on failure it clears 0x20000690 and returns 0. On success, in LSE mode only, it calls HAL_RTCEx_SetSynchroShift (bms_4168_080023CA) with 0 and 0x66 and returns 1.",
+    "category": "rtc",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 on success, 0 when HAL_RTC_Init fails"
+    },
+    "confidence": "high",
+    "notes": "The meaning of the 0x40000000 field and of the 0x66 shift value is not established here."
+  },
+  "bms_4168_08009e40": {
+    "name": "bms_packed_datetime_shift_seconds",
+    "summary": "Shift a bit-packed date and time by param_1 seconds through the epoch conversion",
+    "description": "Decodes the bit-packed date-time record at param_2 into a tm structure (seconds in 6 bits, minutes in 6 bits, hours stored as (hour + 8) mod 24 in 5 bits, day in 5 bits, month in 4 bits, year minus 2000 in 6 bits, using the masks in the code). It converts the tm structure to epoch seconds with bms_tm_to_epoch, adds param_1, and converts back through bms_epoch_to_tm_20005d48. It then rewrites the same bit fields from the resulting tm structure, applying the same hour rule. No value is returned.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "offset in seconds added to the date-time"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "four-byte bit-packed date-time record, updated in place"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Bit positions were read by hand from the masks, and the hour encoding was derived from the arithmetic (stored value = (hour + 8) mod 24). The record's use by its callers is not in this packet."
+  },
+  "bms_4168_08009f78": {
+    "name": "bms_rtc_set_datetime_packed",
+    "summary": "Load the packed date-time record into the RTC with HAL_RTC_SetDate and HAL_RTC_SetTime",
+    "description": "Unpacks the same bit-packed record as bms_packed_datetime_shift_seconds. The date is built as weekday 0, month, day and year (year minus 2000) and the time as hours, minutes and seconds, both in binary format. It calls HAL_RTC_SetDate (bms_4168_08002704) and then HAL_RTC_SetTime (bms_4168_080027A4) on the RTC handle at 0x20005D00. The hour is written as the raw 5-bit field, without the +8 correction that bms_packed_datetime_shift_seconds applies. It returns 1 when both calls return 0.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "four-byte bit-packed date-time record"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when both HAL calls succeed, otherwise 0"
+    },
+    "confidence": "medium",
+    "notes": "The raw-hour write may be an inconsistency with the +8 hour encoding used elsewhere; the packed record's convention should be confirmed before relying on it. The weekday is written as 0."
+  },
+  "bms_4168_0800a260": {
+    "name": "bms_vtor_reset_cause_latch",
+    "summary": "Set VTOR to 0x08001000, latch reset-cause flags into RAM, then call bms_hw_init_systick_prefetch",
+    "description": "Sets the vector table offset SCB.VTOR to 0x08001000, the application image above the 4 KB bootloader. It then sets RAM flags from the RCC reset status register: 0x2000068C when SFTRSTF (bit 28) is set, 0x2000068D when IWDGRSTF (bit 29) is set, and 0x2000068E when PINRSTF (bit 26) is set. The flags are set to 1 here and never cleared, and the routine ends by calling bms_hw_init_systick_prefetch.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The bit positions follow the usual STM32G0 RCC_CSR layout, not a checked reference. Clearing of the reset flags is presumably done in bms_hw_init_systick_prefetch."
+  },
+  "bms_4168_0800a574": {
+    "name": "bms_usart3_comm_init",
+    "summary": "Bring up USART3 at 4800 8N1 on PB10/PB11 (AF4), enable IRQ 29 and its RX interrupt",
+    "description": "Enables the GPIOB and USART3 clocks, configures PB10 and PB11 as alternate-function 4 pins with LL_GPIO_Init, and sets the priority of IRQ 29 to 0 and enables it through the NVIC enable register. It then programs USART3 with a LL_USART_Init-shaped block: baud 4800 (0x12C0), 8 data bits, 1 stop bit, no parity, TX and RX enabled, no hardware flow control, 16x oversampling. The register writes are bracketed by saving and restoring the interrupt mask, CR1 bit 29 (FIFOEN) and some CR2 and CR3 bits are cleared, the UART is enabled, and the routine waits for the REACK and TEACK acknowledge bits. It finishes with bms_usart3_rxne_irq_set(1).",
+    "category": "uart",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "IRQ 29 is inferred from the enable bit 0x20000000 and the IPR byte cleared at 0xE000E41C; the G0 vector name is the USART3/4/5/6 and LPUART1 line. The LL_USART_Init-shaped callee bms_4168_08003140 is not described in this packet."
+  },
+  "bms_4168_0800a8a0": {
+    "name": "bms_snapshot_logger_tick",
+    "summary": "Snapshot logger: every 5000 units capture and queue a record; commit history every 1000",
+    "description": "Called every tick with the elapsed time in param_1. A zero param_2 resets the 5000-unit accumulator at 0x20000570. Otherwise the accumulator advances by param_1, and at 5000 the routine captures a record at 0x20001360 to 0x20001395: the RTC date-time from bms_rtc_datetime_pack, 13 u16 words from state+0x140, the current at +0x11A, six low bytes from the u16 words at +0x12C to +0x13C, bytes at +0x11E and +0x19C, u32 words from +0x124 and +0x194, two u16 words at +0x13C and +0x13E, and bytes at +0x180 and +0x1D2. The record is registered in the 10-slot pool with bms_slot_pool_register under tag 6. A separate 1000-unit accumulator at 0x20000574 triggers bms_history_ring_commit. Each call ends with bms_status_event_snapshot(param_1).",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "elapsed time since the previous call"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "mode: 0 resets the 5000-unit accumulator, otherwise the accumulator advances"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not used in this routine"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "scratch word; overwritten with the RTC pack result"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The record field layout is taken from the offsets read in the decompile and has no names of its own here. The reset in the mode 0 case clears only the 5000-unit accumulator."
+  },
+  "bms_4168_0800b694": {
+    "name": "bms_i2c_frame_read_crc8",
+    "summary": "Read a framed I2C response with a CRC-8 trailer (poly 0x07), retrying up to four times",
+    "description": "Reads a device response using the header [param_1, param_2, 0x01]. When the mode at 0x2000062E is 1, it reads param_4 bytes (clamped to 6) with bms_4168_080094B4 and retries four times without a check. Otherwise it reads param_4 + 1 bytes (payload and trailing CRC) into the frame buffer and computes CRC-8 with polynomial 0x07, init 0, MSB first over the header and payload. A match with the trailing byte copies the payload to the destination and decrements the error counter 0x20000630 (not below 0). A mismatch on all four attempts increments the counter (capped at 5) and returns 1.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "device address byte"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "command or register byte"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "destination for the payload"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "payload length, clamped to 6"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when all attempts failed"
+    },
+    "confidence": "high",
+    "notes": "The CRC loop is written inline in the decompile, so the polynomial and init are read from the shifts and the 0x07 XOR, not from a named helper."
+  },
+  "bms_4168_0800b7bc": {
+    "name": "bms_i2c_frame_write_crc8",
+    "summary": "Write a framed I2C message with a CRC-8 (poly 0x07) byte, retrying up to four times",
+    "description": "Builds a four-byte frame from param_1, param_2 and param_3. The CRC is computed by crc8_msb_compute with polynomial 7 and init 0 over the header and param_4 + 2 bytes, and stored in the fourth byte of the frame. When the mode at 0x2000062E is 1 it writes param_4 bytes (clamped to 6) with bms_4168_0800954C and retries four times without an error count. Otherwise it writes param_4 + 1 bytes (data plus CRC byte); success decrements the error counter 0x20000630, and four failures increment it (capped at 5) and return 1.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "first header byte (device address)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "second header byte (command or register)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "third header byte, used as the first data byte"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "data length, clamped to 6"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when all attempts failed"
+    },
+    "confidence": "low",
+    "notes": "The frame layout is unclear from the decompile: the write starts at byte 2 of the frame, so for a length greater than 1 the position of the CRC byte relative to the data is not certain. Check against the callers before relying on the frame format. The caller in bms_4168_0800aa26 and others are not in this packet."
+  },
+  "bms_4168_0800bc20": {
+    "name": "bms_extflash_write_bytes",
+    "summary": "Write bytes to external SPI flash, erasing a 4 KB sector only when target bytes are not 0xFF",
+    "description": "Writes param_3 bytes from param_1 to the 24-bit external flash address param_2, in pieces that stay inside one 4 KB sector. For each piece it reads the current bytes (command 0x03) into a 4 KB staging buffer at 0x20004420. If all of them are 0xFF the piece is programmed directly with bms_extflash_page_program. Otherwise the whole sector is read into the staging buffer, WREN (0x06) and sector erase (0x20) are issued with bms_extflash_wait_ready after each, the new bytes are merged into the buffer, and the full 4 KB sector is reprogrammed. The chip-select GPIO is toggled through 0x50000C18 and 0x50000C28 around each command, and every byte goes through bms_spi1_transfer_byte.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source bytes in RAM"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "24-bit external flash address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The chip-select pin is inferred from the bit used on the GPIO writes. The reprogram step is the page program with the full 4 KB buffer, which is split at 256-byte boundaries inside bms_extflash_page_program."
+  }
+}

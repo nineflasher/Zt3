@@ -1,14 +1,16 @@
 # BMS - `uart` functions
 
-5 functions.
+7 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`LL_USART_DeInit`](#ll_usart_deinit) | 0x0800308C | Pulses the RCC reset line of a USART instance (USART1 to USART6); returns 1 for other pointers |
+| [`bms_usart3_comm_init`](#bms_usart3_comm_init) | 0x0800A574 | Bring up USART3 at 4800 8N1 on PB10/PB11 (AF4), enable IRQ 29 and its RX interrupt |
 | [`bms_usart3_rxne_irq_set`](#bms_usart3_rxne_irq_set) | 0x0800A694 | Enable or disable the USART3 RX FIFO-not-empty interrupt (CR1.RXFNEIE) and return the previous IRQ state |
 | [`bms_usart3_send_bytes`](#bms_usart3_send_bytes) | 0x0800A6D0 | Blocking transmit of a byte buffer on USART3, waiting for TC before each TDR write |
 | [`bms_usart3_stop`](#bms_usart3_stop) | 0x0800A680 | Disable the USART3 RX-not-empty interrupt and reset USART3 |
 | [`bms_usart3_tx_setup`](#bms_usart3_tx_setup) | (removed) | Reset USART3 and set PB10 to alternate function 4 as its output pin |
+| [`bms_usart_init_from_config`](#bms_usart_init_from_config) | 0x08003140 | Configure a USART from a config record: CR1/CR2/CR3 fields, PRESC and BRR from the peripheral clock |
 
 ## LL_USART_DeInit
 
@@ -27,6 +29,20 @@ Resets one USART by writing a force-reset and then a release-reset to its bit in
 - Called by: `bms_usart3_stop`
 - Confidence: high
 
+## bms_usart3_comm_init
+
+**Bring up USART3 at 4800 8N1 on PB10/PB11 (AF4), enable IRQ 29 and its RX interrupt**
+
+Enables the GPIOB and USART3 clocks, configures PB10 and PB11 as alternate-function 4 pins with LL_GPIO_Init, and sets the priority of IRQ 29 to 0 and enables it through the NVIC enable register. It then programs USART3 with a LL_USART_Init-shaped block: baud 4800 (0x12C0), 8 data bits, 1 stop bit, no parity, TX and RX enabled, no hardware flow control, 16x oversampling. The register writes are bracketed by saving and restoring the interrupt mask, CR1 bit 29 (FIFOEN) and some CR2 and CR3 bits are cleared, the UART is enabled, and the routine waits for the REACK and TEACK acknowledge bits. It finishes with bms_usart3_rxne_irq_set(1).
+
+**Notes:** IRQ 29 is inferred from the enable bit 0x20000000 and the IPR byte cleared at 0xE000E41C; the G0 vector name is the USART3/4/5/6 and LPUART1 line. The LL_USART_Init-shaped callee bms_4168_08003140 is not described in this packet.
+
+- Addresses by version: 4130: 0x080094DC, 4139: 0x08009A14, 4148: 0x0800A260, 4168: 0x0800A574
+- Peripheral registers: `USART3.CR1_FIFO_ENABLED` (ARW), `USART3.CR2` (RW), `USART3.CR3` (RW), `USART3.ISR_FIFO_ENABLED` (R), `RCC.IOPENR` (RW), `RCC.APBENR1` (RW), `NVIC+0x0` (W), `NVIC+0x31c` (RW)
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
+- Calls: `LL_GPIO_Init`, `bms_usart_init_from_config`, `bms_usart3_rxne_irq_set`
+- Confidence: medium
+
 ## bms_usart3_rxne_irq_set
 
 **Enable or disable the USART3 RX FIFO-not-empty interrupt (CR1.RXFNEIE) and return the previous IRQ state**
@@ -43,7 +59,7 @@ With param_1 == 1 it sets USART3_CR1 bit 5 (RXFNEIE, RX FIFO not empty interrupt
 
 - Addresses by version: 4130: 0x080095FC, 4139: 0x08009B34, 4148: 0x0800A380, 4168: 0x0800A694
 - Peripheral registers: `USART3.CR1_FIFO_ENABLED` (RW)
-- Called by: `bms_4168_0800a574`, `bms_usart3_stop`
+- Called by: `bms_usart3_comm_init`, `bms_usart3_stop`
 - Confidence: medium
 
 ## bms_usart3_send_bytes
@@ -84,6 +100,26 @@ Prepares the USART3 TX pin. It calls FUN_08009B34 with 0 (not described in this 
 
 - Addresses by version: 4130: 0x08009740, 4139: 0x08009C78
 - Peripheral registers: `USART3.CR1_FIFO_ENABLED` (A)
-- Called by: `bms_4139_08007238`, `bms_4139_0800e4f8`
+- Called by: `bms_pb11_trigger_sequence_step`, `bms_4139_0800e4f8`
 - Calls: `LL_GPIO_Init`, `LL_USART_DeInit`, `bms_usart3_rxne_irq_set`
+- Confidence: medium
+
+## bms_usart_init_from_config
+
+**Configure a USART from a config record: CR1/CR2/CR3 fields, PRESC and BRR from the peripheral clock**
+
+Returns 1 when the USART is already enabled (CR1.UE set). Otherwise it rebuilds CR1 from config words +0x08, +0x10, +0x14 and +0x1C (mask 0xEFFF69F3 clears M0/M1, parity, TE/RE and FIFO-independent mode bits before the config words are OR-ed in), replaces CR2 bits 12-13 (STOP) from +0x0C, and replaces CR3 bits 8-9 (RTSE and CTSE) from +0x18. It fetches the peripheral clock with bms_4168_08002d24 for USART1 (id 3), USART2 (id 0xC) and USART3 (id 0x30), or with bms_4168_08002d0c for USART4 to USART6. When the clock and the baud rate (+0x04) are nonzero, it divides the clock by the prescaler table entry at 0x08010A24 (1, 2, 4, 6, 8, 10, 12, 16, 32, 64, 128, 256, indexed by the +0x00 prescaler code 0 to 11) and computes BRR as the rounded quotient of clock/(divisor*baud) with bms_udiv32. When +0x1C is 0x8000 (CR1.OVER8) the divisor is doubled and BRR is shifted so that BRR[3] is dropped and BRR[2:0] takes the old BRR[3:1]. PRESC is written last from the prescaler code in every path. The routine follows the shape of ST HAL UART_SetConfig.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | USART instance (USART1 to USART6 or another peripheral) |
+| `param_2` | `ptr` | USART config record: +0x00 prescaler code (0 to 11), +0x04 baud rate, +0x08 CR1 bits, +0x0C CR2 STOP bits, +0x10 and +0x14 CR1 bits, +0x18 CR3 flow-control bits, +0x1C CR1 bits (0x8000 = OVER8) |
+
+**Returns** `u32`: 0 when the clock and baud checks passed (BRR written); 1 when the USART was already enabled or the instance is not handled
+
+**Notes:** For USART4 to USART6 the clock is returned through bms_4168_08002d0c into auStack_20, but the code then tests local_18, which that path never assigns. The test therefore reads a stale stack value, so BRR for those instances may be computed from garbage. This may be a decompiler artifact; check the disassembly. bms_4168_08002d24 and bms_4168_08002d0c are not yet described.
+
+- Addresses by version: 4130: 0x08003140, 4139: 0x08003140, 4148: 0x08003140, 4168: 0x08003140
+- Called by: `bms_usart3_comm_init`
+- Calls: `bms_udiv32`, `bms_rcc_get_clock_freqs`, `bms_rcc_periph_clk_get`
 - Confidence: medium

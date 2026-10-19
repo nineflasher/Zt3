@@ -1,6 +1,6 @@
 # VCU - `can` functions
 
-24 functions.
+29 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -17,13 +17,18 @@
 | [`vcu_can1_clock_disable`](#vcu_can1_clock_disable) | 0x08002370 | Disable the CAN1 APB1 peripheral clock |
 | [`vcu_can1_init`](#vcu_can1_init) | 0x080027F0 | Initialise CAN1: remapped pins, bit timing, six accept-all filters, RX0 and SE interrupts |
 | [`vcu_can1_pins_remap_init`](#vcu_can1_pins_remap_init) | 0x08002778 | Remap CAN1 onto PB8 (RX) and PB9 (TX) and configure both pins |
+| [`vcu_can1_recover_reinit`](#vcu_can1_recover_reinit) | 0x08002980 | Re-initialise CAN1 from reset with bus-off and error interrupts enabled |
 | [`vcu_can1_reset_pulse`](#vcu_can1_reset_pulse) | 0x0800B06C | Pulse the CAN1 peripheral reset bit: assert then release |
 | [`vcu_can_ef00_frame_build`](#vcu_can_ef00_frame_build) | 0x0800DA4E | Build a 29-bit CAN frame for PGN 0xEF00 with three header bytes and up to 5 payload bytes |
+| [`vcu_can_ef00_message_send`](#vcu_can_ef00_message_send) | 0x0800D018 | Send a PGN 0xEF00 message as one CAN frame or as a J1939 TP session |
+| [`vcu_can_msg_obj_send`](#vcu_can_msg_obj_send) | 0x0800EF5A | Send one queued CAN message object: 29-bit ID, length byte and payload |
+| [`vcu_can_periodic_telemetry_tick`](#vcu_can_periodic_telemetry_tick) | 0x0800EAC4 | Run the periodic CAN telemetry scheduler: 2, 10, 20 and 100-tick frame groups |
 | [`vcu_can_tp_abort_frame_build`](#vcu_can_tp_abort_frame_build) | 0x0800DAAC | Build a J1939 TP.CM connection-abort frame (0x18EC) for PGN 0xEF00 |
 | [`vcu_can_tp_cts_frame_build`](#vcu_can_tp_cts_frame_build) | 0x0800DAF0 | Build a J1939 TP.CM clear-to-send frame (0x11) for PGN 0xEF00 |
 | [`vcu_can_tp_dt_frame_build`](#vcu_can_tp_dt_frame_build) | 0x0800DBDC | Build a J1939 TP.DT data frame (0x18EB) from a message offset that is a multiple of 7 |
 | [`vcu_can_tp_eom_ack_frame_build`](#vcu_can_tp_eom_ack_frame_build) | 0x0800DB38 | Build a J1939 TP.CM end-of-message acknowledgment (0x13) for PGN 0xEF00 |
 | [`vcu_can_tp_rts_frame_build`](#vcu_can_tp_rts_frame_build) | 0x0800DB88 | Build a J1939 TP.CM request-to-send (0x10) for a multi-packet PGN 0xEF00 message |
+| [`vcu_can_tp_session_table_tick`](#vcu_can_tp_session_table_tick) | 0x0800D25E | Advance every J1939 TP sender session in the table once per timer tick |
 | [`vcu_can_tp_session_timeout_tick`](#vcu_can_tp_session_timeout_tick) | 0x0800A78A | Advance a J1939 TP session timer; on expiry notify, send the abort frame and mark done |
 | [`vcu_can_tx_pump`](#vcu_can_tx_pump) | 0x08007B08 | Pump one frame from the CAN1 transmit queue into a free mailbox |
 | [`vcu_can_tx_queue_peek`](#vcu_can_tx_queue_peek) | 0x08007B90 | Copy the oldest queued CAN frame (20 bytes) without removing it |
@@ -202,7 +207,7 @@ Picks the first empty mailbox from TSTS (+8) bits 26/27/28 (TM0EF/TM1EF/TM2EF), 
 Clears the CAN1 clock enable (APB1ENR bit 25) by calling crm_periph_clock_enable with enable 0. It is the counterpart of the CAN1 clock enable in vcu_0159_080027f0. It is called from vcu_0159_0800688c.
 
 - Addresses by version: 148: 0x08001F84, 14a: 0x08001FF4, 14b: 0x080022D0, 14e: 0x080022D0, 14f: 0x0800232C, 152: 0x08002368, 153: 0x08002384, 0159: 0x08002370
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Calls: `crm_periph_clock_enable`
 - Confidence: high
 
@@ -216,7 +221,7 @@ Full CAN1 bring-up. It calls vcu_can1_pins_remap_init, enables the CAN1 clock (A
 
 - Addresses by version: 148: 0x08002428, 14a: 0x08002498, 14b: 0x08002750, 14e: 0x08002750, 14f: 0x080027AC, 152: 0x080027E8, 153: 0x08002804, 0159: 0x080027F0
 - Peripheral registers: `CAN1.MCTRL` (A)
-- Called by: `vcu_0159_08002060`, `vcu_0159_08002980`
+- Called by: `vcu_peripheral_init_sequence`, `vcu_can1_recover_reinit`
 - Calls: `vcu_can1_pins_remap_init`, `can_base_init`, `can_baudrate_default_para_init`, `can_baudrate_set`, `can_default_para_init`, `can_filter_init`, `can_interrupt_enable`, `crm_periph_clock_enable`, `nvic_irq_enable`
 - Confidence: medium
 
@@ -230,9 +235,23 @@ Enables the GPIOB and IOMUX clocks, applies remap code 0x2C000402 with gpio_pin_
 
 - Addresses by version: 148: 0x080023B0, 14a: 0x08002420, 14b: 0x080026D8, 14e: 0x080026D8, 14f: 0x08002734, 152: 0x08002770, 153: 0x0800278C, 0159: 0x08002778
 - Peripheral registers: `GPIOB.CFGLR` (A)
-- Called by: `vcu_can1_init`, `vcu_0159_08002980`
+- Called by: `vcu_can1_init`, `vcu_can1_recover_reinit`
 - Calls: `crm_periph_clock_enable`, `gpio_default_para_init`, `gpio_init`, `gpio_pin_remap_config`
 - Confidence: medium
+
+## vcu_can1_recover_reinit
+
+**Re-initialise CAN1 from reset with bus-off and error interrupts enabled**
+
+Pulses the CAN1 reset (vcu_can1_reset_pulse), re-applies the CAN1 pin remap (vcu_can1_pins_remap_init) and enables the CAN1 clock (CRM id 0x1C0019). It writes the base configuration and bit timing (divider 9, RSAW 1, BTS1 10, BTS2 3, 14 time quanta per bit), configures six receive filter banks 0 to 5 as accept-all with can_filter_init, and then enables the interrupts. The interrupt set is RX FIFO 0 message (0x2), error-type-record (0x800), error-occur (0x8000) and bus-off (0x400), and NVIC IRQ 22 (CAN1_SE) and IRQ 20 (CAN1_RX0) are enabled at preemption priority 0.
+
+**Notes:** The packet's callee list names vcu_can1_init, but the decompiled body does not call 0x080027F0; the same steps are written out inline here. Compared with vcu_can1_init, which enables RX0 and SE interrupts, this variant adds the bus-off and error interrupts, which suggests it is the recovery path. Its callers, vcu_0159_080047AC and vcu_0159_0800EAC4, are not described yet.
+
+- Addresses by version: 148: 0x080025B0, 14a: 0x08002628, 14b: 0x080028E0, 14e: 0x080028E0, 14f: 0x0800293C, 152: 0x08002978, 153: 0x08002994, 0159: 0x08002980
+- Peripheral registers: `CAN1.MCTRL` (A)
+- Called by: `vcu_0159_080047ac`, `vcu_can_periodic_telemetry_tick`
+- Calls: `vcu_can1_pins_remap_init`, `vcu_can1_init`, `vcu_can1_reset_pulse`
+- Confidence: high
 
 ## vcu_can1_reset_pulse
 
@@ -241,7 +260,7 @@ Enables the GPIOB and IOMUX clocks, applies remap code 0x2C000402 with gpio_pin_
 Calls crm_periph_reset (FUN_0800b5f4, SDK) with the value 0x100019 twice, first with TRUE and then with FALSE. In the SDK header that value is CRM_CAN1_PERIPH_RESET, MAKE_VALUE(0x10, 25), so CAN1 is reset by setting and then clearing its bit in the CRM reset register back to back.
 
 - Addresses by version: 148: 0x0800A0E4, 14a: 0x0800A5C0, 14b: 0x0800AA48, 14e: 0x0800AADC, 14f: 0x0800AC18, 152: 0x0800AE98, 153: 0x0800AF8C, 0159: 0x0800B06C
-- Called by: `vcu_0159_08002980`, `vcu_0159_0800688c`
+- Called by: `vcu_can1_recover_reinit`, `vcu_deep_sleep_enter_and_restore`
 - Calls: `crm_periph_reset`
 - Confidence: high
 
@@ -268,7 +287,58 @@ Fills a CAN frame struct (word 0 = 29-bit ID, byte 4 = DLC, bytes 5..12 = data).
 **Notes:** The header byte semantics are not known from this function alone.
 
 - Addresses by version: 148: 0x0800CB4C, 14a: 0x0800CF9C, 14b: 0x0800D428, 14e: 0x0800D4C8, 14f: 0x0800D614, 152: 0x0800D8A4, 153: 0x0800D998, 0159: 0x0800DA4E
-- Called by: `vcu_0159_0800d018`
+- Called by: `vcu_can_ef00_message_send`
+- Confidence: medium
+
+## vcu_can_ef00_message_send
+
+**Send a PGN 0xEF00 message as one CAN frame or as a J1939 TP session**
+
+Sends a proprietary-A (PGN 0xEF00) message. When param_3 (the byte count) is below 6, it builds one 29-bit CAN frame with vcu_can_ef00_frame_build (fixed arguments 6 and 1, with param_1, param_2, param_4, param_5 and param_6 as the data bytes and param_3 as the length) and queues it with vcu_record_send_short, masking the identifier to 29 bits. For 6 or more bytes it calls proto_session_send on the session buffer at DAT_20002970 with argument 7 and 1, so the transport-protocol state machine sends the message as several frames.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | data byte 0 (r0) |
+| `param_2` | `u32` | data byte 1 (r1) |
+| `param_3` | `u32` | payload byte count; below 6 sends one frame |
+| `param_4` | `u32` | data byte 2 (r3) |
+| `param_5` | `u32` | data byte 3 (stack) |
+| `param_6` | `u32` | data byte 4 (stack) |
+
+**Notes:** The decompile passes the data as 32-bit register values, so the truncation to bytes is assumed to happen in vcu_can_ef00_frame_build. The meaning of the fixed arguments 6, 1, 7 and 1 is not shown.
+
+- Addresses by version: 148: 0x0800C18C, 14a: 0x0800C5D0, 14b: 0x0800CA5C, 14e: 0x0800CAF0, 14f: 0x0800CC2C, 152: 0x0800CEB8, 153: 0x0800CFAC, 0159: 0x0800D018
+- Called by: `vcu_timed_window_schedule_tick`, `vcu_countdown_start_handshake`, `vcu_0159_080054ec`, `vcu_display_frame_render_tick`, `vcu_panel_key_report_telemetry_tick`, `vcu_fw_update_frame_handler`, `vcu_startup_announce_burst`
+- Calls: `vcu_record_send_short`, `proto_session_send`, `vcu_can_ef00_frame_build`
+- Confidence: medium
+
+## vcu_can_msg_obj_send
+
+**Send one queued CAN message object: 29-bit ID, length byte and payload**
+
+Reads a message object at param_2: the first word masked with 0x1FFFFFFF is the CAN identifier, the byte at offset 4 is the length and the bytes from offset 5 are the payload. It hands these to vcu_record_send_short and always returns 1. It has no direct caller in the packet, so it is reached through a pointer.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | not used |
+| `param_2` | `ptr` | message object: u32 identifier, u8 length at +4, payload from +5 |
+
+**Returns** `u32`: always 1
+
+- Addresses by version: 148: 0x0800DF36, 14a: 0x0800E3D2, 14b: 0x0800E862, 14e: 0x0800E902, 14f: 0x0800EA4E, 152: 0x0800ECF6, 153: 0x0800EDEA, 0159: 0x0800EF5A
+- Calls: `vcu_record_send_short`
+- Confidence: high
+
+## vcu_can_periodic_telemetry_tick
+
+**Run the periodic CAN telemetry scheduler: 2, 10, 20 and 100-tick frame groups**
+
+Periodic CAN scheduler called once per tick. When DAT_20001f48 is 1 it resets DAT_2000102c, DAT_20001030 and DAT_2000102e. Otherwise, while DAT_2000185e is nonzero it only counts it down and returns; then it updates the countdowns DAT_20001868 and DAT_2000186a, which set bits 1 and 2 of DAT_2000186e when they expire, and increments the tick counter DAT_20001848. Each value is supplied by the callback at DAT_20001864 (called with the ID) and sent with vcu_record_send_chunked: ID 0x100 (8 bytes) on even ticks, IDs 0x203, 0x204, 0x205, 0x209, 0x20A, 0x20B and 0x20C (8 bytes) every 10 ticks, IDs 0x301, 0x302 (2 bytes) and 0x485 every 20 ticks, and IDs 0x480 to 0x484 (8 bytes) every 100 ticks. When DAT_2000185b is set, DAT_2000184a counts to 50, then the flag is cleared, DAT_20001854 is incremented and vcu_0159_08002980 is called.
+
+**Notes:** The callback at DAT_20001864 takes an ID and returns a data pointer, as the calls show. vcu_0159_08002980 is not yet described. The meaning of the countdown flags is inferred from their use.
+
+- Addresses by version: 148: 0x0800DAA4, 14a: 0x0800DF40, 14b: 0x0800E3CC, 14e: 0x0800E46C, 14f: 0x0800E5B8, 152: 0x0800E860, 153: 0x0800E954, 0159: 0x0800EAC4
+- Calls: `vcu_can1_recover_reinit`, `vcu_record_send_chunked`
 - Confidence: medium
 
 ## vcu_can_tp_abort_frame_build
@@ -370,6 +440,20 @@ Builds the TP.CM request-to-send (ID 0x18EC): data byte 0 = 0x10, bytes 1..2 = t
 
 - Addresses by version: 148: 0x0800CC84, 14a: 0x0800D0D4, 14b: 0x0800D560, 14e: 0x0800D600, 14f: 0x0800D74C, 152: 0x0800D9DC, 153: 0x0800DAD0, 0159: 0x0800DB88
 - Called by: `vcu_can_tp_sender_tick`
+- Confidence: high
+
+## vcu_can_tp_session_table_tick
+
+**Advance every J1939 TP sender session in the table once per timer tick**
+
+Iterates over a session table described by a base pointer at offset 0, a 16-bit session count at offset 4 and a timer argument at offset 8 (the table at DAT_20002970). For each 0x24-byte session it calls vcu_can_tp_sender_tick with the timer argument, so each TP sender state machine advances once per tick. It has no direct caller in the packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | session table descriptor: base, u16 count, timer argument |
+
+- Addresses by version: 148: 0x0800C3CE, 14a: 0x0800C816, 14b: 0x0800CCA2, 14e: 0x0800CD36, 14f: 0x0800CE72, 152: 0x0800D0FE, 153: 0x0800D1F2, 0159: 0x0800D25E
+- Calls: `vcu_can_tp_sender_tick`
 - Confidence: high
 
 ## vcu_can_tp_session_timeout_tick

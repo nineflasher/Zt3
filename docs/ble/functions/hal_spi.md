@@ -34,7 +34,7 @@ Clocks param_1[1] bytes in from SPI, sending zeros, and stores them at param_2. 
 **Notes:** The SPI instance passed to the transfer is not recovered by the decompiler (it shows the r0 left by the format call); the format call uses instance 1. The infinite loop is an assertion-style trap. FUN_0C032714 and the two ROM-patch thunks are not yet described.
 
 - Addresses by version: 219: 0x0C0460E8
-- Calls: `hal_spi_apply_format`, `hal_spi_txrx_poll`, `ble_219_0c032714`, `ble_ram_patch_thunk_200007f4`, `ble_ram_patch_thunk_2000081c`
+- Calls: `hal_spi_apply_format`, `hal_spi_txrx_poll`, `hal_spi_bus1_open_user`, `ble_ram_patch_thunk_200007f4`, `ble_ram_patch_thunk_2000081c`
 - Confidence: medium
 
 ## hal_ispi_recv
@@ -91,7 +91,7 @@ Calls hal_spi_apply_format(inst, cfg, 0) to load CR0 and the +0x88 extension byt
 
 - Addresses by version: 219: 0x0C031DA0
 - Peripheral registers: `0x400000a8` (RW)
-- Called by: `hal_spi_open_common`, `ble_219_0c032408`, `ble_219_0c032774`
+- Called by: `hal_spi_open_common`, `hal_spi_dma_xfer_start`, `hal_spi_bus1_close_user`
 - Calls: `hal_spi_apply_format`, `bes_cmu_set_rega8_bit21`
 - Confidence: medium
 
@@ -110,7 +110,7 @@ Looks up the SPI register block for instance param_1 in the pointer table at 0x0
 **Notes:** Which two records the config holds (e.g. master vs slave / two chip-select profiles) is not visible from this function; the semantics of register +0x88 are undocumented.
 
 - Addresses by version: 219: 0x0C031D78
-- Called by: `hal_spi_apply_cfg_regs`, `hal_spi_dma_cancel_all`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `ble_spi_read_locked`
+- Called by: `hal_spi_apply_cfg_regs`, `hal_spi_dma_cancel_all`, `hal_spi_dma_tx_done_handler`, `hal_spi_bus1_transfer`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## hal_spi_build_hw_cfg
@@ -144,7 +144,7 @@ Inside a BASEPRI critical section (call site 0x0c031e04 logged to DAT_20003d70/D
 **Notes:** Purpose of thunk 0x2000081c and of byte 0x20003d04[inst] is a guess.
 
 - Addresses by version: 219: 0x0C031DF4
-- Called by: `ble_219_0c031ea4`
+- Called by: `hal_spi_close_user`
 - Calls: `hal_gpdma_cancel`, `hal_gpdma_free_chan`, `hal_spi_apply_format`, `ble_ram_patch_thunk_2000081c`
 - Confidence: medium
 
@@ -219,7 +219,7 @@ param_2 is the user config, param_3 the per-instance derived-config storage (0x2
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C0321F8
-- Called by: `ble_219_0c032688`, `ble_219_0c032714`
+- Called by: `hal_spi_bus0_open`, `hal_spi_bus1_open_user`
 - Calls: `hal_spi_apply_cfg_regs`, `hal_spi_build_hw_cfg`, `hal_cmu_clock_enable`, `hal_cmu_reset_clear`
 - Confidence: high
 

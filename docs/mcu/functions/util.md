@@ -1,6 +1,6 @@
 # MCU - `util` functions
 
-84 functions.
+98 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
@@ -13,11 +13,14 @@
 | [`mcu_bits_clear`](#mcu_bits_clear) | 0x08002EC8 | *p &= ~mask (clear bits in a word) |
 | [`mcu_bits_set`](#mcu_bits_set) | 0x08002ED6 | *p \|= mask (set bits in a word) |
 | [`mcu_block200_alloc`](#mcu_block200_alloc) | 0x08007BCE | Allocate one 200-byte block from the 4088-byte first-fit pool at 0x200027CC |
+| [`mcu_block_table_load_verified`](#mcu_block_table_load_verified) | 0x08008E30 | Copy a 544-byte block table into RAM and verify its block checksums, up to five attempts |
 | [`mcu_byte_sum16_store`](#mcu_byte_sum16_store) | 0x0800CB74 | Sum a byte buffer modulo 2^16 and store the total as a halfword |
 | [`mcu_byte_sum_checksum16`](#mcu_byte_sum_checksum16) | 0x08005E60 | 16-bit byte-sum checksum over a buffer, returned as its bitwise complement |
 | [`mcu_bytes_equal_n8`](#mcu_bytes_equal_n8) | 0x0800A280 | Compare two byte strings of length n with an 8-bit counter and return 1 if equal |
 | [`mcu_callback_slot_dispatch`](#mcu_callback_slot_dispatch) | 0x080089A4 | Call the RAM function pointer in slot 0 or 1 of the two-entry table at 0x20000630 |
 | [`mcu_ceil_div_1024`](#mcu_ceil_div_1024) | 0x0800644E | Ceiling of param_1 / 1024: number of 1 KiB units needed for a byte count |
+| [`mcu_cfg_gain_108_q15`](#mcu_cfg_gain_108_q15) | 0x08004A0C | Return cfg+0x108 times DAT_200003CC/5.3036 as a Q15 value |
+| [`mcu_cfg_gain_10c_q15`](#mcu_cfg_gain_10c_q15) | 0x080049B8 | Return cfg+0x10C times DAT_200003CC/5.3036 as a Q15 value |
 | [`mcu_cond_658_and_not_a9a`](#mcu_cond_658_and_not_a9a) | 0x08004AFC | Return 1 if flag 0x20000658 is non-zero and flag 0x20000a9a is zero |
 | [`mcu_copy_bytes`](#mcu_copy_bytes) | 0x0800CC68 | Copy a byte block forward, one byte at a time |
 | [`mcu_ctx_cfg_byte_set`](#mcu_ctx_cfg_byte_set) | 0x0800C940 | Store one byte into a field of the context config words at +0xA0 and +0xA4 (index 1..7) |
@@ -33,9 +36,13 @@
 | [`mcu_edge_counter_reset`](#mcu_edge_counter_reset) | 0x08009A6E | Reset an edge counter to zero with phase and output low, keeping its configuration |
 | [`mcu_edge_counter_step`](#mcu_edge_counter_step) | 0x08009954 | Advance a bidirectional phase counter one step and return its selected edge output bit |
 | [`mcu_empty_callback`](#mcu_empty_callback) | 0x08006620 | Empty callback: returns immediately |
+| [`mcu_fscale_mul_div_a`](#mcu_fscale_mul_div_a) | 0x0800763C | Return p1 * 1088.31 * p2 / p3 in soft-float single precision (tail call) |
+| [`mcu_fscale_mul_div_b`](#mcu_fscale_mul_div_b) | 0x0800765C | Return p1 * 1088.31 * p2 / p3 (soft-float single), twin of mcu_fscale_mul_div_a |
 | [`mcu_get_cfg_field_0x28`](#mcu_get_cfg_field_0x28) | 0x080046CC | Return the 32-bit field at offset 0x28 of the struct pointed to by DAT_200000f8 |
 | [`mcu_get_cfg_field_0x28_q15`](#mcu_get_cfg_field_0x28_q15) | 0x080046D8 | Return field +0x28 of *DAT_200000f8 after a (x * 0x8000) >> 15 round trip |
 | [`mcu_get_field_0x0c_ashr_scale`](#mcu_get_field_0x0c_ashr_scale) | 0x0800A588 | Return the s32 field at +0x0c arithmetic-shifted right by the scale byte at +0x32 |
+| [`mcu_get_field_0x0c_ashr_scale_thunk1`](#mcu_get_field_0x0c_ashr_scale_thunk1) | 0x0800A56C | Tail-call thunk to mcu_get_field_0x0c_ashr_scale |
+| [`mcu_get_field_0x0c_ashr_scale_thunk2`](#mcu_get_field_0x0c_ashr_scale_thunk2) | 0x0800A570 | Second tail-call thunk to mcu_get_field_0x0c_ashr_scale |
 | [`mcu_get_field_0x10_ashr_scale`](#mcu_get_field_0x10_ashr_scale) | (removed) | Return the s32 field at +0x10 arithmetic-shifted right by the scale byte at +0x32 |
 | [`mcu_get_field_0x18_ashr_scale`](#mcu_get_field_0x18_ashr_scale) | (removed) | Return the s32 field at +0x18 arithmetic-shifted right by the scale byte at +0x32 |
 | [`mcu_get_global_ctx_field_0x64`](#mcu_get_global_ctx_field_0x64) | 0x08009088 | Return the 32-bit word at offset 0x64 of the object pointed to by global DAT_2000002C |
@@ -50,6 +57,8 @@
 | [`mcu_get_word_at_0x90`](#mcu_get_word_at_0x90) | 0x08001436 | Getter returning the 32-bit word at offset 0x90 of a structure |
 | [`mcu_init_q14_copies_from_200003de`](#mcu_init_q14_copies_from_200003de) | 0x0800727C | Set four RAM words to the byte at 0x200003DE shifted left by 14 (Q14) |
 | [`mcu_latched_value_set`](#mcu_latched_value_set) | 0x08009EB8 | Store a 32-bit value and set the valid flag byte at struct+0x04 |
+| [`mcu_lpf_asym_update`](#mcu_lpf_asym_update) | 0x08007160 | Enable-gated Q30 low-pass with separate rising and falling coefficients |
+| [`mcu_lpf_or_step_tracker_update`](#mcu_lpf_or_step_tracker_update) | 0x080070AC | Update a tracked value: mode 0 asymmetric Q30 low-pass, mode 1 stepped tracker with wrap |
 | [`mcu_math_sqrt_fixed`](#mcu_math_sqrt_fixed) | 0x08001CDC | Fixed-point square root via CLZ normalisation, table seed and two Newton rsqrt steps |
 | [`mcu_math_sqrt_fixed_v143`](#mcu_math_sqrt_fixed_v143) | (removed) | Fixed-point square root, MCU_12b/143 variant (table at 0x0800da48) |
 | [`mcu_mode_bit1_inverted`](#mcu_mode_bit1_inverted) | 0x08004B54 | Return the inverse of bit 1 of mode byte 0x2000065d |
@@ -70,15 +79,19 @@
 | [`mcu_q16_mul_round`](#mcu_q16_mul_round) | 0x08001410 | Q16 fixed-point multiply with rounding: (a*b + 0x8000) >> 16 |
 | [`mcu_q28_mul`](#mcu_q28_mul) | (removed) | Q28 fixed-point multiply: (a*b) >> 28 (truncating) |
 | [`mcu_q30_div_sat`](#mcu_q30_div_sat) | 0x08001D6C | Fixed-point divide with Q30 result, saturating: (a << 30) / b |
+| [`mcu_q30_lerp`](#mcu_q30_lerp) | 0x0800705C | Q30 blend of two values: a*t + b*(1 - t), with rounded products |
 | [`mcu_q30_mul`](#mcu_q30_mul) | 0x08001DFC | Q30 fixed-point multiply: (a*b) >> 30 (truncating) |
 | [`mcu_q30_mul_round`](#mcu_q30_mul_round) | 0x08001E0C | Q30 fixed-point multiply with rounding: (a*b + 2^29) >> 30 |
+| [`mcu_ratio_110_to_q15`](#mcu_ratio_110_to_q15) | 0x0800CA8C | Return the byte at 0x20001FD3 divided by 110 in Q15, saturated at 1.0 |
 | [`mcu_read_be16`](#mcu_read_be16) | 0x080065B8 | Read a big-endian 16-bit value from two bytes |
 | [`mcu_read_le32`](#mcu_read_le32) | 0x0800D6A0 | Read a little-endian 32-bit value from four bytes at the pointer |
 | [`mcu_rec8_reset_defaults`](#mcu_rec8_reset_defaults) | 0x0800CECC | Reset an 8-byte record to defaults with a 0xFFFF marker and fixed small codes |
+| [`mcu_req_queue_submit`](#mcu_req_queue_submit) | 0x0800AD62 | Queue a request into a 4-slot ring of 256-byte request slots when a slot is free and code is below 243 |
 | [`mcu_select_stack_local_fragment`](#mcu_select_stack_local_fragment) | 0x08002A20 | Code fragment: pick one of two caller stack slots depending on a third |
 | [`mcu_set_byte_field_0x4c`](#mcu_set_byte_field_0x4c) | 0x0800A6B0 | Store a byte at struct+0x4c and return 1 |
 | [`mcu_set_request_flags`](#mcu_set_request_flags) | 0x08008968 | Set request flags at 0x20001FC9 and 0x20001FCB to 1 |
 | [`mcu_snapshot_copy_if_changed`](#mcu_snapshot_copy_if_changed) | 0x080057E8 | Copy a 7-word record to its shadow when the byte at +0x18 differs or a force flag is set |
+| [`mcu_sort_u16_exchange`](#mcu_sort_u16_exchange) | 0x080028C0 | In-place exchange sort of a u16 array, descending when flag is 0, ascending otherwise |
 | [`mcu_store_inverted_mask_0x10`](#mcu_store_inverted_mask_0x10) | 0x0800A7F0 | Store the bitwise complement of a word at struct+0x10 |
 | [`mcu_store_inverted_word`](#mcu_store_inverted_word) | 0x0800B724 | Store the bitwise complement of the argument into a word |
 | [`mcu_swap_u16`](#mcu_swap_u16) | 0x0800CAC4 | Swap two 16-bit values through pointers |
@@ -87,6 +100,7 @@
 | [`mcu_track_min_nonzero_u8`](#mcu_track_min_nonzero_u8) | 0x0800A244 | Store a value in RAM byte 0x200003bc if it is smaller than the stored value or the stored value is 0 |
 | [`mcu_u16_table_bsearch_desc`](#mcu_u16_table_bsearch_desc) | 0x0800A8D8 | Binary search of a descending u16 table that leaves the bracket index in a register |
 | [`mcu_write_le32`](#mcu_write_le32) | 0x0800D924 | Store a 32-bit value as four little-endian bytes |
+| [`mcu_xfer_queue_init`](#mcu_xfer_queue_init) | 0x0800CD18 | Arm five 300-byte transfer requests and publish the table when the control pointers are set |
 | [`mcu_xfer_request_arm`](#mcu_xfer_request_arm) | 0x0800D0E8 | Arm a transfer request with buffer, length, repeat count and user argument |
 
 ## mcu_12b_bit4_offset_select
@@ -117,7 +131,7 @@ Uses the stack frame of its callers (mcu_12b_08002a3c, mcu_12b_08002d0c) without
 **Notes:** Fragment that shares the callers' frame.
 
 - Addresses by version: 12b: 0x08002C00
-- Called by: `mcu_12b_08002a3c`, `mcu_12b_08002d0c`
+- Called by: `mcu_12b_speed_band_update`, `mcu_12b_speed_lpf_band_update`
 - Confidence: low
 
 ## mcu_add_overflow_direction_s32
@@ -153,7 +167,7 @@ Linear scan: starts with element 0 and keeps the largest of elements 1..n-1. The
 **Notes:** Return value inferred from register allocation; decompiler shows void.
 
 - Addresses by version: 12b: 0x0800296A, 143: 0x080029A6, 152: 0x0800292A, 0160: 0x08002946
-- Called by: `mcu_0160_08002148`
+- Called by: `mcu_speed_from_max_u12`
 - Confidence: high
 
 ## mcu_array_min_s32
@@ -172,7 +186,7 @@ Linear scan returning the smallest of elements 0..n-1 (decompiler shows void but
 **Notes:** Return value inferred from register allocation.
 
 - Addresses by version: 12b: 0x08002988, 143: 0x080029C4, 152: 0x08002948, 0160: 0x08002964
-- Called by: `mcu_0160_0800209c`
+- Called by: `mcu_speed_from_period_min`
 - Confidence: high
 
 ## mcu_bits_and
@@ -189,7 +203,7 @@ Trivial helper returning param_1 & param_2; used by mcu_0160_08004e48, 080061fc 
 **Returns** `u32`: param_1 & param_2
 
 - Addresses by version: 12b: 0x08003042, 143: 0x08002F3E, 152: 0x08002EC2, 0160: 0x08002ED2
-- Called by: `mcu_0160_08004e48`, `mcu_0160_080061fc`, `mcu_0160_0800854c`
+- Called by: `mcu_fault_b1c_mask_any`, `mcu_fault_owner_arbitrate`, `mcu_0160_0800854c`
 - Confidence: high
 
 ## mcu_bits_clear
@@ -204,7 +218,7 @@ Read-modify-write helper that clears the bits given in mask in the 32-bit word a
 | `param_2` | `u32` | mask of bits to clear |
 
 - Addresses by version: 12b: 0x08003038, 143: 0x08002F34, 152: 0x08002EB8, 0160: 0x08002EC8
-- Called by: `mcu_0160_08005a00`, `mcu_0160_08005ab0`, `mcu_0160_08007dc8`
+- Called by: `mcu_bus_threshold_monitor`, `mcu_fb_threshold_monitor`, `mcu_cmd_state_clear`
 - Confidence: high
 
 ## mcu_bits_set
@@ -219,7 +233,7 @@ Read-modify-write helper that ORs mask into the 32-bit word at p. Called from ni
 | `param_2` | `u32` | mask of bits to set |
 
 - Addresses by version: 12b: 0x08003046, 143: 0x08002F42, 152: 0x08002EC6, 0160: 0x08002ED6
-- Called by: `mcu_0160_08005a00`, `mcu_0160_08005a58`, `mcu_0160_08005ab0`, `mcu_0160_08005b3c`, `mcu_0160_08007364`
+- Called by: `mcu_bus_threshold_monitor`, `mcu_speed_mismatch_check`, `mcu_fb_threshold_monitor`, `mcu_fault_monitor_update`, `mcu_0160_08007364`
 - Confidence: high
 
 ## mcu_block200_alloc
@@ -236,6 +250,25 @@ Fixed-size 200-byte block allocator. The free list head is the global DAT_200007
 - Called by: `mcu_0160_08008f34`
 - Confidence: high
 
+## mcu_block_table_load_verified
+
+**Copy a 544-byte block table into RAM and verify its block checksums, up to five attempts**
+
+Copies a 0x220-byte table from the caller's source pointer into RAM at 0x20001D90 with mcu_copy_bytes, then checks it block by block. Each block is a 32-byte window summed with mcu_byte_sum16_store at a 16-byte stride, and the 16-bit sum is compared with the expected halfword in the table at 0x20001F90 (offset 0x200). The first mismatch restarts the copy. The function returns 1 once a full pass verifies and 0 after five failed attempts, so the caller can reject a corrupt table.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source address of the table; not shown in this packet |
+
+**Returns** `bool`: 1 when the table verified, 0 after five failed attempts
+
+**Notes:** The element width and the 16-byte stride are as the decompiler shows them; the windows overlap by half. The 0x20001F90 checksum base agrees with the packet's RAM reference list. Source table identity is not visible here.
+
+- Addresses by version: 12b: 0x08008BE0, 143: 0x08008D7C, 152: 0x08008DBC, 0160: 0x08008E30
+- Called by: `mcu_0160_0800b324`
+- Calls: `mcu_byte_sum16_store`, `mcu_copy_bytes`
+- Confidence: medium
+
 ## mcu_byte_sum16_store
 
 **Sum a byte buffer modulo 2^16 and store the total as a halfword**
@@ -249,7 +282,7 @@ Adds up param_3 bytes starting at param_1 into a 16-bit accumulator and stores t
 | `param_3` | `u32` | buffer length in bytes |
 
 - Addresses by version: 12b: 0x0800C87C, 143: 0x0800CAD4, 152: 0x0800CB14, 0160: 0x0800CB74
-- Called by: `mcu_0160_08008e30`, `mcu_0160_08009f98`
+- Called by: `mcu_block_table_load_verified`, `mcu_0160_08009f98`
 - Confidence: high
 
 ## mcu_byte_sum_checksum16
@@ -266,7 +299,7 @@ Adds the len unsigned bytes of the buffer into a 16-bit accumulator (the sum wra
 **Returns** `u16`: complement of the 16-bit byte sum
 
 - Addresses by version: 12b: 0x08005ECC, 143: 0x08005D50, 152: 0x08005DC0, 0160: 0x08005E60
-- Called by: `mcu_0160_08006460`
+- Called by: `mcu_frame_build_5aa5_checksum`
 - Confidence: high
 
 ## mcu_bytes_equal_n8
@@ -321,6 +354,36 @@ Returns (value >> 10) plus one if any of the low 10 bits are set, which is ceil(
 - Called by: `mcu_0160_0800cc22`
 - Confidence: high
 
+## mcu_cfg_gain_108_q15
+
+**Return cfg+0x108 times DAT_200003CC/5.3036 as a Q15 value**
+
+Same computation as mcu_cfg_gain_10c_q15: DAT_200003CC is divided by 5.3036 as a Q15 integer, multiplied by a configuration word and shifted right by 15. The only difference is that the word is taken from cfg+0x108 instead of cfg+0x10C, where cfg is the pointer at DAT_200000F8. The only caller in this packet is mcu_0160_0800a320.
+
+**Returns** `u32`: Q15 product of the configuration word and the scaled input
+
+**Notes:** Meaning of cfg+0x108 is not established.
+
+- Addresses by version: 12b: 0x08004898, 143: 0x0800488C, 152: 0x0800496C, 0160: 0x08004A0C
+- Called by: `mcu_0160_0800a320`
+- Calls: `__aeabi_ddiv`, `__ARM_scalbn`, `__aeabi_d2iz`, `__aeabi_f2d`
+- Confidence: medium
+
+## mcu_cfg_gain_10c_q15
+
+**Return cfg+0x10C times DAT_200003CC/5.3036 as a Q15 value**
+
+Converts the f32 value DAT_200003CC to a Q15 integer by dividing it by 5.3036 (the double constant 0x401538A6_13CD503A), done in soft-float double precision: widen with __aeabi_f2d, compute 1/(c/x), which equals x/c, scale by 2^15 and truncate through mcu_0160_0800187e (double to int, not yet described). It multiplies that integer by the 32-bit configuration word at cfg+0x10C, where cfg is the pointer at DAT_200000F8, and returns the product shifted right by 15. Its twin mcu_cfg_gain_108_q15 uses cfg+0x108. Callers include mcu_0160_0800a320, mcu_0160_08004944, mcu_0160_08004db8, mcu_0160_08004e78 and mcu_0160_08008a14.
+
+**Returns** `u32`: Q15 product of the configuration word and the scaled input
+
+**Notes:** The meaning of cfg+0x10C and of DAT_200003CC is not established. The divisor 5.3036 is read from the double constant.
+
+- Addresses by version: 12b: 0x08004844, 143: 0x08004838, 152: 0x08004918, 0160: 0x080049B8
+- Called by: `mcu_0160_08004944`, `mcu_0160_08004db8`, `mcu_0160_08004e78`, `mcu_0160_08008a14`, `mcu_0160_0800a320`
+- Calls: `__aeabi_ddiv`, `__ARM_scalbn`, `__aeabi_d2iz`, `__aeabi_f2d`
+- Confidence: medium
+
 ## mcu_cond_658_and_not_a9a
 
 **Return 1 if flag 0x20000658 is non-zero and flag 0x20000a9a is zero**
@@ -332,7 +395,7 @@ Boolean combiner of two RAM bytes: true when the configuration/enable byte DAT_2
 **Notes:** Semantics of the two flags unknown; assumed enable/inhibit.
 
 - Addresses by version: 12b: 0x0800497C, 143: 0x08004970, 152: 0x08004A5C, 0160: 0x08004AFC
-- Called by: `mcu_0160_08003f2c`, `mcu_0160_080047d0`
+- Called by: `mcu_0160_08003f2c`, `mcu_limit_668_or_default`
 - Confidence: medium
 
 ## mcu_copy_bytes
@@ -348,7 +411,7 @@ Copies param_3 bytes from param_1 to param_2 in ascending order, one byte per it
 | `param_3` | `u32` | number of bytes |
 
 - Addresses by version: 12b: 0x0800C958, 143: 0x0800CBC8, 152: 0x0800CC08, 0160: 0x0800CC68
-- Called by: `mcu_0160_08005edc`, `mcu_0160_0800665c`, `mcu_0160_08008e30`, `mcu_0160_08009f98`, `mcu_0160_0800b324`
+- Called by: `mcu_0160_08005edc`, `mcu_0160_0800665c`, `mcu_block_table_load_verified`, `mcu_0160_08009f98`, `mcu_0160_0800b324`
 - Confidence: high
 
 ## mcu_ctx_cfg_byte_set
@@ -366,7 +429,7 @@ Always sets bit 24 of the word at struct+0xA4 (a changed flag that this function
 **Notes:** Owning structure and field meanings are not visible in this packet. The bit 24 flag may be a dirty bit for a later apply step.
 
 - Addresses by version: 12b: 0x0800C648, 143: 0x0800C8A0, 152: 0x0800C8E0, 0160: 0x0800C940
-- Called by: `mcu_0160_08001f34`, `mcu_0160_0800abda`
+- Called by: `mcu_adc1_dma_init`, `mcu_dma_channel_start`
 - Confidence: medium
 
 ## mcu_ctx_clear_field_0x9c
@@ -382,7 +445,7 @@ Stores zero at param_1 + 0x9C. The field is read back by mcu_ctx_get_field_0x9c.
 **Notes:** Caller mcu_0160_080031cc is outside this packet.
 
 - Addresses by version: 12b: 0x08009550, 143: 0x080096EC, 152: 0x08009738, 0160: 0x080097AC
-- Called by: `mcu_0160_080031cc`
+- Called by: `mcu_speed_estimate_update`
 - Confidence: high
 
 ## mcu_ctx_flag4_is_clear
@@ -400,7 +463,7 @@ Boolean test of the mode byte at +0x04. The same byte is the flag that mcu_hall_
 **Notes:** Caller mcu_0160_08003130 is outside this packet.
 
 - Addresses by version: 12b: 0x08008E38, 143: 0x08008FD4, 152: 0x08009020, 0160: 0x08009094
-- Called by: `mcu_0160_08003130`
+- Called by: `mcu_main_ctx_flag4_clear`
 - Confidence: high
 
 ## mcu_ctx_get_field_0x44
@@ -454,7 +517,7 @@ Returns the 32-bit word at param_1 + 0x9C, the field cleared by mcu_ctx_clear_fi
 **Notes:** Caller mcu_0160_080031cc is outside this packet.
 
 - Addresses by version: 12b: 0x08009558, 143: 0x080096F4, 152: 0x08009740, 0160: 0x080097B4
-- Called by: `mcu_0160_080031cc`
+- Called by: `mcu_speed_estimate_update`
 - Confidence: high
 
 ## mcu_ctx_set_field_0x10
@@ -469,7 +532,7 @@ Plain setter: it writes param_2 to the 32-bit word at param_1 + 0x10. It is the 
 | `param_2` | `u32` | value to store at +0x10 |
 
 - Addresses by version: 12b: 0x0800CBA4, 143: 0x0800CE20, 152: 0x0800CE68, 0160: 0x0800CEC8
-- Called by: `mcu_0160_08006028`, `mcu_0160_08006624`, `mcu_0160_08007268`, `mcu_0160_08007df4`, `mcu_0160_080089cc`, `mcu_0160_08008aac`, `mcu_0160_0800a90c`
+- Called by: `mcu_0160_08006028`, `mcu_gpioc_pin10_follow_flag`, `mcu_hall_dispatch_pc12_output`, `mcu_0160_08007df4`, `mcu_status_drive_pb6_pc11`, `mcu_0160_08008aac`, `mcu_indicator_update`
 - Confidence: high
 
 ## mcu_ctx_set_field_0x14
@@ -484,7 +547,7 @@ Plain setter: it writes param_2 to the 32-bit word at param_1 + 0x14. It is the 
 | `param_2` | `u32` | value to store at +0x14 |
 
 - Addresses by version: 12b: 0x0800CBA0, 143: 0x0800CE1C, 152: 0x0800CE64, 0160: 0x0800CEC4
-- Called by: `mcu_0160_08006028`, `mcu_0160_08006624`, `mcu_0160_08007268`, `mcu_0160_08007df4`, `mcu_0160_080089cc`, `mcu_0160_08008aac`, `mcu_0160_0800a90c`
+- Called by: `mcu_0160_08006028`, `mcu_gpioc_pin10_follow_flag`, `mcu_hall_dispatch_pc12_output`, `mcu_0160_08007df4`, `mcu_status_drive_pb6_pc11`, `mcu_0160_08008aac`, `mcu_indicator_update`
 - Confidence: high
 
 ## mcu_edge_counter_force_high
@@ -500,7 +563,7 @@ Sets count (+0x00) to the reload value (+0x08), phase (+0x0d) to 1 and output (+
 **Returns** `u32`: always 1
 
 - Addresses by version: 12b: 0x0800981E, 143: 0x080099BA, 152: 0x08009A06, 0160: 0x08009A7A
-- Called by: `mcu_0160_08003784`, `mcu_0160_08003cc8`
+- Called by: `mcu_0160_08003784`, `mcu_limit_chan_cfg_high_seed`
 - Confidence: high
 
 ## mcu_edge_counter_init
@@ -519,7 +582,7 @@ Succeeds only if both limit (param_2) and reload (param_3) are non-zero. On succ
 **Returns** `u32`: 1 on success, 0 if limit or reload is zero
 
 - Addresses by version: 12b: 0x080097E4, 143: 0x08009980, 152: 0x080099CC, 0160: 0x08009A40
-- Called by: `mcu_0160_08003784`, `mcu_0160_08005c0c`, `mcu_0160_08008998`
+- Called by: `mcu_0160_08003784`, `mcu_0160_08005c0c`, `mcu_pulse_burst_decoder_init`
 - Confidence: high
 
 ## mcu_edge_counter_reset
@@ -535,7 +598,7 @@ Sets count (+0x00) to 0, phase (+0x0d) to 0 and output (+0x0f) to 0, then return
 **Returns** `u32`: always 1
 
 - Addresses by version: 12b: 0x08009812, 143: 0x080099AE, 152: 0x080099FA, 0160: 0x08009A6E
-- Called by: `mcu_0160_08003434`, `mcu_0160_08003608`, `mcu_0160_08003664`, `mcu_0160_08003a0c`
+- Called by: `mcu_edge_pos_track`, `mcu_limit_chan_init_mode6`, `mcu_limit_chan_update_c`, `mcu_limit_chan_cfg_d`
 - Confidence: high
 
 ## mcu_edge_counter_step
@@ -554,7 +617,7 @@ Steps a counter structure and returns one output bit. Layout: u32 count at +0x00
 **Notes:** The algorithm is clear from the code. The meaning of phase, mode and output in the motor control is a guess.
 
 - Addresses by version: 12b: 0x080096F8, 143: 0x08009894, 152: 0x080098E0, 0160: 0x08009954
-- Called by: `mcu_0160_08003434`, `mcu_0160_08003d2c`, `mcu_0160_08003f2c`, `mcu_0160_080051bc`, `mcu_0160_080052bc`, `mcu_0160_08005690`, `mcu_0160_080056e4`, `mcu_0160_08005a58`, `mcu_0160_08005b3c`, `mcu_0160_08006b70`, `mcu_0160_08008a14`, `mcu_0160_08008aac` ...
+- Called by: `mcu_edge_pos_track`, `mcu_0160_08003d2c`, `mcu_0160_08003f2c`, `mcu_digital_input_debounce`, `mcu_drive_state_update`, `mcu_a50_debounce_latch`, `mcu_run_enable_update`, `mcu_speed_mismatch_check`, `mcu_fault_monitor_update`, `mcu_pulse_burst_decode`, `mcu_0160_08008a14`, `mcu_0160_08008aac` ...
 - Confidence: medium
 
 ## mcu_empty_callback
@@ -567,6 +630,48 @@ A single return. It is used as a hook or placeholder and is called from mcu_0160
 - Called by: `mcu_0160_080065f0`
 - Confidence: high
 
+## mcu_fscale_mul_div_a
+
+**Return p1 * 1088.31 * p2 / p3 in soft-float single precision (tail call)**
+
+Multiplies param_1 by the single-precision constant 0x448809F1 (about 1088.31), multiplies by param_2, and divides by param_3, using the soft-float routines __aeabi_fmul and __aeabi_fdiv. The last call is a tail call, so the quotient is returned in r0 even though the decompile shows void. The body is identical to mcu_fscale_mul_div_b at 0x0800765C.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | IEEE-754 single bits |
+| `param_2` | `u32` | IEEE-754 single bits |
+| `param_3` | `u32` | IEEE-754 single bits |
+
+**Returns** `u32`: IEEE-754 single bits of p1 * 1088.31 * p2 / p3
+
+**Notes:** The purpose of the constant is not identified. Callers: mcu_0160_08004DB8 and mcu_0160_080078F0.
+
+- Addresses by version: 12b: 0x08007728, 143: 0x0800761C, 152: 0x08007694, 0160: 0x0800763C
+- Called by: `mcu_0160_08004db8`, `mcu_0160_080078f0`
+- Calls: `__aeabi_fmul`, `__aeabi_fdiv`
+- Confidence: medium
+
+## mcu_fscale_mul_div_b
+
+**Return p1 * 1088.31 * p2 / p3 (soft-float single), twin of mcu_fscale_mul_div_a**
+
+Same code as mcu_fscale_mul_div_a at 0x0800763C: multiplies param_1 by the constant 0x448809F1, multiplies by param_2, and divides by param_3 with __aeabi_fmul and __aeabi_fdiv. The final divide is a tail call that returns the quotient in r0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | IEEE-754 single bits |
+| `param_2` | `u32` | IEEE-754 single bits |
+| `param_3` | `u32` | IEEE-754 single bits |
+
+**Returns** `u32`: IEEE-754 single bits of p1 * 1088.31 * p2 / p3
+
+**Notes:** Two identical copies at adjacent addresses, probably one per channel or per build. Callers match mcu_fscale_mul_div_a.
+
+- Addresses by version: 12b: 0x08007748, 143: 0x0800763C, 152: 0x080076B4, 0160: 0x0800765C
+- Called by: `mcu_0160_08004db8`, `mcu_0160_080078f0`
+- Calls: `__aeabi_fmul`, `__aeabi_fdiv`
+- Confidence: medium
+
 ## mcu_get_cfg_field_0x28
 
 **Return the 32-bit field at offset 0x28 of the struct pointed to by DAT_200000f8**
@@ -578,7 +683,7 @@ DAT_200000f8 holds a pointer to a configuration/state structure; the function re
 **Notes:** Struct and field meaning unknown.
 
 - Addresses by version: 12b: 0x08004558, 143: 0x0800454C, 152: 0x0800462C, 0160: 0x080046CC
-- Called by: `mcu_0160_0800a320`, `mcu_0160_0800c6f0`
+- Called by: `mcu_0160_0800a320`, `mcu_telemetry_group_get`
 - Confidence: medium
 
 ## mcu_get_cfg_field_0x28_q15
@@ -592,7 +697,7 @@ Loads the word at *(DAT_200000f8 + 0x28), multiplies it by 0x8000 in 64 bits and
 **Notes:** Identity operation; the code is evidently generated from a fixed-point model.
 
 - Addresses by version: 12b: 0x08004564, 143: 0x08004558, 152: 0x08004638, 0160: 0x080046D8
-- Called by: `mcu_0160_08003f2c`, `mcu_0160_08004e78`, `mcu_0160_080052bc`, `mcu_0160_08005424`
+- Called by: `mcu_0160_08003f2c`, `mcu_0160_08004e78`, `mcu_drive_state_update`, `mcu_neg_limit_flag_update`
 - Confidence: medium
 
 ## mcu_get_field_0x0c_ashr_scale
@@ -608,7 +713,41 @@ Same pattern as the other scaled getters: returns *(s32 *)(struct + 0x0c) >> (s8
 **Returns** `s32`: field >> scale
 
 - Addresses by version: 12b: 0x0800A290, 143: 0x0800A4C4, 152: 0x0800A514, 0160: 0x0800A588
-- Called by: `mcu_0160_08003f2c`, `mcu_0160_0800a56c`, `mcu_0160_0800a570`
+- Called by: `mcu_0160_08003f2c`, `mcu_get_field_0x0c_ashr_scale_thunk1`, `mcu_get_field_0x0c_ashr_scale_thunk2`
+- Confidence: high
+
+## mcu_get_field_0x0c_ashr_scale_thunk1
+
+**Tail-call thunk to mcu_get_field_0x0c_ashr_scale**
+
+Single branch instruction that tail-calls mcu_0160_0800a588 (mcu_get_field_0x0c_ashr_scale). The target returns the signed 32-bit word at +0x0C of the object, arithmetic-shifted right by the signed count byte at +0x32. This entry is the thunk the caller mcu_0160_080039e0 uses; the decompiler shows the target's body here.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | object: s32 value at +0x0C, signed shift count byte at +0x32 |
+
+**Returns** `s32`: the value at +0x0C shifted right by the count at +0x32
+
+- Addresses by version: 152: 0x0800A4F8, 0160: 0x0800A56C
+- Called by: `mcu_b90_low_and_enabled`
+- Calls: `mcu_get_field_0x0c_ashr_scale`
+- Confidence: high
+
+## mcu_get_field_0x0c_ashr_scale_thunk2
+
+**Second tail-call thunk to mcu_get_field_0x0c_ashr_scale**
+
+Single branch instruction, the same shape as mcu_get_field_0x0c_ashr_scale_thunk1, that tail-calls mcu_0160_0800a588. It returns the signed 32-bit word at +0x0C arithmetic-shifted right by the signed count byte at +0x32. The caller here is mcu_0160_08003d2c.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | object: s32 value at +0x0C, signed shift count byte at +0x32 |
+
+**Returns** `s32`: the value at +0x0C shifted right by the count at +0x32
+
+- Addresses by version: 152: 0x0800A4FC, 0160: 0x0800A570
+- Called by: `mcu_0160_08003d2c`
+- Calls: `mcu_get_field_0x0c_ashr_scale`
 - Confidence: high
 
 ## mcu_get_field_0x10_ashr_scale
@@ -626,7 +765,7 @@ Returns *(s32 *)(struct + 0x10) >> (s8)(struct + 0x32), a sign-preserving shift 
 **Notes:** Which quantity is at +0x10 and its unit are not visible in this packet.
 
 - Addresses by version: 12b: 0x0800A278, 143: 0x0800A4AC
-- Called by: `mcu_0160_080039e0`, `mcu_143_080052ac`
+- Called by: `mcu_b90_low_and_enabled`, `mcu_143_080052ac`
 - Confidence: high
 
 ## mcu_get_field_0x18_ashr_scale
@@ -656,7 +795,7 @@ Dereferences the global pointer at 0x2000002C and returns the word at +0x64 of t
 **Notes:** The owning object and the meaning of the word are not established in this packet. Caller mcu_0160_0800c6f0.
 
 - Addresses by version: 152: 0x08009014, 0160: 0x08009088
-- Called by: `mcu_0160_0800c6f0`
+- Called by: `mcu_telemetry_group_get`
 - Confidence: medium
 
 ## mcu_get_param_654_q15
@@ -668,7 +807,7 @@ Zero-extends DAT_20000654 and shifts it left by 15, converting an integer config
 **Returns** `s32`: DAT_20000654 * 0x8000
 
 - Addresses by version: 12b: 0x08004970, 143: 0x08004964, 152: 0x08004A44, 0160: 0x08004AE4
-- Called by: `mcu_0160_08003f2c`, `mcu_0160_0800500c`, `mcu_0160_08005090`, `mcu_0160_080051bc`
+- Called by: `mcu_0160_08003f2c`, `mcu_0160_0800500c`, `mcu_fb_lpf_select_update`, `mcu_digital_input_debounce`
 - Confidence: high
 
 ## mcu_get_u16_field_0x34
@@ -714,7 +853,7 @@ Reads the 32-bit RAM variable at 0x2000034c and returns it shifted right by the 
 **Returns** `s32`: RAM word at 0x2000034c >> scale
 
 - Addresses by version: 152: 0x0800A500, 0160: 0x0800A574
-- Called by: `mcu_0160_08003f2c`, `mcu_0160_080052bc`
+- Called by: `mcu_0160_08003f2c`, `mcu_drive_state_update`
 - Confidence: high
 
 ## mcu_get_var_650
@@ -742,7 +881,7 @@ Returns DAT_2000067c unchanged. Only present in the 152 and 0160 builds; called 
 **Notes:** Meaning unknown.
 
 - Addresses by version: 152: 0x08004A50, 0160: 0x08004AF0
-- Called by: `mcu_0160_08005090`
+- Called by: `mcu_fb_lpf_select_update`
 - Confidence: high
 
 ## mcu_get_var_f60
@@ -756,7 +895,7 @@ Returns DAT_20000f60 unchanged (zero-extended 16-bit load). Called only from mcu
 **Notes:** Meaning of the variable unknown.
 
 - Addresses by version: 12b: 0x08002220, 143: 0x0800225C, 152: 0x080021E0, 0160: 0x080021FC
-- Called by: `mcu_0160_0800a90c`
+- Called by: `mcu_indicator_update`
 - Confidence: high
 
 ## mcu_get_word_at_0x6c
@@ -774,7 +913,7 @@ Returns *(u32 *)(struct + 0x6c) with no check. Same pattern as the other one-wor
 **Notes:** Field meaning is not visible from this function alone.
 
 - Addresses by version: 12b: 0x08009588, 143: 0x08009724, 152: 0x08009770, 0160: 0x080097E4
-- Called by: `mcu_0160_0800314c`
+- Called by: `mcu_position_outlier_reject`
 - Confidence: high
 
 ## mcu_get_word_at_0x90
@@ -826,6 +965,44 @@ Writes the u32 argument to struct+0x00, sets the byte at struct+0x04 to 1 and re
 - Called by: `mcu_0160_0800729c`
 - Confidence: medium
 
+## mcu_lpf_asym_update
+
+**Enable-gated Q30 low-pass with separate rising and falling coefficients**
+
+The input pointer is word 0 of the object and the filtered state is word 1. When the enable byte at +0x1E is set it filters the input with mcu_lpf_q30_step_alt. If the direction-select byte at +0x1C is zero it uses the coefficient in word 2 for all steps; otherwise it uses word 2 when the input is above the state and word 6 when it is not. When the enable byte is zero it copies the input into the state and returns it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | filter object: word 0 input pointer, word 1 state, word 2 coefficient, word 6 falling coefficient, +0x1C direction select, +0x1E enable |
+
+**Returns** `s32`: filtered state
+
+**Notes:** Same algorithm as the mode-0 path of mcu_lpf_or_step_tracker_update with different offsets. Callers: mcu_0160_08002B64, mcu_12b_08002A3C and mcu_12b_08002D0C.
+
+- Addresses by version: 12b: 0x080072B4, 143: 0x08007188, 152: 0x080071B8, 0160: 0x08007160
+- Called by: `mcu_speed_lpf_band_update`
+- Calls: `mcu_lpf_q30_step_alt`
+- Confidence: high
+
+## mcu_lpf_or_step_tracker_update
+
+**Update a tracked value: mode 0 asymmetric Q30 low-pass, mode 1 stepped tracker with wrap**
+
+The input is read through the pointer in word 0 of the object, and the state is word 1. When the enable byte at +0x22 is zero the input is copied to the state and returned. Mode 0 (byte +0x18 zero) low-passes the input with the Q30 coefficient at +0x08, or with the falling coefficient at +0x1C when the direction flag at +0x20 is set and the input is below the state. Mode 1 is a stepper: when the input is at least the threshold at +0x14 above the state the target is the state plus the step at +0x0C, and when it is at least the threshold below the state the target is the state minus the step, otherwise the target is the state. The target is low-passed toward the input with the coefficient at +0x08, then wrapped by one step (+0x0C) against the limit at +0x10. Any other mode returns 0 without changing the state.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | tracker object: word 0 input pointer, word 1 state, +0x08 coefficient, +0x0C step, +0x10 wrap limit, +0x14 threshold, +0x18 mode, +0x1C falling coefficient, +0x20 direction flag, +0x22 enable |
+
+**Returns** `s32`: updated state, or 0 for an unknown mode
+
+**Notes:** Mode 1 is a guess at a periodic or angle-tracking use: the step and wrap behaviour fits an angle or position unwrapper. Group with mcu_lpf_asym_update, which is the same filter without the stepper.
+
+- Addresses by version: 12b: 0x08007200, 143: 0x080070D4, 152: 0x08007104, 0160: 0x080070AC
+- Called by: `mcu_limit_target_b3c_update`, `mcu_0160_08007364`
+- Calls: `mcu_lpf_q30_step`
+- Confidence: medium
+
 ## mcu_math_sqrt_fixed
 
 **Fixed-point square root via CLZ normalisation, table seed and two Newton rsqrt steps**
@@ -842,7 +1019,7 @@ Returns in r0 roughly sqrt(param_1 * 2^17) (e.g. a Q15 input gives a Q16 result)
 **Notes:** Output scaling derived from the shift constants (+15); the 143/12b variant uses +2 instead.
 
 - Addresses by version: 12b: 0x08001CC0, 143: 0x08001CC0, 152: 0x08001CC0, 0160: 0x08001CDC
-- Called by: `mcu_0160_08005830`, `mcu_0160_08006f74`, `mcu_0160_08007364`
+- Called by: `mcu_0160_08005830`, `mcu_sqrt_limit_setup_float`, `mcu_0160_08007364`
 - Confidence: medium
 
 ## mcu_math_sqrt_fixed_v143
@@ -861,7 +1038,7 @@ Same algorithm as mcu_0160_08001cdc (CLZ normalise, table seed, two Newton rsqrt
 **Notes:** Scale derived from shift constants only.
 
 - Addresses by version: 12b: 0x08001D6C, 143: 0x08001D60
-- Called by: `mcu_143_0800a580`
+- Called by: `mcu_pos_tracker_update_v143`
 - Confidence: medium
 
 ## mcu_mode_bit1_inverted
@@ -938,7 +1115,7 @@ The ring is full when (DAT_20001B08 + 1) & 0x1F equals the read index DAT_20001B
 **Notes:** Only caller in this packet: mcu_0160_080032cc. Drops on full are not reported to the caller.
 
 - Addresses by version: 12b: 0x08008A3C, 143: 0x08008BD8, 152: 0x08008C18, 0160: 0x08008C8C
-- Called by: `mcu_0160_080032cc`
+- Called by: `CAN1_RX0_IRQHandler`
 - Confidence: high
 
 ## mcu_msg_ring2_count
@@ -952,7 +1129,7 @@ Returns (DAT_20001880 - DAT_20001884) mod 32 with the same logic as mcu_msg_ring
 **Notes:** Caller mcu_0160_08008bb4 is outside this packet.
 
 - Addresses by version: 12b: 0x08008B54, 143: 0x08008CF0, 152: 0x08008D30, 0160: 0x08008DA4
-- Called by: `mcu_0160_08008bb4`
+- Called by: `mcu_msg_ring2_tx_step`
 - Confidence: high
 
 ## mcu_msg_ring2_peek
@@ -968,7 +1145,7 @@ Ring 2 has the same layout as ring 1, with its records starting at 0x20001888 (s
 **Notes:** The advance of the read index is not in this function. Its caller mcu_0160_08008bb4 is outside this packet; if that caller does not advance DAT_20001884 the head record would be read repeatedly, so it is worth checking.
 
 - Addresses by version: 12b: 0x08008A08, 143: 0x08008BA4, 152: 0x08008BE4, 0160: 0x08008C58
-- Called by: `mcu_0160_08008bb4`
+- Called by: `mcu_msg_ring2_tx_step`
 - Confidence: high
 
 ## mcu_msg_ring2_push
@@ -984,7 +1161,7 @@ Same algorithm as mcu_msg_ring1_push on ring 2: write index DAT_20001880, read i
 **Notes:** Callers mcu_0160_0800bc70 and mcu_0160_0800c294 are outside this packet.
 
 - Addresses by version: 12b: 0x08008A94, 143: 0x08008C30, 152: 0x08008C70, 0160: 0x08008CE4
-- Called by: `mcu_0160_0800bc70`, `mcu_0160_0800c294`
+- Called by: `mcu_msg_ring2_enqueue_frames`, `mcu_can_frame_enqueue`
 - Confidence: high
 
 ## mcu_msg_rings_init
@@ -1006,7 +1183,7 @@ Sets the indices of ring 1 (DAT_20001B08 write, DAT_20001B0C read) to 0 and zero
 Single return instruction; a placeholder or optimised-out hook. Called from mcu_0160_08005090 (probably a call to a feature that is compiled out in this build). Present in the 143, 152 and 0160 builds.
 
 - Addresses by version: 143: 0x08004E68, 152: 0x08004F68, 0160: 0x08005008
-- Called by: `mcu_0160_08005090`
+- Called by: `mcu_fb_lpf_select_update`
 - Confidence: high
 
 ## mcu_nop_stub_v12b
@@ -1034,7 +1211,7 @@ Compare-and-clear on the 32-bit word at 0x200003BC: when it equals param_1 it is
 **Notes:** The guarded resource is not identified in this packet.
 
 - Addresses by version: 12b: 0x08005F14, 143: 0x08005DB8, 152: 0x08005E28, 0160: 0x08005EC8
-- Called by: `mcu_0160_080061fc`, `mcu_0160_08007dc8`
+- Called by: `mcu_fault_owner_arbitrate`, `mcu_cmd_state_clear`
 - Confidence: medium
 
 ## mcu_pair_table_find_or_alloc
@@ -1055,7 +1232,7 @@ Searches a table of 36-byte entries (base pointer at table+0x00, u16 count at ta
 **Notes:** Key meanings are unknown. The exclusion of reversed pairs suggests a bidirectional link table, but this is a guess.
 
 - Addresses by version: 12b: 0x0800B216, 143: 0x0800B4C6, 152: 0x0800B4CA, 0160: 0x0800B52A
-- Called by: `mcu_0160_0800d038`, `mcu_0160_0800d0b0`
+- Called by: `mcu_can_tp_rx_dispatch`, `mcu_can_tp_session_start`
 - Confidence: medium
 
 ## mcu_q15_div_sat
@@ -1074,7 +1251,7 @@ Returns a*2^15/b using sign-magnitude long division in steps: it pre-shifts |a| 
 **Notes:** Q15 scale is inferred from the constant 0xf (15) in the shift logic.
 
 - Addresses by version: 12b: 0x08001B84, 143: 0x08001B84, 152: 0x08001B84, 0160: 0x08001BA0
-- Called by: `mcu_0160_08002a64`, `mcu_0160_08002b64`, `mcu_0160_08003c78`, `mcu_0160_08003d2c`, `mcu_0160_08003f2c`, `mcu_0160_0800480c`, `mcu_0160_080055c4`, `mcu_0160_08005d3c`, `mcu_0160_08006c9c`, `mcu_0160_0800702c`, `mcu_0160_08007c08`, `mcu_0160_0800a594` ...
+- Called by: `mcu_ctrl_ramp_limit_update`, `mcu_speed_lpf_band_update`, `mcu_0160_08003c78`, `mcu_0160_08003d2c`, `mcu_0160_08003f2c`, `mcu_target_derate_calc`, `mcu_limit_target_b3c_update`, `mcu_ratio_gain_clamped_q15`, `mcu_dynamic_bound_clamp_update`, `mcu_scaled_ratio_clamp_q15`, `mcu_speed_range_setup_core`, `mcu_pos_tracker_init` ...
 - Confidence: medium
 
 ## mcu_q15_mul_sat
@@ -1093,7 +1270,7 @@ Computes the signed 64-bit product, shifts right by 15 with round-half-up (bit 1
 **Notes:** Q-format of the operands is inferred from the shift only.
 
 - Addresses by version: 12b: 0x08001C14, 143: 0x08001C14, 152: 0x08001C14, 0160: 0x08001C30
-- Called by: `mcu_0160_08001e5a`, `mcu_0160_08002b64`, `mcu_0160_0800480c`, `mcu_0160_080055c4`, `mcu_0160_08007c08`
+- Called by: `mcu_cascade_observer_step`, `mcu_speed_lpf_band_update`, `mcu_target_derate_calc`, `mcu_limit_target_b3c_update`, `mcu_speed_range_setup_core`
 - Confidence: medium
 
 ## mcu_q16_mul_round
@@ -1112,7 +1289,7 @@ Forms the signed 64-bit product of the two arguments and returns bits 16..47 of 
 **Notes:** Q-format of the operands is inferred from the shift only.
 
 - Addresses by version: 12b: 0x08001D50, 143: 0x08001410, 152: 0x08001410, 0160: 0x08001410
-- Called by: `mcu_0160_08009598`
+- Called by: `mcu_hall_position_update`
 - Confidence: medium
 
 ## mcu_q28_mul
@@ -1131,7 +1308,7 @@ Signed 64-bit product shifted right by 28 (low word >> 28 plus high word << 4), 
 **Notes:** Q-format inferred from the shift only.
 
 - Addresses by version: 12b: 0x08001D5C, 143: 0x08001D50
-- Called by: `mcu_143_0800a580`
+- Called by: `mcu_pos_tracker_update_v143`
 - Confidence: medium
 
 ## mcu_q30_div_sat
@@ -1150,8 +1327,27 @@ Same long-division scheme as mcu_0160_08001ba0 but producing 30 fractional bits 
 **Notes:** Q30 inferred from the 0x1e constants.
 
 - Addresses by version: 12b: 0x08001DD8, 143: 0x08001DCC, 152: 0x08001D50, 0160: 0x08001D6C
-- Called by: `mcu_0160_08009598`
+- Called by: `mcu_hall_position_update`
 - Confidence: medium
+
+## mcu_q30_lerp
+
+**Q30 blend of two values: a*t + b*(1 - t), with rounded products**
+
+Computes param_1 times t plus param_2 times (0x40000000 - t), where t is the Q30 weight in param_3, using mcu_q30_mul_round for both products. A weight of 0x40000000 gives the first argument and 0 gives the second, up to rounding. Its caller in this packet is mcu_0160_08009598.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | value a |
+| `param_2` | `s32` | value b |
+| `param_3` | `s32` | Q30 weight t |
+
+**Returns** `s32`: a*t + b*(1 - t), rounded
+
+- Addresses by version: 12b: 0x080071B0, 143: 0x08007084, 152: 0x080070B4, 0160: 0x0800705C
+- Called by: `mcu_hall_position_update`
+- Calls: `mcu_q30_mul_round`
+- Confidence: high
 
 ## mcu_q30_mul
 
@@ -1169,7 +1365,7 @@ Signed 64-bit product shifted right 30 bits (low word >> 30 plus high word * 4),
 **Notes:** Q-format inferred from the shift only.
 
 - Addresses by version: 12b: 0x08001E68, 143: 0x08001E5C, 152: 0x08001DE0, 0160: 0x08001DFC
-- Called by: `mcu_0160_08001e5a`, `mcu_0160_0800767c`
+- Called by: `mcu_cascade_observer_step`, `mcu_dq_power_estimate`
 - Confidence: medium
 
 ## mcu_q30_mul_round
@@ -1188,7 +1384,22 @@ Like mcu_0160_08001dfc but adds 1 when bit 29 of the low product word is set (ro
 **Notes:** Q-format inferred from the shift only.
 
 - Addresses by version: 12b: 0x08001E78, 143: 0x08001E6C, 152: 0x08001DF0, 0160: 0x08001E0C
-- Called by: `mcu_0160_08005240`, `mcu_0160_0800705c`, `mcu_0160_080093f8`, `mcu_0160_08009598`
+- Called by: `mcu_0160_08005240`, `mcu_q30_lerp`, `mcu_0160_080093f8`, `mcu_hall_position_update`
+- Confidence: medium
+
+## mcu_ratio_110_to_q15
+
+**Return the byte at 0x20001FD3 divided by 110 in Q15, saturated at 1.0**
+
+Converts the byte at 0x20001FD3 to a Q15 fraction of 110, computed as mcu_q15_div_sat of the value shifted left 15 by the constant 0x370000 (which is 110 << 15). Values of 110 and above return 0x8000 (full scale). A zero byte returns 0.
+
+**Returns** `s32`: Q15 value of byte/110, between 0 and 0x8000
+
+**Notes:** The meaning of the scale 110 is not visible in this packet.
+
+- Addresses by version: 12b: 0x0800C794, 143: 0x0800C9EC, 152: 0x0800CA2C, 0160: 0x0800CA8C
+- Called by: `mcu_0160_0800adde`
+- Calls: `mcu_q15_div_sat`
 - Confidence: medium
 
 ## mcu_read_be16
@@ -1204,7 +1415,7 @@ Returns (byte[0] << 8) | byte[1], the big-endian reading of the two bytes at par
 **Returns** `u16`: big-endian value
 
 - Addresses by version: 12b: 0x08006620, 143: 0x080064E8, 152: 0x08006518, 0160: 0x080065B8
-- Called by: `mcu_0160_0800a0f8`
+- Called by: `mcu_param_record_load`
 - Confidence: high
 
 ## mcu_read_le32
@@ -1220,7 +1431,7 @@ Assembles bytes 0..3 of the buffer into a 32-bit value in little-endian order, u
 **Returns** `u32`: little-endian 32-bit value
 
 - Addresses by version: 0160: 0x0800D6A0
-- Called by: `mcu_0160_0800d674`, `mcu_0160_0800d934`
+- Called by: `mcu_xtea_key_load`, `mcu_xtea_decrypt_block`
 - Confidence: high
 
 ## mcu_rec8_reset_defaults
@@ -1236,7 +1447,30 @@ Initialises an 8-byte record: the word at +0 becomes 0x0000FFFF, byte +4 is clea
 **Notes:** The caller mcu_0160_0800c058 is in another packet, so the record's role is inferred only from the default values.
 
 - Addresses by version: 12b: 0x0800CBA8, 143: 0x0800CE24, 152: 0x0800CE6C, 0160: 0x0800CECC
-- Called by: `mcu_0160_0800c058`
+- Called by: `mcu_gpioa_pin_cfg_init`
+- Confidence: medium
+
+## mcu_req_queue_submit
+
+**Queue a request into a 4-slot ring of 256-byte request slots when a slot is free and code is below 243**
+
+Four-slot request queue. The object has a busy byte at +0x00 used as a re-entrancy guard (a non-zero byte at +0x02 also refuses), a write index at +0x405 and a free-slot count at +0x406. When the guard is clear, param_4 is below 0xF3 and a slot is free, it calls mcu_0160_08006460 with the forwarded arguments and a pointer to the payload of the slot at 0x100*index + 8, stores the returned word in the slot header at +4, advances the write index modulo 4 and decrements the free count. Otherwise the request is dropped and the guard is cleared.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | queue object: guard +0x00, gate +0x02, write index +0x405, free count +0x406, slots of 0x100 bytes from +0x100 |
+| `param_2` | `u32` | forwarded to mcu_0160_08006460 |
+| `param_3` | `u32` | forwarded to mcu_0160_08006460 |
+| `param_4` | `u32` | request code, accepted when below 0xF3 |
+| `param_5` | `u32` | forwarded to mcu_0160_08006460 |
+| `param_6` | `u32` | forwarded to mcu_0160_08006460 |
+| `param_7` | `u32` | forwarded to mcu_0160_08006460 |
+
+**Notes:** The meaning of the 0xF3 limit and of the callee mcu_0160_08006460 are not visible in this packet.
+
+- Addresses by version: 12b: 0x0800AC0A, 143: 0x0800AE32, 152: 0x0800ACEE, 0160: 0x0800AD62
+- Called by: `mcu_0160_0800aa78`
+- Calls: `mcu_frame_build_5aa5_checksum`
 - Confidence: medium
 
 ## mcu_select_stack_local_fragment
@@ -1250,7 +1484,7 @@ Not a true function: the decompiler shows reads of in_stack_00000030, in_stack_0
 **Notes:** Outlined fragment sharing its caller's frame; do not treat as a standalone API.
 
 - Addresses by version: 143: 0x08002A80, 152: 0x08002A04, 0160: 0x08002A20
-- Called by: `mcu_0160_08002b64`
+- Called by: `mcu_speed_lpf_band_update`
 - Confidence: low
 
 ## mcu_set_byte_field_0x4c
@@ -1299,6 +1533,23 @@ Compares the byte at offset 0x18 of the source record (param_1) with the same by
 - Called by: `mcu_0160_08004e78`
 - Confidence: medium
 
+## mcu_sort_u16_exchange
+
+**In-place exchange sort of a u16 array, descending when flag is 0, ascending otherwise**
+
+Simple O(n^2) exchange sort of n halfword values in place. When the flag is 0 it swaps any pair where the earlier element is smaller, leaving the array in descending order; when the flag is nonzero it swaps where the later element is smaller, giving ascending order. Each swap goes through mcu_swap_u16. Used on five-sample windows for the temporal median in mcu_adc_dma_median5.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | u16 array base |
+| `param_2` | `u32` | element count n |
+| `param_3` | `s32` | order flag: 0 descending, nonzero ascending |
+
+- Addresses by version: 12b: 0x080028E4, 143: 0x08002920, 152: 0x080028A4, 0160: 0x080028C0
+- Called by: `mcu_adc_dma_median5`
+- Calls: `mcu_swap_u16`
+- Confidence: high
+
 ## mcu_store_inverted_mask_0x10
 
 **Store the bitwise complement of a word at struct+0x10**
@@ -1343,7 +1594,7 @@ Exchanges the halfwords at both pointers using a temporary variable. It is a gen
 | `param_2` | `ptr` | second u16 operand, read and overwritten |
 
 - Addresses by version: 12b: 0x0800C7CC, 143: 0x0800CA24, 152: 0x0800CA64, 0160: 0x0800CAC4
-- Called by: `mcu_0160_080028c0`
+- Called by: `mcu_sort_u16_exchange`
 - Confidence: high
 
 ## mcu_take_pending_200003ba
@@ -1353,7 +1604,7 @@ Exchanges the halfwords at both pointers using a temporary variable. It is a gen
 Copies the byte at 0x200003BA into 0x200003BB and then zeroes 0x200003BA. This is a snapshot-and-clear: a counter or event flag accumulates in 0x200003BA elsewhere, and the consumer reads the last period's value from 0x200003BB. The variable 0x200003B8 is also address-taken in the wider program but is not touched here. Called from mcu_0160_080085bc.
 
 - Addresses by version: 143: 0x08006494, 152: 0x080064C4, 0160: 0x08006564
-- Called by: `mcu_0160_080085bc`
+- Called by: `mcu_can_rx_command_dispatch`
 - Confidence: medium
 
 ## mcu_test_mask_0x10
@@ -1386,7 +1637,7 @@ Writes the low byte of the argument into the RAM byte at 0x200003bc when the arg
 **Notes:** Meaning of the RAM byte 0x200003bc is not visible in this packet.
 
 - Addresses by version: 12b: 0x08009FD4, 143: 0x0800A184, 152: 0x0800A1D0, 0160: 0x0800A244
-- Called by: `mcu_0160_080061fc`, `mcu_0160_0800b324`, `mcu_0160_0800d548`
+- Called by: `mcu_fault_owner_arbitrate`, `mcu_0160_0800b324`, `mcu_0160_0800d548`
 - Confidence: high
 
 ## mcu_u16_table_bsearch_desc
@@ -1404,7 +1655,7 @@ Bisects a table of n u16 entries (n = param_1 masked to 16 bits) for the positio
 **Notes:** Which register holds the result, and what the table represents, could not be determined from this packet.
 
 - Addresses by version: 12b: 0x0800A774, 143: 0x0800A9A8, 152: 0x0800A864, 0160: 0x0800A8D8
-- Called by: `mcu_0160_0800209c`, `mcu_0160_08002148`
+- Called by: `mcu_speed_from_period_min`, `mcu_speed_from_max_u12`
 - Confidence: medium
 
 ## mcu_write_le32
@@ -1419,8 +1670,23 @@ Writes the 32-bit value into four consecutive bytes at the destination, least si
 | `param_2` | `ptr` | destination, at least four bytes |
 
 - Addresses by version: 0160: 0x0800D924
-- Called by: `mcu_0160_0800d934`
+- Called by: `mcu_xtea_decrypt_block`
 - Confidence: high
+
+## mcu_xfer_queue_init
+
+**Arm five 300-byte transfer requests and publish the table when the control pointers are set**
+
+Arms five transfer request objects of 0x24 bytes starting at 0x2000212C, each with a 300-byte buffer starting at 0x200021E0, through mcu_xfer_request_arm with a repeat count of 1 and user argument 0. If the pointers at 0x200006F0 and 0x200006FC are both non-zero it stores the table in the globals 0x200027BC (base), 0x200027C0 (count 5) and 0x200027C4 (address of the 0x200006F0 control block) and returns 1; otherwise it returns 0 and publishes nothing.
+
+**Returns** `bool`: 1 when the table was published, 0 otherwise
+
+**Notes:** The owner of the control block at 0x200006F0 is not visible in this packet.
+
+- Addresses by version: 12b: 0x0800C9FC, 143: 0x0800CC78, 152: 0x0800CCB8, 0160: 0x0800CD18
+- Called by: `mcu_0160_0800d548`
+- Calls: `mcu_xfer_request_arm`
+- Confidence: medium
 
 ## mcu_xfer_request_arm
 
@@ -1441,5 +1707,5 @@ Returns 0 unless the request object, the count and the buffer are all non-zero. 
 **Notes:** The request object's role is not visible here, so the field names are the code's offsets only.
 
 - Addresses by version: 12b: 0x0800CDC4, 143: 0x0800D040, 152: 0x0800D088, 0160: 0x0800D0E8
-- Called by: `mcu_0160_0800cd18`
+- Called by: `mcu_xfer_queue_init`
 - Confidence: medium

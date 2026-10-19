@@ -1,0 +1,555 @@
+{
+  "ble_219_0c028570": {
+    "name": "Reset_Handler",
+    "summary": "Reset entry: set up the stack, clear .bss, copy .data from flash, run init, then spin",
+    "description": "Reset vector of the BLE image. It calls startup_init_main_stack (mask IRQs, set MSP and MSPLIM, select thread mode), ble_219_0c045a34 (undescribed here) and startup_empty_hook. It zeroes 0x14B2C bytes of RAM from 0x20004A18 with memset (the .bss) and copies 0xC8C bytes of initialised data from flash 0x0C0899D8 to RAM 0x20003D88 with memcpy (the .data). It then calls ble_219_0c045aac (empty), ble_219_0c047fec (undescribed here, it leads to the application task setup) and ble_219_0c070204 (undescribed, presumably starts the RTOS scheduler). The final infinite loop is reached only if ble_219_0c070204 returns.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "does not return in normal operation"
+    },
+    "confidence": "high",
+    "notes": "Sizes and addresses are literal arguments of the memset and memcpy calls. The role of ble_219_0c070204 and ble_219_0c045a34 is inferred from position only."
+  },
+  "ble_219_0c0285ec": {
+    "name": "nb_upgrade_process_cmd",
+    "summary": "Dispatch an NB firmware-upgrade frame: iap begin (7), data (8), verify (9), reboot (10)",
+    "description": "Handles one parsed upgrade frame: byte +5 is the command, byte +2 the payload length, byte +6 the packet index and +8 the payload pointer. Command 7 (iap begin, payload length above 3) latches the image size from the first payload word, stores the header fields, reads the 40-byte upgrade block at 0x2000F38C (ble_app_block40_f38c_read) and starts the session through ble_219_0c0369d8. Command 9 passes the first payload word to ble_219_0c037588 and command 10 logs 'upgrade system reboot' and calls ble_219_0c041d28. Command 8 is the data path, valid only in upgrade state 1 or 2: it checks the payload against the total size DAT_2000BC28 and the flash block size, applies a sequence check (a repeated index retransmits the previous ack, a gap is an error) and on the first call validates the 48-byte image header. The header tag selects the mode: tag -0x56 (0xAA) is plain, -0x4456 (0xBBAA) is fixed-key and -0x334456 (0xCCBBAA) is per-device-key. The header is tested as plaintext first, then TEA-CBC decrypted (crypto_tea_cbc_decrypt) with the fixed 128-bit key 0xB21C80FE 0xA641EFD1 0xF53117A4 0xF02468A0 and then with the key at 0x2000BCB9, each time re-validated. In encrypted modes every block is decrypted before it is written, a running byte sum (DAT_2000BC38) is complemented at the end, progress percentages are logged, and a 0x70-byte packet-info record is saved to the pflash handle DAT_2000BAF8 at checkpoints. The status callback at DAT_2000BCCC is called with codes 0 ack, 1 already transferred, 3 decrypt error, 5 index error, 7 data error and 9 not started.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "parsed upgrade frame: +2 payload length, +5 command, +6 packet index, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "bytes accepted for command 8, 0 for other commands, or a negative error code (-0x47, -0x16, -0x8, -0x13)"
+    },
+    "confidence": "medium",
+    "notes": "Large state machine over globals DAT_2000BCxx and DAT_2000BBxx. Decompiler type propagation did not settle, so some field widths are guesses. Undescribed helpers: ble_219_0c0365a4 (header plaintext test), ble_219_0c036418 (TEA-CBC), ble_219_0c0366e4, ble_219_0c0369d8, ble_219_0c037588, ble_219_0c047e70 (running state at 0x2000BC3C) and the pflash seek/read/write helpers at 0x0C071A80, 0x0C071ABC and 0x0C071AD0. The 0x0C0286A4 handler stored at 0x20004BC4 is not analysed here. The meaning of the 0x70-byte record fields is inferred."
+  },
+  "ble_219_0c0286e0": {
+    "name": "ble_init_cfg_ptr_store",
+    "summary": "Init step: run ble_219_0c037a2c on the .data base, then store a flash config pointer",
+    "description": "Calls ble_219_0c037a2c (undescribed here) with the .data base address 0x20003D88 and then calls ble_set_var_2000f64c with the address of the flash constant at 0x0C076FD8. As a result the global at 0x2000F64C holds the address of that constant table. It is called from ble_219_0c047fec during startup and returns nothing.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The purpose of the table at 0x0C076FD8 and of ble_219_0c037a2c is not established in this packet."
+  },
+  "ble_219_0c0287ac": {
+    "name": "btapp_btle_connect_status_change",
+    "summary": "BT and BLE connection status handler: sets or clears link bits and notifies the VCU",
+    "description": "Logs 'btapp_btle_connect_status_change' with the status code. Status 1 sets bit 3 (0x08) and status 2 clears it in the state word at +0x3C, logging 'scooter bt connected' or 'disconnected', then returns without sending anything. Status 3 sets bit 0 (BLE connected) and status 4 clears it; on status 4, if bit 0 of DAT_20008F6E is set and DAT_20008F6F is zero, a pending re-send state is started (DAT_20008F6F = 1, DAT_200091C6 = 2). For BLE status 3 or 4 it sends a 0x7A notification to the VCU through uart_bridge_send_frame with the connected flag, delays 5 ticks, and re-arms the link-status timer at 0x20009254 with period 5 and handler 0x0C028AD5 (ble_link_status_notify_tick).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "connection status: 1 BT connected, 2 BT disconnected, 3 BLE connected, 4 BLE disconnected; other values are ignored"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Registered as callback index 0 by ble_app_init_callbacks_nv and ble_app_main_init."
+  },
+  "ble_219_0c0288dc": {
+    "name": "ble_speed_limit_code_check",
+    "summary": "Check received bytes for the speed-limit removal token and acknowledge it with frame 0x82",
+    "description": "Installed as the RX hook at DAT_200091E4 by ble_app_main_init, so it runs on received data. It does nothing when bit 1 of the u16 at state+0x38 is set. If the u16 at state+0x3A is zero it searches the buffer (util_find_str_in_buf) for the fixed 10-character token 'pWEwvenFz9'. Otherwise it derives a 10-byte token from that u16: byte 0 is the low byte plus 0x48, followed by seven bytes from the high byte plus the constants 0x45, 0x91, 0xE0, 0x37, 0x8E, 0xDD, 0x2F, and then two more bytes (high byte plus 0x7B and high byte minus 0x41), the token being NUL terminated. When the token is found it sends frame 0x82 with the payload 0x02 to the VCU through uart_bridge_send_frame and logs 'REMOVE LIMIT SPD CODE SEND'. The non-zero branch also logs the derived token and the received bytes in hex.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received buffer, searched for the token"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "length of the received buffer in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The token derivation is read directly from the arithmetic. What the token protects (the speed limiter, its challenge) is inferred from the log strings only."
+  },
+  "ble_219_0c028a08": {
+    "name": "btle_connect_status_change",
+    "summary": "Log a BTLE connection status change and run the disconnect step on status 4",
+    "description": "Logs 'btle_connect_status_change, status = ...' with the status byte. Only status 4 (disconnect) acts, by calling ble_219_0c02bdd0 (undescribed here); other statuses return. It is registered as callback index 2 with ble_set_indexed_word_1307c.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "BTLE connection status code"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Uses the same disconnect code 4 as btapp_btle_connect_status_change."
+  },
+  "ble_219_0c028ad4": {
+    "name": "ble_link_status_notify_tick",
+    "summary": "Timer step that re-sends the BLE link state to the VCU up to three times",
+    "description": "Logs 'ble_link_status is %d' and, while the counter DAT_20008AE8 is below 3 and the stop flag DAT_20008F74 is zero, sends a 0x7A notification to the VCU through uart_bridge_send_frame with no payload, the value being bit 0 of the state word at +0x3C (1 when BLE is connected). It then increments the counter and re-arms the timer at 0x20009254 with this same handler and period 5. Otherwise it clears the counter and the stop flag, which ends the sequence. It is armed by btapp_btle_connect_status_change for both connect and disconnect.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "ble_host_timer_restart only takes effect when the BTstack env state byte is 2, so the re-arm is conditional."
+  },
+  "ble_219_0c028b50": {
+    "name": "btapp_btle_connect_status_change_enhance",
+    "summary": "Enhanced BT connection status handler: on disconnect, passes link flags to ble_219_0c058a94",
+    "description": "Logs 'btapp_btle_connect_status_change_enhance' with the status and stack_reason. Only status 4 (disconnect) acts: it fetches the shared state object with ble_get_state_ptr_42f8, reads the byte at +0x2C (set by ble_rx_data_handler when the RX state is 1) and the byte at +0x26 (the disconnect-request flag, set in the RX decrypt-failure path), and calls ble_219_0c058a94 with the RX state DAT_200092EC, those two bytes and stack_reason.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "BTLE connection status code, 4 means disconnect"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "stack_reason code, logged and passed through"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "ble_219_0c058a94 is undescribed here, so the effect of the call is unknown."
+  },
+  "ble_219_0c028bf0": {
+    "name": "ble_recv_rate_test_report",
+    "summary": "Send the receive-rate test report frame with the RX count and byte total, then reset them",
+    "description": "Builds a 19-byte frame: 5A A5 0A, the source and destination bytes of the incoming frame (swapped), 0xFE 0x03, the 32-bit rx_total_count from 0x20008F5C and rx_bytes from 0x20008F60 (little-endian), and four zero bytes. It queues the frame with ble_msg_enqueue as type 3 and length 0x13, logs 'recv rate test finisged', and clears the statistics block 0x20008F50 to 0x20008F60 used by the rate-test receiver. It is called from ble_rx_data_handler when a 0xFE 0x03 frame arrives.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received frame, bytes 3 and 4 give the addresses to echo"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The counters are incremented by app_ble_cmd_fe_rx_stats_update (FE 02 frames) and by ble_recv_rate_test_start."
+  },
+  "ble_219_0c028c94": {
+    "name": "ble_app_poll_tick",
+    "summary": "500 ms app poll: VCU wake retries, NV save, power-off countdown, 15-minute battery poll",
+    "description": "Callback of the 500 ms auto-reload software timer 'app poll timer' created by ble_app_main_init. It increments the tick counter DAT_200091E0 on every call. It sends VCU command 0x1C with payload 2 up to three times (counter DAT_200092D0). When DAT_20008F7B is set it runs ble_219_0c05a91c(1, 0), clears the header fields of the 0x20008FE4 block and 0x33 bytes at 0x20008FF5, writes 0x1DA bytes of the block to NV with ble_nv_write_block_1c5, and clears the flag. On even ticks, while DAT_20009280 is zero, it sends command 0x10 with payload 0x0E, waits 5 ticks with vTaskDelay, and sends 0x1C again. When DAT_20008F73 is set it runs the VCU power-off step (log 'vcu power off', command 0x1C, timer 0x20009254 re-armed) using DAT_20003E1C as a countdown. When ble_status_bits_get is non-zero and the tick counter is in 0x707 to 0x709 it sends command 0x55 with payload 2 to ask for the battery level; 0x707 to 0x709 is 1800 ticks, which is 15 minutes at 500 ms, and the counter wraps at 0x709. Every tick it drives the GPIO with app_gpio_dev_ioctl(0x500, BLE connected bit). Finally, when DAT_20008F7A is set it polls the unlock state for three ticks and sends command 0x7B with payload 1 ('open unlock state') or 0 ('dis-open unlock state').",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 500 ms period and 1800-tick cycle come from the timer creation and the tick constants. The meaning of VCU commands 0x1C, 0x10, 0x55 and 0x7B is inferred from their payloads and log messages."
+  },
+  "ble_219_0c029230": {
+    "name": "ble_findmy_ring_status_notify",
+    "summary": "Send the Find My ring status (0 or 1) to the VCU twice, 5 ticks apart",
+    "description": "Logs 'findmy ring status is %d'. Only the values 0 and 1 are sent: the status goes in the first byte of a 2-byte payload (second byte 0) with command 0x86 and header byte 3 set to 3, through uart_bridge_send_frame. It then waits 5 ticks with vTaskDelay and sends the identical frame again so the VCU receives it twice. Other values are logged and ignored.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "ring status, 0 or 1 is sent"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Callers are ble_219_0c05376c, ble_219_0c0537b4, ble_219_0c055b90 and ble_219_0c05d018."
+  },
+  "ble_219_0c029284": {
+    "name": "ble_unlock_auth_cb",
+    "summary": "Unlock auth callback: send a folded 16-bit token to the VCU, then wait for the auth event",
+    "description": "Logs 'unlock_auth_cb' and sends VCU command 0x78 with a 2-byte payload that is DAT_200091C0 folded to 16 bits (low half plus high half). It then takes the event object at 0x20008F94 with xQueueSemaphoreTake, up to three attempts of 10 ticks each. On success it sets DAT_20008F79 to 1 and releases the object again with a zero-timeout xQueueGenericSend. If no event arrives in three attempts it returns without setting the flag. DAT_200091C0 is the CRC-32 computed by bt_app_set_name_and_advdata.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The event is signalled by ble_signal_event_8f94 (ble_219_0c02a478), presumably from the VCU reply path. Called from ble_unlock_request_start."
+  },
+  "ble_219_0c0292f0": {
+    "name": "ble_device_name_setup",
+    "summary": "Set the BLE advertising name from the serial number and a per-model name template",
+    "description": "Reads the 16-byte vehicle serial number from app block 0x2000F3B8 (ble_app_block16_f3b8_read) and logs it. If its first word is 0xFFFFFFFF or 0 it uses the default '1K1E9999999999' and writes that back with ble_219_0c045fd4 (undescribed). It stores 15 serial bytes into the link table at offset 0x18 (ble_link_table_write_at18). It then builds the name from one of four templates chosen by param_1: 1 and 3 copy 0x18 bytes from flash tables at 0x0C077724 and 0x0C077738; 2 uses an inline binary prefix followed by the text 'way E-bi' and 'ke'; any other value uses an inline 0x16-byte template. Four serial-derived bytes are placed at the end of the name (offset 0x11 to 0x13 depending on the template). The name is logged as bt_app_set_name and written to the link table at offset 0 with ble_link_table_write_at0.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "name template selector: 1, 2, 3, or any other value for the default template"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The flash templates at 0x0C077724 and 0x0C077738 and the binary prefix bytes are not decoded. The exact offsets of the serial-derived bytes are read from the decompile and may be off by one."
+  },
+  "ble_219_0c029414": {
+    "name": "bt_app_set_name_and_advdata",
+    "summary": "Pick the vendor adv-data entry for the serial number, set the 8-byte identity and CRC-32",
+    "description": "Reads the 16-byte serial number with ble_app_block16_f3b8_read, using the same '1K1E9999999999' fallback as ble_device_name_setup. It then searches the flash table at 0x0C080DD4 (13-byte entries: index byte, 4-byte prefix, 8-byte identity; the count is DAT_20003E1D) with memcmp, comparing 3 or 4 prefix bytes depending on the fourth prefix byte. On a match it logs the advertising payload and copies the 8-byte identity into 0x200042E0 with ble_nb_block_copy_in. If nothing matches it searches the RAM copy at 0x20009028 (up to 30 entries) the same way, but only for entries whose first two identity bytes are 'N' and 'B' or 'N' and 'C'. The matched entry's index byte, if non-zero, is passed to ble_device_name_setup. Finally DAT_200091C0 is set to the CRC-32 of serial bytes 2 to 13 with the non-standard polynomial 0x4E494E45 (crc32_compute_poly). If no entry matches it only logs 'vendor adv data is null'.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The DAT_200091C0 value is consumed by ble_unlock_auth_cb. The table layout is read from the stride of 13 and the offsets used in the log format."
+  },
+  "ble_219_0c0295e0": {
+    "name": "ble_nv_identity_init",
+    "summary": "Validate the NV identity records (PPID, model name, category flag) and write defaults if bad",
+    "description": "Loads the 8-byte PPID record from NV 0xFA8, the 16-byte device name from NV 0xFA6 and the category flag from NV 0xFA7 (ble_nv_load_8byte_block, ble_nv_load_device_name, ble_nv_load_flag_byte). A PPID whose first word is 0xFFFFFFFF or 0 is logged as 'ppid err', a name with the same first-word test is logged as 'model name err', and a flag outside 0x86 and 0x87 is logged as 'category name err'. If all three are valid the function returns without writing. Otherwise it writes the defaults: device name 'KickScooter' padded to 16 bytes (ble_nv_store_device_name), the 8-byte identity DC D4 64 E9 BC CE 4E 89 (ble_nv_store_8byte_block), and the flag 0x87 (ble_nv_store_flag_byte).",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The record IDs come from the callee summaries. The default name string is the literal 'KickScooter' in the decompile. Called from ble_app_main_init."
+  },
+  "ble_219_0c0296c4": {
+    "name": "ble_get_bluetooth_pn",
+    "summary": "Read the 14-character Bluetooth part number from app block 0x2000F3B8 and store it as the serial",
+    "description": "Reads 14 bytes from app block 0x2000F3B8 into offset 2 of a 16-byte buffer (ble_app_block16_f3b8_read). Each byte must be a digit or an upper-case letter other than I and O. On success the first two bytes are set to 'N' and 'B' (0x4E 0x42), the 16-byte result is stored as the vehicle serial number with ble_crypto_set_serial_number, and the function returns 0. A bad byte or a failed read logs 'get_bluetooth_pn err.' and returns 1.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the part number is missing or malformed"
+    },
+    "confidence": "high",
+    "notes": "The 'NB' prefix is written as a constant. Called from ble_app_main_init."
+  },
+  "ble_219_0c02973c": {
+    "name": "ble_app_init_callbacks_nv",
+    "summary": "Early app init: register BLE callbacks, trim the link table, load the NV block and set the name",
+    "description": "Registers the stack hooks: the pre-check hook at 0x0C028A78 with ble_cb_slot_14608_set, mode 14 with ble_set_mode_14_or_16, the RX handler 0x0C029DF9 (ble_rx_data_handler) with ble_cb_slot_15e5c_set, the connect status callbacks at indexes 2 and 0 (btle_connect_status_change, btapp_btle_connect_status_change) and the enhanced connect-status callback 0x0C028B51. It then trims the link table from NV (ble_link_table_nv_load_trim), reads the 512-byte NV block at offset 0x1C5 into 0x20008D50 (ble_nv_read_block_1c5) and copies its first 0x1DA bytes to 0x20008FE4. It sets the advertising name with bt_app_set_name_and_advdata, runs ble_219_0c0592a4(2) and ble_219_0c02bdd0 (both undescribed here), and calls app_set_default_cfg_ptr.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The callers of this function are not in this packet. Its callback set is a subset of the one in ble_app_main_init."
+  },
+  "ble_219_0c0297b0": {
+    "name": "ble_app_main_init",
+    "summary": "Main BLE app init: identity, callbacks, default FMNA token, NV block, and the 500 ms app poll timer",
+    "description": "Runs the full application init in order. It writes the 0x19 0x02 header with app_fill_hdr_19_02, calls ble_219_0c055610(0x108) (undescribed), then ble_nv_identity_init, ble_get_bluetooth_pn, mode 14, ble_device_info_init and the RX handler. It registers the connect status callbacks and several more hooks (0x0C02913C, 0x0C028F80, 0x0C028EAC, 0x0C028FE4, 0x0C029068, 0x0C028A64), sets the speed-limit RX hook DAT_200091E4 to 0x0C0288DD, and stores two more callbacks at DAT_200091D8 and DAT_200091DC. It logs 'set_fmna_default_token' and copies the 0xD2-byte default Find My token from flash 0x0C0822C0. It then reads and copies the NV block as in ble_app_init_callbacks_nv, sets the advertising name, signals the event object at 0x20008F94 (ble_signal_event_8f94), and sets DAT_20008F6C and DAT_20008F84 when the status returned by ble_219_0c046884 is 1 or 3. Last it creates the 'app poll timer' (FreeRTOS software timer, 500 ms, auto-reload, handler 0x0C028C95 = ble_app_poll_tick) and starts it.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The undescribed callbacks at 0x0C02913C, 0x0C028F80, 0x0C028EAC, 0x0C028FE4, 0x0C029068 and 0x0C028A64 are only listed, not analysed. The FreeRTOS timer creation call is shown as FUN_0c044c7c and is presumed to be xTimerCreate."
+  },
+  "ble_219_0c029960": {
+    "name": "bts_op_cmd_handle",
+    "summary": "Dispatch a phone BT operation command by index and send the reply to the app",
+    "description": "Logs 'bts_op_cmd_handle, index = ...' and switches on the index byte at +4 of the command, using the bytes at +5 and +6 as arguments. Index 1 selects a link with ble_conn_select_link_and_fill_info, sets bit 0 of DAT_200092D4 to the link's enable bit and replies with the enable value. Index 2 replies with a one-byte link state from ble_219_0c05a608 and, when the byte at +6 is zero and the u16 at state+4 is non-zero, sends a 0x7D status with 0x1000 OR-ed into that u16. Index 3 runs ble_219_0c05a7ac and acknowledges. Index 4 (link index below 6) stores the value at +5 into the link entry at +3, saves the link table (ble_link_table_save) and refreshes the event thresholds (ble_event_thresholds_refresh_from_link). Index 5 replies with the link's RSSI level, default 3. Indexes 0x0C and 0x0D write and read the link enable flag at +0xB, and writing saves the table. Index 0x10 calls ble_219_0c0593a4 and replies. Replies are sent with ble_219_0c02c338, which the logs name bts_send_packet_to_app.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "command frame: +4 index, +5 link or argument byte, +6 flag byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The reply header words (0x6F3E0401, 0x6F3E0400, 0x6F3E040E) are constants whose first byte is the result or status. Undescribed helpers: ble_219_0c05a608, ble_219_0c05a7ac, ble_219_0c0593a4, ble_219_0c02c338."
+  },
+  "ble_219_0c029c18": {
+    "name": "ble_recv_rate_test_start",
+    "summary": "Parse a rate-test start frame (FE 00), send an acknowledgement and reset the RX counters",
+    "description": "Accepts a frame that starts 5A A5, has 0xFE at byte 5 and 0x00 at byte 6; other frames return 0. The 16-bit response count from bytes 7 and 8 is stored in *param_2, and the function logs 'start recv : got resp count[%d]'. It queues an 8-byte acknowledgement 5A A5 01 src dst FE 00 01 through ble_msg_enqueue as type 3, clears the receive statistics 0x20008F50 to 0x20008F60, and returns 1. The caller then sets DAT_20008F50 to 1 to mark the test as running.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received frame"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u16",
+        "description": "output: expected response count"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the frame was a start frame, 0 otherwise"
+    },
+    "confidence": "high",
+    "notes": "Source and destination bytes in the acknowledgement are taken from bytes 4 and 3 of the input, swapped."
+  },
+  "ble_219_0c029d8c": {
+    "name": "ble_rate_test_cmd04_forward",
+    "summary": "Re-frame a rate-test FE 04 frame (six payload bytes) and queue it with ble_msg_enqueue",
+    "description": "Accepts frames with 0xFE at byte 5 and 0x04 at byte 6. It copies payload bytes 7 to 12 and builds a 13-byte frame 5A A5 06 src dst FE 04 followed by those six bytes, with src and dst taken from bytes 4 and 3 of the input (swapped). The frame is queued with ble_msg_enqueue as type 3 and length 0xD, and the function returns 1. Frames that do not match return 0 so the caller can try the next sub-command parser.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received frame"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the frame was an FE 04 frame and was queued, 0 otherwise"
+    },
+    "confidence": "high",
+    "notes": "The meaning of the six payload bytes is not established."
+  },
+  "ble_219_0c029df8": {
+    "name": "ble_rx_data_handler",
+    "summary": "BLE receive dispatcher: link events (type 2), data frames (type 3) and rate-test sub-commands",
+    "description": "Registered as the RX callback with ble_cb_slot_15e5c_set. It always calls the empty hook ble_219_0c0291fc first. For event type 2 (link event) it stores the tick count at state+0x28, sets state+0x2C when the RX state DAT_200092EC is 1, selects one of several RX buffers (0x20009404, 0x20009450, 0x200093F4) by state, and calls ble_219_0c0496a8 to decrypt or parse the data into 0x200092F0. For event type 3 (data) it first recognises the rate-test frames: the six bytes 5A 5B 5C 5A 5B 5C start the test (ble_219_0c05cfe0 with 1), FE 04 is forwarded by ble_rate_test_cmd04_forward, FE 00 starts the test with ble_recv_rate_test_start, and FE 03 reports results with ble_recv_rate_test_report. app_ble_cmd_fe_rx_stats_update counts FE 02 frames. Other data is parsed by state: state 3 (autokey wait) hands the frame to ble_219_0c02be44, and states 2 and 4 (encrypted session) count decrypt failures, disconnecting the ACL link after two in a row with the log 'decrypto error, disconnect ble acl'. A successful parse goes to ble_219_0c02c1e8 and then to the speed-limit hook at DAT_200091E4.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "event type: 2 link event, 3 data frame, other values are only passed to the hooks"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "data length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "data pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of RX states 1, 2, 3 and 4 is inferred from how the code uses them. Undescribed: ble_219_0c0496a8 (parser or decrypt), ble_219_0c02be44, ble_219_0c02bf20, ble_219_0c02c1e8, ble_219_0c0569a0, ble_219_0c05cfe0."
+  },
+  "ble_219_0c02a35c": {
+    "name": "ble_vcu_wakeup_retry",
+    "summary": "Timer step that re-sends a VCU wake request up to three times while the VCU is in low power",
+    "description": "When the retry count at 0x200092D2 is not 3 and DAT_20008F70 is zero, it sends VCU command 0x1C with payload 2 through uart_bridge_send_frame, increments the retry count, logs 'Wake up low power to get vcu status' and re-arms the timer at 0x20009254 with itself as handler and period 5. Otherwise it clears the retry count and DAT_20008F70, which ends the sequence.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The log format has a %d for the count but the call passes no argument, so the decompile is missing it."
+  },
+  "ble_219_0c02a3c4": {
+    "name": "ble_process_autokey",
+    "summary": "Store the autokey record in the NV block and switch the RX state to 3",
+    "description": "Logs 'process_autokey' and sends a fixed 5-byte reply 00 04 3E 5C 01 through ble_219_0c02c338. It then copies the autokey fields from 0x20009450, 0x20009454, 0x20009458 and 0x2000945C into the 0x1DA-byte block at 0x20008FE4 (type byte 0x3D plus the four words) and writes that block to NV with ble_nv_write_block_1c5. It finally sets the RX state DAT_200092EC to 3 (autokey pending), so that ble_rx_data_handler routes the next data frame to ble_219_0c02be44.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the 0x3D type byte and of the four words is inferred from the copy."
+  },
+  "ble_219_0c02a430": {
+    "name": "ble_unlock_record_get",
+    "summary": "Log the autokey and seat-key unlock records and return the record block address",
+    "description": "Logs two unlock records with their times. The first is the autokey index (byte 0 of 0x200092A8) with the time stored at 0x20009298, and the second is the seat-key index (byte 1 of 0x200092A8) with the time at 0x200092A0. It returns &DAT_20009298, the start of the 16-byte unlock record block, so the caller can read or copy it. No state is changed.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "pointer to the unlock record block at 0x20009298"
+    },
+    "confidence": "medium",
+    "notes": "Times are logged with %ld from 32-bit words, so the time fields are probably 8 bytes each."
+  },
+  "ble_219_0c02a484": {
+    "name": "bt_vcu_cmd_wr_process",
+    "summary": "Process a VCU command read (cmd 1) and build the reply from the index using cached or default values",
+    "description": "Logs 'bt_vcu_cmd_wr_process' with src, dest, cmd and index. Frames with byte 2 equal to 9 and byte 3 equal to 1 are handled first: index 0x28 replies with the 16-byte ECU part number at 0x200092D8 (ble_app_block16_f36c_read) and length 0x14, and index 3 replies with 0xFFFF. For other command-1 frames it acts only when the RX state DAT_200092EC is 4, then chooses the reply by index: 0x10 reads 14 bytes from the app block (ble_app_block16_f3b8_read, length 0x15), 0x1A and 0x20 reply with two bytes 0x1810, 0x1B with two zero bytes, 0x1D with 0x1810, 0x67 with 0x0300 and 0xB2 with 0xFFFF, 0x1C, 0x22, 0x24, 0x25, 0x26 and 0x7B with one byte, 0x29 with 21 bytes, 0xF0 with the byte 0x01 and length 0x15, and every other index in range builds a 12-byte reply from a stack-local array. Each reply is sent with ble_219_0c02c338 as a record of length, dest, src, type 4, index and payload pointer.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received VCU frame: +1 src, +2 dest, +3 cmd, +4 index, +5 onward payload"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The reply defaults are constants in the decompile and their meaning is not established. The 12-byte default path uses a stack cache that is zero-initialised and filled from a few locals, so its output is mostly constant. Undescribed: ble_219_0c02c338 (the common reply sender)."
+  },
+  "ble_219_0c02a8a0": {
+    "name": "ble_unlock_request_start",
+    "summary": "Start an unlock request when state bit 1 is set: arm a 5 s timeout and run the auth callback",
+    "description": "Returns 0 unless bit 1 of the state byte at 0x20009288 is set. If the pending word at 0x20008F69 is zero it stores param_1 OR 0x80 there and arms a one-shot 5000 ms timeout with app_req_timeout_timer_start. It then calls ble_event_count_reached_check. If the event threshold is not reached it returns 0. Otherwise it sets bit 6 (0x40) of 0x20008F69 and calls ble_unlock_auth_cb. The function always returns 0.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "request source tag, OR-ed with 0x80 into the pending word"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "high",
+    "notes": "The return value is always 0 regardless of the unlock outcome."
+  },
+  "ble_219_0c02a8f8": {
+    "name": "ble_fmna_cmd_handler",
+    "summary": "Find My (FMNA) command handler: status reads, ADV_ID, model name, NV records and advertising control",
+    "description": "Dispatches Find My and model-name commands by command byte param_5. param_4 selects the operation. Operation 1 is a read and sends back the value for command 0x1D and 0x1E (status words), 0x20, 0x25, 0x36, 0x3A and 0x3B (flags), 0x21 and 0x26 (NV records via ble_nv_load_8byte_block and ble_nv_load_device_name), 0x2A (second half of the name), 0x37 (random address via ble_random_addr_advance), and 0x3C and 0x40 (the ADV_ID block via app_adv_id_block_copy). Operations 2 and 3 are writes: command 0x20 starts or stops FMNA advertising and nearby advertising, logging 'stop_fmna_adv', 'start_nearby_adv', 'adv already open' or 'unpair'; 0x1F (an extra action first when the payload is zero) and 0xA3 both fall through to ble_219_0c041d28(0), the system reboot call used by the upgrade path; 0x21 and 0x26 store an 8-byte or 16-byte NV record; 0x2A writes the second 8-byte half of the name; 0x3C and 0x40 write the ADV_ID through ble_payload_copy_and_schedule; 0x3A and 0x3B change flags; 0xA4 and 0xA5 call ble_219_0c05cfe0 and ble_219_0c05d004. Unknown commands set the result to 1. Replies go to the BT app through ble_219_0c02c338 when param_1 is 1, and otherwise through uart_bridge_send_frame with param_2 and param_3 as the header addresses. Writes with param_4 equal to 2 get a command-5 reply carrying a one-byte result.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "reply channel: 1 means the BT app, any other value means the UART bridge"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "address byte used in the reply header; 0x3D and 0x3E are checked for writes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "second address byte used in the reply header"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "operation: 1 read, 2 or 3 write"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "command byte"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "payload length"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "payload"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the operation was handled (or the command was unknown), 0 when param_4 is not 1 to 3"
+    },
+    "confidence": "medium",
+    "notes": "Several helpers are undescribed (ble_219_0c05cc28, ble_219_0c05cc70, ble_219_0c05cec4, ble_219_0c05cf1c, ble_219_0c058168, ble_219_0c05cfc8, ble_219_0c05cec8, ble_219_0c05cf10). The 'R'/'SET' log strings name the MODEL_NAME operations. The mapping of the status words is inferred from the callee summaries."
+  },
+  "ble_219_0c02b1b4": {
+    "name": "ble_device_info_read_cmd",
+    "summary": "Read a slice of the BLE identity block at 0x200091E8 and reply on the app or UART channel",
+    "description": "Only the read operation (param_4 equal to 1) does anything. It refreshes the identity block with ble_device_info_init. If param_5 plus half the requested length is below 0x1E, it sends the slice starting at offset param_5 with the length taken from *param_6 to the BT app (param_1 equal to 1, through ble_219_0c02c338) or through uart_bridge_send_frame. A request for offset 0x50 always sends the fixed reply 0x90. An offset that is too large logs 'ERROR: read data len too large' when param_5 is below 0x1D and returns 0.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "reply channel: 1 means the BT app, any other value means the UART bridge"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "address byte used in the reply header"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "second address byte used in the reply header"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "operation, only 1 (read) is handled"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "offset into the identity block"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr:u8",
+        "description": "pointer to the requested length byte"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when a reply was sent, 0 otherwise"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the halved length check is taken from the arithmetic. The fixed 0x90 reply at offset 0x50 is not explained by the packet."
+  }
+}

@@ -1,10 +1,11 @@
 # MCU - `watchdog` functions
 
-4 functions.
+5 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
 | [`mcu_watchdog_feed`](#mcu_watchdog_feed) | 0x08006194 | Refresh the watchdog by writing the 0xAAAA key to WDT.CMD |
+| [`mcu_watchdog_start`](#mcu_watchdog_start) | 0x0800B4E8 | Start the independent watchdog with prescaler 128 and reload 0x61A (about 5 s on a 40 kHz LICK) |
 | [`wdt_divider_set`](#wdt_divider_set) | 0x0800E3DC | Set the watchdog clock prescaler, WDT.DIV bits 2:0 |
 | [`wdt_register_write_enable`](#wdt_register_write_enable) | 0x0800E3FC | Unlock (0x5555) or lock (0x0000) write access to the WDT DIV and RLD registers |
 | [`wdt_reload_value_set`](#wdt_reload_value_set) | 0x0800E414 | Write the watchdog reload value to WDT.RLD (offset 0x08) |
@@ -18,6 +19,20 @@ Writes the 16-bit refresh key 0xAAAA to the watchdog command register (WDT.CMD),
 - Addresses by version: 143: 0x080060C4, 152: 0x080060F4, 0160: 0x08006194
 - Peripheral registers: `WDT.CMD` (W)
 - Called by: `mcu_0160_0800d548`
+- Confidence: high
+
+## mcu_watchdog_start
+
+**Start the independent watchdog with prescaler 128 and reload 0x61A (about 5 s on a 40 kHz LICK)**
+
+Initialises and starts the independent watchdog. It unlocks the WDT registers (wdt_register_write_enable with 0x5555), sets the prescaler to WDT_CLK_DIV_128 (code 5 in WDT.DIV), writes the reload value 0x61A (1562) with wdt_reload_value_set, re-locks the registers (0x0000), and writes 0xCCCC (WDT_CMD_ENABLE) to WDT.CMD to start the counter. With a LICK near 40 kHz the timeout is about 5 s.
+
+**Notes:** The LICK frequency is not checked in this packet; the 5 s figure assumes the usual 40 kHz.
+
+- Addresses by version: 143: 0x0800B484, 152: 0x0800B488, 0160: 0x0800B4E8
+- Peripheral registers: `WDT.CMD` (W)
+- Called by: `mcu_0160_0800d548`
+- Calls: `wdt_divider_set`, `wdt_register_write_enable`, `wdt_reload_value_set`
 - Confidence: high
 
 ## wdt_divider_set
@@ -34,7 +49,7 @@ Matches the Artery SDK wdt_divider_set. Read-modify-write of WDT.DIV (0x40003004
 
 - Addresses by version: 143: 0x0800E204, 152: 0x0800E29C, 0160: 0x0800E3DC
 - Peripheral registers: `WDT.DIV` (RW)
-- Called by: `mcu_0160_0800b4e8`
+- Called by: `mcu_watchdog_start`
 - Confidence: high
 
 ## wdt_register_write_enable
@@ -51,7 +66,7 @@ Matches the Artery SDK wdt_register_write_enable. A non-zero argument writes the
 
 - Addresses by version: 143: 0x0800E224, 152: 0x0800E2BC, 0160: 0x0800E3FC
 - Peripheral registers: `WDT.CMD` (W)
-- Called by: `mcu_0160_0800b4e8`
+- Called by: `mcu_watchdog_start`
 - Confidence: high
 
 ## wdt_reload_value_set
@@ -68,5 +83,5 @@ Matches the Artery SDK wdt_reload_value_set. Stores param_1 into WDT.RLD at 0x40
 
 - Addresses by version: 143: 0x0800E23C, 152: 0x0800E2D4, 0160: 0x0800E414
 - Peripheral registers: `WDT.RLD` (W)
-- Called by: `mcu_0160_0800b4e8`
+- Called by: `mcu_watchdog_start`
 - Confidence: high

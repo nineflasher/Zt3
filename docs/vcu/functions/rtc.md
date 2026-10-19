@@ -1,6 +1,6 @@
 # VCU - `rtc` functions
 
-19 functions.
+21 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -23,6 +23,8 @@
 | [`ertc_write_protect_enable`](#ertc_write_protect_enable) | 0x0800CD48 | Lock ERTC register write protection |
 | [`rtc_day_of_year`](#rtc_day_of_year) | (removed) | Day-of-year from year, month, day with leap-year correction |
 | [`rtc_days_between_dates`](#rtc_days_between_dates) | (removed) | Number of days from calendar date 1 to date 2 (Gregorian), 0 if date 2 is in an earlier year |
+| [`vcu_ertc_default_datetime_init`](#vcu_ertc_default_datetime_init) | 0x0800C960 | Start the ERTC on LICK, set 21-05-01 00:00:00 and wait for calendar sync |
+| [`vcu_ertc_wakeup_exint_init`](#vcu_ertc_wakeup_exint_init) | 0x080024EC | Configure the ERTC wakeup timer, its interrupt and EXINT line 22 with IRQ 3 |
 
 ## ertc_date_set
 
@@ -41,7 +43,7 @@ Matches the SDK ertc_date_set. It converts year, month and date with ertc_num_to
 
 - Addresses by version: 148: 0x0800BB4C, 14a: 0x0800BF90, 14b: 0x0800C41C, 14e: 0x0800C4B0, 14f: 0x0800C5EC, 152: 0x0800C878, 153: 0x0800C96C, 0159: 0x0800C9D8
 - Peripheral registers: `ERTC.DATE` (AW), `ERTC.CTRL` (R)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Calls: `ertc_init_mode_enter`, `ertc_init_mode_exit`, `ertc_num_to_bcd`, `ertc_wait_update`, `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -62,7 +64,7 @@ Matches the SDK ertc_divider_set(div_a, div_b). It lifts write protection, enter
 
 - Addresses by version: 148: 0x0800BBC0, 14a: 0x0800C004, 14b: 0x0800C490, 14e: 0x0800C524, 14f: 0x0800C660, 152: 0x0800C8EC, 153: 0x0800C9E0, 0159: 0x0800CA4C
 - Peripheral registers: `ERTC.DIV` (ARW)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Calls: `ertc_init_mode_enter`, `ertc_init_mode_exit`, `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -110,7 +112,7 @@ AT32 SDK ertc_hour_mode_set. Disables write protection, enters ERTC init mode th
 
 - Addresses by version: 148: 0x0800BC28, 14a: 0x0800C06C, 14b: 0x0800C4F8, 14e: 0x0800C58C, 14f: 0x0800C6C8, 152: 0x0800C954, 153: 0x0800CA48, 0159: 0x0800CAB4
 - Peripheral registers: `ERTC.CTRL` (ARW)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Calls: `ertc_init_mode_enter`, `ertc_init_mode_exit`, `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -124,7 +126,7 @@ AT32 SDK ertc_init_mode_enter. If the init-mode flag STS bit 6 (IMF, INITF) is a
 
 - Addresses by version: 148: 0x0800BC58, 14a: 0x0800C09C, 14b: 0x0800C528, 14e: 0x0800C5BC, 14f: 0x0800C6F8, 152: 0x0800C984, 153: 0x0800CA78, 0159: 0x0800CAE4
 - Peripheral registers: `ERTC.STS` (ARW)
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_reset`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_reset`
 - Calls: `ertc_write_protect_enable`
 - Confidence: high
 
@@ -136,7 +138,7 @@ AT32 SDK ertc_init_mode_exit(): writes 0xFFFFFF7F to ERTC.STS, which clears the 
 
 - Addresses by version: 148: 0x0800BC88, 14a: 0x0800C0CC, 14b: 0x0800C558, 14e: 0x0800C5EC, 14f: 0x0800C728, 152: 0x0800C9B4, 153: 0x0800CAA8, 0159: 0x0800CB14
 - Peripheral registers: `ERTC.STS` (W)
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`
 - Confidence: high
 
 ## ertc_interrupt_enable
@@ -154,7 +156,7 @@ AT32 SDK ertc_interrupt_enable(source, new_state). Disables write protection, th
 
 - Addresses by version: 148: 0x0800BC98, 14a: 0x0800C0DC, 14b: 0x0800C568, 14e: 0x0800C5FC, 14f: 0x0800C738, 152: 0x0800C9C4, 153: 0x0800CAB8, 0159: 0x0800CB24
 - Peripheral registers: `ERTC.CTRL` (ARW), `ERTC.TAMP` (RW)
-- Called by: `vcu_0159_080024ec`
+- Called by: `vcu_ertc_wakeup_exint_init`
 - Calls: `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -171,7 +173,7 @@ AT32 SDK ertc_num_to_bcd(): returns (param_1 % 10) | ((param_1 / 10 & 0xf) << 4)
 **Returns** `u32`: BCD byte, tens in bits 7:4
 
 - Addresses by version: 148: 0x0800BCE0, 14a: 0x0800C124, 14b: 0x0800C5B0, 14e: 0x0800C644, 14f: 0x0800C780, 152: 0x0800CA0C, 153: 0x0800CB00, 0159: 0x0800CB6C
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`
 - Confidence: high
 
 ## ertc_reset
@@ -184,7 +186,7 @@ AT32 SDK ertc_reset. Disables write protection, clears CTRL, enters init mode (v
 
 - Addresses by version: 148: 0x0800BCF8, 14a: 0x0800C13C, 14b: 0x0800C5C8, 14e: 0x0800C65C, 14f: 0x0800C798, 152: 0x0800CA24, 153: 0x0800CB18, 0159: 0x0800CB84
 - Peripheral registers: `ERTC.TIME` (W), `ERTC.DATE` (W), `ERTC.CTRL` (W), `ERTC.STS` (AW), `ERTC.DIV` (W), `ERTC.WAT` (AW), `ERTC.CCAL` (W), `ERTC.ALA` (W), `ERTC.ALB` (W), `ERTC.TADJ` (W), `ERTC.SCAL` (W), `ERTC.TAMP` (W), `ERTC.ALASBS` (W), `ERTC.ALBSBS` (W)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Calls: `ertc_init_mode_enter`, `ertc_wait_update`, `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -218,7 +220,7 @@ AT32 SDK ertc_wait_update(): clears the UPDF flag (bit 5) in ERTC.STS by writing
 
 - Addresses by version: 148: 0x0800BE0C, 14a: 0x0800C250, 14b: 0x0800C6DC, 14e: 0x0800C770, 14f: 0x0800C8AC, 152: 0x0800CB38, 153: 0x0800CC2C, 0159: 0x0800CC98
 - Peripheral registers: `ERTC.STS` (RW)
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`, `ertc_reset`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`, `ertc_reset`
 - Confidence: high
 
 ## ertc_wakeup_clock_set
@@ -233,7 +235,7 @@ AT32 SDK ertc_wakeup_clock_set(clock). Disables write protection, replaces CTRL 
 
 - Addresses by version: 148: 0x0800BE3C, 14a: 0x0800C280, 14b: 0x0800C70C, 14e: 0x0800C7A0, 14f: 0x0800C8DC, 152: 0x0800CB68, 153: 0x0800CC5C, 0159: 0x0800CCC8
 - Peripheral registers: `ERTC.CTRL` (ARW)
-- Called by: `vcu_0159_080024ec`
+- Called by: `vcu_ertc_wakeup_exint_init`
 - Calls: `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -249,7 +251,7 @@ AT32 SDK ertc_wakeup_counter_set(counter). Disables write protection, replaces t
 
 - Addresses by version: 148: 0x0800BE5C, 14a: 0x0800C2A0, 14b: 0x0800C72C, 14e: 0x0800C7C0, 14f: 0x0800C8FC, 152: 0x0800CB88, 153: 0x0800CC7C, 0159: 0x0800CCE8
 - Peripheral registers: `ERTC.WAT` (ARW)
-- Called by: `vcu_0159_080024ec`
+- Called by: `vcu_ertc_wakeup_exint_init`
 - Calls: `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -267,7 +269,7 @@ AT32 SDK ertc_wakeup_enable(new_state). Disables write protection, writes CTRL b
 
 - Addresses by version: 148: 0x0800BE7C, 14a: 0x0800C2C0, 14b: 0x0800C74C, 14e: 0x0800C7E0, 14f: 0x0800C91C, 152: 0x0800CBA8, 153: 0x0800CC9C, 0159: 0x0800CD08
 - Peripheral registers: `ERTC.CTRL` (ARW)
-- Called by: `vcu_0159_080024ec`
+- Called by: `vcu_ertc_wakeup_exint_init`
 - Calls: `ertc_wait_flag`, `ertc_write_protect_disable`, `ertc_write_protect_enable`
 - Confidence: high
 
@@ -279,7 +281,7 @@ AT32 SDK ertc_write_protect_disable(): writes the key sequence 0xCA then 0x53 to
 
 - Addresses by version: 148: 0x0800BEAC, 14a: 0x0800C2F0, 14b: 0x0800C77C, 14e: 0x0800C810, 14f: 0x0800C94C, 152: 0x0800CBD8, 153: 0x0800CCCC, 0159: 0x0800CD38
 - Peripheral registers: `ERTC.WP` (AW)
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_interrupt_enable`, `ertc_reset`, `ertc_wakeup_clock_set`, `ertc_wakeup_counter_set`, `ertc_wakeup_enable`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_interrupt_enable`, `ertc_reset`, `ertc_wakeup_clock_set`, `ertc_wakeup_counter_set`, `ertc_wakeup_enable`
 - Confidence: high
 
 ## ertc_write_protect_enable
@@ -290,7 +292,7 @@ AT32 SDK ertc_write_protect_enable(): writes 0xFF to ERTC.WP (0x40002824), re-en
 
 - Addresses by version: 148: 0x0800BEBC, 14a: 0x0800C300, 14b: 0x0800C78C, 14e: 0x0800C820, 14f: 0x0800C95C, 152: 0x0800CBE8, 153: 0x0800CCDC, 0159: 0x0800CD48
 - Peripheral registers: `ERTC.WP` (W)
-- Called by: `vcu_0159_0800c960`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_init_mode_enter`, `ertc_interrupt_enable`, `ertc_reset`, `ertc_wait_flag`, `ertc_wakeup_clock_set`, `ertc_wakeup_counter_set`, `ertc_wakeup_enable`
+- Called by: `vcu_ertc_default_datetime_init`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_init_mode_enter`, `ertc_interrupt_enable`, `ertc_reset`, `ertc_wait_flag`, `ertc_wakeup_clock_set`, `ertc_wakeup_counter_set`, `ertc_wakeup_enable`
 - Confidence: high
 
 ## rtc_day_of_year
@@ -331,6 +333,35 @@ Computes the day count between two dates. Each date's day-of-year is taken from 
 **Returns** `s32`: days from date 1 to date 2
 
 - Addresses by version: 148: 0x0800AC64, 14a: 0x0800B050, 14b: 0x0800B4DC, 14e: 0x0800B570, 14f: 0x0800B6AC, 152: 0x0800B938, 153: 0x0800BA2C
-- Called by: `vcu_0159_08004594`
+- Called by: `vcu_revolution_stage_tracker`
 - Calls: `rtc_day_of_year`
 - Confidence: high
+
+## vcu_ertc_default_datetime_init
+
+**Start the ERTC on LICK, set 21-05-01 00:00:00 and wait for calendar sync**
+
+Brings up the real-time clock. It enables the PWC clock (crm_periph_clock_enable with CRM_PWC_PERIPH_CLOCK), enables backup-domain access (pwc_battery_powered_domain_access) and pulses the backup-domain reset (crm_battery_powered_domain_reset). It enables the low-speed internal clock with crm_clock_source_enable and waits on CRM_LICK_STABLE_FLAG, selects LICK as the ERTC clock with crm_ertc_clock_select and enables it with crm_ertc_clock_enable. It then resets the ERTC, sets the prescalers with ertc_divider_set(99, 399), sets 24-hour mode, writes the date from year argument 0x15, month 5, day 1 (ertc_date_set) and builds the time 00:00:00 in BCD with ertc_num_to_bcd. With write protection off and init mode entered, it writes ERTC.TIME directly and exits init mode; if ERTC.CTRL bit 5 is clear it waits for the calendar update, and it re-enables write protection. If init mode cannot be entered, it returns 0 and leaves write protection disabled.
+
+**Returns** `u32`: 1 when ERTC.TIME was written, 0 when init mode could not be entered
+
+**Notes:** The 1 Hz result assumes a nominal 40 kHz LICK, so 99 and 399 divide to 1 Hz. The date call passes only three arguments in the decompile, so the weekday is not set here.
+
+- Addresses by version: 148: 0x0800BAD4, 14a: 0x0800BF18, 14b: 0x0800C3A4, 14e: 0x0800C438, 14f: 0x0800C574, 152: 0x0800C800, 153: 0x0800C8F4, 0159: 0x0800C960
+- Peripheral registers: `ERTC.TIME` (AW), `ERTC.CTRL` (R)
+- Called by: `vcu_ertc_wakeup_exint_init`
+- Calls: `crm_battery_powered_domain_reset`, `crm_clock_source_enable`, `crm_ertc_clock_enable`, `crm_ertc_clock_select`, `crm_flag_get`, `crm_periph_clock_enable`, `ertc_date_set`, `ertc_divider_set`, `ertc_hour_mode_set`, `ertc_init_mode_enter`, `ertc_init_mode_exit`, `ertc_num_to_bcd`, `ertc_reset`, `ertc_wait_update`, `ertc_write_protect_disable`, `ertc_write_protect_enable` ...
+- Confidence: medium
+
+## vcu_ertc_wakeup_exint_init
+
+**Configure the ERTC wakeup timer, its interrupt and EXINT line 22 with IRQ 3**
+
+Calls vcu_0159_0800C960 (not yet described), then sets the ERTC wakeup clock to code 4 (CK_B with a 16-bit counter), loads the wakeup reload value 2 and enables the wakeup interrupt (ERTC_WAT_INT, 0x4000) and the wakeup timer. It then builds an EXINT init structure for line 22 (0x400000, the ERTC wakeup line) with the low byte of its first word cleared, calls exint_default_para_init and exint_init, and enables NVIC IRQ 3 (ERTC_WKUP) with preemption priority 0 and sub-priority 1. The wakeup period is the reload plus one counts, so about 3 s if the clock is the 1 Hz CK_B.
+
+**Notes:** The 1 Hz rate of CK_B is the usual RTC scheme and is not stated in the SDK comments, so the 3 s period is an estimate. The wakeup is probably the periodic wake used by low-power standby, but no caller in this packet confirms it.
+
+- Addresses by version: 148: 0x08002100, 14a: 0x08002170, 14b: 0x0800244C, 14e: 0x0800244C, 14f: 0x080024A8, 152: 0x080024E4, 153: 0x08002500, 0159: 0x080024EC
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_ertc_default_datetime_init`, `ertc_interrupt_enable`, `ertc_wakeup_clock_set`, `ertc_wakeup_counter_set`, `ertc_wakeup_enable`, `exint_default_para_init`, `exint_init`, `nvic_irq_enable`
+- Confidence: medium

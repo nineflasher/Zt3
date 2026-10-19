@@ -1,0 +1,314 @@
+{
+  "vcu_0159_080013f8": {
+    "name": "vcu_exint14_pb14_init_thunk",
+    "summary": "One-instruction tail branch to vcu_exint14_pb14_init at 0x080020A4",
+    "description": "The function is a single branch instruction that jumps to 0x080020A4, so it has no logic of its own. vcu_peripheral_init_sequence calls this address, which is why the decompile names it thunk_FUN_080020A4. The target routes PB14 to EXINT line 14 as a falling-edge interrupt, enables the EXINT15_10 IRQ and stores the result of vcu_pa1_input_high in DAT_20001FEB.",
+    "category": "exint",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The thunk is the call target from vcu_peripheral_init_sequence; the routine it reaches is vcu_exint14_pb14_init (0x080020A4)."
+  },
+  "vcu_14a_08001e44": {
+    "name": "vcu_exint14_pb14_init_thunk_14a",
+    "summary": "One-instruction tail branch to the 14a build's vcu_exint14_pb14_init at 0x08001D24",
+    "description": "This is the VCU_14a counterpart of vcu_exint14_pb14_init_thunk: a single branch to 0x08001D24, which is the same PB14 EXINT14 setup used by the other builds. The thunk adds no logic and is present only in the 14a image.",
+    "category": "exint",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "No direct caller is identified inside this packet."
+  },
+  "vcu_0159_0800193c": {
+    "name": "vcu_key_sequence_entry_tick",
+    "summary": "Per-tick key-sequence entry: check debounced key presses against the stored code",
+    "description": "Each tick it runs the four debounce machines (vcu_input_sm_c_tick, vcu_input_sm_b_tick, vcu_input_sm_e_tick, vcu_input_sm_d_tick), then, while the entry-armed flag DAT_20002049 is set, consumes the one-shot press flags DAT_200021C1, DAT_200021B5, DAT_200021BE and DAT_200021BB as keys 1, 2, 3 and 4. Each accepted key is packed as a 4-bit nibble into the accumulator DAT_20002030 and checked against the expected nibble at position (length minus count) of the packed sequence DAT_20002038, where DAT_20002046 is the length; a wrong key ends the entry with result 2. After the last key and a wait past 60 ticks (DAT_20001357), the accumulator is compared with DAT_2000203C: a match sets result 1, copies DAT_20002040 and DAT_20002042 into DAT_20001B96 and DAT_20001B98, raises DAT_20001F54 for vcu_pending_settings_commit and enters app state 4, and a mismatch sets result 2 and app state 1. Every outcome is sent as a 0x73 frame (vcu_ninebot_tx_queue_push, source 0x16, peer 0x3E) carrying the one-byte result in DAT_20002051 (1 accepted, 2 rejected, 3 timed out), and the countdown DAT_2000204A aborts an idle entry with result 3.",
+    "category": "input",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Mechanics are read directly from the decompile (high confidence). What the stored code unlocks is not established in this packet. The digit count is mirrored to DAT_20001CEC, which drives the progress bars in vcu_display_frame_render_tick, and the key 2 flag DAT_200021B5 is also read and cleared by vcu_panel_key_report_telemetry_tick, so whichever runs first in a tick consumes the press. Bit 6 of DAT_20001AF0 is a cancel request: when set, the entry is aborted and the bit cleared."
+  },
+  "vcu_14a_08001af0": {
+    "name": "vcu_tmr2_pwm_pa0_bringup_14a",
+    "summary": "Bring up PA0 and the TMR2 channel-1 PWM base in the 14a build",
+    "description": "Calls the PA0 setup first, then zeroes a 20-byte local, enables the TMR2 clock (CRM id 0x1C0000), reads the clock frequencies and programs TMR2 with PR 1 and DIV 143, which counts at 1 MHz on a 144 MHz timer clock. It sets up the channel-1 output as PWM mode A (mode code 6) with the output enabled, writes the channel-1 compare value, enables the main output (BRK.OEN) and starts the counter. The tone frequency is written later by tmr2_pwm_set_frequency, which sets PR to 1000000 divided by the frequency.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "This is the 14a copy of the 0159 bring-up split into vcu_tmr2_pwm_pa0_bringup (PA0 step) and vcu_tmr2_ch1_pwm_init (TMR2 step), both inlined here. The leading call FUN_08001AB4 is taken to be the PA0 routine vcu_gpio_pa0_init, because the packet lists that routine as a callee; this image's address was not checked. The third argument of tmr_channel_value_set is not visible in the decompile, so the compare value written is whatever the register held."
+  },
+  "vcu_0159_08001bca": {
+    "name": "vcu_tmr2_ch1_pwm_init",
+    "summary": "Configure the TMR2 base and channel-1 PWM output, then start the counter",
+    "description": "Zeroes a 20-byte local, enables the TMR2 clock (CRM id 0x1C0000) and reads the clock frequencies. It programs TMR2 with tmr_base_init(TMR2, PR 1, DIV 143), giving a 1 MHz count on a 144 MHz timer clock, sets the count direction to up, and fills a tmr_output_config_type with oc_mode 6 (PWM mode A), oc_idle_state 0, oc_polarity 0 and oc_output_state 1 (enabled). It then configures channel 1 with that struct, writes the channel-1 compare value, enables the main output (BRK.OEN) and starts the counter. The result is an idle PWM tone output on TMR2 channel 1 (the buzzer), which tmr2_pwm_set_frequency retunes later.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 144 MHz timer clock is inferred from the 1 MHz count that tmr2_pwm_set_frequency assumes together with DIV 143. The compare-value argument of tmr_channel_value_set is not visible in the decompile. Callers: vcu_tmr2_pwm_pa0_bringup."
+  },
+  "vcu_0159_08001e6c": {
+    "name": "vcu_tmr2_pwm_pa0_bringup",
+    "summary": "Bring up PA0 and then the TMR2 channel-1 PWM output",
+    "description": "Calls vcu_gpio_pa0_init, which configures PA0 (the default TMR2 channel-1 pin) first, and then vcu_tmr2_ch1_pwm_init, which sets up the TMR2 timer and its channel-1 PWM output. Together they are the full bring-up of the buzzer output path before any tone is requested.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Called from vcu_peripheral_init_sequence. The 14a build has the same two steps as vcu_tmr2_pwm_pa0_bringup_14a."
+  },
+  "vcu_0159_08001ee8": {
+    "name": "vcu_usart2_init",
+    "summary": "Bring up USART2 at 115200 baud with DMA receive and transmit, then enable it",
+    "description": "Configures the USART2 pins (vcu_usart2_pins_init), sets up DMA channel 6 for receive and channel 7 for transmit (vcu_usart2_rx_dma_init and vcu_usart2_tx_dma_init), enables the USART2 clock (CRM id 0x1C0011, APB1 bit 17) and calls the SDK usart_init routine (vcu_0159_0800EFD8, not yet described) with baud 0x1C200, which is 115200. It then enables the transmitter, the receiver, the DMA transmit request and the DMA receive request, and sets USART2.CTRL1 bit 13 (UEN) to turn the peripheral on.",
+    "category": "uart",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The data-bit and stop-bit arguments of the usart_init call are 0; their enum meaning was not checked against the SDK. The register write at 0x4000440C is CTRL1 of USART2 (base 0x40004400)."
+  },
+  "vcu_0159_08002060": {
+    "name": "vcu_peripheral_init_sequence",
+    "summary": "Boot-time peripheral bring-up in fixed order, ending with a GPIO remap",
+    "description": "Sets the NVIC priority grouping to group 2 (argument 5, two preemption bits and two sub-priority bits), then runs the peripheral initialisers in order: SysTick timebase, ADC1 scan, board GPIO, USART2, the TMR2 PWM bring-up, CAN1, SPI2, the PB14 EXINT14 interrupt through its thunk, the ERTC wakeup, the watchdog, TMR5 and finally a GPIO remap written with the encoded code 0x30100304 and enable set. The watchdog is started only after most peripherals are up, and TMR5 starts just before the remap.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Order as decompiled: vcu_systick_timebase_init, vcu_adc1_scan_init, vcu_gpio_board_init, vcu_usart2_init, vcu_tmr2_pwm_pa0_bringup, vcu_can1_init, vcu_spi2_init, vcu_exint14_pb14_init_thunk, vcu_ertc_wakeup_exint_init, vcu_watchdog_start, vcu_tmr5_1khz_tick_init, gpio_pin_remap_config. The remap code decodes as value 4 in the 3-bit field at bit 16 of the IOMUX register selected by 0x30; which remap that is was not identified. The peripheral behind 0x30100304 is not named in the packet."
+  },
+  "vcu_0159_080024ec": {
+    "name": "vcu_ertc_wakeup_exint_init",
+    "summary": "Configure the ERTC wakeup timer, its interrupt and EXINT line 22 with IRQ 3",
+    "description": "Calls vcu_0159_0800C960 (not yet described), then sets the ERTC wakeup clock to code 4 (CK_B with a 16-bit counter), loads the wakeup reload value 2 and enables the wakeup interrupt (ERTC_WAT_INT, 0x4000) and the wakeup timer. It then builds an EXINT init structure for line 22 (0x400000, the ERTC wakeup line) with the low byte of its first word cleared, calls exint_default_para_init and exint_init, and enables NVIC IRQ 3 (ERTC_WKUP) with preemption priority 0 and sub-priority 1. The wakeup period is the reload plus one counts, so about 3 s if the clock is the 1 Hz CK_B.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 1 Hz rate of CK_B is the usual RTC scheme and is not stated in the SDK comments, so the 3 s period is an estimate. The wakeup is probably the periodic wake used by low-power standby, but no caller in this packet confirms it."
+  },
+  "vcu_0159_0800261c": {
+    "name": "vcu_tmr5_1khz_tick_init",
+    "summary": "Start TMR5 as a 1 kHz overflow interrupt tick (PR 143, DIV 999, IRQ 50)",
+    "description": "Zeroes a 20-byte local, enables the TMR5 clock (CRM id 0x1C0003) and reads the clock frequencies. It calls tmr_base_init(TMR5, PR 143, DIV 999), sets the count direction to up, enables the overflow interrupt and enables NVIC IRQ 50 (TMR5_GLOBAL) with preemption priority 1 and sub-priority 0, then starts the counter. With a 144 MHz timer clock, 144e6 divided by (1000 times 144) is 1 kHz, and the overflow handler TMR5_GLOBAL_IRQHandler (vcu_0159_0800898C) counts those overflows.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 1 kHz rate depends on the 144 MHz timer clock inferred from the TMR2 setup, not on a stated clock value. Only the overflow count is kept by the handler (DAT_20001350), so this is the application's periodic timebase source."
+  },
+  "vcu_0159_08002980": {
+    "name": "vcu_can1_recover_reinit",
+    "summary": "Re-initialise CAN1 from reset with bus-off and error interrupts enabled",
+    "description": "Pulses the CAN1 reset (vcu_can1_reset_pulse), re-applies the CAN1 pin remap (vcu_can1_pins_remap_init) and enables the CAN1 clock (CRM id 0x1C0019). It writes the base configuration and bit timing (divider 9, RSAW 1, BTS1 10, BTS2 3, 14 time quanta per bit), configures six receive filter banks 0 to 5 as accept-all with can_filter_init, and then enables the interrupts. The interrupt set is RX FIFO 0 message (0x2), error-type-record (0x800), error-occur (0x8000) and bus-off (0x400), and NVIC IRQ 22 (CAN1_SE) and IRQ 20 (CAN1_RX0) are enabled at preemption priority 0.",
+    "category": "can",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The packet's callee list names vcu_can1_init, but the decompiled body does not call 0x080027F0; the same steps are written out inline here. Compared with vcu_can1_init, which enables RX0 and SE interrupts, this variant adds the bus-off and error interrupts, which suggests it is the recovery path. Its callers, vcu_0159_080047AC and vcu_0159_0800EAC4, are not described yet."
+  },
+  "vcu_0159_08002f30": {
+    "name": "vcu_link_keepalive_0x51_tick",
+    "summary": "While the link is up, send a 0x51 keep-alive frame to peer 4 every 102 ticks",
+    "description": "If the link-active flag DAT_20001F48 is not exactly 1, it clears the tick counter DAT_20001894 and returns. Otherwise it increments the counter and, when the value before the increment is above 100, it sets DAT_20001D02 to 1, sends a frame with vcu_ninebot_tx_queue_push (source 0x16, peer 4, command 0x51, one-byte payload 1) and clears the counter. The frame therefore goes out once every 102 calls while the link is up.",
+    "category": "protocol",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The period is 102 because the test uses the value before the increment. Frame arguments 2 and 3 of the queue call are not identified. Callers: vcu_0159_0800A1D0 and vcu_0159_0800A264 (not described)."
+  },
+  "vcu_0159_08003a7c": {
+    "name": "vcu_link_activity_heartbeat_tick",
+    "summary": "Track link activity: hold the link flag about 400 ticks, send a 0x7F0 record every 51 ticks",
+    "description": "If the activity event flag DAT_20001F47 was set since the last call, the link flag DAT_20001F48 becomes 1 and the timeout DAT_200013CC is reloaded to 400; otherwise the timeout counts down and at zero the link flag and DAT_20001F58 are cleared, along with the record counter DAT_200013D0. The event flag is consumed on every call. While the link flag is set, DAT_20001FBC toggles every call and, every 51 calls (the counter is reloaded to 50), the function sets DAT_2000185C bit 0, sets DAT_2000185E to 500, calls the handler pointer at DAT_20001864 with 0x7F0 and submits its result as a record with vcu_record_send_chunked(length 8, tag 0x7F0, buffer). It returns the link flag.",
+    "category": "protocol",
+    "params": [],
+    "returns": {"type": "u8", "description": "link flag DAT_20001F48 after this call, 1 when the link is considered up"},
+    "confidence": "medium",
+    "notes": "Other annotations gate standby on DAT_20001F48 (vcu_standby_entry_timer) and gate the keep-alive on it (vcu_link_keepalive_0x51_tick), which suggests it means that the peer link is alive; that reading is not confirmed here. The callback behind DAT_20001864 is not in this packet."
+  },
+  "vcu_0159_08003c40": {
+    "name": "vcu_pending_settings_commit",
+    "summary": "Run the commit routine twice when DAT_20001F54 is set, then clear the flag",
+    "description": "When DAT_20001F54 is nonzero, it calls vcu_0159_08007D88 (not yet described) twice and clears the flag. The flag is raised by vcu_key_sequence_entry_tick on a correct code and by vcu_runtime_defaults_init, so this routine applies the change made by those paths. The commit routine itself is not decoded in this packet.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The commit routine vcu_0159_08007D88 is called twice here and in the crypto and config-load paths. It is probably the routine that writes settings to flash, but that is inferred from the call sites."
+  },
+  "vcu_0159_08003c5c": {
+    "name": "vcu_timed_window_schedule_tick",
+    "summary": "Every 11 ticks, check the daily HH:MM window and send the schedule word on change",
+    "description": "When the link flag DAT_20001F48 is clear, the body runs once every 11 calls. It packs the window start (DAT_20001B4A) and end (DAT_20001B4C) times, as minutes in bits 0 to 5 and hours in bits 8 to 12, with the flag bits of DAT_20001AF2 into the 32-bit schedule word DAT_2000188C, and when bit 22 or bit 23 of that word changes, or AF2 bit 7 is requested, it sends the word as a 4-byte payload with command 0x87 to peer 7 through vcu_0159_0800D018. While AF2 bit 4 and DAT_20001875 are set, every 32nd run compares the hour from DAT_20001F40 (bits 12 to 16) with the window end (or, with bit 5 set, the start), handling the wrap-around case, and clears AF2 bits 4, 5 and 7 when the window closes. A three-step condition (DAT_200021C4 equal to 3, with AF2 bit 4 and DAT_20001E6A bit 3) enters app state 4 and requests the send.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "not used by the logic (only forwarded in an unused argument of a state-change call)"},
+      {"name": "param_2", "type": "u32", "description": "not used by the logic"},
+      {"name": "param_3", "type": "u32", "description": "not used by the logic"},
+      {"name": "param_4", "type": "ptr", "description": "not used by the logic"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Layout of DAT_2000188C: bits 0-5 start minute, 6-10 start hour, 11-16 end minute, 17-21 end hour, bit 22 AF2 bit 4, bit 23 AF2 bit 5, bit 24 AF2 bit 7 (request). The reading of this as a daily time window with a consumer on peer 7 is inferred from the hour comparisons and was not confirmed. The meaning of DAT_20001F40 bits 12-16 as the current hour is also inferred."
+  },
+  "vcu_0159_080042f8": {
+    "name": "vcu_c14_c15_pulse_sequencer",
+    "summary": "Pulse C14/C15 with the alert tone and latch a stop after sustained low analog readings",
+    "description": "A pulse state DAT_20002024 (0 idle, 1 running, 2 finished) is advanced by the event flag DAT_20001F73, and while running it selects DAT_20002022 (drives C15 through vcu_gpio_c15_set) and DAT_20002023 (drives C14 through vcu_gpio_c14_set). The outputs are active for the first 41 ticks of an 82-tick cycle (DAT_20002028), when vcu_alert_tone_start_if_idle also starts the tone, and DAT_20001D06 is set to a mode code of 1, 2 or 3. Two analog readings (app_get_u16_200032A4 and app_get_u16_200032A2) are summed over 6-call windows, and when a window sum divided by 4 is below 500 for more than 40 consecutive windows, DAT_20002027 latches and both outputs and the tone (tmr2_pwm_output_disable) are switched off. The low bits of DAT_20001F98 mirror the output latches of GPIOC pins 15 and 14.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "DAT_20001D06 is 1 for C14 only, 2 for C15 only and 3 for both. DAT_20001F98 bit 1 is C15 and bit 0 is C14. Both sums feed the same latch DAT_20002027. The latch is set when the readings stay low, which reads as a load or output check, but the purpose of the readings is not established here."
+  },
+  "vcu_0159_08004594": {
+    "name": "vcu_revolution_stage_tracker",
+    "summary": "Count 5000-revolution marks into a 1..4 stage index and drive the indicator",
+    "description": "When bit 11 of DAT_20001AEC is set, it copies the revolution counter DAT_20001B78 to DAT_200013D4 and the stored baseline DAT_20001C88 to DAT_200013D8. If the counter is above the baseline and exactly equal to a multiple of 5000 up to 60000, DAT_20001BA4 is set to a stage index that cycles 1, 2, 3, 4 every 20000 revolutions (5000 gives 1, 10000 gives 2, 15000 gives 3, 20000 gives 4, 25000 gives 1 and so on), and the first nonzero stage sets the indicator DAT_20001D38 and the flag DAT_20001FBD. When DAT_20001FBE requests a reset, it clears the indicator, the stage and both flags, stores the current counter as the new baseline in DAT_20001C88 and calls vcu_0159_08007D88 (not yet described).",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "DAT_20001B78 is the wheel revolution counter that vcu_wheel_odometer_limit_update increments. The 5000-revolution spacing comes from the explicit constants in the decompile. DAT_20001D38 is read by vcu_display_frame_render_tick in mode 3 and mode 8."
+  },
+  "vcu_0159_080046c0": {
+    "name": "vcu_countdown_start_handshake",
+    "summary": "Start the countdown display on request, then send 0x7A to peer 7 when it finishes",
+    "description": "When the start request DAT_20001F45 is set, the first call moves the countdown state DAT_20001D36 from 0 to 1 and sets app state 1. When the state has reached 2, which vcu_display_frame_render_tick sets after its countdown runs out, the function clears the request, sends a 0x7A frame from 0x3E to peer 7 with a 4-byte zero payload through vcu_0159_0800D018 (not yet described) and raises the display update request DAT_20001FB4.",
+    "category": "display",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 0x7A frame is also sent from the countdown in vcu_display_frame_render_tick at count 200 to 299, so the same frame appears on both paths. As decompiled, that send runs on every tick of that band, which may repeat it up to 100 times; this should be checked against the intended behaviour."
+  },
+  "vcu_0159_080057ac": {
+    "name": "vcu_display_frame_render_tick",
+    "summary": "Per-tick display renderer: build the 16-byte LED/LCD image for the mode and send it",
+    "description": "Each tick it runs vcu_0159_0800BF30 (lighting_fade_step), and when the display mode DAT_2000123E differs from the previous mode in DAT_20001508 it clears the 16-byte image at 0x200021C6 first. A switch on DAT_2000123E then runs one of the mode handlers, which set the image bits through the lcd_fb_*, led_frame_* and lighting helpers, and the image is sent with vcu_0159_0800ED4C (not yet described) using the display control byte DAT_200022DD. The handlers include a passcode entry screen (mode 2, bit 7 of DAT_20001AEE) that shows the pending key DAT_20002044 as a digit with a progress bar from DAT_20001CEC, a main run display (mode 3) with a level bar, icon groups, fault-code cycling and a 3-2-1-0 countdown over 400 ticks while DAT_20001D36 is nonzero, and a 500-tick lamp test (mode 12) that drives all 16 bytes to 0xFF before a blank frame. Modes 0, 5 and 10, and the tail of the lamp test, clear the image and the fault and warning tables DAT_200021E8 and DAT_20002248 and write the blank frame inline.",
+    "category": "display",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Mode map from the switch: 1 power-on sweep until DAT_20001FBF, using variant-dependent tables (DAT_20001FA7); 2 passcode screen (bit 7 of DAT_20001AEE) or progress bars from DAT_20001CEC (bit 8), otherwise the frame is left alone; 3 main run display; 4 lighting table via vcu_0159_0800BFD0 (not described) until DAT_20001FBF, then blank; 6 alert blink on C14/C15 with PA6 through vcu_pa6_output_set; 7 vcu_0159_0800B0C4 (not described) with the 0..100 value DAT_20001D08; 8 like mode 3 with state word DAT_2000152C and brightness from DAT_20001D08 through lighting_brightness_percent_set; 9 progress bars from DAT_20001CEC into DAT_200021D2; 11 fault and warning display from the 48-bit fault map; 12 lamp test; any other value sets mode 0 and returns. The frame writes use the sequence 0x40 (auto-increment), 0xC0 (address), 16 data bytes and a display control byte, on PA9 as strobe, PB6 as clock and PB7 as data, which is consistent with a TM1638-style driver (identified from the sequence, not a datasheet)."
+  },
+  "vcu_0159_08005938": {
+    "name": "vcu_panel_key_report_telemetry_tick",
+    "summary": "Report key presses as 0x56 frames, blink C14/C15, and send three levels every 10 ticks",
+    "description": "Scales three 16-bit readings (app_get_u16_2000329C, _329E and _32A0) by 1/15 when DAT_20001FEB is 1 and by 1/14 otherwise. Each one-shot press flag (DAT_200021B5, DAT_200021C1, DAT_200021B8, DAT_200021BB and DAT_200021BE) is consumed once and reported as a 0x56 frame with sub-command 1, 2, 5, 9 or 10, while keys 2 and 1 also drive PA6 and keys 4 and 3 switch C15 and C14 on and toggle their blink modes. While a blink mode is set, C14 or C15 toggles every 40 ticks, and a 10-tick cycle sends the three scaled levels as 0x56 frames with sub-commands 0x0B, 0x0D and 0x0C at cycle ticks 1, 5 and 10.",
+    "category": "input",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The key flags are also read and cleared by vcu_key_sequence_entry_tick; the first of the two to run in a tick consumes a press. The frames use source 0x16 and peer 0x3D and carry 4-byte payloads (the level values are unsigned words). The blink toggle on the C14/C15 pins is written with the output helpers and the argument passed through, as decompiled. Callers are not identified in this packet."
+  },
+  "vcu_0159_08005b40": {
+    "name": "vcu_flash_erase_range",
+    "summary": "Erase a byte range page by page with flash unlocked; returns 1 if all pages erased",
+    "description": "Unlocks flash, clears the status flags (0x14) and computes the number of 1 KiB pages covering the length with vcu_flash_page_count. It erases pages upward from the start address with flash_sector_erase and stops at the first page whose erase does not return the done status (3), then locks flash again. It returns 1 if every page was erased and 0 otherwise.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash start address of the range"},
+      {"name": "param_2", "type": "u32", "description": "length of the range in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "1 when all pages were erased, 0 when a page erase failed"},
+    "confidence": "high",
+    "notes": "Callers: vcu_flash_erase_range_locked, vcu_upgrade_record_store and vcu_0159_08007D88 (not yet described)."
+  },
+  "vcu_0159_08005b90": {
+    "name": "vcu_flash_usd_reset_if_unprotected",
+    "summary": "Erase the user system data block if the argument is set and read-out protection is off",
+    "description": "When the argument is nonzero and flash_fap_status_get reports a value other than 1 (flash access protection not active), it unlocks flash, calls flash_user_system_data_erase(1) and locks flash again. In every other case it does nothing.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "nonzero to allow the user system data erase"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "flash_user_system_data_erase also restores the FAP halfword, so this path can change the read-out protection state. The caller, vcu_0159_0800D858, is not described, so the intent of the erase is not established."
+  },
+  "vcu_0159_08005bb4": {
+    "name": "vcu_config_ab_slot_load",
+    "summary": "Load the newer valid 512-byte config copy from flash slot A (0x0801F000) or B (0x0801F400)",
+    "description": "Reads the sequence halfwords at 0x0801F1FE (slot A, into DAT_20001024) and 0x0801F5FE (slot B, into DAT_20001026) and tries the newer copy first. The 512-byte copy is read to RAM at DAT_20001AB4 and checked with vcu_sum_s16_minus_trailer over 256 halfwords against the stored checksum pair in DAT_20001CA8 and DAT_20001CAA. If the newer copy fails it tries the other slot, and if both fail it uses vcu_serial_check_default (vcu_0159_080066DC) to choose a fallback copy to load without the check, or else sets DAT_20001022 to 0 and the first halfword of the buffer to 0xFFFF. A successful load sets DAT_20001022 to the chosen sequence number, and the fallback loads and the recovered-copy path call vcu_0159_08007D88 (not yet described).",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The call to vcu_0159_08007D88 is made only on the recovery and fallback paths, not when the first choice verifies. Callers: vcu_0159_08009DA8 (not described)."
+  },
+  "vcu_0159_08005d58": {
+    "name": "vcu_flash_program_verified",
+    "summary": "Program a halfword buffer to flash, verifying each halfword by readback",
+    "description": "Unlocks flash, then for each halfword calls flash_halfword_program to write the source value to the destination address, continuing only while the call returns the done status (3) and the flash readback equals the source value. It locks flash again at the end. It returns true only when the full byte count was programmed and verified, counting 2 bytes per halfword.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "flash destination address"},
+      {"name": "param_2", "type": "ptr", "description": "source buffer of halfwords"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes to program"}
+    ],
+    "returns": {"type": "bool", "description": "true when every halfword was programmed and read back equal"},
+    "confidence": "high",
+    "notes": "Callers: vcu_fw_update_frame_handler (staging writes), vcu_upgrade_record_store and vcu_0159_08007D88 (not described)."
+  },
+  "vcu_0159_080060a4": {
+    "name": "vcu_flash_erase_range_locked",
+    "summary": "Erase a flash range with interrupts masked; returns 0 on success, 2 on failure",
+    "description": "Masks interrupts with the CMSIS __disable_irq operation (shown in the decompile as disableIRQinterrupts), calls vcu_flash_erase_range with the address and length that arrive unchanged in r0 and r1, and returns 2 if that call reports failure or 0 otherwise. It re-enables interrupts before returning, so no interrupt handler runs while the flash is being erased.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash start address, passed through in r0"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes, passed through in r1"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 2 when a page erase failed"},
+    "confidence": "high",
+    "notes": "The decompile shows no parameters because the arguments are passed through registers. Caller: vcu_fw_update_frame_handler."
+  },
+  "vcu_0159_080060b8": {
+    "name": "vcu_crypto_identity_record_init",
+    "summary": "Boot-time key and identity check, reload the 12-byte record, load the working key",
+    "description": "Compares a built-in 16-byte key constant (0xB21C80FE, 0xA641EFD1, 0xF53117A4, 0xF02468A0) with the key at flash 0x08001440. If the flash key differs, it compares the 6-byte identifier at flash 0x08001430 with RAM DAT_20001C7C and, on mismatch or when DAT_20001C82 is 0, sets DAT_20001C82 to 1 and writes the default identifier words 0x364E726A and 0x3758. If the flash key equals the built-in key it clears DAT_20001C82 and writes the same default identifier. It then reads the 12-byte record at 0x0801F800 into DAT_200020D0 to DAT_200020D8, and when the record tag DAT_200020D0 differs from DAT_200014BC it copies DAT_200014C0 and DAT_200014C4 into the record, updates the tag and rewrites the record with vcu_upgrade_record_store. Finally it calls vcu_crypto_key_load and vcu_0159_08007D88 (not yet described) twice.",
+    "category": "crypto",
+    "params": [],
+    "returns": {"type": "u64", "description": "the first 8 bytes of the built-in key constant; no caller in this packet uses it"},
+    "confidence": "medium",
+    "notes": "The identifier and key blocks at flash 0x08001430 and 0x08001440 are the same values that vcu_fw_update_frame_handler checks against a new image. The purpose of the 6-byte identifier and the 12-byte record fields is inferred from their use. Caller: vcu_0159_0800D858 (not described)."
+  },
+  "vcu_0159_08006184": {
+    "name": "vcu_fw_update_frame_handler",
+    "summary": "Firmware-update frame handler: start, decrypt-and-stage blocks, finish and reset",
+    "description": "Handles one update frame: the sub-command is byte 3, the sequence number byte 4, the payload starts at byte 5 and the peer address is byte 1, and the reply carries a status byte under command 0x0B. Sub-command 7 starts a transfer: the 4-byte size must be nonzero, below 0xF000 and a multiple of 8, and the staging area at 0x08010000 is erased for size plus 0x80 bytes. Sub-command 8 carries 8-byte blocks in sequence, where the expected sequence is DAT_20001491 and the previous sequence is accepted silently; each block is XTEA-decrypted with the key at 0x200020DC in a CBC-style chain, the key is incremented by its byte index every 1 KiB, the first word must look like a stack pointer in SRAM, the first 1 KiB must match the product block at 0x08001400, the key at 0x08001440 and the identifier at 0x08001430 before writes are allowed past 1 KiB, and the plaintext is programmed with vcu_flash_program_verified while a rotated-sum checksum is accumulated. Sub-command 9 finishes a verified transfer with a 4-byte payload, sets the pending flag and size in the record and stores it, and sub-command 10 resets the MCU through AIRCR SYSRESETREQ when the pending flag is set and this session has not verified the checksum; any other sub-command returns status 7.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "frame buffer: [0] payload length, [1] peer address, [3] sub-command, [4] sequence, [5..] payload"},
+      {"name": "param_2", "type": "u32", "description": "reply path: 0 queues the reply with vcu_ninebot_tx_queue_push, 1 uses vcu_0159_0800D018 with the extra arguments"},
+      {"name": "param_3", "type": "u32", "description": "passed through to the reply path only when param_2 is 1"},
+      {"name": "param_4", "type": "u32", "description": "passed through to the reply path only when param_2 is 1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Status codes sent: 0 OK, 1 bad size or overrun or header gate, 3 flash failure, 5 sequence error (a sequence equal to the previous one is accepted), 6 busy (sent when a frame arrives while a previous one is still being handled), 7 bad length, state or vector check, 8 checksum mismatch, 0xB identifier mismatch, 0xC key mismatch. The checksum is the complement of the 16-bit-rotated sum of the preceding words, compared with the final word. The sub-command 10 reset condition looks inverted against the sub-command 9 check (which requires the checksum to pass), so it should be verified against the protocol definition. A reply-path flag DAT_2000185C and timer DAT_2000185E are set on the second path."
+  },
+  "vcu_0159_080065b4": {
+    "name": "vcu_upgrade_record_store",
+    "summary": "Erase and rewrite the 12-byte upgrade record at flash 0x0801F800, interrupts masked",
+    "description": "Masks interrupts, erases the one-page record area at 0x0801F800 with vcu_flash_erase_range, and when the erase succeeds programs the 12-byte RAM record DAT_200020D0 to DAT_200020D8 into it with vcu_flash_program_verified. It re-enables interrupts and returns.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The decompile is void, but the caller in vcu_fw_update_frame_handler uses the register left by the last flash call as a success flag, so a failed erase (0) is reported as status 3. Callers: vcu_crypto_identity_record_init and vcu_fw_update_frame_handler."
+  },
+  "vcu_0159_08006668": {
+    "name": "vcu_startup_announce_burst",
+    "summary": "Send a one-time startup announce burst of two frames to peer 2",
+    "description": "Until DAT_20001F6D is set, every fifth call sends two frames through vcu_0159_0800D018 (not yet described): one from 0x16 to peer 2 with command 0xDA carrying the constant 0x14, and one with command 0xD0 carrying the word at DAT_20001FF0. After four rounds (DAT_20001398 reaching 4) it sets DAT_20001F6D and stops, so the burst lasts about 16 ticks and runs only once after start-up.",
+    "category": "protocol",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The argument order of vcu_0159_0800D018 is not decoded here, so the command is taken from the position of the 0xDA and 0xD0 values. Callers: vcu_0159_0800A1D0, vcu_0159_0800A264, vcu_0159_0800A55C and vcu_0159_0800A5C8 (not described)."
+  }
+}

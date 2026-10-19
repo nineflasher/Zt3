@@ -1,6 +1,6 @@
 # VCU - `timer` functions
 
-20 functions.
+24 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -23,7 +23,11 @@
 | [`vcu_systick_resume`](#vcu_systick_resume) | 0x0800EAB0 | Restore the SysTick enable bit from the value saved by vcu_systick_suspend |
 | [`vcu_systick_suspend`](#vcu_systick_suspend) | 0x0800EA90 | Save the SysTick enable bit to RAM and stop the SysTick counter |
 | [`vcu_systick_timebase_init`](#vcu_systick_timebase_init) | 0x08002030 | Select the core clock for SysTick and derive the ticks-per-us and ticks-per-ms globals |
+| [`vcu_tmr2_ch1_pwm_init`](#vcu_tmr2_ch1_pwm_init) | 0x08001BCA | Configure the TMR2 base and channel-1 PWM output, then start the counter |
 | [`vcu_tmr2_ch1_pwm_start`](#vcu_tmr2_ch1_pwm_start) | 0x08001BA8 | Program TMR2 channel 1 PWM frequency, then enable the channel 1 output |
+| [`vcu_tmr2_pwm_pa0_bringup`](#vcu_tmr2_pwm_pa0_bringup) | 0x08001E6C | Bring up PA0 and then the TMR2 channel-1 PWM output |
+| [`vcu_tmr2_pwm_pa0_bringup_14a`](#vcu_tmr2_pwm_pa0_bringup_14a) | (removed) | Bring up PA0 and the TMR2 channel-1 PWM base in the 14a build |
+| [`vcu_tmr5_1khz_tick_init`](#vcu_tmr5_1khz_tick_init) | 0x0800261C | Start TMR5 as a 1 kHz overflow interrupt tick (PR 143, DIV 999, IRQ 50) |
 
 ## delay_ms
 
@@ -39,7 +43,7 @@ Loops over chunks of at most 50 ms (0x32): loads SysTick LOAD (0xE000E014) with 
 
 - Addresses by version: 148: 0x0800ABE0, 14a: 0x0800AFCC, 14b: 0x0800B458, 14e: 0x0800B4EC, 14f: 0x0800B628, 152: 0x0800B8B4, 153: 0x0800B9A8, 0159: 0x0800BAB0
 - Peripheral registers: `SysTick+0x0` (RW), `SysTick+0x4` (W), `SysTick+0x8` (W)
-- Called by: `vcu_fault_warning_evaluate`, `vcu_0159_08006184`
+- Called by: `vcu_fault_warning_evaluate`, `vcu_fw_update_frame_handler`
 - Confidence: medium
 
 ## delay_us
@@ -56,7 +60,7 @@ Loads SysTick LOAD with ticks_per_us * param_1 (ticks_per_us is the global at 0x
 
 - Addresses by version: 148: 0x0800AC30, 14a: 0x0800B01C, 14b: 0x0800B4A8, 14e: 0x0800B53C, 14f: 0x0800B678, 152: 0x0800B904, 153: 0x0800B9F8, 0159: 0x0800BB00
 - Peripheral registers: `SysTick+0x0` (RW), `SysTick+0x4` (W), `SysTick+0x8` (W)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Confidence: medium
 
 ## systick_clock_source_config
@@ -84,7 +88,7 @@ Read-modify-write of the register at 0x40000020 (TMR2.CCTRL): clears bit 0 (C1EN
 
 - Addresses by version: 148: 0x080017D8, 14a: 0x08001410, 14b: 0x08001AF4, 14e: 0x08001AF4, 14f: 0x08001B50, 152: 0x08001B8C, 153: 0x08001BA8, 0159: 0x08001BBC
 - Peripheral registers: `TMR2.CTRL1` (A), `TMR2.CCTRL` (RW)
-- Called by: `vcu_alert_tone_sequencer`, `vcu_0159_080042f8`, `vcu_0159_08006b24`, `vcu_0159_0800a39c`
+- Called by: `vcu_alert_tone_sequencer`, `vcu_c14_c15_pulse_sequencer`, `vcu_ninebot_rx_cmd_handle`, `vcu_0159_0800a39c`
 - Confidence: medium
 
 ## tmr2_pwm_set_frequency
@@ -117,7 +121,7 @@ Writes the period register at offset 0x2C and the prescaler register at 0x28 of 
 | `param_3` | `u32` | prescaler value (DIV) |
 
 - Addresses by version: 148: 0x0800DD90, 14a: 0x0800E22C, 14b: 0x0800E6BC, 14e: 0x0800E75C, 14f: 0x0800E8A8, 152: 0x0800EB50, 153: 0x0800EC44, 0159: 0x0800EDB4
-- Called by: `vcu_0159_08001bca`, `vcu_0159_0800261c`
+- Called by: `vcu_tmr2_ch1_pwm_init`, `vcu_tmr5_1khz_tick_init`
 - Confidence: high
 
 ## tmr_channel_value_set
@@ -133,7 +137,7 @@ Stores the value into the capture/compare register of the chosen channel: 0 sele
 | `param_3` | `u32` | compare value |
 
 - Addresses by version: 148: 0x0800DD9E, 14a: 0x0800E23A, 14b: 0x0800E6CA, 14e: 0x0800E76A, 14f: 0x0800E8B6, 152: 0x0800EB5E, 153: 0x0800EC52, 0159: 0x0800EDC2
-- Called by: `vcu_0159_08001bca`
+- Called by: `vcu_tmr2_ch1_pwm_init`
 - Confidence: high
 
 ## tmr_cnt_dir_set
@@ -148,7 +152,7 @@ Writes the three-bit CNT_DIR field (bits 6..4 of CTRL1) to the low three bits of
 | `param_2` | `u32` | counting mode (tmr_count_mode_type) |
 
 - Addresses by version: 148: 0x0800DDBE, 14a: 0x0800E25A, 14b: 0x0800E6EA, 14e: 0x0800E78A, 14f: 0x0800E8D6, 152: 0x0800EB7E, 153: 0x0800EC72, 0159: 0x0800EDE2
-- Called by: `vcu_0159_08001bca`, `vcu_0159_0800261c`
+- Called by: `vcu_tmr2_ch1_pwm_init`, `vcu_tmr5_1khz_tick_init`
 - Confidence: high
 
 ## tmr_counter_enable
@@ -163,7 +167,7 @@ Sets or clears bit 0 (TMREN) of CTRL1 with a read-modify-write that keeps the ot
 | `param_2` | `u32` | confirm_state: non-zero starts the counter, zero stops it |
 
 - Addresses by version: 148: 0x0800DDC8, 14a: 0x0800E264, 14b: 0x0800E6F4, 14e: 0x0800E794, 14f: 0x0800E8E0, 152: 0x0800EB88, 153: 0x0800EC7C, 0159: 0x0800EDEC
-- Called by: `vcu_0159_08001bca`, `vcu_0159_0800261c`
+- Called by: `vcu_tmr2_ch1_pwm_init`, `vcu_tmr5_1khz_tick_init`
 - Confidence: high
 
 ## tmr_flag_clear
@@ -211,7 +215,7 @@ Matches the Artery SDK tmr_interrupt_enable: with param_3 == 1 ORs param_2 into 
 | `param_3` | `u32` | 1 = enable, 0 = disable (confirm_state) |
 
 - Addresses by version: 148: 0x0800DDE6, 14a: 0x0800E282, 14b: 0x0800E712, 14e: 0x0800E7B2, 14f: 0x0800E8FE, 152: 0x0800EBA6, 153: 0x0800EC9A, 0159: 0x0800EE0A
-- Called by: `vcu_0159_0800261c`
+- Called by: `vcu_tmr5_1khz_tick_init`
 - Confidence: high
 
 ## tmr_output_channel_config
@@ -229,7 +233,7 @@ Matches the Artery SDK tmr_output_channel_config. param_2 is the channel select 
 **Notes:** The decompile does not clear the CxC bit (SDK sets c1c = FALSE); register masks match the SDK otherwise.
 
 - Addresses by version: 148: 0x0800DDFE, 14a: 0x0800E29A, 14b: 0x0800E72A, 14e: 0x0800E7CA, 14f: 0x0800E916, 152: 0x0800EBBE, 153: 0x0800ECB2, 0159: 0x0800EE22
-- Called by: `vcu_0159_08001bca`
+- Called by: `vcu_tmr2_ch1_pwm_init`
 - Confidence: high
 
 ## tmr_output_default_para_init
@@ -243,7 +247,7 @@ Matches the Artery SDK tmr_output_default_para_init: clears the 7 byte-wide memb
 | `param_1` | `ptr` | tmr_output_config_type to clear (7 bytes) |
 
 - Addresses by version: 148: 0x0800DED4, 14a: 0x0800E370, 14b: 0x0800E800, 14e: 0x0800E8A0, 14f: 0x0800E9EC, 152: 0x0800EC94, 153: 0x0800ED88, 0159: 0x0800EEF8
-- Called by: `vcu_0159_08001bca`
+- Called by: `vcu_tmr2_ch1_pwm_init`
 - Confidence: high
 
 ## tmr_output_enable
@@ -258,7 +262,7 @@ Matches the Artery SDK tmr_output_enable: read-modify-write of the BRK register 
 | `param_2` | `u32` | 1 = enable outputs, 0 = disable |
 
 - Addresses by version: 148: 0x0800DEE6, 14a: 0x0800E382, 14b: 0x0800E812, 14e: 0x0800E8B2, 14f: 0x0800E9FE, 152: 0x0800ECA6, 153: 0x0800ED9A, 0159: 0x0800EF0A
-- Called by: `vcu_0159_08001bca`
+- Called by: `vcu_tmr2_ch1_pwm_init`
 - Confidence: high
 
 ## vcu_alert_tone_start_if_idle
@@ -269,7 +273,7 @@ Reads TMR2.CCTRL (register at 0x40000020) and, when bit 0 (channel 1 compare out
 
 - Addresses by version: 148: 0x08006074, 14a: 0x08006494, 14b: 0x08006804, 14e: 0x0800683C, 14f: 0x08006898, 152: 0x0800693C, 153: 0x080069D8, 0159: 0x08006AE0
 - Peripheral registers: `TMR2.CCTRL` (R)
-- Called by: `vcu_0159_080042f8`
+- Called by: `vcu_c14_c15_pulse_sequencer`
 - Calls: `vcu_tmr2_ch1_pwm_start`
 - Confidence: high
 
@@ -281,7 +285,7 @@ ORs the saved byte DAT_200018AC into SysTick.CTRL, so the counter restarts only 
 
 - Addresses by version: 148: 0x0800DA90, 14a: 0x0800DF2C, 14b: 0x0800E3B8, 14e: 0x0800E458, 14f: 0x0800E5A4, 152: 0x0800E84C, 153: 0x0800E940, 0159: 0x0800EAB0
 - Peripheral registers: `SCnSCB+0x0` (A), `SysTick+0x0` (RW)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Confidence: high
 
 ## vcu_systick_suspend
@@ -292,7 +296,7 @@ Copies SysTick.CTRL bit 0 (ENABLE) into the RAM byte DAT_200018AC and then clear
 
 - Addresses by version: 148: 0x0800DA70, 14a: 0x0800DF0C, 14b: 0x0800E398, 14e: 0x0800E438, 14f: 0x0800E584, 152: 0x0800E82C, 153: 0x0800E920, 0159: 0x0800EA90
 - Peripheral registers: `SCnSCB+0x0` (A), `SysTick+0x0` (RW)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Confidence: high
 
 ## vcu_systick_timebase_init
@@ -302,9 +306,23 @@ Copies SysTick.CTRL bit 0 (ENABLE) into the RAM byte DAT_200018AC and then clear
 Sets SysTick to count the core clock with no divider (systick_clock_source_config with code 4) and derives the time-base globals used by delay_us and delay_ms. DAT_200018B0 becomes the core clock in MHz (the frequency in Hz at 0x200018BC divided by 1,000,000), and DAT_200018B4 becomes the ticks per millisecond (MHz times 1000). The core clock frequency must already be stored at 0x200018BC when this runs. It is called from the init sequence vcu_0159_08002060.
 
 - Addresses by version: 148: 0x08001C4C, 14a: 0x08001CB4, 14b: 0x08001F68, 14e: 0x08001F68, 14f: 0x08001FC4, 152: 0x08002000, 153: 0x0800201C, 0159: 0x08002030
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Calls: `systick_clock_source_config`
 - Confidence: high
+
+## vcu_tmr2_ch1_pwm_init
+
+**Configure the TMR2 base and channel-1 PWM output, then start the counter**
+
+Zeroes a 20-byte local, enables the TMR2 clock (CRM id 0x1C0000) and reads the clock frequencies. It programs TMR2 with tmr_base_init(TMR2, PR 1, DIV 143), giving a 1 MHz count on a 144 MHz timer clock, sets the count direction to up, and fills a tmr_output_config_type with oc_mode 6 (PWM mode A), oc_idle_state 0, oc_polarity 0 and oc_output_state 1 (enabled). It then configures channel 1 with that struct, writes the channel-1 compare value, enables the main output (BRK.OEN) and starts the counter. The result is an idle PWM tone output on TMR2 channel 1 (the buzzer), which tmr2_pwm_set_frequency retunes later.
+
+**Notes:** The 144 MHz timer clock is inferred from the 1 MHz count that tmr2_pwm_set_frequency assumes together with DIV 143. The compare-value argument of tmr_channel_value_set is not visible in the decompile. Callers: vcu_tmr2_pwm_pa0_bringup.
+
+- Addresses by version: 148: 0x080017E6, 14b: 0x08001B02, 14e: 0x08001B02, 14f: 0x08001B5E, 152: 0x08001B9A, 153: 0x08001BB6, 0159: 0x08001BCA
+- Peripheral registers: `TMR2.CTRL1` (A)
+- Called by: `vcu_tmr2_pwm_pa0_bringup`
+- Calls: `vcu_buf_zero`, `crm_clocks_freq_get`, `crm_periph_clock_enable`, `tmr_base_init`, `tmr_channel_value_set`, `tmr_cnt_dir_set`, `tmr_counter_enable`, `tmr_output_channel_config`, `tmr_output_default_para_init`, `tmr_output_enable`
+- Confidence: medium
 
 ## vcu_tmr2_ch1_pwm_start
 
@@ -316,6 +334,47 @@ Starts the TMR2 channel 1 PWM output. It calls tmr2_pwm_set_frequency (vcu_0159_
 
 - Addresses by version: 148: 0x080017C4, 14a: 0x08001838, 14b: 0x08001AE0, 14e: 0x08001AE0, 14f: 0x08001B3C, 152: 0x08001B78, 153: 0x08001B94, 0159: 0x08001BA8
 - Peripheral registers: `TMR2.CTRL1` (A), `TMR2.CCTRL` (RW)
-- Called by: `vcu_alert_tone_sequencer`, `vcu_alert_tone_start_if_idle`, `vcu_0159_08006b24`
+- Called by: `vcu_alert_tone_sequencer`, `vcu_alert_tone_start_if_idle`, `vcu_ninebot_rx_cmd_handle`
 - Calls: `tmr2_pwm_set_frequency`
 - Confidence: high
+
+## vcu_tmr2_pwm_pa0_bringup
+
+**Bring up PA0 and then the TMR2 channel-1 PWM output**
+
+Calls vcu_gpio_pa0_init, which configures PA0 (the default TMR2 channel-1 pin) first, and then vcu_tmr2_ch1_pwm_init, which sets up the TMR2 timer and its channel-1 PWM output. Together they are the full bring-up of the buzzer output path before any tone is requested.
+
+**Notes:** Called from vcu_peripheral_init_sequence. The 14a build has the same two steps as vcu_tmr2_pwm_pa0_bringup_14a.
+
+- Addresses by version: 148: 0x08001A88, 14b: 0x08001DA4, 14e: 0x08001DA4, 14f: 0x08001E00, 152: 0x08001E3C, 153: 0x08001E58, 0159: 0x08001E6C
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_tmr2_ch1_pwm_init`, `vcu_gpio_pa0_init`
+- Confidence: high
+
+## vcu_tmr2_pwm_pa0_bringup_14a
+
+**Bring up PA0 and the TMR2 channel-1 PWM base in the 14a build**
+
+Calls the PA0 setup first, then zeroes a 20-byte local, enables the TMR2 clock (CRM id 0x1C0000), reads the clock frequencies and programs TMR2 with PR 1 and DIV 143, which counts at 1 MHz on a 144 MHz timer clock. It sets up the channel-1 output as PWM mode A (mode code 6) with the output enabled, writes the channel-1 compare value, enables the main output (BRK.OEN) and starts the counter. The tone frequency is written later by tmr2_pwm_set_frequency, which sets PR to 1000000 divided by the frequency.
+
+**Notes:** This is the 14a copy of the 0159 bring-up split into vcu_tmr2_pwm_pa0_bringup (PA0 step) and vcu_tmr2_ch1_pwm_init (TMR2 step), both inlined here. The leading call FUN_08001AB4 is taken to be the PA0 routine vcu_gpio_pa0_init, because the packet lists that routine as a callee; this image's address was not checked. The third argument of tmr_channel_value_set is not visible in the decompile, so the compare value written is whatever the register held.
+
+- Addresses by version: 14a: 0x08001AF0
+- Peripheral registers: `TMR2.CTRL1` (A)
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_buf_zero`, `vcu_gpio_pa0_init`, `crm_clocks_freq_get`, `crm_periph_clock_enable`, `tmr_base_init`, `tmr_channel_value_set`, `tmr_cnt_dir_set`, `tmr_counter_enable`, `tmr_output_channel_config`, `tmr_output_default_para_init`, `tmr_output_enable`
+- Confidence: medium
+
+## vcu_tmr5_1khz_tick_init
+
+**Start TMR5 as a 1 kHz overflow interrupt tick (PR 143, DIV 999, IRQ 50)**
+
+Zeroes a 20-byte local, enables the TMR5 clock (CRM id 0x1C0003) and reads the clock frequencies. It calls tmr_base_init(TMR5, PR 143, DIV 999), sets the count direction to up, enables the overflow interrupt and enables NVIC IRQ 50 (TMR5_GLOBAL) with preemption priority 1 and sub-priority 0, then starts the counter. With a 144 MHz timer clock, 144e6 divided by (1000 times 144) is 1 kHz, and the overflow handler TMR5_GLOBAL_IRQHandler (vcu_0159_0800898C) counts those overflows.
+
+**Notes:** The 1 kHz rate depends on the 144 MHz timer clock inferred from the TMR2 setup, not on a stated clock value. Only the overflow count is kept by the handler (DAT_20001350), so this is the application's periodic timebase source.
+
+- Addresses by version: 148: 0x08002248, 14a: 0x080022B8, 14b: 0x0800257C, 14e: 0x0800257C, 14f: 0x080025D8, 152: 0x08002614, 153: 0x08002630, 0159: 0x0800261C
+- Peripheral registers: `TMR5.CTRL1` (A)
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_buf_zero`, `crm_clocks_freq_get`, `crm_periph_clock_enable`, `nvic_irq_enable`, `tmr_base_init`, `tmr_cnt_dir_set`, `tmr_counter_enable`, `tmr_interrupt_enable`
+- Confidence: medium

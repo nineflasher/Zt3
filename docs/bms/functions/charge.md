@@ -15,6 +15,6 @@ Runs a window comparator with hysteresis on two 11-bit limits, every 30000 ticks
 **Notes:** The 11-bit field extraction and the 30000-tick window are exact from the decompile. The meaning of the setpoints and of the state block words is not identified. Bit 7 of DAT_200005CA can hold the result at 1 under conditions on DAT_200005C1 and DAT_200005C0, which is not described above. The caller is bms_4168_08008006 and the request handshake is bms_ctrl_request_handshake.
 
 - Addresses by version: 4130: 0x0800CA28, 4139: 0x0800D024, 4148: 0x0800E024, 4168: 0x0800E478
-- Called by: `bms_4168_08008006`
+- Called by: `bms_setpoint_service_step`
 - Calls: `bms_rtc_datetime_pack`, `bms_ram_20000bdc_addr`, `bms_ctrl_request_handshake`
 - Confidence: medium

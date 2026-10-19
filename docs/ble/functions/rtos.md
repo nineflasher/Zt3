@@ -1,14 +1,17 @@
 # BLE - `rtos` functions
 
-102 functions.
+121 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`app_noop_hook_0c0427f0`](#app_noop_hook_0c0427f0) | 0x0C0427F0 | Empty function (single return), never called directly |
 | [`ble_bt_stack_task_create`](#ble_bt_stack_task_create) | 0x0C05B6CC | Create the 'bt stack' RTOS task with entry 0x0C05B678 and a 1 KiB stack |
+| [`ble_bts_task_create`](#ble_bts_task_create) | 0x0C059A40 | Create the bts event group and the 'bts_task' (depth 0x400, priority 2) with static buffers |
 | [`ble_evt_clear_index_bit`](#ble_evt_clear_index_bit) | 0x0C048298 | Clear the event bit that ble_evt_set_index_bit sets, via xEventGroupClearBits |
 | [`ble_evt_read_bits`](#ble_evt_read_bits) | 0x0C0482B8 | Return the whole BLE event group value when the index bit is valid, else 0 |
 | [`ble_evt_set_index_bit`](#ble_evt_set_index_bit) | 0x0C048278 | Set event bit 2*index + (selector & 1) in the BLE event group at 0x2000F6D4 |
+| [`ble_msgq_read_items`](#ble_msgq_read_items) | 0x0C04264C | Read whole items from a message object's RX queue, stream buffer or item callback |
+| [`ble_msgq_write_items`](#ble_msgq_write_items) | 0x0C0424D8 | Write whole items into a message object's TX queue, stream buffer or item callback |
 | [`ble_sched_check_and_pend_pendsv`](#ble_sched_check_and_pend_pendsv) | 0x0C05D0C4 | Request a PendSV exception when the scheduler object reports pending work |
 | [`ble_sched_signal_event`](#ble_sched_signal_event) | 0x0C05D494 | Signal event 1 on the BLE scheduler object at 0x20017184 |
 | [`ble_signal_worker_event`](#ble_signal_worker_event) | 0x0C059938 | Signal the BLE worker event handle held in the global at 0x20014564 |
@@ -40,10 +43,14 @@
 | [`rtos_pool_node_alloc_init`](#rtos_pool_node_alloc_init) | 0x0C04211C | Pop a node from a free list under a BASEPRI critical section and initialise it |
 | [`rtos_port_yield_from_isr`](#rtos_port_yield_from_isr) | 0x0C04583C | Cortex-M: pend PendSV when param_1 is non-zero (portYIELD_FROM_ISR) |
 | [`rtos_run_time_counter_get`](#rtos_run_time_counter_get) | 0x0C046290 | Thunk to RAM patch 0x20000328: read the run-time-stats counter for FreeRTOS |
+| [`rtos_runtime_stats_print_row`](#rtos_runtime_stats_print_row) | 0x0C044B14 | Print one run-time statistics row: name, handle, counters and CPU share in percent |
 | [`rtos_start_first_task`](#rtos_start_first_task) | 0x0C03F850 | Reset MSP from the vector table, enable interrupts and trigger SVC #2 to start the scheduler |
 | [`rtos_systick_sub_tick_ns`](#rtos_systick_sub_tick_ns) | 0x0C03F790 | Nanoseconds elapsed inside the current 1 ms SysTick period, +1 ms if the COUNTFLAG shows a wrap |
+| [`rtos_task_exit_handler`](#rtos_task_exit_handler) | 0x0C035FC0 | Return handler for a task function: print 'task <name> exit', delete the task and hang |
 | [`rtos_task_stack_init`](#rtos_task_stack_init) | 0x0C03F6C4 | Build the initial context frame on a new task stack and return the new stack pointer |
+| [`rtos_timer_daemon_task`](#rtos_timer_daemon_task) | 0x0C044EE8 | FreeRTOS timer daemon task: fire expired timers and process the timer command queue |
 | [`rtos_timer_pend_fixed_callback_from_isr`](#rtos_timer_pend_fixed_callback_from_isr) | 0x0C042988 | ISR-safe post of a fixed deferred callback with two arguments to the timer daemon queue |
+| [`rtos_timer_usage_report`](#rtos_timer_usage_report) | 0x0C044CCC | Print the software-timer usage table and the summed accumulated run time |
 | [`stream_buffer_commit_head`](#stream_buffer_commit_head) | 0x0C0438D8 | Advance a stream buffer's head by up to N free bytes and wake a receiver at the trigger level |
 | [`stream_buffer_consume_tail`](#stream_buffer_consume_tail) | 0x0C043830 | Advance a stream buffer's tail by up to N stored bytes and wake a sender waiting for space |
 | [`uxListRemove`](#uxlistremove) | 0x0C042A14 | FreeRTOS: unlink an item from the list that contains it |
@@ -53,6 +60,7 @@
 | [`uxTaskGetSystemState`](#uxtaskgetsystemstate) | 0x0C044544 | FreeRTOS uxTaskGetSystemState: snapshot TaskStatus_t entries for every task and the total run time |
 | [`uxTaskResetEventItemValue`](#uxtaskreseteventitemvalue) | 0x0C0447B8 | FreeRTOS: return and reset the current task's event list item value |
 | [`vApplicationGetIdleTaskMemory`](#vapplicationgetidletaskmemory) | 0x0C042800 | Provide static TCB and stack buffers for the idle task (FreeRTOS static allocation) |
+| [`vApplicationStackOverflowHook`](#vapplicationstackoverflowhook) | 0x0C0427F4 | FreeRTOS stack-overflow hook: log the offending task name and handle |
 | [`vListInitialise`](#vlistinitialise) | 0x0C0429A4 | FreeRTOS: initialise an empty list with its end marker |
 | [`vListInitialiseItem`](#vlistinitialiseitem) | 0x0C0429BC | FreeRTOS: mark a list item as not belonging to any list |
 | [`vListInsert`](#vlistinsert) | 0x0C0429E4 | FreeRTOS: insert an item into a list sorted by xItemValue |
@@ -60,8 +68,10 @@
 | [`vPortEnterCritical`](#vportentercritical) | 0x0C03F640 | FreeRTOS port: raise BASEPRI, increment uxCriticalNesting (DAT_20003ec4), DSB+ISB |
 | [`vPortExitCritical`](#vportexitcritical) | 0x0C03F65C | FreeRTOS port: decrement uxCriticalNesting (DAT_20003ec4) and re-enable interrupts when it reaches 0 |
 | [`vPortSetupTimerInterrupt`](#vportsetuptimerinterrupt) | 0x0C03F600 | FreeRTOS port: program SysTick for a 1 ms tick (LOAD = clk/1000 - 1, CTRL = ENABLE\|TICKINT) |
+| [`vQueueDelete`](#vqueuedelete) | 0x0C043358 | Free a FreeRTOS queue block unless it was statically allocated |
 | [`vQueueWaitForMessageRestricted`](#vqueuewaitformessagerestricted) | 0x0C043380 | FreeRTOS vQueueWaitForMessageRestricted: block the caller on an empty queue without a wake-up time |
 | [`vTaskDelay`](#vtaskdelay) | 0x0C0441A8 | FreeRTOS vTaskDelay: block the calling task for a number of ticks, with zero only yielding |
+| [`vTaskDelete`](#vtaskdelete) | 0x0C043DA0 | Delete a FreeRTOS task, unlink its lists, free or defer its memory, and yield if needed |
 | [`vTaskGetInfo`](#vtaskgetinfo) | 0x0C044400 | FreeRTOS vTaskGetInfo: fill a TaskStatus_t for a task, deriving its state and stack high-water mark |
 | [`vTaskInternalSetTimeOutState`](#vtaskinternalsettimeoutstate) | 0x0C044360 | FreeRTOS: record overflow count and tick count in a TimeOut_t |
 | [`vTaskMissedYield`](#vtaskmissedyield) | 0x0C0443F4 | FreeRTOS: flag that a context switch was requested while the scheduler was suspended |
@@ -71,11 +81,17 @@
 | [`vTaskPriorityDisinheritAfterTimeout`](#vtaskprioritydisinheritaftertimeout) | 0x0C044744 | FreeRTOS: lower a mutex holder's priority after a waiter timed out |
 | [`vTaskRemoveFromUnorderedEventList`](#vtaskremovefromunorderedeventlist) | 0x0C0442E4 | FreeRTOS: wake a task from an unordered event list and hand it the result value |
 | [`vTaskSetTimeOutState`](#vtasksettimeoutstate) | 0x0C04433C | FreeRTOS: record overflow count and tick count in a TimeOut_t inside a critical section |
+| [`vTaskStartScheduler`](#vtaskstartscheduler) | 0x0C043E70 | Create the idle and timer tasks, set interrupt priorities and start the first task |
 | [`vTaskSuspendAll`](#vtasksuspendall) | 0x0C043F0C | FreeRTOS: suspend the scheduler by incrementing the nesting counter |
+| [`vTaskSwitchContext`](#vtaskswitchcontext) | 0x0C0441D4 | Pick the next ready task and switch the current TCB, with run-time and stack checks |
 | [`xEventGroupClearBits`](#xeventgroupclearbits) | 0x0C042900 | FreeRTOS: clear bits in an event group inside a critical section and return the previous value |
+| [`xEventGroupCreate`](#xeventgroupcreate) | 0x0C04283C | Create a FreeRTOS event group: 32-byte object with the event bits and waiter list |
 | [`xEventGroupCreateStatic`](#xeventgroupcreatestatic) | 0x0C04281C | FreeRTOS: initialise a caller-provided StaticEventGroup_t and return it as the event group handle |
 | [`xEventGroupSetBits`](#xeventgroupsetbits) | 0x0C04291C | FreeRTOS xEventGroupSetBits: OR bits into the group and wake matching waiters |
 | [`xEventGroupWaitBits`](#xeventgroupwaitbits) | 0x0C042858 | FreeRTOS xEventGroupWaitBits: wait for event bits, blocking on the group's unordered list |
+| [`xPortPendSVHandler`](#xportpendsvhandler) | 0x0C03F8A0 | FreeRTOS PendSV: save the outgoing task context, switch tasks, restore the next one |
+| [`xQueueCreateMutex`](#xqueuecreatemutex) | 0x0C042E44 | Create a FreeRTOS mutex queue and give it once, as prvInitialiseMutex does |
+| [`xQueueGenericCreate`](#xqueuegenericcreate) | 0x0C042C08 | Create a FreeRTOS queue of uxLength items of uxItemSize bytes, with its storage |
 | [`xQueueGenericReset`](#xqueuegenericreset) | 0x0C042B38 | FreeRTOS queue.c: reset a queue to empty and (optionally) re-initialise its wait lists |
 | [`xQueueGenericSend`](#xqueuegenericsend) | 0x0C042C8C | FreeRTOS xQueueGenericSend: copy an item into a queue, blocking up to a tick timeout when full |
 | [`xQueueGenericSendFromISR`](#xqueuegenericsendfromisr) | 0x0C042EB4 | FreeRTOS xQueueGenericSendFromISR: queue an item from interrupt context inside a critical section |
@@ -85,12 +101,14 @@
 | [`xQueueReceive`](#xqueuereceive) | 0x0C042FA4 | FreeRTOS xQueueReceive: dequeue one item into a buffer, blocking up to a tick timeout when empty |
 | [`xQueueSemaphoreTake`](#xqueuesemaphoretake) | 0x0C0430A8 | FreeRTOS xQueueSemaphoreTake: take a semaphore or mutex token, with priority inheritance for mutexes |
 | [`xQueueTakeMutexRecursive`](#xqueuetakemutexrecursive) | 0x0C0431F8 | FreeRTOS xQueueTakeMutexRecursive: take a recursive mutex, re-entering when the caller already holds it |
+| [`xStreamBufferGenericCreate`](#xstreambuffergenericcreate) | 0x0C043460 | Create a FreeRTOS stream or message buffer with a trigger level and optional message flag |
 | [`xStreamBufferGenericCreateStatic`](#xstreambuffergenericcreatestatic) | 0x0C043498 | FreeRTOS: initialise a static stream/message buffer (size, trigger level, storage, flags) |
 | [`xStreamBufferReceive`](#xstreambufferreceive) | 0x0C0436F8 | FreeRTOS xStreamBufferReceive: read a stream or message from a buffer, blocking until data arrives |
 | [`xStreamBufferReset`](#xstreambufferreset) | 0x0C0434E8 | FreeRTOS: empty a stream buffer if no task is blocked on it, keeping buffer, length, trigger level and number |
 | [`xStreamBufferSend`](#xstreambuffersend) | 0x0C043554 | FreeRTOS xStreamBufferSend: write a stream or message into a buffer, blocking for free space |
 | [`xStreamBufferSendFromISR`](#xstreambuffersendfromisr) | 0x0C043658 | FreeRTOS: copy data into a stream/message buffer from an ISR and wake the waiting reader |
 | [`xTaskCheckForTimeOut`](#xtaskcheckfortimeout) | 0x0C044378 | FreeRTOS: test whether a blocking timeout expired and adjust the remaining ticks |
+| [`xTaskCreate`](#xtaskcreate) | 0x0C043D3C | Create a FreeRTOS task: allocate stack and TCB, initialise, add to the ready list |
 | [`xTaskCreateStatic`](#xtaskcreatestatic) | 0x0C043CFC | FreeRTOS xTaskCreateStatic: initialise a caller-supplied TCB and stack and make the task ready |
 | [`xTaskGenericNotify`](#xtaskgenericnotify) | 0x0C044870 | FreeRTOS: send a task notification from task context and unblock the target |
 | [`xTaskGenericNotifyFromISR`](#xtaskgenericnotifyfromisr) | 0x0C044914 | FreeRTOS: send a task notification from an ISR and flag a higher-priority wake-up |
@@ -104,6 +122,7 @@
 | [`xTaskPriorityInherit`](#xtaskpriorityinherit) | 0x0C044658 | FreeRTOS: raise a mutex holder's priority to that of the current task |
 | [`xTaskRemoveFromEventList`](#xtaskremovefromeventlist) | 0x0C044264 | FreeRTOS: wake the highest-priority task blocked on an event list |
 | [`xTaskResumeAll`](#xtaskresumeall) | 0x0C0440AC | FreeRTOS: resume the scheduler, drain the pending-ready list and replay pended ticks |
+| [`xTimerCreate`](#xtimercreate) | 0x0C044C7C | Create a FreeRTOS software timer with name, period, reload flag, ID and callback |
 | [`xTimerCreateTimerTask`](#xtimercreatetimertask) | 0x0C044C2C | Create the 'Tmr Svc' FreeRTOS timer daemon task (static, depth 0x400, priority 5) |
 | [`xTimerGenericCommand`](#xtimergenericcommand) | 0x0C044D90 | FreeRTOS xTimerGenericCommand: post a command to the timer daemon queue from task or ISR context |
 
@@ -125,9 +144,20 @@ Creates the task named 'bt stack' with entry point 0x0C05B678, stack size 0x400 
 **Notes:** The argument order (stack size, argument, priority) is inferred from the call, and the purpose of the object at 0x20004B38 is unknown.
 
 - Addresses by version: 219: 0x0C05B6CC
-- Called by: `ble_219_0c0592a4`
+- Called by: `ble_host_start`
 - Calls: `xTaskCreateStatic`
 - Confidence: medium
+
+## ble_bts_task_create
+
+**Create the bts event group and the 'bts_task' (depth 0x400, priority 2) with static buffers**
+
+Creates the event group stored at 0x20014564 (ble_219_0c04283c), then creates the task 'bts_task' with entry 0x0C0599D5 (ble_bts_task_handler), depth 0x400, priority 2, static stack 0x20013558 and TCB 0x20004AD8 through xTaskCreateStatic. The task handle goes to 0x20014568. It is called once from ble_host_start.
+
+- Addresses by version: 219: 0x0C059A40
+- Called by: `ble_host_start`
+- Calls: `xEventGroupCreate`, `xTaskCreateStatic`
+- Confidence: high
 
 ## ble_evt_clear_index_bit
 
@@ -141,7 +171,7 @@ Uses the same index and selector mapping as ble_evt_set_index_bit and clears tha
 | `param_2` | `u32` | selector: bit 0 set means read readiness, clear means write readiness |
 
 - Addresses by version: 219: 0x0C048298
-- Called by: `ble_ring_poll_status`, `ble_219_0c0424d8`, `ble_219_0c04264c`
+- Called by: `ble_ring_poll_status`, `ble_msgq_write_items`, `ble_msgq_read_items`
 - Calls: `xEventGroupClearBits`
 - Confidence: medium
 
@@ -159,7 +189,7 @@ Returns 0 when the event group handle at 0x2000F6D4 is NULL or when the index's 
 **Returns** `u32`: whole event group value, or 0
 
 - Addresses by version: 219: 0x0C0482B8
-- Called by: `ble_219_0c04533c`, `ble_219_0c0462c4`, `ble_219_0c046380`, `ble_219_0c0467b8`
+- Called by: `ble_irq42_rf_queue_isr`, `ble_uart_rx_dma_pump`, `ble_uart_tx_dma_pump`, `ble_uart_irq17_handler`
 - Calls: `rtos_timer_pend_fixed_callback_from_isr`
 - Confidence: medium
 
@@ -175,8 +205,50 @@ Maps an index and a selector to one bit of the event group at 0x2000F6D4: bit = 
 | `param_2` | `u32` | selector: bit 0 set means read readiness, clear means write readiness |
 
 - Addresses by version: 219: 0x0C048278
-- Called by: `ble_219_0c0462c4`, `ble_219_0c046380`
+- Called by: `ble_uart_rx_dma_pump`, `ble_uart_tx_dma_pump`
 - Calls: `xEventGroupSetBits`
+- Confidence: medium
+
+## ble_msgq_read_items
+
+**Read whole items from a message object's RX queue, stream buffer or item callback**
+
+Reads param_3 bytes as whole items, the counterpart of ble_msgq_write_items on the RX side of the same inner object: RX queue at +0x60 and RX stream at +0x68. An unaligned length returns -5 with the same message. With neither RX queue nor stream the per-item read hook (+0x10 of the ops table) runs for each item. An RX stream takes precedence and is read with xStreamBufferReceive; with only an RX queue, items are received one at a time with xQueueReceive until one fails. The ops hook at +0x18 runs after the transfer. When flag bit 2 is set and the RX queue is empty (prvIsQueueEmpty), it clears the event bit with ble_evt_clear_index_bit(index, 1) inside a critical section. Returns the byte count.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | message object: +0x8 event index byte, +0xA flags (bit 2 requests event updates), +0x10 inner buffer object |
+| `param_2` | `ptr` | destination buffer |
+| `param_3` | `s32` | byte count, a multiple of the item size |
+| `param_4` | `u32` | caller tag, used only by the alignment message |
+
+**Returns** `s32`: bytes read, or -5 for an unaligned length or a missing ops table; 0 for a zero length
+
+**Notes:** The offsets and the precedence of stream over queue come from the decompiled branches; check against the disassembly if this matters.
+
+- Addresses by version: 219: 0x0C04264C
+- Calls: `trace_printf`, `vPortEnterCritical`, `vPortExitCritical`, `xQueueReceive`, `prvIsQueueEmpty`, `xStreamBufferReceive`, `ringbuf_is_empty`, `ringbuf_contig_write_len`, `ble_evt_clear_index_bit`
+- Confidence: medium
+
+## ble_msgq_write_items
+
+**Write whole items into a message object's TX queue, stream buffer or item callback**
+
+Writes param_3 bytes as whole items. The inner object has the item size at +0x2, an ops table at +0x58 (per-item write at +0xC, hooks at +0x14, +0x1C and +0x20), a TX queue at +0x5C and a TX stream at +0x64. A length that is not a multiple of the item size is reported with '%s size must align %d' (len2nItem) and returns -5. With no TX queue and no stream it calls the per-item write hook for each item. A TX stream takes precedence and is written with xStreamBufferSend; with only a TX queue each item is sent with xQueueGenericSend. The hooks bracket the transfer. When flag bit 2 is set, the routine enters a critical section and, if the queue reports full (prvIsQueueFull), clears the event bit with ble_evt_clear_index_bit(index, 0) before returning the byte count.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | message object: +0x8 event index byte, +0xA flags (bit 2 requests event updates), +0x10 inner buffer object |
+| `param_2` | `ptr` | source data; a NULL source only runs the +0x14 hook and returns 0 |
+| `param_3` | `s32` | byte count, a multiple of the item size |
+| `param_4` | `u32` | caller tag, used only by the alignment message |
+
+**Returns** `s32`: bytes written, or -5 for an unaligned length or a missing ops table
+
+**Notes:** The ops-table field offsets are read from the decompiled pointer arithmetic. The meaning of the event index byte is inferred from ble_evt_clear_index_bit.
+
+- Addresses by version: 219: 0x0C0424D8
+- Calls: `trace_printf`, `vPortEnterCritical`, `vPortExitCritical`, `xQueueGenericSend`, `prvIsQueueFull`, `xStreamBufferSend`, `ringbuf_is_full_with_reserve`, `ble_evt_clear_index_bit`
 - Confidence: medium
 
 ## ble_sched_check_and_pend_pendsv
@@ -252,7 +324,7 @@ If param_1 is non-NULL returns param_1 + 0x34, else uses the current TCB (DAT_20
 **Returns** `ptr`: pointer to the NUL-terminated task name
 
 - Addresses by version: 219: 0x0C043F34
-- Called by: `ble_219_0c036328`
+- Called by: `wdt_task_monitor_register_current`
 - Confidence: high
 
 ## posix_event_2000f65c_init
@@ -306,7 +378,7 @@ tasks.c prvAddNewTaskToReadyList(pxNewTCB). Inside vPortEnterCritical/vPortExitC
 | `param_1` | `ptr` | TCB_t* of the new task |
 
 - Addresses by version: 219: 0x0C043978
-- Called by: `xTaskCreateStatic`, `ble_219_0c043d3c`, `ble_219_0c043e70`
+- Called by: `xTaskCreateStatic`, `xTaskCreate`, `vTaskStartScheduler`
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `vListInsertEnd`
 - Confidence: high
 
@@ -317,7 +389,7 @@ tasks.c prvAddNewTaskToReadyList(pxNewTCB). Inside vPortEnterCritical/vPortExitC
 Upstream prvCheckForValidListAndQueue. Inside a critical section, if the timer command queue handle DAT_2000DE20 is still NULL, it initialises the timer lists at 0x2000DD90 and 0x2000DDA4 and points the current and overflow timer list pointers (DAT_2000CCA8, DAT_2000CCAC) at them. It also initialises the third list at 0x2000DDB8, which ble_219_0c044de8 uses. Then it creates the timer queue with xQueueGenericCreateStatic (0x0C042BA0) as 8 entries of 16 bytes, storage at 0x2000DD10 and Queue_t at 0x2000DDD0. Called from the timer task creation path (ble_219_0c044c2c) and from ble_219_0c044c7c.
 
 - Addresses by version: 219: 0x0C044AA4
-- Called by: `xTimerCreateTimerTask`, `ble_219_0c044c7c`
+- Called by: `xTimerCreateTimerTask`, `xTimerCreate`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `prvInitialiseNewQueue`
 - Confidence: high
 
@@ -358,7 +430,7 @@ Initialises a caller-supplied static Queue_t as a one-entry, zero-item-size queu
 **Notes:** Matches upstream prvInitialiseMutex and the static create path, but the decompile merges the two. The name is therefore a best match and is not confirmed against the source.
 
 - Addresses by version: 219: 0x0C042D80
-- Called by: `ble_219_0c0297b0`, `ble_219_0c02a478`, `ble_219_0c02dea8`, `ble_219_0c02e420`, `ble_219_0c035d30`, `ble_stack_lock_take`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_fd_find_next_open`, `ble_219_0c04855c`, `ble_pktq_init` ...
+- Called by: `ble_app_main_init`, `ble_signal_event_8f94`, `nvdata_device_init`, `uart_disp_start_service`, `console_init`, `ble_stack_lock_take`, `fd_alloc_slot`, `fd_driver_open_finalize`, `fd_close`, `ble_fd_find_next_open`, `fd_open_device`, `ble_pktq_init` ...
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `xQueueGenericSend`
 - Confidence: medium
 
@@ -381,7 +453,7 @@ If pxNewQueue is non-NULL: for uxItemSize == 0 the storage pointer is set to the
 **Notes:** Parameter order differs from stock FreeRTOS (queue pointer before type) and the static flag is set here rather than in xQueueGenericCreateStatic, so this is a merged/customised version.
 
 - Addresses by version: 219: 0x0C042BA0
-- Called by: `ble_219_0c02d724`, `ble_219_0c02e420`, `ble_219_0c0355c8`, `prvCheckForValidListAndQueue`, `ble_irq_binary_sem_init`
+- Called by: `ble_nvdata_init`, `uart_disp_start_service`, `uart_bridge_queue_init`, `prvCheckForValidListAndQueue`, `ble_irq_binary_sem_init`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`
 - Confidence: medium
 
@@ -402,7 +474,7 @@ tasks.c prvInitialiseNewTask(pxTaskCode, pcName, ulStackDepth, pvParameters, uxP
 | `param_7` | `ptr` | TCB_t* pxNewTCB to initialise (pxStack already set at +0x30) |
 
 - Addresses by version: 219: 0x0C043BA8
-- Called by: `xTaskCreateStatic`, `ble_219_0c043d3c`, `ble_219_0c043e70`
+- Called by: `xTaskCreateStatic`, `xTaskCreate`, `vTaskStartScheduler`
 - Calls: `rtos_task_stack_init`, `vListInitialiseItem`, `memset`
 - Confidence: high
 
@@ -424,7 +496,7 @@ timers.c prvInsertTimerInActiveList(pxTimer, xNextExpiryTime, xTimeNow, xCommand
 **Notes:** The uxListRemove-when-in-list-0x2000ddb8 check is not in stock FreeRTOS; purpose of that list is unknown.
 
 - Addresses by version: 219: 0x0C044BB0
-- Called by: `ble_219_0c044ee8`
+- Called by: `rtos_timer_daemon_task`
 - Calls: `vListInsert`, `uxListRemove`
 - Confidence: high
 
@@ -441,7 +513,7 @@ Returns (Queue_t.uxMessagesWaiting at offset 0x38) == 0. This is the body of prv
 **Returns** `bool`: true if the queue holds no items
 
 - Addresses by version: 219: 0x0C043364
-- Called by: `ble_ring_poll_status`, `ble_219_0c04264c`, `ble_219_0c0467b8`
+- Called by: `ble_ring_poll_status`, `ble_msgq_read_items`, `ble_uart_irq17_handler`
 - Confidence: high
 
 ## prvIsQueueFull
@@ -457,7 +529,7 @@ Returns (Queue_t.uxLength at 0x3c) == (Queue_t.uxMessagesWaiting at 0x38), i.e. 
 **Returns** `bool`: true if the queue is full
 
 - Addresses by version: 219: 0x0C043370
-- Called by: `ble_219_0c0424d8`
+- Called by: `ble_msgq_write_items`
 - Confidence: high
 
 ## prvListTasksWithinSingleList
@@ -508,7 +580,7 @@ Used when the tick count wraps (upstream prvSwitchTimerLists). While the current
 **Notes:** The 64-bit arithmetic and the time source behind 0x0C071A70 are hard to read in the decompile, so the elapsed-time accounting is the least certain part. The list swap and the auto-reload branch follow upstream closely.
 
 - Addresses by version: 219: 0x0C044DE8
-- Called by: `ble_219_0c044ee8`
+- Called by: `rtos_timer_daemon_task`
 - Calls: `vListInsert`, `uxListRemove`, `xTimerGenericCommand`, `_gettimeofday_r`
 - Confidence: medium
 
@@ -567,7 +639,7 @@ If in a privileged mode, reads the current BASEPRI, then sets BASEPRI to 0x40 (m
 **Returns** `u64`: low 32 bits = previous BASEPRI, high 32 bits = new BASEPRI (0x40)
 
 - Addresses by version: 219: 0x0C03F874
-- Called by: `vPortEnterCritical`, `SysTick_Handler`, `ble_219_0c041d28`, `xQueueGenericSendFromISR`, `xQueueGiveFromISR`, `xStreamBufferSendFromISR`, `stream_buffer_consume_tail`, `stream_buffer_commit_head`, `ble_219_0c043e70`, `xTaskGenericNotifyFromISR`
+- Called by: `vPortEnterCritical`, `SysTick_Handler`, `ble_boot_mode_set`, `xQueueGenericSendFromISR`, `xQueueGiveFromISR`, `xStreamBufferSendFromISR`, `stream_buffer_consume_tail`, `stream_buffer_commit_head`, `vTaskStartScheduler`, `xTaskGenericNotifyFromISR`
 - Confidence: high
 
 ## rtos_exit_critical
@@ -599,7 +671,7 @@ If the caller (xTaskGetCurrentTaskHandle) is the holder at +4, sets the recursio
 **Notes:** Upstream FreeRTOS does not check the holder in xSemaphoreGive, so this name describes this build's variant.
 
 - Addresses by version: 219: 0x0C042E20
-- Called by: `ble_219_0c048380`
+- Called by: `fd_lseek`
 - Calls: `xQueueGenericSend`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 
@@ -611,7 +683,7 @@ Writes 0x10000000 (PENDSVSET, bit 28) to SCB->ICSR at 0xE000ED04, then DSB and I
 
 - Addresses by version: 219: 0x0C03F628
 - Peripheral registers: `0xe000ed04` (W)
-- Called by: `xEventGroupWaitBits`, `xQueueGenericReset`, `xQueueGenericSend`, `xQueueReceive`, `xQueueSemaphoreTake`, `xQueuePeek`, `prvAddNewTaskToReadyList`, `ble_219_0c043da0`, `xTaskResumeAll`, `vTaskDelay`, `xTaskNotifyWait`, `xTaskGenericNotify` ...
+- Called by: `xEventGroupWaitBits`, `xQueueGenericReset`, `xQueueGenericSend`, `xQueueReceive`, `xQueueSemaphoreTake`, `xQueuePeek`, `prvAddNewTaskToReadyList`, `vTaskDelete`, `xTaskResumeAll`, `vTaskDelay`, `xTaskNotifyWait`, `xTaskGenericNotify` ...
 - Confidence: high
 
 ## rtos_pool_node_alloc_init
@@ -630,7 +702,7 @@ Enters a critical section (raises BASEPRI to 0x40 if running privileged; when no
 **Notes:** Node type unknown (looks like an RTOS control block / message / timer slot pool). Sole caller ble_219_0c03bb70.
 
 - Addresses by version: 219: 0x0C04211C
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Confidence: medium
 
 ## rtos_port_yield_from_isr
@@ -661,8 +733,29 @@ Single tail-call thunk into the patched RAM routine at 0x20000328 (via ble_ram_p
 **Returns** `u32`: free-running time counter value
 
 - Addresses by version: 219: 0x0C046290
-- Called by: `ble_219_0c0441d4`, `uxTaskGetSystemState`
+- Called by: `vTaskSwitchContext`, `uxTaskGetSystemState`
 - Calls: `ble_ram_patch_thunk_20000328`
+- Confidence: medium
+
+## rtos_runtime_stats_print_row
+
+**Print one run-time statistics row: name, handle, counters and CPU share in percent**
+
+Prints one row of the run-time statistics table: the task name left-justified in 20 columns, the handle as 8 hex digits, and three integers. It then computes the task's share as a 64-bit ratio of its run-time counter times 10000 over the total (__udivdi3) and prints it as integer.hundredths percent.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | task stats record: name at +0, counters at +0x18 and +0x1C, handle at +0x20, 64-bit run-time counter at +0x30 |
+| `param_2` | `u32` | not read by the body |
+| `param_3` | `u32` | total run-time counter, low word |
+| `param_4` | `u32` | total run-time counter, high word |
+| `param_5` | `u32` | printed as the third column |
+
+**Notes:** The second format string expects four values, but the decompiler recovers only the percent pair. The time column is not recovered.
+
+- Addresses by version: 219: 0x0C044B14
+- Called by: `rtos_timer_usage_report`
+- Calls: `trace_printf`, `__udivdi3`
 - Confidence: medium
 
 ## rtos_start_first_task
@@ -673,7 +766,7 @@ Reads VTOR (0xE000ED08), loads the first word of the vector table (initial MSP) 
 
 - Addresses by version: 219: 0x0C03F850
 - Peripheral registers: `0xe000ed08` (R)
-- Called by: `ble_219_0c043e70`
+- Called by: `vTaskStartScheduler`
 - Confidence: high
 
 ## rtos_systick_sub_tick_ns
@@ -690,6 +783,19 @@ Reads SysTick LOAD and VAL, gets the reference clock frequency (Hz) from ble_ram
 - Peripheral registers: `0xe000e010` (R), `0xe000e014` (R), `0xe000e018` (R)
 - Called by: `clock_gettime`, `gettimeofday`
 - Calls: `ble_ram_patch_thunk_20000554`
+- Confidence: medium
+
+## rtos_task_exit_handler
+
+**Return handler for a task function: print 'task <name> exit', delete the task and hang**
+
+Called when a task function returns. It fills a TaskStatus_t for the current task with vTaskGetInfo (task handle 0, state argument 5, meaning eInvalid so the state is derived), prints '\ntask %s exit\n' with the task name from that record, calls ble_219_0c043da0 with 0 (removing the current task) and loops forever if that call returns.
+
+**Notes:** ble_219_0c043da0 is not yet named and is treated as vTaskDelete(NULL) from its argument. The 4-byte status buffer in the decompile is a decompiler artifact; the TaskStatus_t is larger.
+
+- Addresses by version: 219: 0x0C035FC0
+- Called by: `ble_219_0c070204`, `ble_219_0c073764`
+- Calls: `trace_printf`, `vTaskDelete`, `vTaskGetInfo`
 - Confidence: medium
 
 ## rtos_task_stack_init
@@ -713,6 +819,18 @@ Takes the stack top in param_1 and writes a fake exception frame below it: hardw
 - Called by: `prvInitialiseNewTask`
 - Confidence: high
 
+## rtos_timer_daemon_task
+
+**FreeRTOS timer daemon task: fire expired timers and process the timer command queue**
+
+Body of the FreeRTOS software-timer service task (timers.c prvTimerTask) with run-time accounting added. Each pass either suspends the scheduler and blocks on the timer queue at 0x2000DE20 with vQueueWaitForMessageRestricted when no timer is active, or reads the tick count and blocks until the next expiry. A tick count that went backwards triggers prvSwitchTimerLists, and the last tick is kept at 0x2000DDCC. Each expired timer's callback (+0x24) runs between two gettimeofday reads, and the elapsed microseconds are added to the 64-bit counter at +0x30/+0x34. The command queue is then drained with xQueueReceive and a zero timeout: start and reset commands (IDs 0, 1, 2, 6, 7) reinsert the timer with prvInsertTimerInActiveList, change-period commands (4, 9) store the new period and reinsert, delete (5) unlinks and frees the timer, and negative IDs run a deferred callback. rtos_pendsv_trigger is called when xTaskResumeAll reports a pending switch.
+
+**Notes:** The FreeRTOS core is high confidence. The run-time accounting, the meaning of the second list at 0x2000DDB8, and the free routine behind thunk_FUN_0c07098c for delete are less certain.
+
+- Addresses by version: 219: 0x0C044EE8
+- Calls: `rtos_pendsv_trigger`, `vListInsert`, `uxListRemove`, `xQueueReceive`, `vQueueWaitForMessageRestricted`, `vTaskSuspendAll`, `xTaskGetTickCount`, `xTaskResumeAll`, `prvInsertTimerInActiveList`, `xTimerGenericCommand`, `prvSwitchTimerLists`, `ble_thunk_free`, `_gettimeofday_r`
+- Confidence: medium
+
 ## rtos_timer_pend_fixed_callback_from_isr
 
 **ISR-safe post of a fixed deferred callback with two arguments to the timer daemon queue**
@@ -730,6 +848,18 @@ Builds a 16-byte timer-daemon message on the stack: command id -2 (tmrCOMMAND_EX
 - Addresses by version: 219: 0x0C042988
 - Called by: `ble_evt_read_bits`, `ble_sched_check_and_pend_pendsv`
 - Calls: `xQueueGenericSendFromISR`
+- Confidence: medium
+
+## rtos_timer_usage_report
+
+**Print the software-timer usage table and the summed accumulated run time**
+
+Diagnostic dump of the FreeRTOS software timers. It sums the 64-bit accumulated run-time counters (microseconds, low word at +0x30, high word at +0x34) of every timer in the current timer list at 0x2000CCA8 and in the second timer list at 0x2000DDB8, keeping only the low 32 bits of the sum. It prints a column header (TimerID, Auto, Active, Period, Usage, total time) with the total as seconds.microseconds, then calls the per-timer printer ble_219_0c044b14 once per timer, passing flag 1 for the current list and 0 for the second. The timer layout follows FreeRTOS timers.c (list item at +4, period at +0x18, auto-reload flag at +0x1C, callback at +0x24). It has no direct callers, so it is most likely reached from a console command.
+
+**Notes:** The printed total is truncated to 32 bits and wraps after about 71 minutes of accumulated time. The per-timer printer ble_219_0c044b14 is not described in this packet. The second list at 0x2000DDB8 is inferred from the list-walk pattern.
+
+- Addresses by version: 219: 0x0C044CCC
+- Calls: `trace_printf`, `rtos_runtime_stats_print_row`
 - Confidence: medium
 
 ## stream_buffer_commit_head
@@ -750,7 +880,7 @@ Clamps the requested count to the free space (length - 1 - stored), advances xHe
 **Notes:** Role inferred from the head update and the receiver-side notification. Counterpart of stream_buffer_consume_tail.
 
 - Addresses by version: 219: 0x0C0438D8
-- Called by: `ble_219_0c046468`
+- Called by: `ble_uart_rx_dma_commit`
 - Calls: `rtos_enter_critical`, `rtos_exit_critical`, `vTaskSuspendAll`, `xTaskResumeAll`, `xTaskGenericNotify`, `xTaskGenericNotifyFromISR`
 - Confidence: medium
 
@@ -788,7 +918,7 @@ FreeRTOS uxListRemove: reads the owning list from pvContainer (+0x10), joins the
 **Returns** `u32`: number of items left in the list
 
 - Addresses by version: 219: 0x0C042A14
-- Called by: `prvAddCurrentTaskToDelayedList`, `ble_219_0c043da0`, `xTaskIncrementTick`, `xTaskResumeAll`, `xTaskRemoveFromEventList`, `vTaskRemoveFromUnorderedEventList`, `xTaskPriorityInherit`, `xTaskPriorityDisinherit`, `vTaskPriorityDisinheritAfterTimeout`, `xTaskGenericNotify`, `xTaskGenericNotifyFromISR`, `prvInsertTimerInActiveList` ...
+- Called by: `prvAddCurrentTaskToDelayedList`, `vTaskDelete`, `xTaskIncrementTick`, `xTaskResumeAll`, `xTaskRemoveFromEventList`, `vTaskRemoveFromUnorderedEventList`, `xTaskPriorityInherit`, `xTaskPriorityDisinherit`, `vTaskPriorityDisinheritAfterTimeout`, `xTaskGenericNotify`, `xTaskGenericNotifyFromISR`, `prvInsertTimerInActiveList` ...
 - Confidence: high
 
 ## uxQueueMessagesWaiting
@@ -835,7 +965,7 @@ Pure getter returning the kernel variable at 0x2000cc14. By its position among t
 **Notes:** Identity of the variable not verified.
 
 - Addresses by version: 219: 0x0C043F28
-- Called by: `ble_219_0c0360d4`
+- Called by: `wdt_task_monitor_cli`
 - Confidence: low
 
 ## uxTaskGetSystemState
@@ -855,7 +985,7 @@ Upstream uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, pulTotalRunTime). 
 **Notes:** The six ready lists imply configMAX_PRIORITIES = 6, which agrees with the priority arithmetic in xQueueSemaphoreTake.
 
 - Addresses by version: 219: 0x0C044544
-- Called by: `ble_219_0c0360d4`
+- Called by: `wdt_task_monitor_cli`
 - Calls: `xTaskResumeAll`, `prvListTasksWithinSingleList`, `rtos_run_time_counter_get`
 - Confidence: high
 
@@ -886,8 +1016,24 @@ FreeRTOS configSUPPORT_STATIC_ALLOCATION callback: stores the address of the TCB
 **Notes:** Could be the timer-task variant (vApplicationGetTimerTaskMemory) - idle assumed from the caller.
 
 - Addresses by version: 219: 0x0C042800
-- Called by: `ble_219_0c043e70`
+- Called by: `vTaskStartScheduler`
 - Confidence: medium
+
+## vApplicationStackOverflowHook
+
+**FreeRTOS stack-overflow hook: log the offending task name and handle**
+
+Prints 'Task %s stack overflow, handle %p' for the task whose stack guard failed, using the name and the TCB pointer. The kernel calls it from vTaskSwitchContext. It only logs and returns; it does not stop the system.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | TCB handle of the task whose stack check failed |
+| `param_2` | `ptr` | task name (TCB+0x34) |
+
+- Addresses by version: 219: 0x0C0427F4
+- Called by: `vTaskSwitchContext`
+- Calls: `trace_printf`
+- Confidence: high
 
 ## vListInitialise
 
@@ -900,7 +1046,7 @@ FreeRTOS vListInitialise on a 0x14-byte List_t: sets pxIndex (offset 4) to the e
 | `param_1` | `ptr` | List_t* to initialise |
 
 - Addresses by version: 219: 0x0C0429A4
-- Called by: `xEventGroupCreateStatic`, `ble_219_0c04283c`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `ble_219_0c042c08`, `prvInitialiseMutex`, `ble_219_0c042e44`, `prvAddNewTaskToReadyList`, `prvCheckForValidListAndQueue`
+- Called by: `xEventGroupCreateStatic`, `xEventGroupCreate`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `xQueueGenericCreate`, `prvInitialiseMutex`, `xQueueCreateMutex`, `prvAddNewTaskToReadyList`, `prvCheckForValidListAndQueue`
 - Confidence: high
 
 ## vListInitialiseItem
@@ -914,7 +1060,7 @@ FreeRTOS vListInitialiseItem: stores 0 in pvContainer (offset 0x10) of the ListI
 | `param_1` | `ptr` | ListItem_t* to initialise |
 
 - Addresses by version: 219: 0x0C0429BC
-- Called by: `prvInitialiseNewTask`, `ble_219_0c044c7c`
+- Called by: `prvInitialiseNewTask`, `xTimerCreate`
 - Confidence: high
 
 ## vListInsert
@@ -929,7 +1075,7 @@ FreeRTOS vListInsert: if the new item's xItemValue is 0xFFFFFFFF (portMAX_DELAY)
 | `param_2` | `ptr` | ListItem_t* item to insert; item->xItemValue is the sort key |
 
 - Addresses by version: 219: 0x0C0429E4
-- Called by: `prvAddCurrentTaskToDelayedList`, `vTaskPlaceOnEventList`, `prvInsertTimerInActiveList`, `ble_219_0c044c7c`, `prvSwitchTimerLists`, `ble_219_0c044ee8`
+- Called by: `prvAddCurrentTaskToDelayedList`, `vTaskPlaceOnEventList`, `prvInsertTimerInActiveList`, `xTimerCreate`, `prvSwitchTimerLists`, `rtos_timer_daemon_task`
 - Confidence: high
 
 ## vListInsertEnd
@@ -944,7 +1090,7 @@ FreeRTOS vListInsertEnd: links param_2 immediately before the list's pxIndex ite
 | `param_2` | `ptr` | ListItem_t* item to insert |
 
 - Addresses by version: 219: 0x0C0429C4
-- Called by: `prvAddNewTaskToReadyList`, `prvAddCurrentTaskToDelayedList`, `ble_219_0c043da0`, `xTaskIncrementTick`, `xTaskResumeAll`, `vTaskPlaceOnUnorderedEventList`, `vTaskPlaceOnEventListRestricted`, `xTaskRemoveFromEventList`, `vTaskRemoveFromUnorderedEventList`, `xTaskPriorityInherit`, `xTaskPriorityDisinherit`, `vTaskPriorityDisinheritAfterTimeout` ...
+- Called by: `prvAddNewTaskToReadyList`, `prvAddCurrentTaskToDelayedList`, `vTaskDelete`, `xTaskIncrementTick`, `xTaskResumeAll`, `vTaskPlaceOnUnorderedEventList`, `vTaskPlaceOnEventListRestricted`, `xTaskRemoveFromEventList`, `vTaskRemoveFromUnorderedEventList`, `xTaskPriorityInherit`, `xTaskPriorityDisinherit`, `vTaskPriorityDisinheritAfterTimeout` ...
 - Confidence: high
 
 ## vPortEnterCritical
@@ -956,7 +1102,7 @@ Calls rtos_enter_critical (BASEPRI = 0x40, masking all interrupts of lower prior
 **Notes:** The saved BASEPRI returned by rtos_enter_critical is discarded; unlike stock FreeRTOS the interrupt mask value is 0x40.
 
 - Addresses by version: 219: 0x0C03F640
-- Called by: `clock_gettime`, `gettimeofday`, `ble_ring_poll_status`, `ble_219_0c0424d8`, `ble_219_0c04264c`, `xEventGroupWaitBits`, `xEventGroupClearBits`, `prvUnlockQueue`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `ble_219_0c042c08`, `xQueueGenericSend` ...
+- Called by: `clock_gettime`, `gettimeofday`, `ble_ring_poll_status`, `ble_msgq_write_items`, `ble_msgq_read_items`, `xEventGroupWaitBits`, `xEventGroupClearBits`, `prvUnlockQueue`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `xQueueGenericCreate`, `xQueueGenericSend` ...
 - Calls: `rtos_enter_critical`
 - Confidence: high
 
@@ -969,7 +1115,7 @@ Decrements the critical-nesting counter DAT_20003ec4; if it becomes 0 calls rtos
 **Notes:** The argument passed to rtos_exit_critical is not visible in the decompile (presumably 0).
 
 - Addresses by version: 219: 0x0C03F65C
-- Called by: `clock_gettime`, `gettimeofday`, `ble_ring_poll_status`, `ble_219_0c0424d8`, `ble_219_0c04264c`, `xEventGroupWaitBits`, `xEventGroupClearBits`, `prvUnlockQueue`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `ble_219_0c042c08`, `xQueueGenericSend` ...
+- Called by: `clock_gettime`, `gettimeofday`, `ble_ring_poll_status`, `ble_msgq_write_items`, `ble_msgq_read_items`, `xEventGroupWaitBits`, `xEventGroupClearBits`, `prvUnlockQueue`, `xQueueGenericReset`, `prvInitialiseNewQueue`, `xQueueGenericCreate`, `xQueueGenericSend` ...
 - Calls: `rtos_exit_critical`
 - Confidence: high
 
@@ -981,8 +1127,23 @@ Writes SysTick CTRL (0xE000E010) = 0 and VAL (0xE000E018) = 0, obtains the SysTi
 
 - Addresses by version: 219: 0x0C03F600
 - Peripheral registers: `0xe000e010` (W), `0xe000e014` (W), `0xe000e018` (W)
-- Called by: `ble_219_0c043e70`
+- Called by: `vTaskStartScheduler`
 - Calls: `ble_ram_patch_thunk_20000554`
+- Confidence: high
+
+## vQueueDelete
+
+**Free a FreeRTOS queue block unless it was statically allocated**
+
+Frees the queue block through the heap free (thunk at 0x0C07098C) only when its ucStaticallyAllocated byte at +0x46 is zero. Storage is part of the same block, so one free releases both.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | queue handle |
+
+- Addresses by version: 219: 0x0C043358
+- Called by: `fd_close`
+- Calls: `ble_thunk_free`
 - Confidence: high
 
 ## vQueueWaitForMessageRestricted
@@ -998,7 +1159,7 @@ Upstream vQueueWaitForMessageRestricted(xQueue, xTicksToWait, xWaitIndefinitely)
 | `xWaitIndefinitely` | `bool` | block without a timeout |
 
 - Addresses by version: 219: 0x0C043380
-- Called by: `ble_219_0c044ee8`
+- Called by: `rtos_timer_daemon_task`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `prvUnlockQueue`, `vTaskPlaceOnEventListRestricted`
 - Confidence: high
 
@@ -1013,8 +1174,23 @@ With zero ticks it only requests a context switch through rtos_pendsv_trigger. O
 | `xTicksToDelay` | `u32` | delay in ticks |
 
 - Addresses by version: 219: 0x0C0441A8
-- Called by: `ble_219_0c0287ac`, `ble_219_0c028c94`, `ble_219_0c029230`, `ble_219_0c02c49c`, `ble_219_0c04542c`, `ble_219_0c046e04`, `ble_fd_select`, `ble_219_0c0593a4`, `ble_219_0c0598b8`, `ble_219_0c05a608`
+- Called by: `btapp_btle_connect_status_change`, `ble_app_poll_tick`, `ble_findmy_ring_status_notify`, `ble_factory_test_dispatch_set`, `ble_hci_intersys_open`, `_sbrk`, `ble_fd_select`, `ble_link_request`, `ble_bts_task_periodic_check`, `ble_link_slot_request`
 - Calls: `rtos_pendsv_trigger`, `prvAddCurrentTaskToDelayedList`, `xTaskResumeAll`
+- Confidence: high
+
+## vTaskDelete
+
+**Delete a FreeRTOS task, unlink its lists, free or defer its memory, and yield if needed**
+
+Inside a critical section it unlinks the TCB from its state list and, if set, from its event list, and bumps the task number. A running task is put on the termination list and counted for later cleanup. Any other task is removed from the live count and its TCB and stack are freed (both when dynamically allocated, only the TCB when the stack is static). The next unblock time is recomputed from the delayed list. When the scheduler is running and the running task was deleted, it requests a context switch with rtos_pendsv_trigger.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | TCB to delete; NULL means the running task |
+
+- Addresses by version: 219: 0x0C043DA0
+- Called by: `uart_disp_rx_task`, `rtos_task_exit_handler`
+- Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `vListInsertEnd`, `uxListRemove`, `ble_thunk_free`
 - Confidence: high
 
 ## vTaskGetInfo
@@ -1033,7 +1209,7 @@ Upstream vTaskGetInfo(xTask, pxTaskStatus, xGetFreeStackSpace, eState). A NULL h
 **Notes:** Field offsets of the run-time counter and the high-water mark are only partly visible in the decompile, so the exact field names inside TaskStatus_t are not asserted.
 
 - Addresses by version: 219: 0x0C044400
-- Called by: `ble_219_0c035fc0`, `prvListTasksWithinSingleList`
+- Called by: `rtos_task_exit_handler`, `prvListTasksWithinSingleList`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `xTaskResumeAll`
 - Confidence: high
 
@@ -1158,6 +1334,22 @@ tasks.c vTaskSetTimeOutState(pxTimeOut): the public, critical-section-protected 
 - Calls: `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: high
 
+## vTaskStartScheduler
+
+**Create the idle and timer tasks, set interrupt priorities and start the first task**
+
+Gets static idle-task memory from vApplicationGetIdleTaskMemory, creates the IDLE task as statically allocated and adds it to the ready list, then creates the timer service task with xTimerCreateTimerTask. On success it sets the next unblock time to -1, marks the scheduler running, sets PendSV and SysTick to the lowest priority through SHPR3 (0xE000ED20), configures the 1 ms tick (vPortSetupTimerInterrupt), clears uxCriticalNesting and calls rtos_start_first_task. The decompiled tail (vTaskSwitchContext and an endless loop) is reached only if the first-task start returns, which it normally does not.
+
+**Returns** `s32`: timer task creation result when startup fails before the scheduler starts; does not return on success
+
+**Notes:** An unnamed call at 0x0C035DA4 runs before the tick setup and is not described in this packet.
+
+- Addresses by version: 219: 0x0C043E70
+- Peripheral registers: `0xe000e000` (A), `0xe000ed20` (RW)
+- Called by: `app_system_init`
+- Calls: `bogomips_calibrate`, `vPortSetupTimerInterrupt`, `rtos_start_first_task`, `rtos_enter_critical`, `vApplicationGetIdleTaskMemory`, `prvAddNewTaskToReadyList`, `prvInitialiseNewTask`, `vTaskSwitchContext`, `xTimerCreateTimerTask`, `ble_stub_nop_0c04628c`
+- Confidence: high
+
 ## vTaskSuspendAll
 
 **FreeRTOS: suspend the scheduler by incrementing the nesting counter**
@@ -1165,7 +1357,18 @@ tasks.c vTaskSetTimeOutState(pxTimeOut): the public, critical-section-protected 
 Increments uxSchedulerSuspended (DAT_2000cc20). Nesting is allowed; xTaskResumeAll decrements it. Called at the start of queue, timer and event-group operations (12 callers).
 
 - Addresses by version: 219: 0x0C043F0C
-- Called by: `xEventGroupWaitBits`, `xEventGroupSetBits`, `xQueueGenericSend`, `xQueueReceive`, `xQueueSemaphoreTake`, `xQueuePeek`, `xStreamBufferSend`, `xStreamBufferReceive`, `stream_buffer_consume_tail`, `stream_buffer_commit_head`, `ble_219_0c044ee8`, `ble_219_0c046e04`
+- Called by: `xEventGroupWaitBits`, `xEventGroupSetBits`, `xQueueGenericSend`, `xQueueReceive`, `xQueueSemaphoreTake`, `xQueuePeek`, `xStreamBufferSend`, `xStreamBufferReceive`, `stream_buffer_consume_tail`, `stream_buffer_commit_head`, `rtos_timer_daemon_task`, `_sbrk`
+- Confidence: high
+
+## vTaskSwitchContext
+
+**Pick the next ready task and switch the current TCB, with run-time and stack checks**
+
+Called from PendSV and from the scheduler start. If the scheduler is suspended (DAT_2000CC20 non-zero) it only sets the pending-switch flag DAT_2000CCA4 and returns. Otherwise it clears that flag, reads the run-time counter through rtos_run_time_counter_get, adds the elapsed ticks to the outgoing task's counter at TCB+0x54, and calls vApplicationStackOverflowHook when the stack guard pattern is wrong. It then takes the highest non-empty ready list (top priority in DAT_2000CC28, lists at DAT_2000CB98 in 5-word entries), advances that list's index and makes the owner the current TCB at DAT_2000CB8C.
+
+- Addresses by version: 219: 0x0C0441D4
+- Called by: `xPortPendSVHandler`, `vTaskStartScheduler`
+- Calls: `vApplicationStackOverflowHook`, `rtos_run_time_counter_get`
 - Confidence: high
 
 ## xEventGroupClearBits
@@ -1184,6 +1387,21 @@ taskENTER_CRITICAL (0x0c03f640), uxReturn = pxEventBits->uxEventBits (word at +0
 - Addresses by version: 219: 0x0C042900
 - Called by: `ble_evt_clear_index_bit`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`
+- Confidence: high
+
+## xEventGroupCreate
+
+**Create a FreeRTOS event group: 32-byte object with the event bits and waiter list**
+
+Allocates a 0x20-byte block from the heap (through the thunk at 0x0C07097C). It sets the event-bit word at +0 to zero, initialises the xTasksWaitingForBits list at +4 with vListInitialise, and clears the static-allocation flag at +0x1C. Returns the block, or NULL when the allocation fails.
+
+**Returns** `ptr`: event group handle, or NULL when the allocation fails
+
+**Notes:** The layout matches the FreeRTOS EventGroup_t of this port.
+
+- Addresses by version: 219: 0x0C04283C
+- Called by: `ble_bts_task_create`
+- Calls: `vListInitialise`, `ble_thunk_malloc`
 - Confidence: high
 
 ## xEventGroupCreateStatic
@@ -1219,7 +1437,7 @@ Under vTaskSuspendAll it ORs the new bits into the stored word, then walks the w
 **Notes:** Flag layout as in xEventGroupWaitBits.
 
 - Addresses by version: 219: 0x0C04291C
-- Called by: `ble_evt_set_index_bit`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_219_0c05d260`, `ble_xfer_pump_chunk_and_notify`, `ble_sched_signal_event`
+- Called by: `ble_evt_set_index_bit`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_xfer_pump_chunk_a_and_notify`, `ble_xfer_pump_chunk_and_notify`, `ble_sched_signal_event`
 - Calls: `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskRemoveFromUnorderedEventList`
 - Confidence: high
 
@@ -1242,8 +1460,60 @@ Upstream FreeRTOS xEventGroupWaitBits(pxEventBits, uxBitsToWaitFor, xClearOnExit
 **Notes:** The flag constants 0x10000000, 0x20000000 and 0x40000000 differ from upstream FreeRTOS (0x01000000 and so on), so this build uses its own layout.
 
 - Addresses by version: 219: 0x0C042858
-- Called by: `ble_fd_select`, `ble_219_0c0599d4`, `ble_219_0c05d108`
+- Called by: `ble_fd_select`, `ble_bts_task_handler`, `btstack_run_loop_task_main`
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnUnorderedEventList`, `uxTaskResetEventItemValue`
+- Confidence: high
+
+## xPortPendSVHandler
+
+**FreeRTOS PendSV: save the outgoing task context, switch tasks, restore the next one**
+
+Context-switch exception handler. It reads PSP and pushes R4-R11, the stack limit and the EXC_RETURN value onto the outgoing task's stack, first pushing S16-S31 when EXC_RETURN bit 4 is clear (lazy FP frame). It stores the new stack top into the current TCB pointer at DAT_2000CB8C, raises BASEPRI to 0x40 with DSB and ISB, and calls vTaskSwitchContext. It then drops BASEPRI back to 0, loads the next TCB's stack pointer and stack limit, restores PSP when privileged, and returns through the saved EXC_RETURN word of the next task (Ghidra shows this as an indirect call through that slot).
+
+**Notes:** The final transfer is decompiled as a call through puVar3[1]; this is the exception return sequence.
+
+- Addresses by version: 219: 0x0C03F8A0
+- Vector: `PendSV_Handler`
+- Calls: `vTaskSwitchContext`
+- Confidence: high
+
+## xQueueCreateMutex
+
+**Create a FreeRTOS mutex queue and give it once, as prvInitialiseMutex does**
+
+Allocates the 0x50-byte queue header inside a critical section, sets uxLength to 1 and uxItemSize to 0, clears the mutex holder and the recursive-call count, stores the type from param_1 and initialises both waiter lists. It then calls xQueueGenericSend with no item and no timeout, which puts the single 'give' into the mutex.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | ucQueueType, stored at +0x4C |
+
+**Returns** `ptr`: mutex handle, or NULL when the allocation fails
+
+**Notes:** The construction and the initial give match prvInitialiseMutex.
+
+- Addresses by version: 219: 0x0C042E44
+- Called by: `fd_lseek`
+- Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `xQueueGenericSend`, `ble_thunk_malloc`
+- Confidence: high
+
+## xQueueGenericCreate
+
+**Create a FreeRTOS queue of uxLength items of uxItemSize bytes, with its storage**
+
+Allocates the 0x50-byte queue header and, when uxItemSize is non-zero, length times item-size bytes of storage directly after it, all from the heap. For a zero item size the header is the only allocation and pcHead points at the header itself. It sets pcHead and pcTail, pcWriteTo to the head, pcReadFrom to the last item, the messages-waiting count to zero, uxLength and uxItemSize, both lock bytes to -1 (unlocked), the static-allocation byte to 0 and the queue type from param_3. It initialises both waiter lists (vListInitialise at +0x10 and +0x24). The setup runs inside a critical section.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | uxQueueLength |
+| `param_2` | `u32` | uxItemSize; zero creates a queue with no storage |
+| `param_3` | `u8` | ucQueueType |
+
+**Returns** `ptr`: queue handle, or NULL when the allocation fails
+
+**Notes:** Offsets match the FreeRTOS Queue_t layout of this port: ucStaticallyAllocated at +0x46 and ucQueueType at +0x4C.
+
+- Addresses by version: 219: 0x0C042C08
+- Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `ble_thunk_malloc`
 - Confidence: high
 
 ## xQueueGenericReset
@@ -1279,7 +1549,7 @@ Upstream queue.c xQueueGenericSend(xQueue, pvItemToQueue, xTicksToWait, xCopyPos
 **Returns** `s32`: 1 when the item was queued or the token given, 0 on timeout
 
 - Addresses by version: 219: 0x0C042C8C
-- Called by: `ble_219_0c028b90`, `ble_219_0c029284`, `ble_219_0c02b480`, `ble_219_0c02e5a4`, `ble_219_0c02e758`, `ble_219_0c0354cc`, `ble_219_0c0424d8`, `prvInitialiseMutex`, `xQueueGiveMutexRecursive`, `rtos_mutex_give_checked`, `ble_219_0c042e44`, `xTimerGenericCommand` ...
+- Called by: `ble_ring_append_with_mark`, `ble_unlock_auth_cb`, `ble_vcu_cmd_handle`, `uart_disp_send_frame`, `uart_bridge_write_channel0`, `app_cmd_complete_signal`, `ble_msgq_write_items`, `prvInitialiseMutex`, `xQueueGiveMutexRecursive`, `rtos_mutex_give_checked`, `xQueueCreateMutex`, `xTimerGenericCommand` ...
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `prvCopyDataToQueue`, `prvUnlockQueue`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnEventList`, `xTaskRemoveFromEventList`, `vTaskInternalSetTimeOutState`, `xTaskCheckForTimeOut`
 - Confidence: high
 
@@ -1299,7 +1569,7 @@ Enters the port critical section with rtos_enter_critical, which returns the pre
 **Returns** `s32`: 1 when the item was queued, 0 when the queue was full
 
 - Addresses by version: 219: 0x0C042EB4
-- Called by: `rtos_timer_pend_fixed_callback_from_isr`, `xTimerGenericCommand`, `ble_219_0c0467b8`
+- Called by: `rtos_timer_pend_fixed_callback_from_isr`, `xTimerGenericCommand`, `ble_uart_irq17_handler`
 - Calls: `rtos_enter_critical`, `rtos_exit_critical`, `prvCopyDataToQueue`, `xTaskRemoveFromEventList`
 - Confidence: high
 
@@ -1317,7 +1587,7 @@ Masks interrupts with rtos_enter_critical() (portSET_INTERRUPT_MASK_FROM_ISR). I
 **Returns** `u32`: pdPASS (1) or errQUEUE_FULL (0)
 
 - Addresses by version: 219: 0x0C042F38
-- Called by: `ble_219_0c04533c`
+- Called by: `ble_irq42_rf_queue_isr`
 - Calls: `rtos_enter_critical`, `rtos_exit_critical`, `xTaskRemoveFromEventList`
 - Confidence: high
 
@@ -1334,7 +1604,7 @@ Checks that the caller (xTaskGetCurrentTaskHandle) is the mutex holder stored at
 **Returns** `s32`: 1 when the caller held the mutex and released one level, 0 otherwise
 
 - Addresses by version: 219: 0x0C042DF4
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_stack_lock_give`, `ble_pktq_enqueue`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
+- Called by: `ble_nvdata_write_task`, `nvdata_device_init`, `trace_vprintf_core`, `ble_stack_lock_give`, `ble_pktq_enqueue`, `ble_xfer_pump_chunk_a_and_notify`, `ble_xfer_submit_chan_a`, `ble_xfer_pump_chunk_and_notify`, `ble_xfer_submit_chan_b`
 - Calls: `xQueueGenericSend`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 
@@ -1353,7 +1623,7 @@ Upstream xQueueGenericReceive with xJustPeek true. Like xQueueReceive it waits f
 **Returns** `s32`: 1 when an item was peeked, 0 on timeout
 
 - Addresses by version: 219: 0x0C043224
-- Called by: `ble_219_0c02dc50`
+- Called by: `ble_nvdata_write_task`
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `prvUnlockQueue`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnEventList`, `xTaskRemoveFromEventList`, `vTaskInternalSetTimeOutState`, `xTaskCheckForTimeOut`, `memcpy`
 - Confidence: high
 
@@ -1372,7 +1642,7 @@ Upstream xQueueGenericReceive with xJustPeek false. Inside a critical section, w
 **Returns** `s32`: 1 when an item was received, 0 on timeout
 
 - Addresses by version: 219: 0x0C042FA4
-- Called by: `ble_219_0c02dc50`, `ble_219_0c04264c`, `ble_219_0c044ee8`, `ble_219_0c05d108`
+- Called by: `ble_nvdata_write_task`, `ble_msgq_read_items`, `rtos_timer_daemon_task`, `btstack_run_loop_task_main`
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `prvUnlockQueue`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnEventList`, `xTaskRemoveFromEventList`, `vTaskInternalSetTimeOutState`, `xTaskCheckForTimeOut`, `memcpy`
 - Confidence: high
 
@@ -1392,7 +1662,7 @@ Upstream xQueueSemaphoreGenericTake. If a token is available (uxMessagesWaiting 
 **Notes:** The 6 in the priority expression matches the configMAX_PRIORITIES value used by the task list code (six ready lists).
 
 - Addresses by version: 219: 0x0C0430A8
-- Called by: `ble_219_0c028b90`, `ble_219_0c029284`, `ble_219_0c02b480`, `ble_219_0c02e5a4`, `ble_219_0c02e758`, `xQueueTakeMutexRecursive`, `hal_i2c_dev_write`, `ble_i2c_write_read_locked`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_fd_find_next_open` ...
+- Called by: `ble_ring_append_with_mark`, `ble_unlock_auth_cb`, `ble_vcu_cmd_handle`, `uart_disp_send_frame`, `uart_bridge_write_channel0`, `xQueueTakeMutexRecursive`, `hal_i2c_dev_write`, `ble_i2c_write_read_locked`, `fd_alloc_slot`, `fd_driver_open_finalize`, `fd_close`, `ble_fd_find_next_open` ...
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `prvUnlockQueue`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnEventList`, `xTaskRemoveFromEventList`, `vTaskInternalSetTimeOutState`, `xTaskCheckForTimeOut`, `xTaskPriorityInherit`, `vTaskPriorityDisinheritAfterTimeout`, `pvTaskIncrementMutexHeldCount`
 - Confidence: high
 
@@ -1410,8 +1680,28 @@ If the caller (xTaskGetCurrentTaskHandle) already holds the mutex at +4, only th
 **Notes:** The decompiled function returns nothing, so the upstream pdPASS / pdFAIL result is not visible in this packet.
 
 - Addresses by version: 219: 0x0C0431F8
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_stack_lock_take`, `ble_219_0c048380`, `ble_pktq_enqueue`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
+- Called by: `ble_nvdata_write_task`, `nvdata_device_init`, `trace_vprintf_core`, `ble_stack_lock_take`, `fd_lseek`, `ble_pktq_enqueue`, `ble_xfer_pump_chunk_a_and_notify`, `ble_xfer_submit_chan_a`, `ble_xfer_pump_chunk_and_notify`, `ble_xfer_submit_chan_b`
 - Calls: `xQueueSemaphoreTake`, `xTaskGetCurrentTaskHandle`
+- Confidence: high
+
+## xStreamBufferGenericCreate
+
+**Create a FreeRTOS stream or message buffer with a trigger level and optional message flag**
+
+Allocates one block of 0x24 header bytes plus size+1 bytes of storage from the heap and zeroes the header with memset. It sets the length to size+1 and the trigger level to the argument (1 when zero), points the storage pointer at the byte after the header, and sets bit 0 of the flag byte at +0x1C when the buffer is a message buffer.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | xBufferSizeBytes |
+| `param_2` | `u32` | xTriggerLevelBytes; zero means 1 |
+| `param_3` | `u32` | xIsMessageBuffer; non-zero sets the message flag |
+
+**Returns** `ptr`: stream buffer handle, or NULL when the allocation fails
+
+**Notes:** Layout matches the FreeRTOS StreamBuffer_t of this port.
+
+- Addresses by version: 219: 0x0C043460
+- Calls: `ble_thunk_malloc`, `memset`
 - Confidence: high
 
 ## xStreamBufferGenericCreateStatic
@@ -1433,7 +1723,7 @@ Returns NULL if the storage area (param_4) is NULL. Otherwise, when the StaticSt
 **Notes:** Assert-style checks of stock FreeRTOS are compiled out; the NULL-storage check replaces them.
 
 - Addresses by version: 219: 0x0C043498
-- Called by: `ble_219_0c02e420`, `ble_219_0c0355c8`, `ble_219_0c04542c`
+- Called by: `uart_disp_start_service`, `uart_bridge_queue_init`, `ble_hci_intersys_open`
 - Calls: `memset`
 - Confidence: high
 
@@ -1455,7 +1745,7 @@ Upstream xStreamBufferReceive(xStreamBuffer, pvRxData, xBufferLengthBytes, xTick
 **Notes:** The message-too-large case rewinds the read pointer instead of dropping the message, which is what the decompile shows.
 
 - Addresses by version: 219: 0x0C0436F8
-- Called by: `ble_219_0c04264c`, `hci_stream_buffer_receive_nowait`
+- Called by: `ble_msgq_read_items`, `hci_stream_buffer_receive_nowait`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `prvReadBytesFromBuffer`, `vTaskSuspendAll`, `xTaskResumeAll`, `xTaskGetCurrentTaskHandle`, `xTaskNotifyWait`, `xTaskGenericNotify`, `xTaskNotifyStateClear`
 - Confidence: high
 
@@ -1498,7 +1788,7 @@ Upstream xStreamBufferSend(xStreamBuffer, pvTxData, xDataLengthBytes, xTicksToWa
 **Notes:** Counterpart of xStreamBufferSendFromISR (0x0C043658) described in an earlier wave.
 
 - Addresses by version: 219: 0x0C043554
-- Called by: `ble_219_0c0424d8`
+- Called by: `ble_msgq_write_items`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `prvWriteBytesToBuffer`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskSetTimeOutState`, `xTaskCheckForTimeOut`, `xTaskGetCurrentTaskHandle`, `xTaskNotifyWait`, `xTaskGenericNotify`, `xTaskNotifyStateClear`
 - Confidence: high
 
@@ -1539,6 +1829,28 @@ tasks.c xTaskCheckForTimeOut(pxTimeOut, pxTicksToWait), inside vPortEnterCritica
 - Calls: `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: high
 
+## xTaskCreate
+
+**Create a FreeRTOS task: allocate stack and TCB, initialise, add to the ready list**
+
+Allocates a stack of usStackDepth times 4 bytes and a 0x60-byte TCB. If the TCB allocation fails it frees the stack and returns -1. Otherwise it stores the stack pointer in the TCB at +0x30, clears the static-allocation byte at +0x5D, fills the TCB with prvInitialiseNewTask and links it into the scheduler with prvAddNewTaskToReadyList. It returns 1 (pdPASS).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | task function |
+| `param_2` | `ptr` | task name |
+| `param_3` | `u32` | usStackDepth in words |
+| `param_4` | `ptr` | task parameter |
+| `param_5` | `u32` | uxPriority |
+| `param_6` | `ptr` | output TCB handle |
+
+**Returns** `s32`: 1 (pdPASS) on success, -1 when the stack or TCB allocation fails
+
+- Addresses by version: 219: 0x0C043D3C
+- Called by: `ble_factory_test_init`, `app_system_init`
+- Calls: `prvAddNewTaskToReadyList`, `prvInitialiseNewTask`, `ble_thunk_malloc`, `ble_thunk_free`
+- Confidence: high
+
 ## xTaskCreateStatic
 
 **FreeRTOS xTaskCreateStatic: initialise a caller-supplied TCB and stack and make the task ready**
@@ -1550,7 +1862,7 @@ Upstream xTaskCreateStatic(pxTaskCode, pcName, ulStackDepth, pvParameters, uxPri
 **Notes:** Arguments are passed on the stack, so the decompile shows none. The +0x5D flag value follows the upstream constant and was not checked against this TCB layout.
 
 - Addresses by version: 219: 0x0C043CFC
-- Called by: `ble_219_0c02d724`, `ble_219_0c02e420`, `ble_219_0c0354e8`, `xTimerCreateTimerTask`, `ble_219_0c059a40`, `ble_bt_stack_task_create`
+- Called by: `ble_nvdata_init`, `uart_disp_start_service`, `app_process_cmd_task_start`, `xTimerCreateTimerTask`, `ble_bts_task_create`, `ble_bt_stack_task_create`
 - Calls: `prvAddNewTaskToReadyList`, `prvInitialiseNewTask`
 - Confidence: high
 
@@ -1604,7 +1916,7 @@ Returns the current TCB pointer DAT_2000cb8c (the running task's handle). Eight 
 **Returns** `ptr`: handle of the running task
 
 - Addresses by version: 219: 0x0C04462C
-- Called by: `ble_219_0c0360d4`, `hal_wdt_task_checkin`, `ble_219_0c036328`, `xQueueGiveMutexRecursive`, `rtos_mutex_give_checked`, `xQueueTakeMutexRecursive`, `xStreamBufferSend`, `xStreamBufferReceive`
+- Called by: `wdt_task_monitor_cli`, `hal_wdt_task_checkin`, `wdt_task_monitor_register_current`, `xQueueGiveMutexRecursive`, `rtos_mutex_give_checked`, `xQueueTakeMutexRecursive`, `xStreamBufferSend`, `xStreamBufferReceive`
 - Confidence: high
 
 ## xTaskGetSchedulerState
@@ -1616,7 +1928,7 @@ If xSchedulerRunning (DAT_2000cc74) is 0 returns 1 (taskSCHEDULER_NOT_STARTED); 
 **Returns** `u32`: 0 = suspended, 1 = not started, 2 = running
 
 - Addresses by version: 219: 0x0C044638
-- Called by: `ble_219_0c035900`, `xTimerGenericCommand`, `ble_stack_lock_take`, `ble_stack_lock_give`
+- Called by: `trace_vprintf_core`, `xTimerGenericCommand`, `ble_stack_lock_take`, `ble_stack_lock_give`
 - Confidence: high
 
 ## xTaskGetTickCount
@@ -1628,7 +1940,7 @@ Returns xTickCount (DAT_2000cca0). Same variable is stored in a TimeOut_t by vTa
 **Returns** `u32`: tick count (ticks)
 
 - Addresses by version: 219: 0x0C043F1C
-- Called by: `ble_219_0c0285ec`, `ble_219_0c0297b0`, `ble_219_0c029df8`, `ble_219_0c02b480`, `ble_219_0c02e7d8`, `ble_219_0c02eb60`, `ble_219_0c0369d8`, `ble_219_0c037588`, `ble_219_0c037970`, `ble_219_0c03be8c`, `clock_gettime`, `gettimeofday` ...
+- Called by: `nb_upgrade_process_cmd`, `ble_app_main_init`, `ble_rx_data_handler`, `ble_vcu_cmd_handle`, `uart_disp_rx_process`, `uart_disp_rx_task`, `nb_upgrade_session_begin`, `nb_upgrade_session_finish`, `nb_upgrade_session_timeout_check`, `bt_drv_rfcal_timer_run`, `clock_gettime`, `gettimeofday` ...
 - Confidence: high
 
 ## xTaskIncrementTick
@@ -1745,6 +2057,29 @@ tasks.c xTaskResumeAll(). Inside vPortEnterCritical/vPortExitCritical (0x0c03f64
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `vListInsertEnd`, `uxListRemove`, `xTaskIncrementTick`
 - Confidence: high
 
+## xTimerCreate
+
+**Create a FreeRTOS software timer with name, period, reload flag, ID and callback**
+
+Allocates a 0x38-byte timer block from the heap, makes sure the timer lists and command queue exist (prvCheckForValidListAndQueue), stores the name, period, auto-reload flag, ID and callback, initialises the timer's list item with its owner set to the timer, and clears the status byte at +0x2C. The timer is then inserted into the list at 0x2000DDB8 with vListInsert.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | timer name |
+| `param_2` | `u32` | period in ticks |
+| `param_3` | `u32` | auto-reload flag |
+| `param_4` | `ptr` | timer ID |
+| `param_5` | `ptr` | callback function |
+
+**Returns** `ptr`: timer handle, or NULL when the allocation fails
+
+**Notes:** Upstream xTimerCreate does not insert into a list at creation, so the vListInsert call is probably a BES change; not confirmed.
+
+- Addresses by version: 219: 0x0C044C7C
+- Called by: `ble_app_main_init`, `bt_drv_rfcal_timer_run`, `ble_host_restart_timer_start`
+- Calls: `vListInitialiseItem`, `vListInsert`, `prvCheckForValidListAndQueue`, `ble_thunk_malloc`
+- Confidence: high
+
 ## xTimerCreateTimerTask
 
 **Create the 'Tmr Svc' FreeRTOS timer daemon task (static, depth 0x400, priority 5)**
@@ -1754,7 +2089,7 @@ Upstream xTimerCreateTimerTask. It makes sure the timer lists and command queue 
 **Returns** `bool`: true when the timer task was created
 
 - Addresses by version: 219: 0x0C044C2C
-- Called by: `ble_219_0c043e70`
+- Called by: `vTaskStartScheduler`
 - Calls: `xTaskCreateStatic`, `prvCheckForValidListAndQueue`
 - Confidence: high
 
@@ -1775,6 +2110,6 @@ Upstream xTimerGenericCommand(xTimer, xCommandID, xOptionalValue, pxHigherPriori
 **Returns** `s32`: 1 when the command was queued, 0 on failure
 
 - Addresses by version: 219: 0x0C044D90
-- Called by: `ble_219_0c0297b0`, `ble_219_0c03be8c`, `bt_drv_pending_action_poll`, `prvSwitchTimerLists`, `ble_219_0c044ee8`, `ble_219_0c059180`
+- Called by: `ble_app_main_init`, `bt_drv_rfcal_timer_run`, `bt_drv_pending_action_poll`, `prvSwitchTimerLists`, `rtos_timer_daemon_task`, `ble_host_restart_timer_start`
 - Calls: `xQueueGenericSend`, `xQueueGenericSendFromISR`, `xTaskGetSchedulerState`
 - Confidence: high

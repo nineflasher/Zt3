@@ -1,6 +1,6 @@
 # BMS - `gpio` functions
 
-22 functions.
+23 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -14,6 +14,7 @@
 | [`bms_gpio_exti_init`](#bms_gpio_exti_init) | 0x080091F8 | Configure EXTI lines 2, 8 and 12 with their source ports and edges, and enable NVIC IRQ 6 and 7 |
 | [`bms_pa12_ready_handshake`](#bms_pa12_ready_handshake) | 0x08009A0C | Pulse PA11 and poll PA12 for a low level; on timeout set *param_1 and return 1 |
 | [`bms_pa5_drive_level`](#bms_pa5_drive_level) | 0x0800B8AC | Drive GPIOA pin 5 high for a nonzero argument, low for zero |
+| [`bms_pb11_trigger_sequence_step`](#bms_pb11_trigger_sequence_step) | (removed) | Advance the PB11 trigger sequence (phases 0 to 2) and publish record 0x2C thresholds |
 | [`bms_pd0_indicator_step`](#bms_pd0_indicator_step) | 0x0800E820 | Drive output PD0 with a blink pattern chosen from flag words, advancing the timer by param_5 |
 | [`gpio_pa15_reset`](#gpio_pa15_reset) | 0x08008F20 | Drive GPIOA pin 15 low through BRR |
 | [`gpio_pa15_set`](#gpio_pa15_set) | 0x08008F2C | Drive GPIOA pin 15 high through BSRR |
@@ -42,7 +43,7 @@ For each pin set in the mask param_2 on the port in param_1 (GPIOA to GPIOF map 
 
 - Addresses by version: 4130: 0x08001F4C, 4139: 0x08001F4C, 4148: 0x08001F4C, 4168: 0x08001F4C
 - Peripheral registers: `EXTI.RTSR1` (RW), `EXTI.FTSR1` (RW), `EXTI.EXTICR1` (RW), `EXTI.IMR1` (RW), `EXTI.EMR1` (RW)
-- Called by: `bms_4168_08001bf4`
+- Called by: `HAL_FDCAN_MspDeInit`
 - Confidence: high
 
 ## HAL_GPIO_Init
@@ -60,7 +61,7 @@ Takes a GPIO_InitTypeDef-style record (Pin, Mode, Pull, Speed, Alternate, as 32-
 
 - Addresses by version: 4130: 0x0800202C, 4139: 0x0800202C, 4148: 0x0800202C, 4168: 0x0800202C
 - Peripheral registers: `EXTI.RTSR1` (RW), `EXTI.FTSR1` (RW), `EXTI.EXTICR1` (RW), `EXTI.IMR1` (RW), `EXTI.EMR1` (RW)
-- Called by: `bms_4168_08001c24`
+- Called by: `HAL_FDCAN_MspInit`
 - Confidence: high
 
 ## LL_GPIO_Init
@@ -77,7 +78,7 @@ Per-pin GPIO configuration, as in ST's LL_GPIO_Init, for each bit set in init[0]
 **Returns** `u32`: 0 = SUCCESS
 
 - Addresses by version: 4130: 0x08002C24, 4139: 0x08002C24, 4148: 0x08002C24, 4168: 0x08002C24
-- Called by: `bms_4168_080082f0`, `bms_adc_hw_init`, `gpio_pb13_15_strap_read`, `bms_gpio_board_init`, `bms_gpio_exti_init`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_bus_release`, `bms_spi1_master_init`, `bms_4168_0800a574`
+- Called by: `bms_4168_080082f0`, `bms_adc_hw_init`, `gpio_pb13_15_strap_read`, `bms_gpio_board_init`, `bms_gpio_exti_init`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_bus_release`, `bms_spi1_master_init`, `bms_usart3_comm_init`
 - Confidence: high
 
 ## LL_GPIO_IsInputPinSet
@@ -137,7 +138,7 @@ Enables the RCC.IOPENR clocks for GPIOA, GPIOB, GPIOC, GPIOD and GPIOF, then dri
 
 - Addresses by version: 4130: 0x08007F6C, 4139: 0x0800846C, 4148: 0x08008CB8, 4168: 0x08008FCC
 - Peripheral registers: `RCC.IOPENR` (RW)
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
 - Calls: `LL_GPIO_Init`
 - Confidence: medium
 
@@ -170,7 +171,7 @@ Two-pin handshake on GPIOA. It presets the PA12 output latch high through GPIOA.
 **Notes:** Caller is bms_4168_080097d8. The 2501-poll budget and the PA11/PA12 roles are not confirmed. FUN_0800997C is the timeout path and is outside this packet.
 
 - Addresses by version: 4130: 0x080089AC, 4139: 0x08008EAC, 4148: 0x080096F8, 4168: 0x08009A0C
-- Called by: `bms_4168_080097d8`
+- Called by: `bms_i2c_bb_write_byte_ack`
 - Calls: `LL_GPIO_IsInputPinSet`, `LL_GPIO_ResetOutputPin`, `LL_GPIO_SetOutputPin`, `bms_systick_wait_scaled`, `bms_i2c_bb_stop`
 - Confidence: medium
 
@@ -188,6 +189,23 @@ Thin wrapper that sets the level of GPIOA pin 5. A nonzero argument calls gpio_p
 - Called by: `bms_4168_0800c6dc`
 - Calls: `gpio_pa5_reset`, `gpio_pa5_set`
 - Confidence: high
+
+## bms_pb11_trigger_sequence_step
+
+**Advance the PB11 trigger sequence (phases 0 to 2) and publish record 0x2C thresholds**
+
+Per-tick sequencer for the PB11 trigger input in the 4139 build (the 4130 build has the same routine). It resets the phase byte at 0x20000117 to 0 and returns unless bit 5 of the state byte at +0x194 is set. Phase 0 calls the dual-bank step with 0 and moves to phase 1. Phase 1 calls the dual-bank step with 1, and when 0x20000112 is 1 it moves to phase 2, starts USART3 TX (bms_usart3_tx_setup), arms EXTI line 11 (bms_exti11_irq_arm) and sets the phase to 2. Every phase-1 pass writes record 0x2C (bms_record12_addr) as two s16 values: state+0x6C when 0x20000113 is 1 otherwise 6, and that value minus 2. Phase 2 waits for bit 10 of the word returned by the accessor at 0x0800B3EC to be set, or for bms_pb11_hold_timer_step to report the latched PB11 hold; it then clears bit 10, disarms EXTI line 11 (bms_exti11_irq_disarm), runs the USART3 RX bring-up bms_4168_0800a574 and returns to phase 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | passed unchanged to the dual-bank step and to the PB11 hold timer |
+
+**Notes:** Call sites are matched to the callee names through the existing 4139 entries (bms_4139_08009b70, bms_4139_08009ba8, bms_4139_08009bdc, bms_4139_08009c78, bms_4139_080072e0). The accessors at 0x0800B3E4 and 0x0800B3EC are not described in this packet, and the meaning of bit 10 is inferred. The USART3 call at the end of phase 2 is the 4168 family name from the callee list, not the 4139 USART3 setup.
+
+- Addresses by version: 4130: 0x08006D38, 4139: 0x08007238
+- Called by: `bms_4168_08010558`
+- Calls: `bms_4139_dual_bank_step`, `bms_pb11_hold_timer_step`, `bms_exti11_irq_disarm`, `bms_exti11_irq_arm`, `bms_usart3_tx_setup`, `bms_usart3_comm_init`, `bms_ram_20000bdc_addr`, `bms_ram_200001c8_addr`, `bms_record12_addr`
+- Confidence: medium
 
 ## bms_pd0_indicator_step
 

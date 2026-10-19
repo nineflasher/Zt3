@@ -1,6 +1,6 @@
 # BLE - `ble_host` functions
 
-200 functions.
+277 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -28,19 +28,67 @@
 | [`att_validate_security`](#att_validate_security) | 0x0C04CBB4 | Check whether a connection's security level satisfies an ATT attribute's permissions |
 | [`bd_addr_cmp`](#bd_addr_cmp) | 0x0C065B24 | Compare two 6-byte Bluetooth device addresses |
 | [`bd_addr_copy`](#bd_addr_copy) | 0x0C065B2C | Copy a 6-byte Bluetooth device address |
+| [`ble_adv_addr_restart`](#ble_adv_addr_restart) | 0x0C052DE8 | Restart the local address mode: stop timer 0x2000FD58, set mode 1, store a new 6-byte address |
+| [`ble_adv_control`](#ble_adv_control) | 0x0C05D004 | Start or stop the broadcast operation; start arms a 40 s timeout |
+| [`ble_bts_task_handler`](#ble_bts_task_handler) | 0x0C0599D4 | bts task loop: check in with the watchdog, wait for its event, drain the rings, run periodic work |
+| [`ble_bts_task_periodic_check`](#ble_bts_task_periodic_check) | 0x0C0598B8 | Periodic bts check: report faults as events 2, 3, 8 and 10, then back off 500 ms and recover |
+| [`ble_cfg_set_bd_addr_checked`](#ble_cfg_set_bd_addr_checked) | 0x0C045DDC | Store a 6-byte Bluetooth device address into the config block; checks length 6 |
+| [`ble_cfg_set_bd_addr_unchecked`](#ble_cfg_set_bd_addr_unchecked) | 0x0C045DE6 | Store 6 device-address bytes into 0x2000F364/0x2000F368 without a length check |
+| [`ble_cfg_set_block40`](#ble_cfg_set_block40) | 0x0C045E24 | Store a 40-byte block into the config area at 0x2000F38C and commit |
+| [`ble_cfg_set_bytes_f3b8`](#ble_cfg_set_bytes_f3b8) | 0x0C045FD4 | Copy up to 16 bytes into the config field at 0x2000F3B8 and commit |
+| [`ble_cfg_set_f36c_bytes`](#ble_cfg_set_f36c_bytes) | 0x0C045D8C | Store up to 16 bytes into the config field at 0x2000F36C and commit |
+| [`ble_cfg_set_flag_f36a`](#ble_cfg_set_flag_f36a) | 0x0C045EE8 | Set the config flag byte at 0x2000F36A to 0xFF or 0x53 and commit |
+| [`ble_cfg_set_flag_f36b`](#ble_cfg_set_flag_f36b) | 0x0C045F24 | Set the config flag byte at 0x2000F36B to 0xFF or 0x6F and commit |
+| [`ble_cfg_set_word_f360`](#ble_cfg_set_word_f360) | 0x0C045EC8 | Store a 32-bit config word at 0x2000F360 and commit; length must be 4 |
+| [`ble_cfg_set_word_f3b4`](#ble_cfg_set_word_f3b4) | 0x0C045F84 | Set the config word at 0x2000F3B4 to a tag value or 0xFFFFFFFF and commit |
 | [`ble_ctrl_addr_string_slot_store`](#ble_ctrl_addr_string_slot_store) | 0x0C065D1C | Write a BD_ADDR as 'XX:XX:XX:XX:XX:XX' into every all-zero 17-byte slot |
+| [`ble_event_report_frame`](#ble_event_report_frame) | 0x0C058458 | Build a 0x0171 host event frame in the static buffer at 0x20013104 and send it via the TX hook |
+| [`ble_event_stats_report_11`](#ble_event_stats_report_11) | 0x0C058520 | Send the 0x11 event statistics once either of two event counters passes 29, then reset them |
+| [`ble_evt_post_u16`](#ble_evt_post_u16) | 0x0C055440 | Post a 16-bit event word to the packet queue |
+| [`ble_evt_post_u16_ctx`](#ble_evt_post_u16_ctx) | 0x0C0552C4 | Store a context word at 0x20012C94 and post a 16-bit event to the packet queue |
 | [`ble_evt_publish`](#ble_evt_publish) | 0x0C04F380 | Publish a link frame: call hook class 4, then every subscriber callback |
+| [`ble_evt_report_addr_status_04`](#ble_evt_report_addr_status_04) | 0x0C058BC0 | Send host event 0x04: link key, peer address, status byte from param_2 and flags |
+| [`ble_evt_report_addr_status_05`](#ble_evt_report_addr_status_05) | 0x0C058C00 | Send host event 0x05 with the same layout as event 0x04 |
+| [`ble_evt_report_br_acl_03`](#ble_evt_report_br_acl_03) | 0x0C058B48 | Log a BR/EDR ACL connect success and send host event 0x03 with the peer address |
+| [`ble_evt_report_conn_state_02`](#ble_evt_report_conn_state_02) | 0x0C058A94 | Map an internal connection event type and HCI reason to a status code and send event 0x02 |
+| [`ble_evt_report_link_role_06`](#ble_evt_report_link_role_06) | 0x0C058C40 | Send host event 0x06: link key, peer address, role byte, status byte and flags |
+| [`ble_evt_report_link_status_0b`](#ble_evt_report_link_status_0b) | 0x0C058A0C | Send host event 0x0B: link key, code, role, peer address, extra byte and flags |
+| [`ble_evt_report_rssi_setpoints_0c`](#ble_evt_report_rssi_setpoints_0c) | 0x0C058C90 | Send host event 0x0C: link key, role, peer address, two RSSI setpoints and flags |
+| [`ble_evt_report_state_flags_01`](#ble_evt_report_state_flags_01) | 0x0C058A64 | Send host event 0x01 with the link key and flags byte, then flush the event counters |
+| [`ble_evt_report_state_flags_10`](#ble_evt_report_state_flags_10) | 0x0C058CE8 | Send host event 0x10 with the link key and flags byte |
 | [`ble_evt_source_init`](#ble_evt_source_init) | 0x0C059134 | Register the BLE event run-loop data source and its 16-byte ring buffer |
 | [`ble_evt_subscribe`](#ble_evt_subscribe) | 0x0C052B2C | Add a subscriber node to the BLE event list at 0x2000FE9C |
 | [`ble_gatt_read_char_value`](#ble_gatt_read_char_value) | 0x0C05ADA4 | Build a GATT characteristic value by selector and copy it out with offset and length |
+| [`ble_hci_intersys_open`](#ble_hci_intersys_open) | 0x0C04542C | Open the HCI intersys link: release old IPC user, create 5 KB stream buffer, register ISR |
+| [`ble_hci_intersys_open_thunk`](#ble_hci_intersys_open_thunk) | 0x0C0454B0 | Single-branch thunk to ble_hci_intersys_open at 0x0C04542C |
+| [`ble_hci_send_packet`](#ble_hci_send_packet) | 0x0C0454D0 | Send one H4 HCI packet (type 1 to 3, up to 260 bytes) to the controller over IPC |
+| [`ble_hid_service_register`](#ble_hid_service_register) | 0x0C058F00 | Register the 'ninebot HID' SDP record, the HID descriptor and PSMs 0x11 and 0x13 |
 | [`ble_host_5min_timer_ctrl`](#ble_host_5min_timer_ctrl) | 0x0C05CC70 | Arm or stop the 300-second BLE host timer and set its flag |
+| [`ble_host_att_event_dispatch`](#ble_host_att_event_dispatch) | 0x0C04E398 | ATT server dispatcher: tick passes over connections, and inbound ATT PDU handling per connection |
+| [`ble_host_att_queue_send`](#ble_host_att_queue_send) | 0x0C04EB8C | Queue a send item on a connection's ATT list and kick the LE ACL sender |
+| [`ble_host_att_send_indication`](#ble_host_att_send_indication) | 0x0C04EC18 | Start an ATT Handle Value Indication with a 30-second confirmation timer |
+| [`ble_host_att_send_notification`](#ble_host_att_send_notification) | 0x0C04EBC0 | Send an ATT Handle Value Notification for a connection through a reserved HCI buffer |
+| [`ble_host_cache_key16`](#ble_host_cache_key16) | 0x0C053740 | Cache a 16-byte value at 0x20010188 and run the 16-byte routine 0x0C065C88 on it |
+| [`ble_host_controller_init`](#ble_host_controller_init) | 0x0C05B67C | Bring up the BLE host and link-layer environment in a fixed order and return 0 |
 | [`ble_host_ctx_clear_2608`](#ble_host_ctx_clear_2608) | 0x0C05481C | Zero the 0x574-byte host state block at 0x20012608 |
 | [`ble_host_ctx_reset_b88`](#ble_host_ctx_reset_b88) | 0x0C055570 | Clear the state byte at 0x20012B88 and the 0x80-byte block at 0x20012B8C |
 | [`ble_host_env_read_1d8`](#ble_host_env_read_1d8) | 0x0C052DD4 | Return the u32 at +0x1D8 of the BLE host environment, or 0xFFFFFFFF if absent |
 | [`ble_host_hci_init_once`](#ble_host_hci_init_once) | 0x0C065148 | One-time setup of the HCI event state that registers the packet handler |
+| [`ble_host_init_identity_addr`](#ble_host_init_identity_addr) | 0x0C058250 | Load the device identity; if it is all zero, generate, store and install a new one |
+| [`ble_host_init_services`](#ble_host_init_services) | 0x0C059230 | Initialise host services; full mode also reconciles links and starts SDP, HID and ATT |
+| [`ble_host_init_static_random_addr`](#ble_host_init_static_random_addr) | 0x0C052EC0 | Generate a static random device address (top bits 11) and cache it at 0x20004977 |
+| [`ble_host_link_event_dispatch`](#ble_host_link_event_dispatch) | 0x0C04E702 | Dispatch link and HCI events by type byte: connect, disconnect, ATT hooks and state notices |
 | [`ble_host_load_arg_pair`](#ble_host_load_arg_pair) | 0x0C065B0C | Read back the two values saved by ble_host_store_arg_pair |
 | [`ble_host_op_allowed`](#ble_host_op_allowed) | 0x0C052E28 | Report whether the BLE host state gate allows starting a new operation |
+| [`ble_host_report_clock_0d`](#ble_host_report_clock_0d) | 0x0C058980 | Send host event 0x0D: a reason code, the 64-bit millisecond clock and the flags low byte |
+| [`ble_host_reset_step`](#ble_host_reset_step) | 0x0C05D018 | Run a host reset step: call 0x0C029230(0), then post event 0x0C to 0x0C055440 |
+| [`ble_host_restart_timer_start`](#ble_host_restart_timer_start) | 0x0C059180 | Send a 0x0D status event, reset the run-loop timers and start the 60 s 'bts restart timer' |
+| [`ble_host_stage_blob`](#ble_host_stage_blob) | 0x0C053848 | Stage a caller blob in 0x20011E10 (up to 0x410 bytes) and clear the 0x400-byte area at 0x20011E20 |
+| [`ble_host_stall_watchdog`](#ble_host_stall_watchdog) | 0x0C059948 | Check every 200 ms that the host tick advances; after about 120 s stalled, report reason 1 |
+| [`ble_host_start`](#ble_host_start) | 0x0C0592A4 | Start the BLE host: hooks, role byte, bts task, packet ring, queues, identity and HCI handler |
+| [`ble_host_status_dump_text`](#ble_host_status_dump_text) | 0x0C0558EC | Format the link status record into a text dump and log it |
 | [`ble_host_store_arg_pair`](#ble_host_store_arg_pair) | 0x0C065AF8 | Save two values into globals 0x200190b8/0x200190b4 |
+| [`ble_host_tick_200ms`](#ble_host_tick_200ms) | 0x0C05806C | 200 ms host tick: run link events and reconnect scheduling while the state byte is 2 |
 | [`ble_host_timer_arm_30s`](#ble_host_timer_arm_30s) | 0x0C04F14C | Re-arm the 30 s run-loop timer at 0x2000FF44 with context param_1 |
 | [`ble_host_timer_arm_5min`](#ble_host_timer_arm_5min) | 0x0C0555A8 | Re-arm the 300 s timer at 0x20012C98 and clear the flag byte at 0x20012606 |
 | [`ble_host_timer_arm_interval`](#ble_host_timer_arm_interval) | 0x0C0501B0 | Re-arm timer 0x2000FD58 with the interval in DAT_2000FD6C; kick 0x2000FF0C once |
@@ -55,9 +103,21 @@
 | [`ble_link_notify_local_ext`](#ble_link_notify_local_ext) | 0x0C04F3C4 | Send 13-byte frame 0xD5 with the local address record and two extra bytes |
 | [`ble_link_notify_pair_addrs`](#ble_link_notify_pair_addrs) | 0x0C04F5CC | Send 20-byte frame with two reversed addresses, a byte, a u16 and a DB index |
 | [`ble_link_notify_state`](#ble_link_notify_state) | 0x0C04F4D8 | Send the link state frame (0xC8, 0xC9, 0xCB or 0xCC) selected by byte 0x2000FF5A |
+| [`ble_link_pending_timer_done`](#ble_link_pending_timer_done) | 0x0C04FC10 | Finish a pending link timer for a handle: local notify, cancel timer, optional follow-up operation |
+| [`ble_link_state_event`](#ble_link_state_event) | 0x0C05CFE0 | Handle a link state event: 0 stops and clears flag 0x8000, 1 starts and sets it |
+| [`ble_link_status_notify_tick`](#ble_link_status_notify_tick) | 0x0C028AD4 | Timer step that re-sends the BLE link state to the VCU up to three times |
+| [`ble_mode_persist_enabled`](#ble_mode_persist_enabled) | 0x0C05CCB4 | Call the mode helper 0x0C05376C(0), then persist NV record 0xFA9 = 3 (enabled) |
+| [`ble_mode_persist_enabled_alt`](#ble_mode_persist_enabled_alt) | 0x0C05CE14 | Duplicate of ble_mode_persist_enabled, kept for a second call site (0x0C055B90) |
+| [`ble_mode_set_and_persist`](#ble_mode_set_and_persist) | 0x0C05CC28 | Apply the BLE mode: 1 persists NV record 0xFA9 = 3, any other value persists 0xFD |
+| [`ble_mode_state_update`](#ble_mode_state_update) | 0x0C05CF1C | Apply a new BLE mode byte and reconcile it with NV record 0xFA9 |
 | [`ble_msg_drain_to_host`](#ble_msg_drain_to_host) | 0x0C05AF1C | Drain the inbound 3 KiB ring and pass each message to the upper-layer callback |
 | [`ble_msg_enqueue`](#ble_msg_enqueue) | 0x0C05AE14 | Queue a typed message into the 2 KiB outbound ring with lock and filter hooks |
 | [`ble_msg_queues_init`](#ble_msg_queues_init) | 0x0C05AD18 | Create the BLE message queues and their run-loop data source |
+| [`ble_payload_copy_and_schedule`](#ble_payload_copy_and_schedule) | 0x0C029200 | Copy a payload into the 0x20009028 buffer and call 0x20008FE4 with 0x1DA |
+| [`ble_pending_event_flush`](#ble_pending_event_flush) | 0x0C02C090 | Forward the 3-byte pending record at 0x20008F69 to ble_219_0c0585a4 and clear it |
+| [`ble_pending_flags_enqueue`](#ble_pending_flags_enqueue) | 0x0C05CADC | Enqueue one notification packet when any byte of the 12-byte pending-flag array is set |
+| [`ble_pending_msg_flush`](#ble_pending_msg_flush) | 0x0C057178 | Flush the pending message at 0x20004328 when its pending bit is set |
+| [`ble_pending_peer_addr_set`](#ble_pending_peer_addr_set) | 0x0C057288 | Store a pending 6-byte peer address and flag it when resolution is deferred |
 | [`ble_random_addr_advance`](#ble_random_addr_advance) | 0x0C058170 | Refresh a 6-byte random address field and advance its sequence bytes |
 | [`ble_random_bytes_6`](#ble_random_bytes_6) | 0x0C058160 | Fill a 6-byte field with random bytes |
 | [`ble_random_static_addr_build`](#ble_random_static_addr_build) | 0x0C0581A8 | Build a random static Bluetooth device address from 6 random bytes |
@@ -65,9 +125,16 @@
 | [`ble_range_dispatch`](#ble_range_dispatch) | 0x0C04E294 | Call the handler of the range node containing param_2, else the default handler |
 | [`ble_range_notify`](#ble_range_notify) | 0x0C04E304 | Send a 7-byte 0xB6 frame to the range listener matching param_3, else the default |
 | [`ble_ring_poll_status`](#ble_ring_poll_status) | 0x0C0422D4 | Poll four ring or stream objects of a channel and return a two-bit readiness mask |
+| [`ble_rx_data_handler`](#ble_rx_data_handler) | 0x0C029DF8 | BLE receive dispatcher: link events (type 2), data frames (type 3) and rate-test sub-commands |
+| [`ble_signal_event_8f94`](#ble_signal_event_8f94) | 0x0C02A478 | Signal the event object at 0x20008F94 with value 1 |
 | [`ble_sink_init`](#ble_sink_init) | 0x0C04DED8 | Store the sink context pointer and register the class-4 hook handler at 0x0c04de00 |
 | [`ble_sink_notify_pair`](#ble_sink_notify_pair) | 0x0C04DF24 | Send a 6-byte 0xB5 frame carrying two u16 values to the sink callback |
+| [`ble_slot_alloc_entry`](#ble_slot_alloc_entry) | 0x0C053558 | Claim slot entry index for owner id and u16 value, stamping it with the current tick count |
+| [`ble_slot_mgr_set_ready`](#ble_slot_mgr_set_ready) | 0x0C05376C | Set the slot-manager ready marker (0xA5 on, 0 off) at 0x200101D9 and persist it to NV 0xFAB |
+| [`ble_slot_teardown_all`](#ble_slot_teardown_all) | 0x0C0532DC | Tear down every occupied entry of the 4-slot table at 0x20010198 |
 | [`bt_bdaddr_is_zero`](#bt_bdaddr_is_zero) | 0x0C05A9C4 | Return true when the 6-byte Bluetooth address is all zeros |
+| [`btapp_btle_connect_status_change`](#btapp_btle_connect_status_change) | 0x0C0287AC | BT and BLE connection status handler: sets or clears link bits and notifies the VCU |
+| [`btapp_btle_connect_status_change_enhance`](#btapp_btle_connect_status_change_enhance) | 0x0C028B50 | Enhanced BT connection status handler: on disconnect, passes link flags to ble_219_0c058a94 |
 | [`bthost_byte_get_high5_bits`](#bthost_byte_get_high5_bits) | 0x0C04C578 | Return bits 3..7 of the byte pointed to (0 if NULL) |
 | [`bthost_byte_get_low3_bits`](#bthost_byte_get_low3_bits) | 0x0C04C570 | Return bits 0..2 of the byte pointed to |
 | [`bthost_latch_ctrl_mode_2000fb90`](#bthost_latch_ctrl_mode_2000fb90) | 0x0C04BD0C | Store the controller/host mode byte from ble_ctrl_env_get_mode_or_4 into DAT_2000fb90 |
@@ -81,6 +148,8 @@
 | [`bthost_stub_nop_0c04aefc`](#bthost_stub_nop_0c04aefc) | 0x0C04AEFC | Empty function (immediate return) |
 | [`bthost_stub_return_minus1_0c04aef0`](#bthost_stub_return_minus1_0c04aef0) | 0x0C04AEF0 | Stub returning -1 |
 | [`bthost_tlv_get_instance`](#bthost_tlv_get_instance) | 0x0C048F34 | Return the pointer to the flash TLV storage vtable |
+| [`btle_connect_status_change`](#btle_connect_status_change) | 0x0C028A08 | Log a BTLE connection status change and run the disconnect step on status 4 |
+| [`bts_op_cmd_handle`](#bts_op_cmd_handle) | 0x0C029960 | Dispatch a phone BT operation command by index and send the reply to the app |
 | [`btstack_hid_get_report_size_for_id`](#btstack_hid_get_report_size_for_id) | 0x0C065288 | Compute the byte size of a HID report from the report descriptor |
 | [`btstack_hid_parse_descriptor_item`](#btstack_hid_parse_descriptor_item) | 0x0C065190 | Parse one HID report-descriptor item (short or long) |
 | [`btstack_hid_report_id_declared`](#btstack_hid_report_id_declared) | 0x0C0653A0 | Check whether a HID report descriptor contains a Report ID item |
@@ -103,6 +172,7 @@
 | [`btstack_memory_l2cap_service_get`](#btstack_memory_l2cap_service_get) | 0x0C0654F0 | Allocate and zero an l2cap_service_t from the 8-entry 16-byte pool |
 | [`btstack_memory_pool_create`](#btstack_memory_pool_create) | 0x0C0656B0 | Build a free list from a contiguous array of fixed-size blocks |
 | [`btstack_memory_pool_get`](#btstack_memory_pool_get) | 0x0C0656EC | Pop a block from a memory pool free list |
+| [`btstack_memory_pools_init`](#btstack_memory_pools_init) | 0x0C065564 | Create the 15 fixed BTstack memory pools at stack start and log the storage figure |
 | [`btstack_memory_service_record_item_get`](#btstack_memory_service_record_item_get) | 0x0C065534 | Allocate and zero a 12-byte SDP service_record_item_t from its 8-entry pool |
 | [`btstack_memory_sm_lookup_entry_free`](#btstack_memory_sm_lookup_entry_free) | 0x0C06554C | Return a 12-byte block to the 6-entry pool at 0x2001903c (SM address-resolution entries) |
 | [`btstack_ring_buffer_bytes_available`](#btstack_ring_buffer_bytes_available) | 0x0C065728 | Number of bytes stored in a ring buffer |
@@ -133,6 +203,7 @@
 | [`btstack_run_loop_set_timer`](#btstack_run_loop_set_timer) | 0x0C065A98 | Dispatch set_timer via the active run loop |
 | [`btstack_run_loop_set_timer_context`](#btstack_run_loop_set_timer_context) | 0x0C065AA4 | Store a context pointer in a timer source |
 | [`btstack_run_loop_set_timer_handler`](#btstack_run_loop_set_timer_handler) | 0x0C065A5C | Set the callback of a timer source |
+| [`btstack_run_loop_task_main`](#btstack_run_loop_task_main) | 0x0C05D108 | BTstack embedded run-loop task: drain callbacks, run timers, wait on the event group |
 | [`de_add_data`](#de_add_data) | 0x0C04CAB8 | BTstack sdp_util.c: append a variable-length element (string/UUID128/etc.) to a DE sequence |
 | [`de_add_number`](#de_add_number) | 0x0C04CA50 | BTstack sdp_util.c: append a fixed-size numeric element (8/16/32-bit) to a DE sequence |
 | [`de_create_sequence`](#de_create_sequence) | 0x0C04C9F4 | BTstack sdp_util.c: start an empty DE_DES sequence with a 16-bit length field |
@@ -154,6 +225,8 @@
 | [`hci_remove_event_handler`](#hci_remove_event_handler) | 0x0C066DCC | Unregister a packet handler from the event-handler list at env+0x20 |
 | [`hci_reserve_packet_buffer`](#hci_reserve_packet_buffer) | 0x0C066BE8 | Reserve the single outgoing packet buffer by setting env+0x170 |
 | [`hci_reserve_packet_buffer_thunk`](#hci_reserve_packet_buffer_thunk) | 0x0C06D5D4 | Thunk: jump to the HCI packet-buffer reserve routine at 0x0C066BE8 |
+| [`hci_run_general_gap_bredr`](#hci_run_general_gap_bredr) | 0x0C067248 | Send the next pending BR/EDR GAP setting command (name, EIR, class, scan settings) |
+| [`hci_send_acl_packet_buffer`](#hci_send_acl_packet_buffer) | 0x0C066C2C | Fragment the prepared ACL packet, check credits, and hand each fragment to the transport |
 | [`hci_send_cmd`](#hci_send_cmd) | 0x0C067178 | Reserve the HCI packet buffer and send one command, or report that it is busy |
 | [`hci_send_cmd_no_status`](#hci_send_cmd_no_status) | 0x0C06722C | Send an HCI command through hci_send_cmd and discard its status |
 | [`hci_stream_buffer_is_empty`](#hci_stream_buffer_is_empty) | 0x0C045534 | Return true when the 5 KB HCI stream buffer holds no bytes |
@@ -161,6 +234,7 @@
 | [`hci_transport_h4_rx_advance`](#hci_transport_h4_rx_advance) | 0x0C06C2E0 | Advance the H4 UART receive state machine by the bytes just received |
 | [`hid_create_sdp_record`](#hid_create_sdp_record) | 0x0C04B788 | Build the HID device SDP service record into a data-element buffer |
 | [`hid_device_init`](#hid_device_init) | 0x0C04BB00 | Store the HID report descriptor and callbacks, then register HID PSMs 0x11 and 0x13 |
+| [`hid_device_request_can_send_now_event`](#hid_device_request_can_send_now_event) | 0x0C04BC2C | BTstack hid_device_request_can_send_now_event: send now if the HID channel is ready |
 | [`hid_device_validate_report`](#hid_device_validate_report) | 0x0C04AFCC | Check an outgoing HID report's report ID and size against the device's descriptor |
 | [`hid_report_id_status`](#hid_report_id_status) | 0x0C04AF00 | BTstack hid_device.c: classify a HID report ID as VALID (1), INVALID (2) or UNDECLARED (0) |
 | [`hid_report_size_valid`](#hid_report_size_valid) | 0x0C04AF54 | BTstack hid_report_size_valid(): check a report size against boot rules or the HID descriptor |
@@ -199,10 +273,13 @@
 | [`sdp_server_build_service_attribute_response`](#sdp_server_build_service_attribute_response) | 0x0C04BFD0 | Answer an SDP ServiceAttributeRequest for one record handle and an attribute id list |
 | [`sdp_server_build_service_search_attribute_response`](#sdp_server_build_service_search_attribute_response) | 0x0C04C144 | Answer an SDP ServiceSearchAttributeRequest with attribute lists for all matching records |
 | [`sdp_server_build_service_search_response`](#sdp_server_build_service_search_response) | 0x0C04BE10 | Answer an SDP ServiceSearchRequest with the matching record handles |
+| [`sm_crypto_done_resume`](#sm_crypto_done_resume) | 0x0C052D30 | Crypto completion step: set result flag DAT_2000FF54 to 2 and resume the link's pairing state |
 | [`sm_device_db_resolve_peer`](#sm_device_db_resolve_peer) | 0x0C04F634 | Match a peer against the LE device DB by address and IRK and report its slot |
 | [`sm_init`](#sm_init) | 0x0C052B50 | One-time SM initialisation: run-loop timer, event handlers, default constants, key tables |
 | [`sm_link_poll_state`](#sm_link_poll_state) | 0x0C052C7C | Periodic SM poll for the current connection: re-check its identity record and re-arm the timer |
+| [`sm_pairing_engine_step`](#sm_pairing_engine_step) | 0x0C051EB8 | Run one SMP pairing step: pick next link or RPA target, match DB identities, advance states |
 | [`sm_pairing_step_complete`](#sm_pairing_step_complete) | 0x0C050700 | Advance the per-link pairing state machine when one pairing or encryption step completes |
+| [`sm_pdu_rx_handler`](#sm_pdu_rx_handler) | 0x0C051EF0 | SMP receive handler: validate opcode and length, then advance the link's pairing state machine |
 | [`uuid_add_bluetooth_prefix`](#uuid_add_bluetooth_prefix) | 0x0C065CE4 | Expand a 32-bit UUID into a 128-bit Bluetooth Base UUID |
 
 ## ad_iterator_get_data
@@ -218,7 +295,7 @@ Returns data + offset + 2, i.e. the address after the length and type bytes. BTs
 **Returns** `ptr`: pointer to AD payload
 
 - Addresses by version: 219: 0x0C0645E0
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## ad_iterator_get_data_len
@@ -234,7 +311,7 @@ Returns data[offset] - 1: the element length byte minus the one-byte AD type. BT
 **Returns** `u8`: payload length in bytes
 
 - Addresses by version: 219: 0x0C0645C8
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## ad_iterator_get_data_type
@@ -250,7 +327,7 @@ Returns data[offset + 1], the AD type byte (e.g. 0x09 complete local name, 0xFF 
 **Returns** `u8`: AD type
 
 - Addresses by version: 219: 0x0C0645D4
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## ad_iterator_has_more
@@ -266,7 +343,7 @@ Returns true if offset+1 < length, the length byte data[offset] is non-zero and 
 **Returns** `bool`: true if another well-formed element is available
 
 - Addresses by version: 219: 0x0C064598
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## ad_iterator_init
@@ -282,7 +359,7 @@ Stores the data pointer at +0, the total length at +5 and clears the current off
 | `ad_data` | `ptr` | AD data buffer |
 
 - Addresses by version: 219: 0x0C06458C
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## ad_iterator_next
@@ -296,7 +373,7 @@ offset += data[offset] + 1, i.e. skip the length byte and its payload (length + 
 | `context` | `ptr` | BTstack ad_context_t { u8 *data; u8 offset; u8 length; } |
 
 - Addresses by version: 219: 0x0C0645B8
-- Called by: `ble_219_0c067248`, `ble_219_0c068da8`
+- Called by: `hci_run_general_gap_bredr`, `ble_219_0c068da8`
 - Confidence: high
 
 ## att_clear_transaction_queue
@@ -310,7 +387,7 @@ Calls the registered ATT write callback DAT_2000fccc as callback(con_handle = *(
 | `param_1` | `ptr:att_connection` | ATT connection; first u16 is the HCI connection handle |
 
 - Addresses by version: 219: 0x0C04CE30
-- Called by: `ble_219_0c04e702`
+- Called by: `ble_host_link_event_dispatch`
 - Confidence: medium
 
 ## att_copy_value
@@ -348,7 +425,7 @@ Tail-forwards its arguments to the thunk at 0x0c066a4c (the packet lists the fin
 | `param_4` | `u32` | event payload pass-through (also passed as the fifth argument) |
 
 - Addresses by version: 219: 0x0C04DEF0
-- Called by: `ble_219_0c04e398`, `ble_219_0c04ebc0`
+- Called by: `ble_host_att_event_dispatch`, `ble_host_att_send_notification`
 - Calls: `ll_env_can_send_acl_thunk`
 - Confidence: high
 
@@ -441,7 +518,7 @@ Identical to att_prepare_handle_value_notification except for opcode byte 0x1D (
 **Returns** `u16`: PDU length = value_len + 3
 
 - Addresses by version: 219: 0x0C04CE84
-- Called by: `ble_219_0c04ec18`
+- Called by: `ble_host_att_send_indication`
 - Calls: `co_write16_le`, `co_min_u32`, `memcpy`
 - Confidence: high
 
@@ -462,7 +539,7 @@ response_buffer[0] = 0x1B (ATT_HANDLE_VALUE_NOTIFICATION), the attribute handle 
 **Returns** `u16`: PDU length = value_len + 3
 
 - Addresses by version: 219: 0x0C04CE50
-- Called by: `ble_219_0c04ebc0`
+- Called by: `ble_host_att_send_notification`
 - Calls: `co_write16_le`, `co_min_u32`, `memcpy`
 - Confidence: high
 
@@ -484,7 +561,7 @@ The ATT server request dispatcher: it switches on the request opcode at *param_2
 **Notes:** Attribute flag bits used: 0x02 read, 0x04 write without response, 0x08 write, 0x100 dynamic (callback-backed), 0x200 128-bit UUID. Error-code mapping follows the ATT spec; the exact per-branch error codes were not all verified. This function is a dispatcher and is part of the ATT server group with att_server_write_callback.
 
 - Addresses by version: 219: 0x0C04CEB8
-- Called by: `ble_219_0c04e398`
+- Called by: `ble_host_att_event_dispatch`
 - Calls: `att_validate_security`, `att_iterator_fetch_next`, `att_copy_value`, `att_iterator_match_uuid16`, `att_iterator_match_uuid`, `co_read16_le`, `co_write16_le`, `co_min_u32`, `co_max_u32`, `util_nop_stub_a`, `memcmp`, `memcpy`
 - Confidence: medium
 
@@ -501,7 +578,7 @@ Called once from ble_219_0c059230. It stores the application context (param_2) a
 | `param_3` | `ptr` | application callback stored at 0x2000fcec |
 
 - Addresses by version: 219: 0x0C04EB24
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Calls: `att_set_db`, `att_set_read_callback`, `ble_sink_init`, `ble_evt_subscribe`, `hci_add_event_handler`
 - Confidence: medium
 
@@ -516,7 +593,7 @@ Single-global setter: DAT_2000fce4 = param_1, located in the att_server.c variab
 | `param_1` | `ptr` | packet handler callback |
 
 - Addresses by version: 219: 0x0C04EB80
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Confidence: low
 
 ## att_server_write_callback
@@ -626,6 +703,244 @@ BTstack bd_addr_copy(dest, src): copies a u32 followed by a u16 (offset 4), i.e.
 - Called by: `ble_ctrl_conn_alloc_and_register`, `ble_219_0c068da8`, `l2cap_create_channel_entry`
 - Confidence: high
 
+## ble_adv_addr_restart
+
+**Restart the local address mode: stop timer 0x2000FD58, set mode 1, store a new 6-byte address**
+
+Restarts the local address mode. It removes run-loop timer 0x2000FD58 (btstack_run_loop_remove_timer), sets the mode byte DAT_2000FD68 to 1 and calls 0x0C06B868; if that call leaves the mode above 1, it re-arms the interval timer through ble_host_timer_arm_interval. The first 4 bytes of the 6-byte record at param_1 are stored in DAT_2000FEF8 and the next 2 bytes in DAT_2000FEFC, then 0x0C06B890 is called with the record pointer, the register value from 0x0C06B868 and param_4. sm_pairing_engine_step uses the same mode byte when it sends Identity Address Information: values below 2 read the own address with 0x0C066D34 and values 2 and 3 use the public address from 0x0C066F60. Callers include 0x0C05C320 (also called after slot-limit changes) and 0x0C056A50, 0x0C056DD0, 0x0C05C480, 0x0C066C2C and 0x0C0674E8.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | pointer to a 6-byte address record (4 bytes then 2 bytes are copied) |
+| `param_2` | `u32` | unused by this function (passed on in a register) |
+| `param_3` | `u32` | unused by this function |
+| `param_4` | `u32` | forwarded to 0x0C06B890 |
+
+**Notes:** The meaning of mode values is inferred from their uses in sm_pairing_engine_step. 0x0C06B868, 0x0C06B890 and 0x0C05C320 are not described in this packet.
+
+- Addresses by version: 219: 0x0C052DE8
+- Called by: `ble_adv_set_a_apply_mode`, `ble_adv_set_b_apply_payload`, `ble_act_profile_apply_a`, `ble_act_profile_apply_b`, `hci_send_acl_packet_buffer`, `ble_ctrl_state_machine_step`
+- Calls: `ble_host_timer_arm_interval`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_run_loop_remove_timer`, `co_read16_le`, `co_write16_le`, `hci_emit_event`, `hci_number_free_acl_slots`, `ble_219_0c06b868`, `ble_219_0c06b890`, `ble_hook_invoke4`, `ble_hook_invoke_indexed`
+- Confidence: low
+
+## ble_adv_control
+
+**Start or stop the broadcast operation; start arms a 40 s timeout**
+
+Event 0 calls 0x0C0567D8 (not yet described) and returns. Event 1 picks an interval of 0x140 units by default, or 0xC80 units when the optional hook at DAT_20014608 fills its 16-byte local buffer with first byte 3. It then calls 0x0C056A50(0, interval, 2) (not yet described), sets DAT_20012ED0 to 1, and if bit 0x10 of 0x200042FC is clear and the handle DAT_200042F4 is valid it calls 0x0C06B7BC(handle, 0). Finally it re-arms the BTstack timer DAT_20012EC0 for 40000 ms with the expiry callback at 0x0C056D19 through ble_host_timer_restart. At 0.625 ms per unit the two intervals are 200 ms and 2 s, which fits BLE advertising.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `action` | `s32` | 0 = stop, 1 = start, others ignored |
+
+**Notes:** Advertising is inferred from the interval values. The 0x0C056A50 operation is not yet named.
+
+- Addresses by version: 219: 0x0C05D004
+- Called by: `ble_fmna_cmd_handler`
+- Calls: `ble_link_flag10_update`
+- Confidence: medium
+
+## ble_bts_task_handler
+
+**bts task loop: check in with the watchdog, wait for its event, drain the rings, run periodic work**
+
+Entry point of the 'bts_task' created by ble_bts_task_create. It logs 'bts_task_handler started' with the debug printf, runs ble_219_0c036328 (not yet described), then loops forever: it checks in with the watchdog (hal_wdt_task_checkin), sets busy flag 0x20014558 to 0, waits up to 100 ticks for bit 0x01 of event group 0x20014564 (xEventGroupWaitBits, clear on exit), sets the busy flag to 1, drains the inbound message ring (ble_msg_drain_to_host), dispatches the callback ring (ble_ring_dispatch_pending) and runs ble_host_stall_watchdog. Once the status hook at 0x20014608 is installed it calls it until its byte 2 is 1, then runs ble_bts_task_periodic_check.
+
+- Addresses by version: 219: 0x0C0599D4
+- Calls: `trace_printf`, `hal_wdt_task_checkin`, `wdt_task_monitor_register_current`, `xEventGroupWaitBits`, `ble_ring_dispatch_pending`, `ble_bts_task_periodic_check`, `ble_host_stall_watchdog`, `ble_msg_drain_to_host`
+- Confidence: high
+
+## ble_bts_task_periodic_check
+
+**Periodic bts check: report faults as events 2, 3, 8 and 10, then back off 500 ms and recover**
+
+Called by ble_bts_task_handler when its status hook reports 1. It sends host event 0x0D with reason 2 when ble_link_get_byte_200134a4 is 0x41, and when ble_219_0c03df24 (not yet described) returns non-zero it sends reason 3 and calls ble_219_0c03d69c(0). DAT_20004304 (set by ble_rssi_sample_ingest after a long run of identical samples) sends reason 8, and DAT_20004306 sends reason 10, each being cleared when sent. When none of these applies and the status is not 0x41 and DAT_20004305 is not 1 it returns early; otherwise it waits 500 ms with vTaskDelay (ble_219_0c0441a8) and calls ble_219_0c041d28 (not yet described) with 0.
+
+**Notes:** The recovery call and the sources of DAT_20004305 and DAT_20004306 are not established in this packet. Group: bts task loop with ble_bts_task_handler and ble_host_stall_watchdog.
+
+- Addresses by version: 219: 0x0C0598B8
+- Called by: `ble_bts_task_handler`
+- Calls: `bt_ctrl_crash_dump`, `bt_drv_digital_assert_check`, `ble_boot_mode_set`, `vTaskDelay`, `ble_host_report_clock_0d`, `ble_link_get_byte_200134a4`
+- Confidence: low
+
+## ble_cfg_set_bd_addr_checked
+
+**Store a 6-byte Bluetooth device address into the config block; checks length 6**
+
+Checks that param_2 is exactly 6 and returns 0xFFFFFFEA (-22) otherwise. For a valid length it runs the unchecked setter ble_cfg_set_bd_addr_unchecked, which stores bytes 0 to 3 in the u32 at 0x2000F364 and bytes 4 to 5 in the u16 at 0x2000F368 and commits through ble_219_0c041dc0. The commit's error is returned only when it is negative.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte device address, little-endian as in the BLE address format |
+| `param_2` | `s32` | must be 6 |
+
+**Returns** `u32`: 0, the negative commit error, or 0xFFFFFFEA for a bad length
+
+**Notes:** The decompile shows the unchecked body inline, while the call graph lists ble_219_0c045de6 as a callee. Whether this is an identity or static random address is not established.
+
+- Addresses by version: 219: 0x0C045DDC
+- Called by: `ble_factory_test_dispatch_set`, `ble_app_addr6_store`, `ble_host_init_identity_addr`
+- Calls: `ble_cfg_set_bd_addr_unchecked`
+- Confidence: medium
+
+## ble_cfg_set_bd_addr_unchecked
+
+**Store 6 device-address bytes into 0x2000F364/0x2000F368 without a length check**
+
+Copies 6 bytes from param_1 into the u32 at 0x2000F364 and the u16 at 0x2000F368 and commits the configuration block through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. The length check is done by its caller ble_cfg_set_bd_addr_checked.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte device address |
+
+**Returns** `u32`: 0 or the negative commit error
+
+- Addresses by version: 219: 0x0C045DE6
+- Called by: `ble_cfg_set_bd_addr_checked`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
+## ble_cfg_set_block40
+
+**Store a 40-byte block into the config area at 0x2000F38C and commit**
+
+Copies a 40-byte block (ten words) from param_1 into the configuration area at 0x2000F38C through 0x2000F3B0, then commits through ble_219_0c041dc0. A length other than 0x28 returns 0xFFFFFFEA (-22). The commit's error is returned only when it is negative. The content is not interpreted in this function.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 40-byte source block |
+| `param_2` | `s32` | must be 0x28 |
+
+**Returns** `u32`: 0, the negative commit error, or 0xFFFFFFEA for a bad length
+
+**Notes:** The meaning of the 40-byte block is not established.
+
+- Addresses by version: 219: 0x0C045E24
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
+## ble_cfg_set_bytes_f3b8
+
+**Copy up to 16 bytes into the config field at 0x2000F3B8 and commit**
+
+Copies up to 16 bytes from param_1 into the 16-byte field at 0x2000F3B8 with memcpy, then commits through ble_219_0c041dc0. A length above 16 returns 0xFFFFFFEA (-22). It follows the same pattern as ble_cfg_set_f36c_bytes and is called from three routines in ble_219_0c0292f0, ble_219_0c029414 and ble_219_0c02b480 (not described here).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source bytes |
+| `param_2` | `u32` | length, at most 16 |
+| `param_3` | `u32` | unused |
+| `param_4` | `u32` | unused |
+
+**Returns** `u32`: 0, the negative commit error, or 0xFFFFFFEA for a bad length
+
+**Notes:** The meaning of the field is not established.
+
+- Addresses by version: 219: 0x0C045FD4
+- Called by: `ble_device_name_setup`, `bt_app_set_name_and_advdata`, `ble_vcu_cmd_handle`
+- Calls: `ble_nvdata0_dev_write_record`, `memcpy`
+- Confidence: medium
+
+## ble_cfg_set_f36c_bytes
+
+**Store up to 16 bytes into the config field at 0x2000F36C and commit**
+
+Copies up to 16 bytes from param_1 into the 16-byte configuration field at 0x2000F36C, then commits the block through ble_219_0c041dc0. A length above 16 returns 0xFFFFFFEA (-22, EINVAL). The commit's result is returned only when it is negative, otherwise 0. It belongs to a family of fixed-size setters that write one configuration block based at 0x2000F354.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source bytes |
+| `param_2` | `u32` | length, at most 16 |
+| `param_3` | `u32` | unused |
+| `param_4` | `u32` | unused |
+
+**Returns** `u32`: 0, the negative commit error, or 0xFFFFFFEA for a bad length
+
+**Notes:** The meaning of the field is not established. The commit routine ble_219_0c041dc0 is not described in this packet.
+
+- Addresses by version: 219: 0x0C045D8C
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`, `memcpy`
+- Confidence: medium
+
+## ble_cfg_set_flag_f36a
+
+**Set the config flag byte at 0x2000F36A to 0xFF or 0x53 and commit**
+
+Writes 0xFF to the byte at 0x2000F36A when param_1 is 0 and 0x53 otherwise, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | flag: 0 selects 0xFF, non-zero selects 0x53 |
+
+**Returns** `u32`: 0 or the negative commit error
+
+**Notes:** The meaning of the two values is not established.
+
+- Addresses by version: 219: 0x0C045EE8
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
+## ble_cfg_set_flag_f36b
+
+**Set the config flag byte at 0x2000F36B to 0xFF or 0x6F and commit**
+
+Writes 0xFF to the byte at 0x2000F36B when param_1 is 0 and 0x6F otherwise, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. It is a sibling of ble_cfg_set_flag_f36a.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | flag: 0 selects 0xFF, non-zero selects 0x6F |
+
+**Returns** `u32`: 0 or the negative commit error
+
+**Notes:** The meaning of the two values is not established.
+
+- Addresses by version: 219: 0x0C045F24
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
+## ble_cfg_set_word_f360
+
+**Store a 32-bit config word at 0x2000F360 and commit; length must be 4**
+
+Stores the 32-bit value at param_1 into the configuration word at 0x2000F360 and commits through ble_219_0c041dc0. A length other than 4 returns 0xFFFFFFEA (-22). The commit's error is returned only when it is negative.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | pointer to the 32-bit value |
+| `param_2` | `s32` | must be 4 |
+
+**Returns** `u32`: 0, the negative commit error, or 0xFFFFFFEA for a bad length
+
+**Notes:** The meaning of the word is not established.
+
+- Addresses by version: 219: 0x0C045EC8
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
+## ble_cfg_set_word_f3b4
+
+**Set the config word at 0x2000F3B4 to a tag value or 0xFFFFFFFF and commit**
+
+Writes 0x00464143 to the word at 0x2000F3B4 when param_1 is non-zero and 0xFFFFFFFF when it is zero, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. The value 0x00464143 is ASCII 'CAF' in little-endian byte order.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | flag: zero selects 0xFFFFFFFF, non-zero selects 0x464143 |
+
+**Returns** `u32`: 0 or the negative commit error
+
+**Notes:** The meaning of the tag is not established.
+
+- Addresses by version: 219: 0x0C045F84
+- Called by: `ble_factory_test_dispatch_set`
+- Calls: `ble_nvdata0_dev_write_record`
+- Confidence: medium
+
 ## ble_ctrl_addr_string_slot_store
 
 **Write a BD_ADDR as 'XX:XX:XX:XX:XX:XX' into every all-zero 17-byte slot**
@@ -641,8 +956,72 @@ Scans a byte array of param_2 bytes at param_1 with a step of 1 byte. Where a 17
 **Notes:** Uses fixed RAM scratch 0x200190BC..0x200190CD. Purpose of the table is not confirmed.
 
 - Addresses by version: 219: 0x0C065D1C
-- Called by: `ble_219_0c067248`, `ble_219_0c0674e8`
+- Called by: `hci_run_general_gap_bredr`, `ble_ctrl_state_machine_step`
 - Calls: `memcmp`
+- Confidence: medium
+
+## ble_event_report_frame
+
+**Build a 0x0171 host event frame in the static buffer at 0x20013104 and send it via the TX hook**
+
+Builds a 7-byte header at 0x20013104: type word 0x0171, a big-endian length (payload + 3), event code param_1, and a big-endian payload length param_2; it then copies param_2 bytes from param_3 to offset 7 with memcpy. The length fields are byte-reversed in place with bt_bytes_reverse_inplace. When the TX hook at 0x200130DC is set it is called with the frame, total length param_2 + 7 and param_4 + 7 (the meaning of the third argument is not known), and then the frame is dumped in hex through the debug printf ble_219_0c035d0c (not yet described). Every host event reporter in this batch (ble_evt_report_*, ble_host_report_clock_0d, ble_event_stats_report_11) builds its frame here.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | Event code |
+| `param_2` | `s32` | Payload length in bytes |
+| `param_3` | `ptr` | Payload source |
+| `param_4` | `u8` | Tag; the hook receives param_4 + 7 |
+
+**Notes:** The 7-byte header layout (type 2 bytes, length 2 bytes, event 1 byte, payload length 2 bytes) is inferred from the offsets used and the total length of payload + 7.
+
+- Addresses by version: 219: 0x0C058458
+- Called by: `ble_event_stats_report_11`, `ble_host_report_clock_0d`, `ble_evt_report_link_status_0b`, `ble_evt_report_state_flags_01`, `ble_evt_report_conn_state_02`, `ble_evt_report_br_acl_03`, `ble_evt_report_addr_status_04`, `ble_evt_report_addr_status_05`, `ble_evt_report_link_role_06`, `ble_evt_report_rssi_setpoints_0c`, `ble_evt_report_state_flags_10`
+- Calls: `trace_printf`, `bt_bytes_reverse_inplace`, `memcpy`
+- Confidence: medium
+
+## ble_event_stats_report_11
+
+**Send the 0x11 event statistics once either of two event counters passes 29, then reset them**
+
+Does nothing unless counter A (0x200130FC) or counter B (0x2001322F) is above 29. It then reads clock_gettime(CLOCK_MONOTONIC) and uses its first 16 bits as the current time, computes each channel's elapsed time from its start stamp (0x20013100 for A, 0x20013230 for B) when that counter is non-zero, and sends host event 0x11 with a 6-byte payload: count B, count A, elapsed B and elapsed A, the two elapsed values byte-reversed to big-endian. Both counters and both stamps are then reset to zero. It is called at the end of the 0x01 and 0x03 reporters.
+
+**Notes:** What the two counters count is not established from this function. The second bt_bytes_reverse_inplace call has no length argument visible in the decompile; 2 is assumed.
+
+- Addresses by version: 219: 0x0C058520
+- Called by: `ble_evt_report_state_flags_01`, `ble_evt_report_br_acl_03`
+- Calls: `clock_gettime`, `ble_event_report_frame`, `bt_bytes_reverse_inplace`
+- Confidence: low
+
+## ble_evt_post_u16
+
+**Post a 16-bit event word to the packet queue**
+
+Copies the 16-bit argument into a 2-byte buffer and enqueues it with ble_pktq_enqueue using completion handler LAB_0C0554F4. It is the event-notification primitive of the host command and record code in this packet; events 0x0A, 0x0B, 0x0E, 0x0F and 0x10 are queued through it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | 16-bit event word |
+
+- Addresses by version: 219: 0x0C055440
+- Called by: `ble_slot_cmd_dispatch`, `ble_slot_alloc_entry`, `ble_app_req_302_handle`, `ble_host_rx_msg_dispatch`, `ble_crypto_nv_store_blob`, `ble_host_reset_step`
+- Calls: `ble_pktq_enqueue`
+- Confidence: high
+
+## ble_evt_post_u16_ctx
+
+**Store a context word at 0x20012C94 and post a 16-bit event to the packet queue**
+
+Stores param_2 in the 32-bit word at 0x20012C94, then posts the 16-bit value param_1 as a 2-byte packet through ble_pktq_enqueue with completion handler LAB_0C054E58. The stored word is presumably read by that handler, which is not described yet. Called only from ble_219_0c053018 in this packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | 16-bit event word to post |
+| `param_2` | `u32` | context word stored at 0x20012C94 |
+
+- Addresses by version: 219: 0x0C0552C4
+- Called by: `ble_slot_cmd_dispatch`
+- Calls: `ble_pktq_enqueue`
 - Confidence: medium
 
 ## ble_evt_publish
@@ -657,9 +1036,145 @@ Calls ble_hook_invoke4(4, 1, frame, len) so the registered 4-argument hook sees 
 | `param_2` | `u32` | frame length in bytes |
 
 - Addresses by version: 219: 0x0C04F380
-- Called by: `ble_link_notify_local_ext`, `ble_link_notify_id_flag`, `ble_link_notify_state`, `ble_link_notify_local`, `ble_link_notify_pair_addrs`, `ble_link_notify_id_addr`, `sm_pairing_step_complete`, `ble_219_0c051eb8`, `ble_219_0c051ef0`
+- Called by: `ble_link_notify_local_ext`, `ble_link_notify_id_flag`, `ble_link_notify_state`, `ble_link_notify_local`, `ble_link_notify_pair_addrs`, `ble_link_notify_id_addr`, `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `ble_hook_invoke4`
 - Confidence: high
+
+## ble_evt_report_addr_status_04
+
+**Send host event 0x04: link key, peer address, status byte from param_2 and flags**
+
+Sends host event 0x04 with a 10-byte payload: the link key from 0x200042F8, the 6-byte address at param_1, the status byte param_2, and the low byte of 0x200042FC, with the last byte unset. The layout matches ble_evt_report_addr_status_05, and only the event code differs.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte peer address |
+| `param_2` | `u8` | Status byte |
+
+- Addresses by version: 219: 0x0C058BC0
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`
+- Confidence: medium
+
+## ble_evt_report_addr_status_05
+
+**Send host event 0x05 with the same layout as event 0x04**
+
+Identical to ble_evt_report_addr_status_04 except for the event code 0x05: link key, 6-byte address from param_1, status byte param_2, flags low byte, and one unset trailing byte in a 10-byte payload.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte peer address |
+| `param_2` | `u8` | Status byte |
+
+- Addresses by version: 219: 0x0C058C00
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`
+- Confidence: medium
+
+## ble_evt_report_br_acl_03
+
+**Log a BR/EDR ACL connect success and send host event 0x03 with the peer address**
+
+Prints 'br acl succeed- mac:' with the 6-byte address at param_1 through the debug printf, then sends host event 0x03 with a 10-byte payload: the link key, the 6-byte address, the role byte of the link record for that key (0xFF when there is none), and the flags low byte, with one unset trailing byte. It calls ble_event_stats_report_11 afterwards.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte BD_ADDR of the connected peer |
+
+- Addresses by version: 219: 0x0C058B48
+- Calls: `trace_printf`, `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `ble_event_stats_report_11`, `ble_link_table_find_by_key`
+- Confidence: medium
+
+## ble_evt_report_conn_state_02
+
+**Map an internal connection event type and HCI reason to a status code and send event 0x02**
+
+param_1 selects the mapping: type 1 gives 2 when param_2 is 1 (that branch also clears byte 0x20004324) and 6 otherwise, type 2 gives 3, type 3 gives 4, type 10 gives 8 and type 11 gives 7. For type 4 (disconnect) param_3 == 1 gives 5; otherwise param_4 is read as an HCI reason: 0x13 (remote user terminated) gives 1, 0x16 (connection terminated by local host) gives 0x16, 0x08 (connection timeout) gives 9, and any other reason gives 0xFF. The mapped code, the link key and the flags low byte are sent as host event 0x02 with a 4-byte payload whose last byte is unset.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | Internal connection event type |
+| `param_2` | `s32` | Sub-flag; value 1 selects the type-1 success branch |
+| `param_3` | `s32` | Sub-flag; value 1 maps type 4 to 5 |
+| `param_4` | `s32` | HCI disconnect reason for type 4 |
+
+**Notes:** The HCI reason meanings are the standard Bluetooth Core values. For event types not listed the mapped byte is left unassigned in the decompile.
+
+- Addresses by version: 219: 0x0C058A94
+- Called by: `btapp_btle_connect_status_change_enhance`, `ble_crypto_report_auth_state`
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`
+- Confidence: medium
+
+## ble_evt_report_link_role_06
+
+**Send host event 0x06: link key, peer address, role byte, status byte and flags**
+
+Sends host event 0x06 with an 11-byte payload (the last byte unset): the link key, the 6-byte address at param_1, the role byte at +7 of the key's link record (0xFF when there is none), the status byte param_2, and the low byte of 0x200042FC. ble_link_request_timer_cb calls it with status 2 when a request has stalled.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte peer address |
+| `param_2` | `u8` | Status byte |
+
+- Addresses by version: 219: 0x0C058C40
+- Called by: `ble_link_request_timer_cb`
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `ble_link_table_find_by_key`
+- Confidence: medium
+
+## ble_evt_report_link_status_0b
+
+**Send host event 0x0B: link key, code, role, peer address, extra byte and flags**
+
+Sends host event 0x0B with a 12-byte payload (the last byte unset): the link key from 0x200042F8, param_1 as the code, the role byte at +7 of that key's link record (0xFF when there is none), the 6-byte peer address from param_2, param_3, and the low byte of 0x200042FC. Its callers in this batch are ble_link_request_timer_cb, and ble_219_0c05a608 which is outside this batch.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | Event code / status passed to the report |
+| `param_2` | `ptr` | 6-byte peer address |
+| `param_3` | `u8` | Extra status byte |
+
+- Addresses by version: 219: 0x0C058A0C
+- Called by: `ble_link_request_timer_cb`, `ble_link_slot_request`
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `ble_link_table_find_by_key`
+- Confidence: medium
+
+## ble_evt_report_rssi_setpoints_0c
+
+**Send host event 0x0C: link key, role, peer address, two RSSI setpoints and flags**
+
+Sends host event 0x0C with an 11-byte payload: the link key, the role byte of the key's link record (0xFF when there is none), the 6-byte address at param_1, param_2 and param_3 each stored as value + 0x80 (offset binary), and the low byte of 0x200042FC. The two signed inputs are the record's setpoint bytes +1 and +2 as written by ble_link_request_timer_cb, and they behave like dBm values between about -85 and -45 (inferred from the clamps in that function).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte peer address |
+| `param_2` | `s8` | First RSSI setpoint (record +1) |
+| `param_3` | `s8` | Second RSSI setpoint (record +2) |
+
+**Notes:** The record lookup is shown with no argument in the decompile; the key is presumably the byte in local_24 as in the other reporters. The unit of the setpoints is inferred.
+
+- Addresses by version: 219: 0x0C058C90
+- Called by: `ble_link_request_timer_cb`
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `ble_link_table_find_by_key`
+- Confidence: medium
+
+## ble_evt_report_state_flags_01
+
+**Send host event 0x01 with the link key and flags byte, then flush the event counters**
+
+Sends host event 0x01 with a 3-byte payload: the link key byte from 0x200042F8, the low byte of 0x200042FC, and one unset trailing byte. It then calls ble_event_stats_report_11, which sends its 0x11 report only when a counter is above 29.
+
+- Addresses by version: 219: 0x0C058A64
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `ble_event_stats_report_11`
+- Confidence: medium
+
+## ble_evt_report_state_flags_10
+
+**Send host event 0x10 with the link key and flags byte**
+
+Sends host event 0x10 with a 3-byte payload: the link key from 0x200042F8, the low byte of 0x200042FC, and one unset trailing byte. It has the same layout as ble_evt_report_state_flags_01 but does not flush the counters.
+
+- Addresses by version: 219: 0x0C058CE8
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`
+- Confidence: medium
 
 ## ble_evt_source_init
 
@@ -670,7 +1185,7 @@ Initialises the BTstack run-loop data source at 0x20013238 that drives the BLE e
 **Notes:** Handler 0x0C058D14 and wrapper 0x0C042D80 are not described in this packet. The purpose of the ring (16 bytes) is inferred from its size and placement.
 
 - Addresses by version: 219: 0x0C059134
-- Called by: `ble_219_0c0592a4`
+- Called by: `ble_host_start`
 - Calls: `prvInitialiseMutex`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
 - Confidence: high
 
@@ -711,6 +1226,60 @@ Read-value provider for a small set of GATT characteristics. param_1 is matched 
 - Calls: `ble_get_packed_word_12cb0`, `ble_state_407a_read`, `ble_nv_load_8byte_block`, `ble_nv_load_flag_byte`, `ble_nv_load_device_name`, `co_min_u32`, `memcpy`, `memset`, `strlen`, `strncmp`
 - Confidence: medium
 
+## ble_hci_intersys_open
+
+**Open the HCI intersys link: release old IPC user, create 5 KB stream buffer, register ISR**
+
+Opens the HCI transport between the BLE host and the BT controller core (the intersys link). It first releases any previous user of IPC channel 0 with hal_sysipc_close, waits 100 ticks with vTaskDelay, then creates the receive stream buffer over static storage at 0x2000DE8C (0x1400 bytes, trigger level 1, control block at 0x2000F28C, handle stored in DAT_2000F2B0). It registers ISR channel 0 with two callbacks (LAB_0c0453E4 and LAB_0c0453B0) through hal_isr_chan_register. On success it calls hal_isr_chan_disable, which masks the channel IRQ again. On failure it logs 'Failed to open hci intersys'.
+
+**Notes:** The decompile shows no argument for the channel disable call, so channel 0 is taken from the context. Whether the link is meant to be masked after a successful open is not confirmed.
+
+- Addresses by version: 219: 0x0C04542C
+- Called by: `ble_hci_intersys_open_thunk`
+- Calls: `hal_isr_chan_register`, `hal_sysipc_close`, `hal_isr_chan_disable`, `trace_printf`, `xStreamBufferGenericCreateStatic`, `vTaskDelay`
+- Confidence: medium
+
+## ble_hci_intersys_open_thunk
+
+**Single-branch thunk to ble_hci_intersys_open at 0x0C04542C**
+
+One-instruction tail branch to ble_hci_intersys_open (0x0C04542C). It exists as a separate entry for the vector or RAM-patch table, and it does the same work as its target.
+
+- Addresses by version: 219: 0x0C0454B0
+- Calls: `ble_hci_intersys_open`
+- Confidence: high
+
+## ble_hci_send_packet
+
+**Send one H4 HCI packet (type 1 to 3, up to 260 bytes) to the controller over IPC**
+
+Sends one HCI packet from the host to the BT controller. Byte 0 must be the H4 packet indicator 1 (command), 2 (ACL data) or 3 (SCO data), and the length must be below 0x105 (260 bytes). Otherwise it logs 'error hci send : length = %d, data[...]' with the first four bytes and returns 0. Valid packets go to hal_sysipc_send on channel 0, user 0, and a non-zero result from that call turns the return value into 0. The return value is the accepted length.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | H4 packet buffer; byte 0 is the packet indicator |
+| `param_2` | `u32` | packet length in bytes, must be below 0x105 |
+
+**Returns** `u32`: accepted length, or 0 when rejected or the IPC send fails
+
+- Addresses by version: 219: 0x0C0454D0
+- Called by: `ble_xfer_pump_chunk_a_and_notify`
+- Calls: `hal_sysipc_send`, `trace_printf`
+- Confidence: high
+
+## ble_hid_service_register
+
+**Register the 'ninebot HID' SDP record, the HID descriptor and PSMs 0x11 and 0x13**
+
+Builds the HID service's SDP record with hid_create_sdp_record into the buffer at 0x200132C0, using the service name 'ninebot HID', the attribute word 0x00010101, the value 5000, the 0x73-byte HID report descriptor at 0x0C081930, and the second argument 0x00010007. It registers the record with sdp_register_service, starts the HID device with hid_device_init(0, 0x73, descriptor), which registers PSMs 0x11 and 0x13, and stores the HID callback at 0x0C058D40 through bthost_set_var_2000fa00. It is called once from ble_host_init_services in full mode.
+
+**Notes:** The meanings of 0x00010101, 5000 and 0x00010007 are not established by this function; the labels are taken from the SDP calls it makes.
+
+- Addresses by version: 219: 0x0C058F00
+- Called by: `ble_host_init_services`
+- Calls: `hid_create_sdp_record`, `hid_device_init`, `bthost_set_var_2000fa00`, `sdp_register_service`
+- Confidence: medium
+
 ## ble_host_5min_timer_ctrl
 
 **Arm or stop the 300-second BLE host timer and set its flag**
@@ -724,8 +1293,120 @@ Controls the 300-second host timer. Argument 1 calls ble_host_timer_arm_5min, wh
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C05CC70
-- Called by: `ble_219_0c02a8f8`
+- Called by: `ble_fmna_cmd_handler`
 - Calls: `ble_set_flag_12606`, `ble_host_timer_arm_5min`, `ble_host_timer_stop_5min`
+- Confidence: medium
+
+## ble_host_att_event_dispatch
+
+**ATT server dispatcher: tick passes over connections, and inbound ATT PDU handling per connection**
+
+Event 4 with frame byte 0x79 is a scheduler tick. It walks the connection list with the BTstack removal-safe iterator in three passes (cVar10 = 0, 1, 2). In pass 0, a connection in state 3 (request ready at +0x1EC) has its buffered PDU (+0x216, length at +0x214) run through att_server_handle_request (0x0C04CEB8) into a reserved HCI buffer, and the response is committed. In passes 1 and 2, queued send items on the lists at +0x210 and +0x20C are invoked through their handler at +4 with the argument at +8 when the connection is ready. Event 8 handles an inbound PDU for a connection found by handle: an opcode byte 0x1E (Handle Value Confirmation) clears the pending indication at +0x1FA and its 30-second timer, then reports through ble_range_notify(0, handle, length), and opcode 0x52 (Write Command) goes straight to att_server_handle_request. Other PDUs are copied into the buffer at +0x216, marked state 1, and promoted to state 3 when ble_host_op_allowed passes, after which ble_ctrl_le_acl_request_send is called.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | event: 4 scheduler tick, 8 inbound PDU |
+| `param_2` | `u32` | connection handle for event 8 |
+| `param_3` | `ptr` | PDU bytes (event 8) or the tick marker (event 4) |
+| `param_4` | `u32` | PDU length |
+
+**Notes:** 300-instruction dispatcher, traced at the level of its passes and opcodes rather than every branch. The state numbering (1 received, 3 ready) and the list roles at +0x20C and +0x210 are inferred. Opcode 0x1E and the 30-second timer are checked against ble_host_att_send_indication.
+
+- Addresses by version: 219: 0x0C04E398
+- Calls: `att_server_handle_request`, `att_event_forward_class4`, `ble_ctrl_le_acl_request_send`, `ble_sink_notify_pair`, `ble_range_broadcast`, `ble_range_notify`, `sm_link_poll_state`, `ble_host_op_allowed`, `btstack_linked_list_empty`, `btstack_linked_list_remove`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_run_loop_remove_timer`, `co_read16_le`, `co_write16_le`, `ble_ctrl_conn_iter_init` ...
+- Confidence: medium
+
+## ble_host_att_queue_send
+
+**Queue a send item on a connection's ATT list and kick the LE ACL sender**
+
+Looks up the connection for handle param_2 with ble_ctrl_conn_find_by_handle. If none exists it returns 2. Otherwise it appends the node param_1 to the connection's pending list at +0x20C with btstack_linked_list_add_tail_impl (0x0C065416), calls ble_ctrl_le_acl_request_send for the handle, and returns 0 when the add succeeded or 0x0C when the list reports failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | list node: handler at +4, argument at +8 |
+| `param_2` | `u32` | connection handle |
+
+**Returns** `u32`: 0 on success, 2 when there is no connection, 0x0C when the add fails
+
+**Notes:** The add routine returns zero when the node is already queued, so the 0x0C result may also mean a duplicate.
+
+- Addresses by version: 219: 0x0C04EB8C
+- Called by: `ble_log_data_send`, `ble_log_typed_send`
+- Calls: `ble_ctrl_le_acl_request_send`, `btstack_linked_list_add_tail`, `ble_ctrl_conn_find_by_handle`
+- Confidence: high
+
+## ble_host_att_send_indication
+
+**Start an ATT Handle Value Indication with a 30-second confirmation timer**
+
+Returns 2 when the connection does not exist. If an indication is already in flight (nonzero pending handle at +0x1FA), it logs ATT_HANDLE_VALUE_INDICATION_IN_PROGRESS and returns 0x90. Otherwise it stores the attribute handle at +0x1FA, initialises the timer object at +0x1FC with expiry callback 0x0C04E374, and starts it for 30000 ms. It reserves an HCI buffer and builds the 0x1D indication with att_prepare_handle_value_indication (0x0C04CE84), committing through 0x0C06D5DC. If no buffer is available it logs 'att_server_indicate, hci buffer reserved' and returns 0x0C; success returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | connection handle |
+| `param_2` | `u32` | attribute handle, stored as the pending indication |
+| `param_3` | `u32` | value data passed to the PDU builder |
+| `param_4` | `u32` | value length passed to the PDU builder |
+
+**Returns** `u32`: 0 on success, 2 when there is no connection, 0x90 when an indication is in flight, 0x0C when no buffer is available
+
+**Notes:** The 30-second timeout is what ble_host_att_event_dispatch cancels on a Handle Value Confirmation. The expiry callback 0x0C04E374 is not in this packet.
+
+- Addresses by version: 219: 0x0C04EC18
+- Calls: `trace_printf`, `att_prepare_handle_value_indication`, `btstack_run_loop_set_timer_handler`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `ble_ctrl_conn_find_by_handle`, `ble_hook_invoke_indexed`, `ll_env_get_u32_68_plus8`, `hci_reserve_packet_buffer_thunk`, `ble_219_0c06d5dc`
+- Confidence: high
+
+## ble_host_att_send_notification
+
+**Send an ATT Handle Value Notification for a connection through a reserved HCI buffer**
+
+Finds the connection for handle param_1 and returns 2 when none exists. It then calls att_event_forward_class4 (0x0C04DEF0), and when that does not accept the event it returns 0x57. Otherwise it reserves an HCI packet buffer (0x0C066BE8), gets its address from ll_env_get_u32_68_plus8, builds the 0x1B notification with att_prepare_handle_value_notification (0x0C04CE50) from the connection handle, attribute handle, value and length, commits it through 0x0C06D5DC, and returns that commit result.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | connection handle |
+| `param_2` | `u32` | attribute handle |
+| `param_3` | `ptr` | value bytes |
+| `param_4` | `u32` | value length |
+
+**Returns** `u32`: commit result, 2 when there is no connection, or 0x57 when the class-4 hook refuses
+
+**Notes:** The decompile calls the connection lookup without an argument, so param_1 is taken from the lookup's use of r0. The meaning of the 0x57 result is taken from the code path.
+
+- Addresses by version: 219: 0x0C04EBC0
+- Called by: `ble_log_data_send`, `ble_log_typed_send`
+- Calls: `att_prepare_handle_value_notification`, `att_event_forward_class4`, `ble_ctrl_conn_find_by_handle`, `ll_env_get_u32_68_plus8`, `hci_reserve_packet_buffer_thunk`, `ble_219_0c06d5dc`
+- Confidence: medium
+
+## ble_host_cache_key16
+
+**Cache a 16-byte value at 0x20010188 and run the 16-byte routine 0x0C065C88 on it**
+
+Copies four 32-bit words from the 16-byte argument into 0x20010188 to 0x20010193 (in order), then calls 0x0C065C88 on that 16-byte buffer, a routine not described here that is probably an in-place byte reversal. It is called from 0x0C053D04, which is not described. The purpose of the buffer is not confirmed by this packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 16-byte value (four u32 words) |
+
+- Addresses by version: 219: 0x0C053740
+- Called by: `ble_record_a_derive_and_commit`
+- Calls: `printf_hexdump`
+- Confidence: low
+
+## ble_host_controller_init
+
+**Bring up the BLE host and link-layer environment in a fixed order and return 0**
+
+Runs the BLE stack start-up sequence: unnamed setup routines 0c04554C and 0c065564, the ROM table getters ble_rom_ptr_table_get_0c07ffac, ble_rom_table_get_0c07fe00 and ble_rom_ptr_table_get_0c0800b4 (results not used), and 0c065AEC. It takes a handle from 0c048F34 and stores it with ble_host_store_arg_pair(handle, 0), then fetches the local interface table from ble_iface_exchange_tables and calls ll_env_init with that table and the constant block at 0x0C081844. It installs the callbacks through ble_ctrl_env_set_callbacks_and_notify and the interface through ble_ctrl_env_set_iface_and_init, and finishes with unnamed 0c04ADE0 and 0c04F034 on the handle. Always returns 0.
+
+**Returns** `u32`: always 0
+
+**Notes:** The packet callee list names btstack_run_loop_init, bthost_tlv_get_instance, bthost_link_key_db_tlv_get_instance and le_device_db_tlv_configure, but none is a direct call in this body; they may be reached through 0c04554C or 0c065564.
+
+- Addresses by version: 219: 0x0C05B67C
+- Called by: `ble_host_start`
+- Calls: `ble_ctrl_sysreg_pulse_bit19`, `bthost_tlv_get_instance`, `bthost_link_key_db_tlv_get_instance`, `le_device_db_tlv_configure`, `ble_rom_table_get_0c07fe00`, `ble_rom_ptr_table_get_0c07ffac`, `ble_rom_ptr_table_get_0c0800b4`, `btstack_memory_pools_init`, `btstack_run_loop_init`, `ble_host_store_arg_pair`, `ble_ctrl_env_set_iface_and_init`, `ll_env_init`, `ble_ctrl_env_set_callbacks_and_notify`, `ble_iface_exchange_tables`
 - Confidence: medium
 
 ## ble_host_ctx_clear_2608
@@ -735,7 +1416,7 @@ Controls the 300-second host timer. Argument 1 calls ble_host_timer_arm_5min, wh
 Calls memset(0x20012608, 0, 0x574), clearing 1396 bytes. The block's internal layout is not decoded here. It ends at 0x20012B7C, before the state byte at 0x20012B88 and the blocks cleared by ble_host_ctx_reset_b88.
 
 - Addresses by version: 219: 0x0C05481C
-- Called by: `ble_219_0c0537b4`, `ble_219_0c053f24`
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_host_rx_chunk_handle`
 - Calls: `memset`
 - Confidence: high
 
@@ -746,7 +1427,7 @@ Calls memset(0x20012608, 0, 0x574), clearing 1396 bytes. The block's internal la
 Zeroes 0x30 bytes at 0x20012B8C, 0x20 bytes at 0x20012BBC and 0x30 bytes at 0x20012BDC (three adjacent sub-blocks that make up 0x80 bytes), then sets the byte at 0x20012B88 to 0. The block ends at 0x20012C0B, where the timer sources cleared by ble_host_timers_stop_pair begin. The individual fields are not decoded.
 
 - Addresses by version: 219: 0x0C055570
-- Called by: `ble_219_0c0537b4`
+- Called by: `ble_fmna_reset_gen_keypair`
 - Calls: `memset`
 - Confidence: high
 
@@ -759,7 +1440,7 @@ Calls the environment accessor at 0x0c066554 (not yet named). If it returns a no
 **Returns** `u32`: field value at +0x1D8, or 0xFFFFFFFF when there is no environment
 
 - Addresses by version: 219: 0x0C052DD4
-- Called by: `ble_219_0c04e702`
+- Called by: `ble_host_link_event_dispatch`
 - Calls: `ble_ctrl_conn_find_by_handle`
 - Confidence: medium
 
@@ -776,6 +1457,67 @@ Runs once: if the init byte at 0x20017385 is already non-zero it returns. Otherw
 - Calls: `hci_add_event_handler`
 - Confidence: medium
 
+## ble_host_init_identity_addr
+
+**Load the device identity; if it is all zero, generate, store and install a new one**
+
+Reads the 6-byte identity from the app block with ble_app_addr6_read. When it is all zero (bt_bdaddr_is_zero) it fills 6 bytes from ble_219_0c04585c (not yet described), replaces the first three with the fixed bytes F4 1A 7A, and writes the result back with ble_219_0c045ddc. It then installs the address with ble_ctrl_env_set_peer_addr(addr, 0), calls ble_219_0c06b178(0) and ble_219_0c06b1e0(0), sets env+0x45 to 0 through ble_ctrl_env_set_u8_at_0x45, and sets env+0x42 to 3 through ble_ctrl_env_set_u8_at_0x42.
+
+**Notes:** The fill with random bytes is inferred from the flow and from the name of ble_219_0c04585c, whose body is not in this packet. The meaning of the fixed prefix and of the env bytes 0x42 and 0x45 is not established here.
+
+- Addresses by version: 219: 0x0C058250
+- Called by: `ble_host_start`
+- Calls: `ble_chunked_write_24`, `ble_app_addr6_read`, `ble_cfg_set_bd_addr_checked`, `bt_bdaddr_is_zero`, `ble_ctrl_env_set_peer_addr`, `ble_ctrl_env_set_u8_at_0x42`, `ble_ctrl_env_set_u8_at_0x45`, `ble_219_0c06b178`, `ble_219_0c06b1e0`
+- Confidence: medium
+
+## ble_host_init_services
+
+**Initialise host services; full mode also reconciles links and starts SDP, HID and ATT**
+
+Always runs l2cap_channel_pool_init (ble_219_0c06d474), sm_init and hci_add_event_handler (called with no argument visible in the decompile). When param_1 is 2 it first runs ble_link_table_prune_by_ctrl, bthost_latch_ctrl_mode_2000fb90, sdp_init and ble_hid_service_register. In every mode it then stores the function at 0x0C0575ED into 0x200134B0, runs le_device_db_tlv_check_init, sets ble_ctrl_set_flag_3fac(3) and ble_ctrl_set_flag_fdc5(1), initialises the ATT server on the object at 0x20004348 with read and write callbacks 0x0C05ADA4 and 0x0C05AFA4 (att_server_init), registers the ATT packet handler, and stores ble_host_restart_timer_start as a callback in the BTstack data block at 0x200190D0 + 0x28.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | Init mode; 2 selects the full bring-up |
+
+**Notes:** The exact ordering of the mode-independent calls follows the decompile; the reason hci_add_event_handler takes no argument here is not established.
+
+- Addresses by version: 219: 0x0C059230
+- Calls: `bthost_latch_ctrl_mode_2000fb90`, `sdp_init`, `att_server_init`, `att_server_register_packet_handler`, `le_device_db_tlv_check_init`, `ble_ctrl_set_flag_fdc5`, `ble_ctrl_set_flag_3fac`, `sm_init`, `ble_hid_service_register`, `ble_link_table_prune_by_ctrl`, `hci_add_event_handler`, `l2cap_channel_pool_init`
+- Confidence: medium
+
+## ble_host_init_static_random_addr
+
+**Generate a static random device address (top bits 11) and cache it at 0x20004977**
+
+Calls ble_gen_static_random_addr to produce a 6-byte address in a local buffer, ORs 0xC0 into its first byte so that the two most significant bits are 11 (the static random address form), and stores it through ble_peer_bdaddr_cache_set, which caches it at 0x20004977 and marks it valid. It is called from ble_fmna_reset_gen_keypair (0x0C0537B4). It takes no parameters and returns nothing.
+
+**Notes:** The cache is named 'peer' by an earlier wave; here it holds the device's own static random address.
+
+- Addresses by version: 219: 0x0C052EC0
+- Called by: `ble_fmna_reset_gen_keypair`
+- Calls: `ble_gen_static_random_addr`, `ble_peer_bdaddr_cache_set`
+- Confidence: high
+
+## ble_host_link_event_dispatch
+
+**Dispatch link and HCI events by type byte: connect, disconnect, ATT hooks and state notices**
+
+Switches on the event type byte in param_3[0]; values above 0xD5 are ignored. Type 0x05 (Disconnection Complete) reads the handle at offset 3, clears the connection's state, flags and pending timer, fails any pending indication with 0x92 through ble_range_notify, and broadcasts a 4-byte 0xB4 frame with the handle through ble_range_broadcast. Type 0x3E with subevent 1 (LE Connection Complete) reads the handle at offset param_1 and fills the connection record: role, the peer address copied in reverse with co_reverse_copy_6, default MTU 0x17, and a data length from ble_ctrl_get_data_len_or_default, capped at 0xFF. It then broadcasts a 0xB3 frame. Types 0x08, 0x30 and 0x59 need the connection's address class to be 3, and copy per-connection attributes and call hook entries tagged 0x42544300 plus index for up to 20 indices. Types 0xC8 to 0xD5 toggle the hold and busy bytes at +0x1F8 and +0x1F9 and call matching hook entries, and they end by calling ble_ctrl_le_acl_request_send when the state allows.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | offset of the connection handle inside the message (4 for LE meta events) |
+| `param_2` | `u32` | unused |
+| `param_3` | `ptr` | event message: type byte, length, payload |
+| `param_4` | `u32` | message length for broadcasts |
+
+**Notes:** Large dispatcher traced by its main branches. The meanings of the 0xC8 to 0xD5 type codes and of the hook tag scheme are inferred. Type 0xD5 also appears as an outbound frame in ble_link_notify_local_ext, which suggests the code loops its own notifications back in.
+
+- Addresses by version: 219: 0x0C04E702
+- Calls: `att_clear_transaction_queue`, `ble_ctrl_le_acl_request_send`, `ble_range_broadcast`, `ble_range_notify`, `ble_host_env_read_1d8`, `ble_host_op_allowed`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_run_loop_remove_timer`, `ble_host_load_arg_pair`, `co_read16_le`, `co_write16_le`, `co_reverse_copy_6`, `ble_ctrl_conn_find_by_handle`, `ble_ctrl_conn_addr_class_by_handle` ...
+- Confidence: low
+
 ## ble_host_load_arg_pair
 
 **Read back the two values saved by ble_host_store_arg_pair**
@@ -790,7 +1532,7 @@ Writes DAT_200190b8 to *param_1 and DAT_200190b4 to *param_2 (pure getter for th
 **Notes:** Meaning of the pair (transport/config?) is not confirmed.
 
 - Addresses by version: 219: 0x0C065B0C
-- Called by: `att_server_write_callback`, `ble_219_0c04e702`
+- Called by: `att_server_write_callback`, `ble_host_link_event_dispatch`
 - Confidence: low
 
 ## ble_host_op_allowed
@@ -804,9 +1546,113 @@ Reads the BLE host environment from 0x0c066554 and returns false when it is miss
 **Notes:** The name describes the gate only; the state machine it guards is not documented here.
 
 - Addresses by version: 219: 0x0C052E28
-- Called by: `ble_219_0c04e398`, `ble_219_0c04e702`
+- Called by: `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`
 - Calls: `ble_ctrl_conn_find_by_handle`
 - Confidence: low
+
+## ble_host_report_clock_0d
+
+**Send host event 0x0D: a reason code, the 64-bit millisecond clock and the flags low byte**
+
+Reads the time with _gettimeofday_r, converts it to a 64-bit millisecond count (seconds times 1000 plus microseconds divided by 1000), and stores it big-endian with bt_bytes_reverse_inplace. It then sends host event 0x0D with an 11-byte payload: the reason code param_1, the 8-byte clock, and the low byte of the flag word 0x200042FC (the last byte is unset). Reason codes passed by this batch's callers are 1, 2, 3, 4, 8 and 10; their meanings are not defined in this function. ble_host_restart_timer_start also calls it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | Reason code carried as payload byte 0 |
+
+- Addresses by version: 219: 0x0C058980
+- Called by: `ble_host_tick_200ms`, `ble_host_restart_timer_start`, `ble_bts_task_periodic_check`, `ble_host_stall_watchdog`
+- Calls: `ble_get_state_ptr_42f8`, `ble_event_report_frame`, `bt_bytes_reverse_inplace`, `_gettimeofday_r`
+- Confidence: medium
+
+## ble_host_reset_step
+
+**Run a host reset step: call 0x0C029230(0), then post event 0x0C to 0x0C055440**
+
+Entry point with no visible arguments. It calls 0x0C029230 with 0 and then 0x0C055440 with event code 0x0C plus three register values the decompiler could not name. Both callees are not yet described, so the purpose is inferred from the call pattern only, most likely a host-side reset or teardown step reached through a callback.
+
+**Notes:** Nothing in this function shows what state it changes.
+
+- Addresses by version: 219: 0x0C05D018
+- Calls: `ble_findmy_ring_status_notify`, `ble_evt_post_u16`
+- Confidence: low
+
+## ble_host_restart_timer_start
+
+**Send a 0x0D status event, reset the run-loop timers and start the 60 s 'bts restart timer'**
+
+Sends host event 0x0D through ble_host_report_clock_0d (the decompile shows no reason argument), calls btstack_run_loop_embedded_remove_all_timers (ble_219_0c0658d8) and ble_219_0c06b154 (not yet described), then creates a one-shot FreeRTOS timer named 'bts restart timer' with a 60000 ms period and expiry callback 0x0C0591CC (xTimerCreate), stores the handle at 0x200134A8 and starts it with xTimerGenericCommand. ble_host_init_services registers this function as a BTstack callback, and ble_link_try_connect calls it when the connect routine returns 0x56.
+
+**Notes:** The argument passed by ble_link_try_connect (5) is ignored by this body. ble_219_0c06b154 and the expiry callback are not described here.
+
+- Addresses by version: 219: 0x0C059180
+- Called by: `ble_pending_peer_addr_set`, `ble_link_try_connect`, `ble_219_0c06dc56`
+- Calls: `xTaskGetTickCount`, `xTimerCreate`, `xTimerGenericCommand`, `ble_host_report_clock_0d`, `btstack_run_loop_embedded_remove_all_timers`, `ble_219_0c06b154`
+- Confidence: medium
+
+## ble_host_stage_blob
+
+**Stage a caller blob in 0x20011E10 (up to 0x410 bytes) and clear the 0x400-byte area at 0x20011E20**
+
+Stages a blob from the caller into the 0x410-byte buffer at 0x20011E10. It clears the whole buffer with memset, copies param_2 bytes from param_1 with memcpy, runs the 16-byte routine 0x0C065C88 on the buffer start, and calls 0x0C05C860 on the 0x400-byte area at 0x20011E20 with fill value 0. No record id is written here. The caller 0x0C0297B0 is not described.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source blob |
+| `param_2` | `u32` | number of bytes to copy from param_1, at most 0x410 in practice |
+
+**Notes:** The layout of the staging buffer is inferred from the clear and copy sizes. 0x0C065C88 and 0x0C05C860 are not described in this packet.
+
+- Addresses by version: 219: 0x0C053848
+- Called by: `ble_app_main_init`
+- Calls: `ble_transfer_chunks_64`, `printf_hexdump`, `memcpy`, `memset`
+- Confidence: low
+
+## ble_host_stall_watchdog
+
+**Check every 200 ms that the host tick advances; after about 120 s stalled, report reason 1**
+
+Called from the bts task loop. On the 200 ms deadline at 0x20014560 it reschedules the deadline, reads the host tick counter through ble_get_word_13074 and compares it with the last value at 0x2001455C. A change stores the new value and clears the streak at 0x2001456C; no change increments the streak, which at 600 (about 120 s) sends host event 0x0D with reason 1. Once the streak passes 609 while the status hook byte 2 is set it calls ble_219_0c041d28 with 0 as recovery. The hook at 0x20014608 is called on entry to fetch that byte.
+
+**Notes:** The run-loop call ble_219_0c065ad4 (btstack_run_loop_dump_timer by name) is made on each check; its role here is unclear.
+
+- Addresses by version: 219: 0x0C059948
+- Called by: `ble_bts_task_handler`
+- Calls: `ble_boot_mode_set`, `xTaskGetTickCount`, `ble_get_word_13074`, `ble_host_report_clock_0d`, `btstack_run_loop_dump_timer`
+- Confidence: medium
+
+## ble_host_start
+
+**Start the BLE host: hooks, role byte, bts task, packet ring, queues, identity and HCI handler**
+
+Returns 0 in all cases. If ble_app_magic_caf_check returns 1 it only runs three other init routines (ble_219_0c03bb70, ble_219_0c0420d0, ble_219_0c04696c, not yet described) and returns. Otherwise it runs ble_219_0c05b67c (not yet described), ble_rom_table_get_0c0810e0 (result unused) and ble_hook_table_register, stores param_1 at 0x20004345, creates the bts task (ble_bts_task_create), sets up the packet ring on buffer 0x20013420 with 5 descriptor slots (ble_pktq_init(4, 10)), creates the message queues (ble_msg_queues_init) and the event source (ble_evt_source_init), loads the identity (ble_host_init_identity_addr), re-registers the HCI handler object at 0x200134AC (hci_remove_event_handler, then hci_add_event_handler), calls ble_219_0c06b048(1), and finally creates the 'bt stack' task with ble_bt_stack_task_create.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | Role/mode byte stored at 0x20004345 |
+
+**Returns** `u32`: Always 0
+
+**Notes:** The meaning of the CAF check result branch and of ble_219_0c06b048 is not established. The stored role byte's meaning is not established either.
+
+- Addresses by version: 219: 0x0C0592A4
+- Called by: `ble_app_init_callbacks_nv`, `ble_app_main_init`
+- Calls: `bt_drv_rf_bringup`, `ble_irq13_pool_init`, `ble_app_magic_caf_check`, `bt_drv_ctrl_bringup`, `ble_pktq_init`, `ble_host_init_identity_addr`, `ble_evt_source_init`, `ble_bts_task_create`, `ble_msg_queues_init`, `ble_rom_table_get_0c0810e0`, `ble_host_controller_init`, `ble_bt_stack_task_create`, `hci_add_event_handler`, `hci_remove_event_handler`, `ble_219_0c06b048`, `ble_hook_table_register`
+- Confidence: medium
+
+## ble_host_status_dump_text
+
+**Format the link status record into a text dump and log it**
+
+Clears the 512-byte caller buffer and formats the link record from ble_get_state_ptr_42f8 (the object at 0x200042F8) one line at a time with sprintf-style formatting, appending each line with strcat. Fields: user index (byte +0), connection status (u32 +4), br_handle (u32 +0x40), bonded (byte +0x36), unlock_enable (byte +8), br rssi ref and br rssi_rt (signed bytes +0x37 and +0x38), ble rssi ref and ble rssi_rt (signed bytes +0x1E and +0x1F), disconnect_reason (u16 +0x44), disconnect_time (u32 +0x48) and the six-byte BR address (+0x30 to +0x35). The assembled text is then printed with the debug printf ble_219_0c035d0c using the format string at 0x0C086184.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 512-byte output buffer |
+
+- Addresses by version: 219: 0x0C0558EC
+- Calls: `trace_printf`, `ble_get_state_ptr_42f8`, `memset`, `ble_219_0c0715d8`, `strcat`
+- Confidence: medium
 
 ## ble_host_store_arg_pair
 
@@ -822,8 +1668,20 @@ Stores param_1 into DAT_200190b8 and param_2 into DAT_200190b4. Called once from
 **Notes:** Purpose guessed from call placement only.
 
 - Addresses by version: 219: 0x0C065AF8
-- Called by: `ble_219_0c05b67c`
+- Called by: `ble_host_controller_init`
 - Confidence: low
+
+## ble_host_tick_200ms
+
+**200 ms host tick: run link events and reconnect scheduling while the state byte is 2**
+
+Self-rescheduling 200 ms tick that does nothing unless the controller state byte at env+0x198 (ble_ctrl_env_get_u8_at_0x198) is 2. When it runs it calls the status hook at 0x20014608, increments the 32-bit tick counter 0x20013074, sends host event 0x0D with reason 4 when the counter reaches 100 (about 20 s), calls ble_link_event_tick with the counter, then ble_link_schedule_reconnect. Every 20 ticks (4 s), when flag bits 0 and 4 of 0x200042FC are clear, it calls ble_219_0c056d5c (0, 0, 1); otherwise it calls ble_219_0c0567d8 (both not yet described). The result is checked with ll_env_get_flag_170: after more than 100 consecutive set results (about 20 s) ll_env_clear_flag_170 clears the controller flag and the streak counter 0x200130D8 resets. The tick ends by re-arming itself through ble_host_timer_restart for 200 ms, using its own address (0x0C05806D) as the handler.
+
+**Notes:** The condition reads status-record bytes 2, 5 and 6 of the hook buffer that this body never writes; they are assumed to be filled by the hook (the decompile shows them as separate stack locals). The argument passed to ll_env_get_flag_170 is an intermediate value from the branch above and the callee's use of it is not visible. The choice between ble_219_0c056d5c and ble_219_0c0567d8 is read from the code only.
+
+- Addresses by version: 219: 0x0C05806C
+- Calls: `ble_link_flag10_update`, `ble_adv_mode_request`, `ble_link_schedule_reconnect`, `ble_host_report_clock_0d`, `ble_host_timer_restart`, `ble_link_event_tick`, `ll_env_get_flag_170`, `ll_env_clear_flag_170`, `ble_ctrl_env_get_u8_at_0x198`
+- Confidence: medium
 
 ## ble_host_timer_arm_30s
 
@@ -836,7 +1694,7 @@ Removes the timer source at 0x2000FF44 from the BTstack run loop, sets its conte
 | `param_1` | `ptr` | context stored in the timer source |
 
 - Addresses by version: 219: 0x0C04F14C
-- Called by: `ble_219_0c051eb8`
+- Called by: `sm_pairing_engine_step`
 - Calls: `btstack_run_loop_set_timer_handler`, `btstack_run_loop_set_timer`, `btstack_run_loop_set_timer_context`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`
 - Confidence: medium
 
@@ -847,7 +1705,7 @@ Removes the timer source at 0x2000FF44 from the BTstack run loop, sets its conte
 Calls ble_host_timer_restart on the timer source at 0x20012C98 with timeout 300000 ms and callback 0x0c054b94, then sets DAT_20012606 to 0 (the byte accessed by ble_set_flag_12606 and ble_get_flag_12606). The restart only acts when env+0x198 is 2, as for every ble_host_timer_restart call.
 
 - Addresses by version: 219: 0x0C0555A8
-- Called by: `ble_219_0c055b90`, `ble_host_5min_timer_ctrl`
+- Called by: `ble_fmna_debug_cmd_dispatch`, `ble_host_5min_timer_ctrl`
 - Calls: `ble_host_timer_restart`
 - Confidence: high
 
@@ -860,7 +1718,7 @@ Sets the callback of the timer source at 0x2000FD58 to 0x0c0500d0 and adds it wi
 **Notes:** The timer at 0x2000FD58 is added without a prior remove; if it is still pending when this runs, the run loop may see a double add.
 
 - Addresses by version: 219: 0x0C0501B0
-- Called by: `ble_219_0c052de8`
+- Called by: `ble_adv_addr_restart`
 - Calls: `btstack_run_loop_set_timer_handler`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`
 - Confidence: medium
 
@@ -889,7 +1747,7 @@ Common timer helper used by 12+ host/app routines. It first reads the controller
 **Notes:** The meaning of env+0x198 == 2 is inferred from usage (gate for all timer activity); the byte itself is not yet named.
 
 - Addresses by version: 219: 0x0C059A88
-- Called by: `ble_219_0c0287ac`, `ble_219_0c028ad4`, `ble_219_0c028c94`, `ble_219_0c02a35c`, `ble_219_0c02b480`, `ble_219_0c053018`, `ble_219_0c055244`, `ble_host_timer_set_enabled`, `ble_host_timer_arm_5min`, `ble_219_0c057d9c`, `ble_219_0c05806c`, `ble_219_0c0593a4` ...
+- Called by: `btapp_btle_connect_status_change`, `ble_link_status_notify_tick`, `ble_app_poll_tick`, `ble_vcu_wakeup_retry`, `ble_vcu_cmd_handle`, `ble_slot_cmd_dispatch`, `ble_fmna_adv_open`, `ble_host_timer_set_enabled`, `ble_host_timer_arm_5min`, `ble_link_schedule_reconnect`, `ble_host_tick_200ms`, `ble_link_request` ...
 - Calls: `btstack_run_loop_set_timer_handler`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `ble_ctrl_env_get_u8_at_0x198`
 - Confidence: high
 
@@ -904,7 +1762,7 @@ For a non-zero argument, re-arms the timer source at 0x20012C6C with the timeout
 | `param_1` | `u32` | non-zero to enable, zero to disable |
 
 - Addresses by version: 219: 0x0C055524
-- Called by: `ble_219_0c053018`, `ble_219_0c0537b4`
+- Called by: `ble_slot_cmd_dispatch`, `ble_fmna_reset_gen_keypair`
 - Calls: `ble_host_timer_restart`, `btstack_run_loop_remove_timer_thunk`
 - Confidence: high
 
@@ -926,7 +1784,7 @@ Calls btstack_run_loop_remove_timer_thunk (0x0c059abc) on the timer source at 0x
 Calls btstack_run_loop_remove_timer on the timer sources at 0x20012C0C and 0x20012C3C, through the thunk btstack_run_loop_remove_timer_thunk (0x0c059abc). Nothing else is written. The start side of these timers is not in this packet.
 
 - Addresses by version: 219: 0x0C0554FC
-- Called by: `ble_219_0c0537b4`
+- Called by: `ble_fmna_reset_gen_keypair`
 - Calls: `btstack_run_loop_remove_timer_thunk`
 - Confidence: high
 
@@ -941,7 +1799,7 @@ Sets the link flag byte at +0x35 to 1, takes the address type and 6-byte address
 | `param_1` | `ptr` | link context (see ble_link_notify_id_flag) |
 
 - Addresses by version: 219: 0x0C04F948
-- Called by: `sm_pairing_step_complete`, `ble_219_0c051eb8`, `sm_link_poll_state`
+- Called by: `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_link_poll_state`
 - Calls: `le_device_db_tlv_read_identity`, `ble_evt_publish`, `co_write16_le`, `co_reverse_copy_6`
 - Confidence: medium
 
@@ -959,7 +1817,7 @@ Clears the link flag byte at +0x35. If the link's DB index (int at +0x30) is neg
 **Notes:** The decompiled ble_evt_publish call passes no length; 12 bytes is inferred from the length byte (10) plus 2.
 
 - Addresses by version: 219: 0x0C04F418
-- Called by: `ble_219_0c051eb8`, `ble_219_0c051ef0`
+- Called by: `sm_pairing_engine_step`, `sm_pdu_rx_handler`
 - Calls: `le_device_db_tlv_read_identity`, `ble_evt_publish`, `co_write16_le`, `co_reverse_copy_6`
 - Confidence: medium
 
@@ -974,7 +1832,7 @@ Sets the link flag byte at +0x34 to 1 and publishes an 11-byte frame: 0xD4, leng
 | `param_1` | `ptr` | link context: handle at +0, flag at +0x34 |
 
 - Addresses by version: 219: 0x0C04F584
-- Called by: `sm_pairing_step_complete`, `ble_219_0c051eb8`, `sm_link_poll_state`
+- Called by: `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_link_poll_state`
 - Calls: `ble_evt_publish`, `co_write16_le`, `co_reverse_copy_6`
 - Confidence: medium
 
@@ -991,7 +1849,7 @@ Clears the link flag byte at +0x34 and publishes a 13-byte frame: 0xD5, length 1
 | `param_3` | `u8` | extra byte at frame[12] |
 
 - Addresses by version: 219: 0x0C04F3C4
-- Called by: `ble_219_0c04fc10`, `ble_219_0c051eb8`, `ble_219_0c051ef0`
+- Called by: `ble_link_pending_timer_done`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`
 - Calls: `ble_evt_publish`, `co_write16_le`, `co_reverse_copy_6`
 - Confidence: medium
 
@@ -1029,8 +1887,108 @@ Clears the report flag DAT_2000ff54 and sets the link flag at +0x34 to 1, then s
 **Notes:** State codes are not decoded. The 0xC8/0xCB/0xCC frames declare a 10-byte payload but write 9 bytes; the last byte is left unset.
 
 - Addresses by version: 219: 0x0C04F4D8
-- Called by: `ble_219_0c051eb8`
+- Called by: `sm_pairing_engine_step`
 - Calls: `ble_evt_publish`, `co_write16_le`, `co_write32_le`, `co_read32_be`, `co_reverse_copy_6`
+- Confidence: medium
+
+## ble_link_pending_timer_done
+
+**Finish a pending link timer for a handle: local notify, cancel timer, optional follow-up operation**
+
+Sets the state byte at +0x15 of the link record to 0x1A. If the flag byte at +0x34 is set, it calls ble_link_notify_local_ext(record, 0) to publish the 0xD5 frame, which also clears that flag. When the record's handle equals the pending handle DAT_20003FAA, it cancels the timer DAT_2000FF44 with btstack_run_loop_remove_timer, sets DAT_20003FAA to -1, and, if DAT_2000FF6C is set, marks DAT_2000FD15 and starts operation 0x0C0650C0 with callback 0x0C04FC78 on the context at DAT_2000FE6C.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | link record; the handle is its first u16 |
+
+**Notes:** The meaning of the 0x1A state value and of DAT_2000FF6C is inferred. Operation 0x0C0650C0 is not in this packet.
+
+- Addresses by version: 219: 0x0C04FC10
+- Called by: `sm_pairing_engine_step`, `sm_pdu_rx_handler`
+- Calls: `ble_link_notify_local_ext`, `btstack_crypto_ecc_p256_generate_key`, `btstack_run_loop_remove_timer`
+- Confidence: medium
+
+## ble_link_state_event
+
+**Handle a link state event: 0 stops and clears flag 0x8000, 1 starts and sets it**
+
+Event 0 sets the state byte DAT_20012ED0 to 0. If flag bit 0x8000 in the word at 0x200042FC is set, the handle at 0x200042F6 is valid (not -1) and 0x0C06B818() returns 0, the bit is cleared with ble_flags_clear(0x8000). Event 1 calls 0x0C056DD0(0, 0x500, 2) (not yet described), sets DAT_20012ED0 to 3, and when bit 0x8000 is clear and the handle is valid and 0x0C06B7BC(handle, 0) returns 0, it sets the bit with ble_flags_set(0x8000) (the source makes that call twice). Other events are ignored. Bit 0x8000 records that an operation on handle 0x200042F6 is active; the 'link' wording is an inference from the handle usage.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `event` | `s32` | 0 = stop, 1 = start, others ignored |
+
+- Addresses by version: 219: 0x0C05CFE0
+- Called by: `ble_rx_data_handler`, `ble_fmna_cmd_handler`
+- Calls: `ble_adv_set_b_apply_payload`, `ble_flags_set`, `ble_flags_clear`, `ble_219_0c06b7bc`, `ble_219_0c06b818`
+- Confidence: medium
+
+## ble_link_status_notify_tick
+
+**Timer step that re-sends the BLE link state to the VCU up to three times**
+
+Logs 'ble_link_status is %d' and, while the counter DAT_20008AE8 is below 3 and the stop flag DAT_20008F74 is zero, sends a 0x7A notification to the VCU through uart_bridge_send_frame with no payload, the value being bit 0 of the state word at +0x3C (1 when BLE is connected). It then increments the counter and re-arms the timer at 0x20009254 with this same handler and period 5. Otherwise it clears the counter and the stop flag, which ends the sequence. It is armed by btapp_btle_connect_status_change for both connect and disconnect.
+
+**Notes:** ble_host_timer_restart only takes effect when the BTstack env state byte is 2, so the re-arm is conditional.
+
+- Addresses by version: 219: 0x0C028AD4
+- Calls: `app_get_scooter_state`, `uart_bridge_send_frame`, `trace_printf`, `ble_host_timer_restart`
+- Confidence: high
+
+## ble_mode_persist_enabled
+
+**Call the mode helper 0x0C05376C(0), then persist NV record 0xFA9 = 3 (enabled)**
+
+Calls 0x0C05376C with argument 0 (a mode/slot helper, not yet described), then writes the single byte 3 to NV record 0x0FA9 through ble_nv_record_write. The value 3 is the 'enabled' value that ble_mode_nv_enable also writes. Takes no arguments and returns nothing. Called from 0x0C02A8F8 (not yet described).
+
+- Addresses by version: 219: 0x0C05CCB4
+- Called by: `ble_fmna_cmd_handler`
+- Calls: `ble_slot_mgr_set_ready`, `ble_nv_record_write`
+- Confidence: medium
+
+## ble_mode_persist_enabled_alt
+
+**Duplicate of ble_mode_persist_enabled, kept for a second call site (0x0C055B90)**
+
+Same body as ble_mode_persist_enabled (0x0C05CCB4): 0x0C05376C(0), then NV record 0x0FA9 = 3. It is kept as a separate function because its caller is 0x0C055B90 (not yet described), so the source most likely contains two copies of the same helper. The two can be merged once the callers are understood.
+
+- Addresses by version: 219: 0x0C05CE14
+- Called by: `ble_fmna_debug_cmd_dispatch`
+- Calls: `ble_slot_mgr_set_ready`, `ble_nv_record_write`
+- Confidence: medium
+
+## ble_mode_set_and_persist
+
+**Apply the BLE mode: 1 persists NV record 0xFA9 = 3, any other value persists 0xFD**
+
+Persists a BLE mode choice in NV record 0x0FA9 (one byte, written through ble_nv_record_write). When the argument is 1 it writes 3 to the record and then calls 0x0C055244 (not yet described). For any other value it calls 0x0C055268 (not yet described) first and then writes 0xFD to the record. It always returns 0. This is the apply-and-persist counterpart of ble_mode_nv_enable and ble_mode_nv_disable, which use the same record and the same values; it is called from 0x0C02A8F8 (not yet described).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `mode` | `s32` | 1 = enable, any other value = disable |
+
+**Returns** `s32`: always 0
+
+- Addresses by version: 219: 0x0C05CC28
+- Called by: `ble_fmna_cmd_handler`
+- Calls: `ble_fmna_adv_open`, `ble_fmna_adv_close`, `ble_nv_record_write`
+- Confidence: medium
+
+## ble_mode_state_update
+
+**Apply a new BLE mode byte and reconcile it with NV record 0xFA9**
+
+Takes a pointer to the new mode byte. If it differs from the stored mode in DAT_20004994, the new value is stored and 0x0C054534 is called with it (not yet described). Modes below 3 take the 'active' branch: when the pending flag DAT_20004993 is set, NV record 0x0FA9 is read; if the record is not 1 or 3 (or is 0xEB) and ble_slot_mgr_is_ready() passes, ble_mode_nv_enable() runs together with 0x0C0555D4 (not yet described) and the flag is cleared, otherwise the flag is simply cleared. Modes 3 and above take the 'off' branch: when the flag is not already 1 the record is read; a record outside {1, 3} only sets the flag to 1, while a record of 1 or 3 calls 0x0C055268, ble_mode_nv_disable() and then sets the flag to 1. The flag therefore records whether the NV record still needs a write.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `mode` | `ptr` | pointer to the new mode byte (u8) |
+
+**Notes:** Mode names are inferred from the ble_mode_nv_* callers. 0xEB is treated as an invalid record value, as in the source test.
+
+- Addresses by version: 219: 0x0C05CF1C
+- Called by: `ble_fmna_cmd_handler`, `ble_vcu_cmd_handle`, `ble_fmna_debug_cmd_dispatch`
+- Calls: `ble_slot_mgr_is_ready`, `ble_fmna_found_url_update`, `ble_fmna_adv_close`, `ble_fmna_pair_adv_service`, `ble_nv_record_read`, `ble_mode_nv_disable`, `ble_mode_nv_enable`
 - Confidence: medium
 
 ## ble_msg_drain_to_host
@@ -1042,7 +2000,7 @@ While the inbound ring at 0x200148D4 holds data, it takes the guard at 0x2001488
 **Notes:** Only the upper-layer callback signature (type, length, payload) is inferred from the call site.
 
 - Addresses by version: 219: 0x0C05AF1C
-- Called by: `ble_219_0c0599d4`
+- Called by: `ble_bts_task_handler`
 - Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `btstack_ring_buffer_empty`, `btstack_ring_buffer_read`
 - Confidence: medium
 
@@ -1063,7 +2021,7 @@ Appends a message to the outbound ring at 0x20015538 under the guard at 0x200154
 **Notes:** Semantics of message types and the 6-byte prefix are not confirmed. Sub-call 0x0C05D494 is not described in this packet.
 
 - Addresses by version: 219: 0x0C05AE14
-- Called by: `ble_219_0c028bf0`, `ble_219_0c029c18`, `ble_219_0c029d8c`, `ble_219_0c029df8`, `ble_219_0c02c338`
+- Called by: `ble_recv_rate_test_report`, `ble_recv_rate_test_start`, `ble_rate_test_cmd04_forward`, `ble_rx_data_handler`, `ble_uart_frame_enqueue`
 - Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `ble_get_state_ptr_42f8`, `ble_sched_signal_event`, `btstack_ring_buffer_reset`, `btstack_ring_buffer_bytes_free`, `btstack_ring_buffer_write`
 - Confidence: medium
 
@@ -1076,8 +2034,77 @@ Creates three guard objects through the RTOS wrapper 0x0C042D80 (count 1) at 0x2
 **Notes:** The consumer of the 512-byte ring and the source handler 0x0C05AAB8 are not described in this packet.
 
 - Addresses by version: 219: 0x0C05AD18
-- Called by: `ble_219_0c0592a4`
+- Called by: `ble_host_start`
 - Calls: `prvInitialiseMutex`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
+- Confidence: medium
+
+## ble_payload_copy_and_schedule
+
+**Copy a payload into the 0x20009028 buffer and call 0x20008FE4 with 0x1DA**
+
+Copies param_2 bytes from param_1 into the fixed buffer at 0x20009028 with memcpy, then calls ble_219_0c05b0a8 with the object 0x20008FE4 and the constant 0x1DA (474). The callee is not yet described, so the constant is most likely a timeout or period in ticks for an object that arms a timer or event. The function is called from ble_219_0c02a8f8 and ble_219_0c02c49c, which makes the buffer a shared staging area for them.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source payload |
+| `param_2` | `u32` | payload length in bytes |
+
+**Notes:** The meaning of 0x1DA and the identity of ble_219_0c05b0a8 are guesses.
+
+- Addresses by version: 219: 0x0C029200
+- Called by: `ble_fmna_cmd_handler`, `ble_factory_test_dispatch_set`
+- Calls: `ble_nv_write_block_1c5`, `memcpy`
+- Confidence: medium
+
+## ble_pending_event_flush
+
+**Forward the 3-byte pending record at 0x20008F69 to ble_219_0c0585a4 and clear it**
+
+Reads a three-byte record: the low seven bits of 0x20008F69 are an identifier and bit 7 is masked off, and bytes 0x20008F6A and 0x20008F6B form a little-endian 16-bit value. It passes both to ble_219_0c0585a4 (not yet described, probably a queued report or event post) and then zeroes all three bytes, so each record is consumed once. It has no direct callers and runs as an entry point or callback, so it works asynchronously with whatever fills the record.
+
+**Notes:** Bit 7 of the first byte is treated as a valid or pending flag by inference only.
+
+- Addresses by version: 219: 0x0C02C090
+- Calls: `ble_link_param_monitor_step`
+- Confidence: medium
+
+## ble_pending_flags_enqueue
+
+**Enqueue one notification packet when any byte of the 12-byte pending-flag array is set**
+
+Scans the 12 bytes at 0x20012310..0x2001231B (a pending-flag array, read byte by byte) and returns at once when they are all zero. On the first non-zero byte it calls ble_pktq_enqueue(0, 0, &LAB_0C0540D8) once, which queues one packet built from the template at 0x0C0540D8, and then returns, so at most one packet is queued per call even when several flags are set. The meaning of the individual flag bytes is not established from this function.
+
+**Notes:** Flag meaning and the template at 0x0C0540D8 are unknown. Callers are not visible in this packet (entry point or callback).
+
+- Addresses by version: 219: 0x0C05CADC
+- Calls: `ble_pktq_enqueue`
+- Confidence: low
+
+## ble_pending_msg_flush
+
+**Flush the pending message at 0x20004328 when its pending bit is set**
+
+If bit 2 of the flags word at 0x200042FC is set, it calls the empty hook ble_hook_noop_05a9c0 on the record at 0x20004328, passes the record to ble_219_0c068c98 (not yet described) and clears bit 2. Otherwise it returns with no effect. The record and its pending bit are set by ble_pending_peer_addr_set.
+
+- Addresses by version: 219: 0x0C057178
+- Calls: `ble_hook_noop_05a9c0`, `hci_gap_cancel_create_acl`
+- Confidence: medium
+
+## ble_pending_peer_addr_set
+
+**Store a pending 6-byte peer address and flag it when resolution is deferred**
+
+Saves the 6-byte address at param_3 (4 bytes at 0x20004328 and 2 bytes at 0x2000432C), the address type from param_1 at 0x200042F9, and marks the record valid at 0x2000432E. ble_219_0c06b498 is then called with the record (not yet described). If it returns 0x56, ble_219_0c059180(5) is called (not yet described). For any other result the pending bit 2 is set in 0x200042FC so that ble_pending_msg_flush processes it later.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | address type byte |
+| `param_2` | `u32` | unused in this function |
+| `param_3` | `ptr` | 6-byte peer address |
+
+- Addresses by version: 219: 0x0C057288
+- Called by: `ble_link_request`, `ble_link_slot_request`
+- Calls: `ble_host_restart_timer_start`, `ble_219_0c06b498`
 - Confidence: medium
 
 ## ble_random_addr_advance
@@ -1093,7 +2120,7 @@ Fills the 6-byte field at param_1 with random bytes through 0x0c045db0, then adv
 **Notes:** The arithmetic is unusual (increments byte 4 rather than carrying a 16-bit value, OR-ing into the low byte), so the intent may differ from what is described here.
 
 - Addresses by version: 219: 0x0C058170
-- Called by: `ble_219_0c02a8f8`, `ble_219_0c02cca8`, `ble_219_0c056a50`
+- Called by: `ble_fmna_cmd_handler`, `ble_factory_test_dispatch_query`, `ble_adv_set_a_apply_mode`
 - Calls: `ble_app_addr6_read`
 - Confidence: low
 
@@ -1108,7 +2135,7 @@ Calls the random-byte source at 0x0c045db0 (not analysed in this packet) with le
 | `param_1` | `ptr` | 6-byte destination |
 
 - Addresses by version: 219: 0x0C058160
-- Called by: `ble_219_0c02b158`, `ble_gen_static_random_addr`
+- Called by: `ble_device_info_init`, `ble_gen_static_random_addr`
 - Calls: `ble_app_addr6_read`
 - Confidence: medium
 
@@ -1123,7 +2150,7 @@ Draws 6 random bytes through 0x0c045db0 into a local buffer. Bytes 0..3 are copi
 | `param_1` | `ptr` | 6-byte output device address |
 
 - Addresses by version: 219: 0x0C0581A8
-- Called by: `ble_219_0c056dd0`
+- Called by: `ble_adv_set_b_apply_payload`
 - Calls: `ble_app_addr6_read`, `bt_bdaddr_reverse_inplace`
 - Confidence: medium
 
@@ -1139,7 +2166,7 @@ Calls the default listener DAT_2000fce4, when set, as listener(4, 0, param_1, pa
 | `param_2` | `u32` | forwarded to each listener as its fourth argument |
 
 - Addresses by version: 219: 0x0C04DF64
-- Called by: `ble_219_0c04e398`, `ble_219_0c04e702`
+- Called by: `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`
 - Confidence: high
 
@@ -1175,7 +2202,7 @@ Finds the first node in the list at DAT_2000fcf8 whose u16 window contains param
 | `param_3` | `u32` | low 16 bits sent at frame[5..6]; also the range key |
 
 - Addresses by version: 219: 0x0C04E304
-- Called by: `ble_219_0c04e398`, `ble_219_0c04e702`
+- Called by: `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `co_write16_le`
 - Confidence: high
 
@@ -1196,6 +2223,37 @@ Takes a channel record: the channel id byte is at +8 and the pointer at +0x10 po
 - Addresses by version: 219: 0x0C0422D4
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `uxQueueSpacesAvailable`, `prvIsQueueEmpty`, `ringbuf_free_space`, `ringbuf_is_empty`, `ble_evt_clear_index_bit`
 - Confidence: medium
+
+## ble_rx_data_handler
+
+**BLE receive dispatcher: link events (type 2), data frames (type 3) and rate-test sub-commands**
+
+Registered as the RX callback with ble_cb_slot_15e5c_set. It always calls the empty hook ble_219_0c0291fc first. For event type 2 (link event) it stores the tick count at state+0x28, sets state+0x2C when the RX state DAT_200092EC is 1, selects one of several RX buffers (0x20009404, 0x20009450, 0x200093F4) by state, and calls ble_219_0c0496a8 to decrypt or parse the data into 0x200092F0. For event type 3 (data) it first recognises the rate-test frames: the six bytes 5A 5B 5C 5A 5B 5C start the test (ble_219_0c05cfe0 with 1), FE 04 is forwarded by ble_rate_test_cmd04_forward, FE 00 starts the test with ble_recv_rate_test_start, and FE 03 reports results with ble_recv_rate_test_report. app_ble_cmd_fe_rx_stats_update counts FE 02 frames. Other data is parsed by state: state 3 (autokey wait) hands the frame to ble_219_0c02be44, and states 2 and 4 (encrypted session) count decrypt failures, disconnecting the ACL link after two in a row with the log 'decrypto error, disconnect ble acl'. A successful parse goes to ble_219_0c02c1e8 and then to the speed-limit hook at DAT_200091E4.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | event type: 2 link event, 3 data frame, other values are only passed to the hooks |
+| `param_2` | `u32` | data length in bytes |
+| `param_3` | `ptr` | data pointer |
+
+**Notes:** The meaning of RX states 1, 2, 3 and 4 is inferred from how the code uses them. Undescribed: ble_219_0c0496a8 (parser or decrypt), ble_219_0c02be44, ble_219_0c02bf20, ble_219_0c02c1e8, ble_219_0c0569a0, ble_219_0c05cfe0.
+
+- Addresses by version: 219: 0x0C029DF8
+- Calls: `ble_recv_rate_test_report`, `app_ble_rx_pre_hook_stub`, `ble_recv_rate_test_start`, `app_ble_cmd_fe_rx_stats_update`, `ble_rate_test_cmd04_forward`, `ble_crypto_try_default_pwd`, `ble_crypto_report_auth_state`, `ble_msg_route_by_key`, `trace_printf`, `xTaskGetTickCount`, `ble_crypto_ccm_open_frame`, `ble_link_pending_consume`, `ble_get_state_ptr_42f8`, `ble_msg_enqueue`, `ble_link_state_event`, `memcmp`
+- Confidence: medium
+
+## ble_signal_event_8f94
+
+**Signal the event object at 0x20008F94 with value 1**
+
+Does nothing except call ble_219_0c042d80 with the value 1 and the object 0x20008F94. The callee is not yet described; from its arguments it is a give or notify on an event object, probably waking the worker that waits on that object. Its only caller is ble_219_0c0297b0, which is outside this packet.
+
+**Notes:** Name and purpose are inferred from a single call to an undescribed routine.
+
+- Addresses by version: 219: 0x0C02A478
+- Called by: `ble_app_main_init`
+- Calls: `prvInitialiseMutex`
+- Confidence: low
 
 ## ble_sink_init
 
@@ -1226,9 +2284,60 @@ If the sink pointer DAT_2000fcdc is non-NULL, builds a 6-byte frame: byte 0 = 0x
 | `param_2` | `u32` | sent as u16 at frame[4..5] |
 
 - Addresses by version: 219: 0x0C04DF24
-- Called by: `ble_219_0c04e398`
+- Called by: `ble_host_att_event_dispatch`
 - Calls: `co_write16_le`
 - Confidence: medium
+
+## ble_slot_alloc_entry
+
+**Claim slot entry index for owner id and u16 value, stamping it with the current tick count**
+
+Fills slot entry index param_3 (0 to 3) of the 16-byte slot table at 0x20010198 for owner id param_1 and the u16 value param_2. Unless the entry is free (its id byte at +0x0C is 0xFF) while the global count DAT_20013073 is below 4, it first calls 0x0C05C850 with the owner id to release the previous occupant. It then writes the tick count from xTaskGetTickCount to +0x00, zeroes the word at +0x04 and the flag word at +0x08, stores the owner id at +0x0C and the u16 value at +0x0E, and schedules 0x0C055440(5).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | owner slot id stored in the entry |
+| `param_2` | `u16` | 16-bit value stored at entry offset +0x0E |
+| `param_3` | `s32` | slot entry index, 0 to 3 |
+
+**Notes:** The meaning of DAT_20013073 is inferred from its comparison with 4 as a slot count.
+
+- Addresses by version: 219: 0x0C053558
+- Calls: `xTaskGetTickCount`, `ble_evt_post_u16`, `ble_link_abort_current`
+- Confidence: high
+
+## ble_slot_mgr_set_ready
+
+**Set the slot-manager ready marker (0xA5 on, 0 off) at 0x200101D9 and persist it to NV 0xFAB**
+
+Sets the slot-manager ready marker byte at 0x200101D9 to 0xA5 when param_1 is nonzero and to 0 otherwise. When switching off from 0xA5 it first calls 0x0C029230(2). The marker is then persisted with ble_nv_record_write(0xFAB, 1 byte, param_4). ble_slot_mgr_is_ready tests for 0xA5 before the slot service accepts commands, so this is the enable switch for that service. Callers are 0x0C05CCB4 and 0x0C05CE14.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | nonzero enables the slot manager, zero disables it |
+| `param_2` | `u32` | unused by this function |
+| `param_3` | `u32` | unused by this function |
+| `param_4` | `u32` | forwarded to ble_nv_record_write |
+
+**Notes:** The meaning of 0xA5 as an enabled marker is inferred from ble_slot_mgr_is_ready.
+
+- Addresses by version: 219: 0x0C05376C
+- Called by: `ble_mode_persist_enabled`, `ble_mode_persist_enabled_alt`
+- Calls: `ble_findmy_ring_status_notify`, `ble_nv_record_write`
+- Confidence: medium
+
+## ble_slot_teardown_all
+
+**Tear down every occupied entry of the 4-slot table at 0x20010198**
+
+Walks the four 16-byte slot entries at 0x20010198 and calls 0x0C05C850 for every entry whose id byte (at 0x200101A4 and then every 16 bytes) is not 0xFF. The slot id is passed to that call in r0, which the decompile does not show. It is called from 0x0C02A8F8 and 0x0C055B90.
+
+**Notes:** The slot argument of 0x0C05C850 is implicit in the decompile and is taken from the entry.
+
+- Addresses by version: 219: 0x0C0532DC
+- Called by: `ble_fmna_cmd_handler`, `ble_fmna_debug_cmd_dispatch`
+- Calls: `ble_link_abort_current`
+- Confidence: high
 
 ## bt_bdaddr_is_zero
 
@@ -1243,9 +2352,42 @@ Builds a 6-byte zero buffer on the stack and returns memcmp(param_1, zeros, 6) =
 **Returns** `bool`: true if all six bytes are 0
 
 - Addresses by version: 219: 0x0C05A9C4
-- Called by: `ble_219_0c058250`, `ble_219_0c0593a4`, `ble_219_0c059d0c`, `ble_219_0c05a608`
+- Called by: `ble_host_init_identity_addr`, `ble_link_request`, `ble_link_request_timer_cb`, `ble_link_slot_request`
 - Calls: `memcmp`
 - Confidence: high
+
+## btapp_btle_connect_status_change
+
+**BT and BLE connection status handler: sets or clears link bits and notifies the VCU**
+
+Logs 'btapp_btle_connect_status_change' with the status code. Status 1 sets bit 3 (0x08) and status 2 clears it in the state word at +0x3C, logging 'scooter bt connected' or 'disconnected', then returns without sending anything. Status 3 sets bit 0 (BLE connected) and status 4 clears it; on status 4, if bit 0 of DAT_20008F6E is set and DAT_20008F6F is zero, a pending re-send state is started (DAT_20008F6F = 1, DAT_200091C6 = 2). For BLE status 3 or 4 it sends a 0x7A notification to the VCU through uart_bridge_send_frame with the connected flag, delays 5 ticks, and re-arms the link-status timer at 0x20009254 with period 5 and handler 0x0C028AD5 (ble_link_status_notify_tick).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | connection status: 1 BT connected, 2 BT disconnected, 3 BLE connected, 4 BLE disconnected; other values are ignored |
+
+**Notes:** Registered as callback index 0 by ble_app_init_callbacks_nv and ble_app_main_init.
+
+- Addresses by version: 219: 0x0C0287AC
+- Calls: `app_get_scooter_state`, `uart_bridge_send_frame`, `trace_printf`, `vTaskDelay`, `ble_host_timer_restart`
+- Confidence: high
+
+## btapp_btle_connect_status_change_enhance
+
+**Enhanced BT connection status handler: on disconnect, passes link flags to ble_219_0c058a94**
+
+Logs 'btapp_btle_connect_status_change_enhance' with the status and stack_reason. Only status 4 (disconnect) acts: it fetches the shared state object with ble_get_state_ptr_42f8, reads the byte at +0x2C (set by ble_rx_data_handler when the RX state is 1) and the byte at +0x26 (the disconnect-request flag, set in the RX decrypt-failure path), and calls ble_219_0c058a94 with the RX state DAT_200092EC, those two bytes and stack_reason.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | BTLE connection status code, 4 means disconnect |
+| `param_2` | `u32` | stack_reason code, logged and passed through |
+
+**Notes:** ble_219_0c058a94 is undescribed here, so the effect of the call is unknown.
+
+- Addresses by version: 219: 0x0C028B50
+- Calls: `trace_printf`, `ble_get_state_ptr_42f8`, `ble_evt_report_conn_state_02`
+- Confidence: medium
 
 ## bthost_byte_get_high5_bits
 
@@ -1288,7 +2430,7 @@ One-liner: DAT_2000fb90 (u8) = ble_ctrl_env_get_mode_or_4() (env+0x58, or 4 whil
 **Notes:** Meaning of the mode byte is not established; see ble_ctrl_env_get_mode_or_4.
 
 - Addresses by version: 219: 0x0C04BD0C
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Calls: `ble_ctrl_env_get_mode_or_4`
 - Confidence: low
 
@@ -1320,7 +2462,7 @@ Stores the TLV implementation pointer in DAT_2000f8ac and its context in DAT_200
 **Returns** `ptr`: pointer to link key DB vtable
 
 - Addresses by version: 219: 0x0C04ADE0
-- Called by: `ble_219_0c05b67c`
+- Called by: `ble_host_controller_init`
 - Confidence: high
 
 ## bthost_link_key_db_tlv_get_link_key
@@ -1386,7 +2528,7 @@ Trivial setter: DAT_2000fa00 = param_1. Called from ble_219_0c058f00 during setu
 | `param_1` | `u32` | value (likely function pointer) to store |
 
 - Addresses by version: 219: 0x0C04BBCC
-- Called by: `ble_219_0c058f00`
+- Called by: `ble_hid_service_register`
 - Confidence: low
 
 ## bthost_stub_nop_0c04aef8
@@ -1429,7 +2571,40 @@ Returns the address 0x0C07FFFC of a constant three-entry function table (btstack
 **Notes:** Identification as btstack_tlv_t is inferred from how the link-key and device DB call vtable slots +0 (get) and +8 (delete).
 
 - Addresses by version: 219: 0x0C048F34
-- Called by: `ble_219_0c05b67c`
+- Called by: `ble_host_controller_init`
+- Confidence: medium
+
+## btle_connect_status_change
+
+**Log a BTLE connection status change and run the disconnect step on status 4**
+
+Logs 'btle_connect_status_change, status = ...' with the status byte. Only status 4 (disconnect) acts, by calling ble_219_0c02bdd0 (undescribed here); other statuses return. It is registered as callback index 2 with ble_set_indexed_word_1307c.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | BTLE connection status code |
+
+**Notes:** Uses the same disconnect code 4 as btapp_btle_connect_status_change.
+
+- Addresses by version: 219: 0x0C028A08
+- Called by: `ble_crypto_init`
+- Calls: `ble_crypto_init`, `trace_printf`
+- Confidence: high
+
+## bts_op_cmd_handle
+
+**Dispatch a phone BT operation command by index and send the reply to the app**
+
+Logs 'bts_op_cmd_handle, index = ...' and switches on the index byte at +4 of the command, using the bytes at +5 and +6 as arguments. Index 1 selects a link with ble_conn_select_link_and_fill_info, sets bit 0 of DAT_200092D4 to the link's enable bit and replies with the enable value. Index 2 replies with a one-byte link state from ble_219_0c05a608 and, when the byte at +6 is zero and the u16 at state+4 is non-zero, sends a 0x7D status with 0x1000 OR-ed into that u16. Index 3 runs ble_219_0c05a7ac and acknowledges. Index 4 (link index below 6) stores the value at +5 into the link entry at +3, saves the link table (ble_link_table_save) and refreshes the event thresholds (ble_event_thresholds_refresh_from_link). Index 5 replies with the link's RSSI level, default 3. Indexes 0x0C and 0x0D write and read the link enable flag at +0xB, and writing saves the table. Index 0x10 calls ble_219_0c0593a4 and replies. Replies are sent with ble_219_0c02c338, which the logs name bts_send_packet_to_app.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | command frame: +4 index, +5 link or argument byte, +6 flag byte |
+
+**Notes:** The reply header words (0x6F3E0401, 0x6F3E0400, 0x6F3E040E) are constants whose first byte is the result or status. Undescribed helpers: ble_219_0c05a608, ble_219_0c05a7ac, ble_219_0c0593a4, ble_219_0c02c338.
+
+- Addresses by version: 219: 0x0C029960
+- Calls: `app_get_scooter_state`, `uart_bridge_send_frame`, `ble_uart_frame_enqueue`, `trace_printf`, `ble_link_request`, `ble_link_table_save`, `ble_link_table_find_by_key`, `ble_event_thresholds_refresh_from_link`, `ble_link_slot_request`, `ble_link_op_start_timed`, `ble_conn_select_link_and_fill_info`
 - Confidence: medium
 
 ## btstack_hid_get_report_size_for_id
@@ -1519,7 +2694,7 @@ Two-byte thunk that falls into btstack_linked_list_add_tail_impl (0c065416): wal
 **Returns** `s32`: 1 if appended, 0 if the item was already in the list
 
 - Addresses by version: 219: 0x0C065410
-- Called by: `ble_219_0c04eb8c`, `ble_evt_subscribe`, `ble_219_0c064ffc`, `ble_219_0c065038`, `ble_219_0c065078`, `ble_219_0c0650c0`, `ble_219_0c065108`, `ble_ctrl_deferred_list_add`, `hci_add_event_handler`, `ble_219_0c06cb3c`, `ble_219_0c06dc56`, `ble_219_0c06ee70`
+- Called by: `ble_host_att_queue_send`, `ble_evt_subscribe`, `btstack_crypto_random_generate`, `btstack_crypto_aes128_encrypt`, `btstack_crypto_ccm_submit`, `btstack_crypto_ecc_p256_generate_key`, `btstack_crypto_ecc_p256_calculate_dhkey`, `ble_ctrl_deferred_list_add`, `hci_add_event_handler`, `ble_219_0c06cb3c`, `ble_219_0c06dc56`, `ble_219_0c06ee70`
 - Calls: `btstack_linked_list_add_tail_impl`
 - Confidence: high
 
@@ -1555,7 +2730,7 @@ BTstack btstack_linked_list_empty(). param_1 points at the list head cell (a poi
 **Returns** `bool`: 1 if the list has no items
 
 - Addresses by version: 219: 0x0C0653E0
-- Called by: `ble_219_0c04e398`, `ble_219_0c051eb8`, `ble_219_0c065038`
+- Called by: `ble_host_att_event_dispatch`, `sm_pairing_engine_step`, `btstack_crypto_aes128_encrypt`
 - Confidence: high
 
 ## btstack_linked_list_get_first_item
@@ -1571,7 +2746,7 @@ BTstack btstack_linked_list_get_first_item(): dereferences the list head cell an
 **Returns** `ptr`: first item or NULL
 
 - Addresses by version: 219: 0x0C065450
-- Called by: `ble_219_0c065038`
+- Called by: `btstack_crypto_aes128_encrypt`
 - Confidence: high
 
 ## btstack_linked_list_iterator_has_next
@@ -1587,7 +2762,7 @@ BTstack btstack_linked_list_iterator_has_next(). If advance_on_next is 0 (nothin
 **Returns** `bool`: 1 if another item can be fetched
 
 - Addresses by version: 219: 0x0C06546C
-- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_219_0c04e398`, `ble_219_0c04e702`, `ble_evt_publish`, `ble_219_0c051eb8`, `ble_219_0c052de8`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer` ...
+- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`, `ble_evt_publish`, `sm_pairing_engine_step`, `ble_adv_addr_restart`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer` ...
 - Confidence: high
 
 ## btstack_linked_list_iterator_init
@@ -1602,7 +2777,7 @@ BTstack btstack_linked_list_iterator_init(). The iterator is {u32 advance_on_nex
 | `param_2` | `ptr` | list head cell (btstack_linked_list_t*) |
 
 - Addresses by version: 219: 0x0C065460
-- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_219_0c04e702`, `ble_evt_publish`, `ble_219_0c052de8`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer`, `hci_emit_event`, `ble_ctrl_conn_teardown_and_count` ...
+- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_host_link_event_dispatch`, `ble_evt_publish`, `ble_adv_addr_restart`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer`, `hci_emit_event`, `ble_ctrl_conn_teardown_and_count` ...
 - Confidence: high
 
 ## btstack_linked_list_iterator_next
@@ -1618,7 +2793,7 @@ BTstack btstack_linked_list_iterator_next(). On the first call it sets advance_o
 **Returns** `ptr`: next item or NULL at the end of the list
 
 - Addresses by version: 219: 0x0C065490
-- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_219_0c04e398`, `ble_219_0c04e702`, `ble_evt_publish`, `ble_219_0c051eb8`, `ble_219_0c052de8`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer` ...
+- Called by: `ble_range_broadcast`, `att_server_write_callback`, `ble_range_dispatch`, `ble_range_notify`, `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`, `ble_evt_publish`, `sm_pairing_engine_step`, `ble_adv_addr_restart`, `btstack_run_loop_embedded_remove_all_timers`, `ble_ctrl_update_link_slot_flag`, `ble_ctrl_pending_drain_and_arm_timer` ...
 - Confidence: high
 
 ## btstack_linked_list_iterator_remove
@@ -1648,7 +2823,7 @@ BTstack btstack_linked_list_pop(). Loads the first item; if non-NULL the head ce
 **Returns** `ptr`: popped item or NULL
 
 - Addresses by version: 219: 0x0C065454
-- Called by: `ble_219_0c05d108`, `btstack_crypto_ccm_next_block`, `ble_219_0c065038`
+- Called by: `btstack_run_loop_task_main`, `btstack_crypto_ccm_next_block`, `btstack_crypto_aes128_encrypt`
 - Confidence: high
 
 ## btstack_linked_list_remove
@@ -1665,7 +2840,7 @@ BTstack btstack_linked_list_remove(). Returns 0 immediately for a NULL item. Oth
 **Returns** `u32`: 1 if removed, 0 if not found or item NULL
 
 - Addresses by version: 219: 0x0C06542C
-- Called by: `ble_219_0c04e398`, `ble_219_0c051eb8`, `btstack_run_loop_embedded_remove_all_timers`, `btstack_run_loop_embedded_process_timers`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_ctrl_clear_secondary_list`, `hci_remove_event_handler`, `ble_219_0c0674e8`, `ble_219_0c068da8`, `l2cap_channel_timer_teardown` ...
+- Called by: `ble_host_att_event_dispatch`, `sm_pairing_engine_step`, `btstack_run_loop_embedded_remove_all_timers`, `btstack_run_loop_embedded_process_timers`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_ctrl_clear_secondary_list`, `hci_remove_event_handler`, `ble_ctrl_state_machine_step`, `ble_219_0c068da8`, `l2cap_channel_timer_teardown` ...
 - Confidence: high
 
 ## btstack_memory_free_list_push
@@ -1681,7 +2856,7 @@ Walks the singly linked list headed by the global DAT_20019088 to its end with a
 **Notes:** Exact owner of the free list at 0x20019088 (which pool) not determined; the shared list for several free wrappers is odd.
 
 - Addresses by version: 219: 0x0C065558
-- Called by: `btstack_memory_hci_connection_free`, `btstack_memory_l2cap_channel_free`, `btstack_memory_sm_lookup_entry_free`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_219_0c0674e8`
+- Called by: `btstack_memory_hci_connection_free`, `btstack_memory_l2cap_channel_free`, `btstack_memory_sm_lookup_entry_free`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_ctrl_state_machine_step`
 - Confidence: medium
 
 ## btstack_memory_hci_connection_free
@@ -1769,7 +2944,7 @@ BTstack btstack_memory_pool_create(pool, storage, count, size). Sets *param_1 = 
 | `param_4` | `s32` | block size in bytes |
 
 - Addresses by version: 219: 0x0C0656B0
-- Called by: `ble_219_0c065564`
+- Called by: `btstack_memory_pools_init`
 - Confidence: high
 
 ## btstack_memory_pool_get
@@ -1786,6 +2961,19 @@ Same code as btstack_linked_list_pop: loads the head block of the pool free list
 
 - Addresses by version: 219: 0x0C0656EC
 - Called by: `btstack_memory_hci_connection_get`, `btstack_memory_l2cap_service_get`, `btstack_memory_l2cap_channel_get`, `btstack_memory_service_record_item_get`
+- Confidence: high
+
+## btstack_memory_pools_init
+
+**Create the 15 fixed BTstack memory pools at stack start and log the storage figure**
+
+Boot-time initialiser that calls btstack_memory_pool_create (0x0C0656B0) fifteen times, each with a pool head cell, a storage start, a block count and a block size. The pools are (count x size): 3 x 800, 8 x 16, 8 x 92, 2 x 52, 2 x 16, 2 x 52, 4 x 28, 2 x 724, 8 x 12, 2 x 324, 1 x 528, 2 x 412, 1 x 120, 6 x 12 (the SM address-resolution pool at 0x2001903C) and 2 x 12. Its callers are ble_host_controller_init (0x0C05B67C) and an unannotated function at 0x0C06B154. The last step logs "bthost total storage used[%d]bytes" with the literal 0x1230 (4656) through the printf-style logger 0x0C035D0C. That literal does not equal the sum of the pool sizes above (7376 bytes), so it is a hard-coded figure and not a measured total.
+
+**Notes:** The 0x1230 literal is a useful lead for anyone checking the memory budget. The pool names are not given in the firmware, so each pool is identified only by address and size.
+
+- Addresses by version: 219: 0x0C065564
+- Called by: `ble_host_controller_init`, `ble_219_0c06b154`
+- Calls: `trace_printf`, `btstack_memory_pool_create`
 - Confidence: high
 
 ## btstack_memory_service_record_item_get
@@ -1814,7 +3002,7 @@ Tail-jumps to the shared pool-free routine (0c065558) with pool head DAT_2001903
 **Notes:** Pool identity inferred from block size (12), count (6) and the SM caller; the matching _get wrapper is not in this packet.
 
 - Addresses by version: 219: 0x0C06554C
-- Called by: `ble_219_0c051eb8`
+- Called by: `sm_pairing_engine_step`
 - Calls: `btstack_memory_free_list_push`
 - Confidence: medium
 
@@ -1831,7 +3019,7 @@ BTstack btstack_ring_buffer_bytes_available(). If the full flag (+0x10) is set r
 **Returns** `s32`: bytes currently stored (0..size)
 
 - Addresses by version: 219: 0x0C065728
-- Called by: `ble_219_0c05ab04`, `ble_219_0c05ac20`
+- Called by: `ble_log_data_send`, `ble_log_typed_send`
 - Confidence: high
 
 ## btstack_ring_buffer_bytes_free
@@ -1847,7 +3035,7 @@ BTstack btstack_ring_buffer_bytes_free(). Returns 0 when the full flag is set; o
 **Returns** `s32`: free bytes (0..size)
 
 - Addresses by version: 219: 0x0C065768
-- Called by: `ble_219_0c028b90`, `ble_msg_enqueue`
+- Called by: `ble_ring_append_with_mark`, `ble_msg_enqueue`
 - Confidence: high
 
 ## btstack_ring_buffer_empty
@@ -1879,7 +3067,7 @@ BTstack btstack_ring_buffer_init(). Layout: +0 storage, +4 size, +8 last_read_in
 | `param_3` | `u32` | storage size in bytes |
 
 - Addresses by version: 219: 0x0C06570C
-- Called by: `ble_219_0c0297b0`, `ble_evt_source_init`, `ble_msg_queues_init`
+- Called by: `ble_app_main_init`, `ble_evt_source_init`, `ble_msg_queues_init`
 - Confidence: high
 
 ## btstack_ring_buffer_read
@@ -1896,7 +3084,7 @@ BTstack btstack_ring_buffer_read(ring, buffer, length, number_read). Bytes avail
 | `number_read` | `ptr` | out: u32 number of bytes actually read |
 
 - Addresses by version: 219: 0x0C06580C
-- Called by: `ble_219_0c05ab04`, `ble_219_0c05ac20`, `ble_msg_drain_to_host`
+- Called by: `ble_log_data_send`, `ble_log_typed_send`, `ble_msg_drain_to_host`
 - Calls: `co_min_u32`, `memcpy`
 - Confidence: high
 
@@ -1930,7 +3118,7 @@ BTstack btstack_ring_buffer_write(ring, data, length). Layout: +0 storage, +4 si
 **Returns** `s32`: 0 on success, 7 if there is not enough free space
 
 - Addresses by version: 219: 0x0C065784
-- Called by: `ble_219_0c028b90`, `ble_msg_enqueue`
+- Called by: `ble_ring_append_with_mark`, `ble_msg_enqueue`
 - Calls: `co_min_u32`, `memcpy`
 - Confidence: high
 
@@ -1951,7 +3139,7 @@ Tail-calls vtable entry +4 of the run loop pointed to by DAT_200190b0, forwardin
 Tail-calls vtable entry +0x18 of the run loop at DAT_200190b0, forwarding r0 (timer source).
 
 - Addresses by version: 219: 0x0C065AAC
-- Called by: `app_req_timeout_timer_start`, `ble_219_0c04ec18`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `ble_219_0c050310`, `sm_pairing_step_complete`, `ble_219_0c051eb8`, `ble_219_0c051ef0`, `sm_link_poll_state`, `ble_219_0c052d30`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer` ...
+- Called by: `app_req_timeout_timer_start`, `ble_host_att_send_indication`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `ble_crypto_auth_load_keys`, `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`, `sm_link_poll_state`, `sm_crypto_done_resume`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer` ...
 - Confidence: high
 
 ## btstack_run_loop_dump_timer
@@ -1961,7 +3149,7 @@ Tail-calls vtable entry +0x18 of the run loop at DAT_200190b0, forwarding r0 (ti
 Tail-calls vtable entry +0x24 of the run loop at DAT_200190b0 (debug listing of pending timers). Single caller 0x0c059948.
 
 - Addresses by version: 219: 0x0C065AD4
-- Called by: `ble_219_0c059948`
+- Called by: `ble_host_stall_watchdog`
 - Confidence: medium
 
 ## btstack_run_loop_embedded_add_timer
@@ -2017,7 +3205,7 @@ If the timer list DAT_200190ac is empty returns 0xffffffff. Otherwise computes d
 **Returns** `u32`: ms until the next timer (>= 0), or 0xffffffff when no timer is pending
 
 - Addresses by version: 219: 0x0C065A0C
-- Called by: `ble_219_0c05d108`
+- Called by: `btstack_run_loop_task_main`
 - Calls: `util_sub_s32`
 - Confidence: high
 
@@ -2028,7 +3216,7 @@ If the timer list DAT_200190ac is empty returns 0xffffffff. Otherwise computes d
 Part of the embedded run loop execute step. Walks the data source list at DAT_200190a8; for each item it caches the next pointer first (so the callback may remove itself), tests bit 0 of the u16 flags at +0xc (DATA_SOURCE_CALLBACK_POLL) and, if set, calls the process function pointer at +8 as process(ds, 1). Returns at the end of the list. Called from the run loop main routine 0x0c05d108.
 
 - Addresses by version: 219: 0x0C065A2C
-- Called by: `ble_219_0c05d108`
+- Called by: `btstack_run_loop_task_main`
 - Confidence: high
 
 ## btstack_run_loop_embedded_process_timers
@@ -2042,7 +3230,7 @@ bthost_run_loop.c timer execution step, called from the host main loop 0c05d108 
 | `now_ms` | `u32` | current run loop time in milliseconds |
 
 - Addresses by version: 219: 0x0C06595C
-- Called by: `ble_219_0c05d108`
+- Called by: `btstack_run_loop_task_main`
 - Calls: `btstack_linked_list_remove`, `util_sub_s32`, `ble_hook_invoke_indexed`
 - Confidence: high
 
@@ -2055,7 +3243,7 @@ Initialises a removal-safe btstack_linked_list_iterator on the timer list head D
 **Notes:** Contrary to the wave 1 guess for btstack_run_loop_embedded_init, 0x200190ac is the sorted timer list (bthost_run_loop.c), while 0x200190a4 is the deferred-callback queue popped by the main loop 0c05d108.
 
 - Addresses by version: 219: 0x0C0658D8
-- Called by: `ble_219_0c059180`
+- Called by: `ble_host_restart_timer_start`
 - Calls: `btstack_linked_list_remove`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`
 - Confidence: high
 
@@ -2080,7 +3268,7 @@ Tail-calls vtable entry +0x28 of the run loop at DAT_200190b0 and returns its re
 **Notes:** Vtable slot assignment taken from the BTstack btstack_run_loop_t layout; entry +0x24 (dump_timer) is a separate wrapper.
 
 - Addresses by version: 219: 0x0C065AC8
-- Called by: `ble_219_0c05b5e4`, `ble_ctrl_conn_arm_timeout_timer`, `ble_ctrl_conn_idle_timeout_check`, `ble_ctrl_conn_alloc_and_register`, `ble_219_0c066c2c`, `ble_219_0c068da8`
+- Called by: `ble_log_print_timestamped`, `ble_ctrl_conn_arm_timeout_timer`, `ble_ctrl_conn_idle_timeout_check`, `ble_ctrl_conn_alloc_and_register`, `hci_send_acl_packet_buffer`, `ble_219_0c068da8`
 - Confidence: medium
 
 ## btstack_run_loop_get_timer_context
@@ -2110,7 +3298,7 @@ BTstack btstack_run_loop_init(run_loop): stores the btstack_run_loop vtable poin
 | `param_1` | `ptr` | run loop vtable (btstack_run_loop_t*) |
 
 - Addresses by version: 219: 0x0C065AEC
-- Called by: `ble_219_0c05b67c`
+- Called by: `ble_host_controller_init`
 - Confidence: high
 
 ## btstack_run_loop_remove_data_source
@@ -2130,7 +3318,7 @@ Calls vtable entry +8 of the run loop at DAT_200190b0 with the incoming r0 (data
 Calls vtable entry +0x1c of the run loop at DAT_200190b0 with r0 (timer source); the return value (1 if the timer was removed) is ignored by this wrapper.
 
 - Addresses by version: 219: 0x0C065AB8
-- Called by: `app_req_timeout_timer_start`, `ble_219_0c04e398`, `ble_219_0c04e702`, `ble_host_timer_arm_30s`, `ble_219_0c04fc10`, `ble_host_timer_arm_interval`, `ble_219_0c050310`, `sm_pairing_step_complete`, `ble_219_0c051eb8`, `ble_219_0c051ef0`, `sm_link_poll_state`, `ble_219_0c052d30` ...
+- Called by: `app_req_timeout_timer_start`, `ble_host_att_event_dispatch`, `ble_host_link_event_dispatch`, `ble_host_timer_arm_30s`, `ble_link_pending_timer_done`, `ble_host_timer_arm_interval`, `ble_crypto_auth_load_keys`, `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`, `sm_link_poll_state`, `sm_crypto_done_resume` ...
 - Confidence: high
 
 ## btstack_run_loop_remove_timer_thunk
@@ -2140,7 +3328,7 @@ Calls vtable entry +0x1c of the run loop at DAT_200190b0 with r0 (timer source);
 Single-instruction tail thunk into btstack_run_loop_remove_timer, which dispatches through vtable slot +0x1c of the active run loop at DAT_200190b0 with r0 = timer source. Used by eight host/app routines (0c053018, 0c055268, 0c0554fc, 0c055524, 0c0555c8, 0c0573b8, 0c05952c, 0c059ac0) to cancel a pending timer; it is the stop counterpart of ble_host_timer_restart.
 
 - Addresses by version: 219: 0x0C059ABC
-- Called by: `ble_219_0c053018`, `ble_219_0c055268`, `ble_host_timers_stop_pair`, `ble_host_timer_set_enabled`, `ble_host_timer_stop_5min`, `ble_host_timer_cancel_130b0`, `ble_219_0c05952c`, `ble_219_0c059ac0`
+- Called by: `ble_slot_cmd_dispatch`, `ble_fmna_adv_close`, `ble_host_timers_stop_pair`, `ble_host_timer_set_enabled`, `ble_host_timer_stop_5min`, `ble_host_timer_cancel_130b0`, `ble_link_request_complete_nonzero`, `ble_link_request_complete_alt`
 - Calls: `btstack_run_loop_remove_timer`
 - Confidence: high
 
@@ -2166,7 +3354,7 @@ btstack_run_loop_set_data_source_handler(ds, process): writes param_2 to btstack
 Tail-calls vtable entry +0x14 of the run loop at DAT_200190b0, forwarding r0/r1 (timer source, timeout in ms). Called before add_timer when (re)arming HCI/L2CAP/SM/ATT timers.
 
 - Addresses by version: 219: 0x0C065A98
-- Called by: `app_req_timeout_timer_start`, `ble_219_0c04ec18`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `ble_219_0c050310`, `sm_pairing_step_complete`, `ble_219_0c051eb8`, `ble_219_0c051ef0`, `sm_link_poll_state`, `ble_219_0c052d30`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer` ...
+- Called by: `app_req_timeout_timer_start`, `ble_host_att_send_indication`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `ble_crypto_auth_load_keys`, `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`, `sm_link_poll_state`, `sm_crypto_done_resume`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer` ...
 - Confidence: high
 
 ## btstack_run_loop_set_timer_context
@@ -2196,8 +3384,20 @@ btstack_run_loop_set_timer_handler(ts, process): stores param_2 into btstack_tim
 | `param_2` | `ptr` | timer handler function |
 
 - Addresses by version: 219: 0x0C065A5C
-- Called by: `app_req_timeout_timer_start`, `ble_219_0c04ec18`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `sm_init`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_ctrl_conn_arm_timeout_timer`, `ble_ctrl_conn_alloc_and_register`, `ble_219_0c0674e8`, `ble_219_0c068da8`, `ble_219_0c06cdb8` ...
+- Called by: `app_req_timeout_timer_start`, `ble_host_att_send_indication`, `ble_host_timer_arm_30s`, `ble_host_timer_arm_interval`, `sm_init`, `ble_host_timer_restart`, `ble_ctrl_pending_drain_and_arm_timer`, `ble_ctrl_conn_arm_timeout_timer`, `ble_ctrl_conn_alloc_and_register`, `ble_ctrl_state_machine_step`, `ble_219_0c068da8`, `ble_219_0c06cdb8` ...
 - Confidence: high
+
+## btstack_run_loop_task_main
+
+**BTstack embedded run-loop task: drain callbacks, run timers, wait on the event group**
+
+Main loop of the BTstack embedded run-loop task. It clears the quit flag at 0x2001729C, calls 0x0C036328 once (not yet described), and then repeats until the quit flag becomes non-zero. Each iteration checks in with the watchdog (hal_wdt_task_checkin), polls the data sources, and drains the deferred-call list at DAT_200190A4: each pop takes the lock 0x20017180, gives it back, and calls the item's handler at +4 with its context at +8. It then drains the command queue 0x20017188 with xQueueReceive (zero ticks), calling each (function, argument) pair, runs hal_time_ms and the expired timers, and computes the sleep: the next timer delay, or 0xFFFFFFFF when no timer exists, capped at 100 ms unless the flag at 0x20017284 is non-zero. Finally it waits on event group 0x20017184 for bit 0x01 (any bit, clear on exit), which other tasks set to wake the loop.
+
+**Notes:** The task entry point is not in this packet. The sleep value is passed to xEventGroupWaitBits unconverted, so the tick rate must be 1 kHz for the delays to be in milliseconds.
+
+- Addresses by version: 219: 0x0C05D108
+- Calls: `hal_wdt_task_checkin`, `wdt_task_monitor_register_current`, `xEventGroupWaitBits`, `xQueueGenericSend`, `xQueueReceive`, `xQueueSemaphoreTake`, `hal_time_ms`, `btstack_linked_list_pop`, `btstack_run_loop_embedded_process_timers`, `btstack_run_loop_embedded_next_timer_delay_ms`, `btstack_run_loop_embedded_poll_data_sources`
+- Confidence: medium
 
 ## de_add_data
 
@@ -2399,7 +3599,7 @@ Reads xTaskGetTickCount(), multiplies by 1000 as a 64-bit value and divides it b
 **Returns** `u32`: milliseconds since scheduler start (low word of the 64-bit quotient)
 
 - Addresses by version: 219: 0x0C045494
-- Called by: `ble_219_0c05d108`
+- Called by: `btstack_run_loop_task_main`
 - Calls: `xTaskGetTickCount`, `__udivdi3`
 - Confidence: medium
 
@@ -2414,7 +3614,7 @@ Appends the registration entry to the list at env+0x20 through btstack_linked_li
 | `registration` | `ptr` | packet handler registration; callback at +4 |
 
 - Addresses by version: 219: 0x0C066DBC
-- Called by: `att_server_init`, `sm_init`, `ble_219_0c059230`, `ble_219_0c0592a4`, `ble_host_hci_init_once`, `l2cap_channel_pool_init`
+- Called by: `att_server_init`, `sm_init`, `ble_host_init_services`, `ble_host_start`, `ble_host_hci_init_once`, `l2cap_channel_pool_init`
 - Calls: `btstack_linked_list_add_tail`
 - Confidence: high
 
@@ -2451,7 +3651,7 @@ Walks the event-handler list at env+0x20 (entries added by hci_add_event_handler
 | `size` | `s32` | buffer length in bytes |
 
 - Addresses by version: 219: 0x0C066004
-- Called by: `ble_219_0c052de8`, `ble_ctrl_conn_set_pending_notify`, `ble_ctrl_conn_clear_pending_notify`, `ble_ctrl_conn_idle_timeout_check`, `hci_power_control_on`, `ble_ctrl_conn_key_size_check`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_ctrl_disconnect_all_connections`, `ble_219_0c066c2c`, `ble_ctrl_hci_cmd_dispatch`, `hci_send_cmd` ...
+- Called by: `ble_adv_addr_restart`, `ble_ctrl_conn_set_pending_notify`, `ble_ctrl_conn_clear_pending_notify`, `ble_ctrl_conn_idle_timeout_check`, `hci_power_control_on`, `ble_ctrl_conn_key_size_check`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_ctrl_disconnect_all_connections`, `hci_send_acl_packet_buffer`, `ble_ctrl_hci_cmd_dispatch`, `hci_send_cmd` ...
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`
 - Confidence: high
 
@@ -2470,7 +3670,7 @@ Computes free host-to-controller packet slots from the buffer totals: the classi
 **Notes:** Selector constants inferred from the code paths. The packet-count byte +0x194 and the buffer totals are inferred from usage.
 
 - Addresses by version: 219: 0x0C0666E4
-- Called by: `ble_219_0c052de8`, `ble_ctrl_can_send_le_acl`, `ble_ctrl_can_send_to_handle`, `ble_ctrl_can_send_br_edr_acl`
+- Called by: `ble_adv_addr_restart`, `ble_ctrl_can_send_le_acl`, `ble_ctrl_can_send_to_handle`, `ble_ctrl_can_send_br_edr_acl`
 - Calls: `ble_hook_invoke_indexed`
 - Confidence: medium
 
@@ -2498,7 +3698,7 @@ A one-instruction tail jump to 0x0C066C1C (ll_env_clear_flag_170), which writes 
 **Notes:** Caller 0c04e398.
 
 - Addresses by version: 219: 0x0C06D5D8
-- Called by: `ble_219_0c04e398`
+- Called by: `ble_host_att_event_dispatch`
 - Calls: `ll_env_clear_flag_170`
 - Confidence: high
 
@@ -2513,7 +3713,7 @@ Unlinks the registration from the event-handler list at env+0x20 with btstack_li
 | `registration` | `ptr` | packet handler registration to remove |
 
 - Addresses by version: 219: 0x0C066DCC
-- Called by: `ble_219_0c0592a4`
+- Called by: `ble_host_start`
 - Calls: `btstack_linked_list_remove`
 - Confidence: high
 
@@ -2541,9 +3741,41 @@ A one-instruction tail jump to 0x0C066BE8 (hci_reserve_packet_buffer, named in w
 **Notes:** The decompiled body shown in the packet is the target at 0x0C066BE8, already described in wave2_batch10. The flag byte at +0x170 is the one read by ll_env_get_flag_170.
 
 - Addresses by version: 219: 0x0C06D5D4
-- Called by: `ble_219_0c04e398`, `ble_219_0c04ebc0`, `ble_219_0c04ec18`
+- Called by: `ble_host_att_event_dispatch`, `ble_host_att_send_notification`, `ble_host_att_send_indication`
 - Calls: `hci_reserve_packet_buffer`
 - Confidence: high
+
+## hci_run_general_gap_bredr
+
+**Send the next pending BR/EDR GAP setting command (name, EIR, class, scan settings)**
+
+Dispatcher for pending BR/EDR GAP settings. It reads the pending bitmask at controller state +0x48 and, on each call, sends one command for the highest-priority set bit and clears that bit. The priority order is 0x4 (Write_Class_of_Device 0x0C24 with the u32 at +0x34), 0x1 (Change_Local_Name 0x0C13, a 251-byte packet with a 248-byte name taken from the string at +0x2C, passed to ble_ctrl_addr_string_slot_store with the BD address at +0x38), 0x2 (Write_Extended_Inquiry_Response 0x0C52, a 241-byte packet that is either a default complete-local-name element or the AD structures from +0x30 copied through the ad_iterator_* helpers, with the address slot filled for name types 8 and 9), 0x8 (opcode 0x080F with a u16 at +0x3E), 0x20 (Write_Page_Scan_Activity 0x0C1C with +0x4A and +0x4C), 0x40 (Write_Page_Scan_Type 0x0C47 with the byte at +0x4E), 0x80 (Write_Page_Timeout 0x0C18 with +0x50), 0x10 (Write_Scan_Enable 0x0C1A with the byte at +0x1B1) and 0x100 (Write_Inquiry_Scan_Activity 0x0C1E with +0x60 and +0x62). The name and EIR packets reserve the shared packet buffer (flag +0x170, with a log if it is already reserved) and go through ble_ctrl_hci_cmd_dispatch (0x0C066F74). Every other command goes through hci_send_cmd_no_status (0x0C06722C) with its template.
+
+**Notes:** The name follows BTstack's BR/EDR general GAP runner, which the log strings support (gap_run_set_local_name, gap_run_set_eir_data). The bit-to-command mapping was read from the code, and the command names come from the decoded template opcodes in the image. Opcode 0x080F with format 2 is not named. The EIR source pointer at +0x30 is not passed to ad_iterator_init in the visible call, so the data path there is not fully traced.
+
+- Addresses by version: 219: 0x0C067248
+- Called by: `ble_ctrl_state_machine_step`
+- Calls: `ad_iterator_init`, `ad_iterator_has_more`, `ad_iterator_next`, `ad_iterator_get_data_len`, `ad_iterator_get_data_type`, `ad_iterator_get_data`, `co_min_u32`, `ble_ctrl_addr_string_slot_store`, `ble_ctrl_hci_cmd_dispatch`, `hci_send_cmd_no_status`, `ble_hook_invoke_indexed`, `memcpy`, `memset`, `strlen`
+- Confidence: medium
+
+## hci_send_acl_packet_buffer
+
+**Fragment the prepared ACL packet, check credits, and hand each fragment to the transport**
+
+Sends the ACL packet already built in the HCI packet buffer (DAT_200190D0[0x1A]) with total length param_1 including the 4-byte header. It reads the 12-bit handle from the first two bytes and first checks ble_ctrl_can_send_to_handle. With no credits it logs "hci_send_acl_packet_buffer called but no free ACL buffers on controller" (hci.c line 0x396), clears the reserved-buffer flag at +0x170, emits event 0x6E and returns 0x57. It then searches the connection list at +0x14 for the handle, stamps the connection's last-send time (conn+0x7C from btstack_run_loop_get_time_ms) and counts fragments in flight in conn+0x194. Fragments are sized by the ACL length at +0x17A, or by the field at +0x60 when the connection class (conn+0x0C) is below 4 and that field is set. Each continuation fragment has its header rewritten in place with the packet-boundary flag 0x1000 (PB=01), and the length field is written at offset sent-2. Each fragment goes through ble_hook_invoke4 (0x0C06C0C0) and then the transport send at vtable +0x18 with packet type 2 (ACL). Between fragments the transport's optional flow-control hook at +0x14 and hci_number_free_acl_slots (0x0C0666E4) can stop the send, so the function returns early and the rest is sent later.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | total ACL packet length in bytes, header included |
+
+**Returns** `u32`: 0 on success, 0x57 when the controller has no ACL credits, 2 when the handle is not a known connection, 3 when a transport send fails
+
+**Notes:** The name is BTstack's hci_send_acl_packet_buffer, confirmed by its log strings. The return codes and the meaning of conn+0x0C below 4 are inferred. Event 0x6E is taken to be BTstack's HCI_EVENT_TRANSPORT_PACKET_SENT, which is an assumption.
+
+- Addresses by version: 219: 0x0C066C2C
+- Called by: `ble_219_0c06c7ac`, `ble_219_0c06cb3c`, `ble_219_0c06d5dc`, `ble_219_0c06ed64`
+- Calls: `ble_adv_addr_restart`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_run_loop_get_time_ms`, `co_read16_le`, `hci_emit_event`, `ble_ctrl_can_send_to_handle`, `ble_hook_invoke_indexed`
+- Confidence: medium
 
 ## hci_send_cmd
 
@@ -2574,7 +3806,7 @@ Calls hci_send_cmd (0x0C067178) with the same argument and ignores its return va
 | `param_1` | `u32` | command descriptor passed through to hci_send_cmd |
 
 - Addresses by version: 219: 0x0C06722C
-- Called by: `ble_219_0c051eb8`, `ble_219_0c06464c`, `ble_219_0c065038`, `ble_219_0c067248`, `ble_219_0c0674e8`, `ble_219_0c068cc8`, `ble_219_0c06cdb8`
+- Called by: `sm_pairing_engine_step`, `btstack_crypto_cmac_step`, `btstack_crypto_aes128_encrypt`, `hci_run_general_gap_bredr`, `ble_ctrl_state_machine_step`, `ble_ctrl_state_timer_expired`, `ble_219_0c06cdb8`
 - Calls: `hci_send_cmd`
 - Confidence: high
 
@@ -2587,7 +3819,7 @@ Calls ringbuf_used_count on the FreeRTOS stream-buffer handle DAT_2000f2b0 and r
 **Returns** `bool`: true if no HCI bytes are buffered
 
 - Addresses by version: 219: 0x0C045534
-- Called by: `ble_219_0c05d40e`
+- Called by: `ble_xfer_service_tick`
 - Calls: `ringbuf_used_count`
 - Confidence: medium
 
@@ -2638,7 +3870,7 @@ Writes the complete HID device SDP service record into the data-element buffer a
 **Notes:** The name follows the upstream BTstack builder name from memory; no SDP string in the export confirms it. Offsets are byte offsets within the parameter block.
 
 - Addresses by version: 219: 0x0C04B788
-- Called by: `ble_219_0c058f00`
+- Called by: `ble_hid_service_register`
 - Calls: `de_create_sequence`, `de_push_sequence`, `de_pop_sequence`, `de_add_number`, `de_add_data`, `strlen`
 - Confidence: medium
 
@@ -2655,8 +3887,26 @@ Stores the report descriptor length (u16 param_2, to 0x2000FA0C) and pointer (pa
 | `param_3` | `ptr` | report descriptor bytes |
 
 - Addresses by version: 219: 0x0C04BB00
-- Called by: `ble_219_0c058f00`
+- Called by: `ble_hid_service_register`
 - Calls: `ble_ctrl_env_get_mode_or_4`, `l2cap_register_service`
+- Confidence: medium
+
+## hid_device_request_can_send_now_event
+
+**BTstack hid_device_request_can_send_now_event: send now if the HID channel is ready**
+
+BTstack-named function; its log strings come from hid_device.c. If channel param_1 equals the stored HID channel DAT_2000FA10 and the channel object DAT_2000FA1C is set, it calls the readiness probe 0x0C06ED64. A zero result means ready, and if the pending-request flag DAT_2000FA28 is set the function calls 0x0C06EBEC(channel) to request the can-send-now event, returning its result; otherwise it returns 0. A nonzero probe result is logged as 'l2cap_send faild, ret = [0x%02x]' and returned. A channel mismatch is logged as 'hid device is null' and returns 2.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | HID channel id |
+
+**Returns** `s32`: 0 when the request was made or the channel is ready, the probe error code, or 2 for an unknown channel
+
+**Notes:** 0x0C06C138 (the log routine, named ble_hook_invoke_indexed by wave1) is the trace logger. 0x0C06ED64 and 0x0C06EBEC are not described here, so their roles are inferred from the BTstack call pattern.
+
+- Addresses by version: 219: 0x0C04BC2C
+- Calls: `ble_hook_invoke_indexed`, `ble_219_0c06ebec`, `ble_219_0c06ed64`
 - Confidence: medium
 
 ## hid_device_validate_report
@@ -2787,7 +4037,7 @@ Sets up the L2CAP state at 0x2001944C. It writes 0x40 to the local CID counter a
 **Notes:** Reading the pairs as fixed-channel or protocol IDs is inferred, not confirmed. The callback and hook targets are taken from the stored addresses.
 
 - Addresses by version: 219: 0x0C06D474
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Calls: `btstack_linked_list_add`, `hci_add_event_handler`
 - Confidence: medium
 
@@ -2962,7 +4212,7 @@ Searches the 4 slots (in-use bytes DAT_2000fd04..07) for a used record with the 
 Returns at once if the TLV backend pointer DAT_2000fd0c is set. Otherwise it logs '%s:%u: bthost_tlv not initialized' (file le_device_db_tlv.c, line 0x81) through ble_hook_invoke_indexed with level 2, and returns without stopping the caller. The backend is installed by le_device_db_tlv_configure.
 
 - Addresses by version: 219: 0x0C04ECC0
-- Called by: `sm_init`, `ble_219_0c059230`
+- Called by: `sm_init`, `ble_host_init_services`
 - Calls: `ble_hook_invoke_indexed`
 - Confidence: high
 
@@ -2978,7 +4228,7 @@ Stores the TLV implementation pointer (DAT_2000fd0c) and its context (DAT_2000fd
 | `param_2` | `ptr` | TLV context passed back to the callbacks |
 
 - Addresses by version: 219: 0x0C04F034
-- Called by: `ble_219_0c05b67c`
+- Called by: `ble_host_controller_init`
 - Confidence: high
 
 ## le_device_db_tlv_get_entry
@@ -3001,7 +4251,7 @@ Calls the TLV backend get-tag callback (*DAT_2000fd0c)(ctx=DAT_2000fd08, tag='BT
 **Notes:** Field-to-name mapping inferred from BTstack le_device_db_entry_t layout; the first 30 bytes (IRK/address) are not exported by this function.
 
 - Addresses by version: 219: 0x0C04EF9C
-- Called by: `sm_pairing_step_complete`, `ble_219_0c051eb8`, `sm_link_poll_state`
+- Called by: `sm_pairing_step_complete`, `sm_pairing_engine_step`, `sm_link_poll_state`
 - Confidence: medium
 
 ## le_device_db_tlv_init
@@ -3022,7 +4272,7 @@ Returns the constant 4, the number of bonded-device slots (tags 'BTD'+index) sup
 **Returns** `s32`: 4
 
 - Addresses by version: 219: 0x0C04ECE4
-- Called by: `sm_device_db_resolve_peer`, `ble_219_0c051eb8`, `le_device_db_tlv_remove_by_addr`
+- Called by: `sm_device_db_resolve_peer`, `sm_pairing_engine_step`, `le_device_db_tlv_remove_by_addr`
 - Confidence: high
 
 ## le_device_db_tlv_read_identity
@@ -3039,7 +4289,7 @@ Reads the 60-byte record at tag 0x42544400|slot through the backend read functio
 | `param_4` | `ptr` | out: 16-byte IRK, may be NULL |
 
 - Addresses by version: 219: 0x0C04EE74
-- Called by: `ble_link_notify_id_flag`, `ble_link_notify_pair_addrs`, `sm_device_db_resolve_peer`, `ble_link_notify_id_addr`, `ble_219_0c051eb8`, `le_device_db_tlv_remove_by_addr`
+- Called by: `ble_link_notify_id_flag`, `ble_link_notify_pair_addrs`, `sm_device_db_resolve_peer`, `ble_link_notify_id_addr`, `sm_pairing_engine_step`, `le_device_db_tlv_remove_by_addr`
 - Calls: `memset`
 - Confidence: high
 
@@ -3187,7 +4437,7 @@ Looks up attribute 0x0000 (ServiceRecordHandle) in the record's attribute list w
 Sets the 32-bit word at 0x2000FCAC to 0x00010001 and registers PSM 1 (SDP) with l2cap_register_service, MTU 0xFFFF, security level 0 and the handler context LAB_0C04C374. The 0x00010001 value is not identified; it may be two initial 16-bit fields. The name follows the BTstack sdp_init() convention for this registration, and the caller is 0x0C059230.
 
 - Addresses by version: 219: 0x0C04BD48
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Calls: `l2cap_register_service`
 - Confidence: medium
 
@@ -3301,7 +4551,7 @@ Reads the record handle with sdp_get_service_record_handle and returns 0x83 (inv
 **Notes:** Status code names follow BTstack sdp_server.c; the exact code-to-name mapping is inferred.
 
 - Addresses by version: 219: 0x0C04BDC8
-- Called by: `ble_219_0c058f00`
+- Called by: `ble_hid_service_register`
 - Calls: `sdp_get_service_record_handle`, `btstack_linked_list_add`, `btstack_memory_service_record_item_get`
 - Confidence: high
 
@@ -3358,6 +4608,18 @@ Parses the request PDU: transaction id at +1, ParameterLength at +3, ServiceSear
 - Calls: `de_get_len_safe`, `sdp_record_matches_pattern`, `co_read16_be`, `co_write16_be`, `co_write32_be`
 - Confidence: medium
 
+## sm_crypto_done_resume
+
+**Crypto completion step: set result flag DAT_2000FF54 to 2 and resume the link's pairing state**
+
+Completion step for an SMP crypto job. It sets the result flag DAT_2000FF54 to 2 and looks up the connection with ble_ctrl_conn_find_by_handle. If the link is in state 4 and DAT_2000FF6C (Secure Connections in use) is set, it moves to state 0x31 (send our public key); otherwise it starts the 16-byte AES job 0x0C064FFC (queue 0x2000FE84, callback 0x0C04FD90) and re-reads the state. State 0x49 moves to 0x3F when DAT_2000FFE9 bit 2 (peer DHKey Check received) is set and to 0x3E otherwise. If DAT_2000FEB0 is set, the run-loop timer 0x2000FF0C is re-armed with zero delay.
+
+**Notes:** The lookup 0x0C066554 is called with no visible argument in the decompile; the pending pairing handle DAT_20003FAA is the likely one. Callers are callbacks, not listed.
+
+- Addresses by version: 219: 0x0C052D30
+- Calls: `btstack_crypto_random_generate`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `ble_ctrl_conn_find_by_handle`
+- Confidence: medium
+
 ## sm_device_db_resolve_peer
 
 **Match a peer against the LE device DB by address and IRK and report its slot**
@@ -3371,7 +4633,7 @@ Identity-resolves the peer of the connection record param_1. With flag bit 2 of 
 **Notes:** Mapping of the four helper addresses (0x0c04ece4, 0x0c04ee74, 0x0c04ed28, 0x0c04eeec) to le_device_db_tlv_max_count, le_device_db_tlv_read_identity, le_device_db_tlv_add and le_device_db_tlv_set_encryption follows the packet callee list and is not independently verified.
 
 - Addresses by version: 219: 0x0C04F634
-- Called by: `ble_219_0c051eb8`, `ble_219_0c051ef0`
+- Called by: `sm_pairing_engine_step`, `sm_pdu_rx_handler`
 - Calls: `le_device_db_tlv_max_count`, `le_device_db_tlv_add`, `le_device_db_tlv_read_identity`, `le_device_db_tlv_set_encryption`, `ble_link_notify_pair_addrs`, `memcmp`
 - Confidence: medium
 
@@ -3384,7 +4646,7 @@ Idempotent: returns at once when 0x2000feb0 is already set. Otherwise it fills t
 **Notes:** sm_init is a BTstack name; the packet confirms the TLV device DB and timer callees. The 900000 period unit and the byte-table purpose are unverified.
 
 - Addresses by version: 219: 0x0C052B50
-- Called by: `ble_219_0c059230`
+- Called by: `ble_host_init_services`
 - Calls: `le_device_db_tlv_check_init`, `ble_host_hci_init_once`, `btstack_run_loop_set_timer_handler`, `hci_add_event_handler`, `l2cap_channel_set_context_by_cid`
 - Confidence: medium
 
@@ -3397,9 +4659,22 @@ Looks up the connection record (ble_ctrl_conn_find_by_handle, handle passed in r
 **Notes:** The connection lookup takes its handle in r0, which the decompiler does not show. The meaning of the state and mode bytes is inferred from the transitions.
 
 - Addresses by version: 219: 0x0C052C7C
-- Called by: `ble_219_0c04e398`
+- Called by: `ble_host_att_event_dispatch`
 - Calls: `le_device_db_tlv_get_entry`, `ble_link_notify_local`, `ble_link_notify_id_addr`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `ble_ctrl_conn_find_by_handle`
 - Confidence: low
+
+## sm_pairing_engine_step
+
+**Run one SMP pairing step: pick next link or RPA target, match DB identities, advance states**
+
+Periodic SMP pairing engine. It is reached from sm_pdu_rx_handler when the event-4 hook receives the byte 0x79 (a run-loop tick) and does nothing unless the controller env state byte (ble_ctrl_env_get_u8_at_0x198) is 2, ll_env_is_ready succeeds, DAT_2000FEF4 is clear and the predicates at 0x0C04FB64 and 0x0C04F7B8 both return 0. Phase 1 (DAT_2000FD8C == 0) selects the next target: the first connection whose state byte +0x1BE is 1 (set to 2), or else the head of the 12-byte SM address-resolution list at 0x2000FD88 (returned to its pool with 0x0C06554C). The target's address type, its address bytes (0x2000FD7C and 0x2000FD80) and handle are latched, and an 11-byte frame 0xCD 0x09 is published with ble_evt_publish. Phase 2 walks LE device DB slots 0 to le_device_db_tlv_max_count-1 with le_device_db_tlv_read_identity: a full type-plus-address match calls sm_pairing_step_complete(0), no match in any slot calls sm_pairing_step_complete(1), and a random-type target with no match starts an asynchronous IRK (RPA) check through the job submitter 0x0C065038, guarded by the busy flag DAT_2000FDC4. Phase 3 moves the global sequence DAT_2000FF34 from 2 to 3 through 0x0C04F894 when DAT_2000FDC6 is idle. Phase 4 walks the connections and switches on each link's SMP state byte +0x1BD: 0x0B and 0x0D build the c1 input with sm_c1_build_t1 and submit a confirm job; 0x0F and 0x10 send Pairing Confirm and Pairing Random (opcodes 3 and 4); 0x1B sends Security Request (opcode 0x0B); 0x17 sends one pending key-distribution PDU per pass (Encryption Information 6, Master Identification 7, Identity Information 8, Identity Address 9, Signing Information 0x0A) chosen from the bits of DAT_2000FF56, then waits for the peer keys (state 0x18), or once both directions are complete calls sm_device_db_resolve_peer. State 0x20 (after a Pairing Request) negotiates the key size (failure reason 6 when the peer maximum is below the local minimum DAT_2000FEB2) and sets the association model DAT_2000FF5A (0 Just Works, 1-3 passkey variants, 4 numeric comparison, 5 out-of-band) from the 5x5 IO-capability table at 0x0C0842C8 (legacy) or 0x0C0842E4 (Secure Connections). State 0x31 sends the 65-byte Pairing Public Key (opcode 0x0C, X and Y from 0x2000FD18 and 0x2000FD38), and states 0x3C to 0x47 (DHKey and key derivation) submit asynchronous crypto jobs with 0x50-, 0x20-, 0x35- and 0x41-byte inputs.
+
+**Notes:** Phase 2 match and the phase 4 state meanings are inferred from stores and SMP opcode layouts. The states 0x34 and 0x37 passkey commitment steps are only partly traced. 0x0C04FB64, 0x0C04F7B8, 0x0C04FC10, 0x0C04F894, 0x0C065038 and 0x0C065078 are not described in this packet. The call to 0x0C066554 has no visible key argument; the pending handle DAT_20003FAA is the likely one.
+
+- Addresses by version: 219: 0x0C051EB8
+- Called by: `sm_pdu_rx_handler`
+- Calls: `le_device_db_tlv_max_count`, `le_device_db_tlv_read_identity`, `le_device_db_tlv_get_entry`, `ble_ctrl_clear_pairing_flags`, `ble_ctrl_store_keys_and_addrs`, `ble_host_timer_arm_30s`, `sm_c1_build_t1`, `ble_evt_publish`, `ble_link_notify_local_ext`, `ble_link_notify_id_flag`, `ble_link_notify_state`, `ble_link_notify_local`, `sm_device_db_resolve_peer`, `ble_crypto_auth_step`, `ble_ctrl_set_key_dist_flags`, `ble_crypto_auth_pubkey_begin` ...
+- Confidence: medium
 
 ## sm_pairing_step_complete
 
@@ -3414,9 +4689,28 @@ Completion handler for one SM step. param_1 == 1 means success, anything else fa
 **Notes:** The meanings of the encoded state values 0x1B to 0x20 and of the step codes are inferred from the transitions, not from a spec. The packet does not show the caller of the state change.
 
 - Addresses by version: 219: 0x0C050700
-- Called by: `ble_219_0c051eb8`
+- Called by: `sm_pairing_engine_step`
 - Calls: `le_device_db_tlv_get_entry`, `ble_evt_publish`, `ble_link_notify_local`, `ble_link_notify_pair_addrs`, `ble_link_notify_id_addr`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `co_write16_le`, `co_reverse_copy_6`
 - Confidence: low
+
+## sm_pdu_rx_handler
+
+**SMP receive handler: validate opcode and length, then advance the link's pairing state machine**
+
+Subscriber for event classes 4 and 9. Class 4 whose first byte is 0x79 runs sm_pairing_engine_step. Class 9 carries one SMP PDU: param_3 is the PDU, param_2 the connection handle and param_4 the length. The opcode in byte 0 must be at most 0x0E and the length must match the fixed-length table at 0x0C084208, and the connection is found with ble_ctrl_conn_find_by_handle. Opcode 5 (Pairing Failed) notifies the host through ble_link_notify_id_flag and ble_link_notify_local_ext, clears the pending pairing handle DAT_20003FAA (stopping timer 0x2000FF44, and when DAT_2000FF6C is set starting the ECC job 0x0C0650C0 with DAT_2000FD15 = 1), and moves the link to state 0x1A or 0x29 depending on +0x1AC. Opcode 0x0E (Keypress Notification) is forwarded to the host as a 5-byte 0xD2 event carrying the handle and the notification byte. Otherwise the link's SMP state byte +0x1BD picks the handler: state 0x18 stores incoming key distribution (LTK from opcode 6 at 0x20010118, EDIV and Rand from opcode 7 at 0x2001010E and 0x20010110, IRK from opcode 8 at 0x20010128, address type and address from opcode 9 at 0x20010148 and 0x20010149, CSRK from opcode 0x0A at 0x20010138) and sets the matching bit in DAT_2000FF59. States 0x1A, 0x1B and 0x1F take a Pairing Request (opcode 1), copy its io, oob, authreq, maximum key size and key-distribution fields into the link record (+0x1C4, +0x1C8, +0x1CA), and go to state 0x20 when the role byte +0x1BE is 3 or 4, otherwise 0x21. State 0x23 stores the peer Pairing Confirm at 0x2000FFBB, state 0x24 stores the peer Pairing Random at 0x2000FFAB, and state 0x32 takes the peer's 64-byte public key (X at +1, Y at +0x21), rejects it when memcmp against the local key at 0x2000FD18 matches, and otherwise starts ECDH through 0x0C065108. States 0x39 and 0x3B take the confirm and random in the passkey and OOB paths, and states 0x3C to 0x4B take the DHKey Check (opcode 0x0D) into 0x2001006A and set bit 2 of DAT_2000FFE9. Any opcode not expected in the current state sets reason 8 (Unspecified Reason) and state 1, so that a Pairing Failed is sent. Whenever a handler runs and DAT_2000FEB0 is set, the run-loop timer at 0x2000FF0C is re-armed with zero delay.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | event class: 4 = periodic hook (the byte 0x79 triggers the engine), 9 = SMP PDU received |
+| `param_2` | `u32` | connection handle the PDU belongs to |
+| `param_3` | `ptr` | SMP PDU bytes: byte 0 is the opcode, the parameters follow |
+| `param_4` | `u32` | PDU length in bytes, must equal the fixed length for the opcode |
+
+**Notes:** The opcode-to-field mapping follows the SMP PDU layouts and is high confidence. The meanings of the state numbers and the targets of 0x0C0650C0, 0x0C04F894 and 0x0C04FC10 are inferred or undescribed. The key-distribution bit masks are DAT_2000FF58 (expected), DAT_2000FF59 (received), DAT_2000FF56 (pending send) and DAT_2000FF57 (sent).
+
+- Addresses by version: 219: 0x0C051EF0
+- Calls: `ble_evt_publish`, `ble_link_notify_local_ext`, `ble_link_notify_id_flag`, `sm_device_db_resolve_peer`, `ble_link_pending_timer_done`, `sm_pairing_engine_step`, `btstack_crypto_random_generate`, `btstack_crypto_ecc_p256_generate_key`, `btstack_crypto_ecc_p256_calculate_dhkey`, `stub_return_zero_0c065144`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `co_read16_le`, `co_write16_le`, `co_reverse_copy_8` ...
+- Confidence: medium
 
 ## uuid_add_bluetooth_prefix
 

@@ -119,7 +119,7 @@ Integer version of the Arduino map() function. If x (param_1) is greater than in
 **Returns** `s32`: scaled value
 
 - Addresses by version: 148: 0x0800E02C, 14a: 0x0800E4C8, 14b: 0x0800E958, 14e: 0x0800E9F8, 14f: 0x0800EB44, 152: 0x0800EDEC, 153: 0x0800EEE0, 0159: 0x0800F050
-- Called by: `vcu_drive_command_update`, `vcu_0159_0800b0c4`, `lighting_brightness_percent_set`
+- Called by: `vcu_drive_command_update`, `vcu_level_gauge_update_v0159`, `lighting_brightness_percent_set`
 - Confidence: high
 
 ## util_mem_equal
@@ -137,7 +137,7 @@ Byte-by-byte compare loop with an 8-bit index (so n is effectively limited to 25
 **Returns** `u32`: 1 = equal, 0 = different
 
 - Addresses by version: 148: 0x08007BFC, 14a: 0x08008038, 14b: 0x08008390, 14e: 0x080083D0, 14f: 0x0800842C, 152: 0x080084F0, 153: 0x0800858C, 0159: 0x080085F0
-- Called by: `vcu_0159_080060b8`, `vcu_crypto_key_load`
+- Called by: `vcu_crypto_identity_record_init`, `vcu_crypto_key_load`
 - Confidence: high
 
 ## util_store_u32_le
@@ -167,7 +167,7 @@ Clears param_2 bytes starting at param_1 by calling the ARM EABI helper __aeabi_
 | `param_2` | `u32` | number of bytes to clear |
 
 - Addresses by version: 148: 0x08001240, 14a: 0x08001240, 14b: 0x08001240, 14e: 0x08001240, 14f: 0x08001240, 152: 0x08001240, 153: 0x08001240, 0159: 0x08001240
-- Called by: `vcu_adc_average_16_scans`, `vcu_0159_08001bca`, `vcu_0159_0800261c`, `vcu_0159_080047ac`, `vcu_0159_080057ac`, `vcu_record_queues_init`, `vcu_0159_08009da8`, `vcu_0159_0800ef14`
+- Called by: `vcu_adc_average_16_scans`, `vcu_tmr2_ch1_pwm_init`, `vcu_tmr5_1khz_tick_init`, `vcu_0159_080047ac`, `vcu_display_frame_render_tick`, `vcu_record_queues_init`, `vcu_0159_08009da8`, `vcu_0159_0800ef14`
 - Calls: `__aeabi_memset`
 - Confidence: high
 
@@ -184,7 +184,7 @@ Simple forward byte loop copying from src (param_1) to dst (param_2). Note the a
 | `param_3` | `u32` | number of bytes |
 
 - Addresses by version: 148: 0x0800517E, 14a: 0x0800556A, 14b: 0x08005892, 14e: 0x080058CA, 14f: 0x08005926, 152: 0x0800597E, 153: 0x08005A1A, 0159: 0x08005B7E
-- Called by: `vcu_0159_08005bb4`, `vcu_0159_080060b8`, `vcu_0159_08009da8`
+- Called by: `vcu_config_ab_slot_load`, `vcu_crypto_identity_record_init`, `vcu_0159_08009da8`
 - Confidence: high
 
 ## vcu_count_nonzero_nibbles
@@ -216,7 +216,7 @@ Computes ((d0*10 + d1)*10 + d2)*10 + d3 from param_1[0..3], with no subtraction 
 **Returns** `s32`: value 0..9999
 
 - Addresses by version: 148: 0x08006094, 14a: 0x080064B4, 14b: 0x08006824, 14e: 0x0800685C, 14f: 0x080068B8, 152: 0x0800695C, 153: 0x080069F8, 0159: 0x08006B00
-- Called by: `vcu_0159_080069b4`
+- Called by: `vcu_code_digit_entry_tick`
 - Confidence: high
 
 ## vcu_record_queues_init
@@ -248,5 +248,5 @@ Adds up the first param_2 signed 16-bit values of the array at param_1 and retur
 **Notes:** Whether param_2 includes the two trailer words (e.g. 250 vs 252) is decided by callers; purpose is inferred.
 
 - Addresses by version: 148: 0x08004F96, 14a: 0x08005386, 14b: 0x080056AE, 14e: 0x080056E6, 14f: 0x08005742, 152: 0x08005798, 153: 0x080057B0, 0159: 0x08005914
-- Called by: `vcu_0159_08005bb4`, `vcu_0159_08007d88`
+- Called by: `vcu_config_ab_slot_load`, `vcu_flash_record_pingpong_save`
 - Confidence: medium

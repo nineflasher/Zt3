@@ -58,8 +58,20 @@ def load_tables(comp: str) -> dict:
 
 
 def load_types(comp: str) -> dict:
-    p = config.ANNOTATIONS_DIR / comp / "types.json"
-    return json.loads(p.read_text()) if p.exists() else {"structs": {}, "enums": {}}
+    """Merge annotations/<c>/types/*.json (one per data packet) and the optional legacy types.json."""
+    out: dict = {"structs": {}, "enums": {}}
+    files = sorted((config.ANNOTATIONS_DIR / comp / "types").glob("*.json")) if (config.ANNOTATIONS_DIR / comp / "types").exists() else []
+    legacy = config.ANNOTATIONS_DIR / comp / "types.json"
+    if legacy.exists():
+        files.append(legacy)
+    for p in files:
+        j = json.loads(p.read_text())
+        for sect in ("structs", "enums"):
+            for k, v in j.get(sect, {}).items():
+                if k in out[sect]:
+                    raise AnnotationError(f"{p}: {sect[:-1]} {k} already defined in another file")
+                out[sect][k] = v
+    return out
 
 
 def _text(errs: list[str], where: str, d: dict, key: str, min_len: int = 3) -> None:

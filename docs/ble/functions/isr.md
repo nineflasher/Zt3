@@ -1,6 +1,6 @@
 # BLE - `isr` functions
 
-16 functions.
+19 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -9,6 +9,8 @@
 | [`NMI_Handler`](#nmi_handler) | 0x0C046EE8 | Non-maskable interrupt handler: spin forever |
 | [`SysTick_Handler`](#systick_handler) | 0x0C03F674 | FreeRTOS xPortSysTickHandler: under BASEPRI mask call xTaskIncrementTick and pend PendSV if a switch is needed |
 | [`ble_analog_status_dispatch`](#ble_analog_status_dispatch) | 0x0C038128 | Dispatch the bank-4 analog status words 0x4080/0x4081 to channel mask writes and a callback |
+| [`ble_irq13_pool_init`](#ble_irq13_pool_init) | 0x0C0420D0 | One-time init of the 20-byte node pool at 0x2000C5F4 and the IRQ 13 vector, priority and enable |
+| [`ble_irq42_rf_queue_isr`](#ble_irq42_rf_queue_isr) | 0x0C04533C | IRQ42 handler: run the RF status ISR, post to the channel queue, pend PendSV if woken |
 | [`ble_rf_event_status_isr`](#ble_rf_event_status_isr) | 0x0C038730 | RF/analog interrupt handler: acknowledge 0x305E, 0x3051, 0x3048 and call up to six callbacks |
 | [`ble_scb_irq_pending`](#ble_scb_irq_pending) | 0x0C0866F8 | True if the Cortex-M SCB ICSR VECTPENDING field is non-zero |
 | [`hal_dma0_irq_handler`](#hal_dma0_irq_handler) | 0x0C04555C | IRQ3 vector: dispatch pending channel interrupts of DMA controller 0 (0x40120000) |
@@ -18,6 +20,7 @@
 | [`hal_irq_install_handler`](#hal_irq_install_handler) | 0x0C046F54 | Store a callback in the IRQ handler table at 0x2000f4cc and enable the interrupt |
 | [`hal_irq_remove_handler`](#hal_irq_remove_handler) | 0x0C046F7C | Disable an interrupt and clear its slot in the IRQ handler table at 0x2000f4cc |
 | [`hal_sysipc_tx_done_irq_handler`](#hal_sysipc_tx_done_irq_handler) | 0x0C0314F0 | IPC transmit-complete ISR: ack 0x400000a0 bits 23/24, run tx-done callbacks, send the next queued message |
+| [`isr_unexpected_irq_handler`](#isr_unexpected_irq_handler) | 0x0C046F0C | Catch-all for unexpected IRQ75: log the exception number and return |
 | [`nvic_any_masked_irq_pending`](#nvic_any_masked_irq_pending) | 0x0C086710 | Return 1 if any IRQ in a bitmask is both enabled and pending in the NVIC |
 | [`rtos_svc_handler`](#rtos_svc_handler) | 0x0C03F910 | SVC exception handler: on SVC #2 switch to the first task using PSP and jump into it |
 
@@ -81,6 +84,33 @@ Interrupt-side dispatcher for the analog status registers. It reads 0x4080 and 0
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
+## ble_irq13_pool_init
+
+**One-time init of the 20-byte node pool at 0x2000C5F4 and the IRQ 13 vector, priority and enable**
+
+Runs once, guarded by DAT_2000C5F0. It builds a pool of 20-byte nodes from 0x2000C5F4 upward, each with a flag byte of 0 and a link word pointing at itself, and stores the list head pointer 0x2000C5F4 in DAT_2000C720. It stores the function pointer 0x0C041ED4 in DAT_20003BF8, installs the handler label LAB_0C032E88 in the VTOR slot at 0x74 (IRQ 13), sets its NVIC priority to 0xA0, clears its pending bit and enables it. It clears the counters at 0x2000C710, C724 and C728, sets field +0x2C of the object at DAT_20003534 to 1, and writes 0x23 to its field +0x28.
+
+**Notes:** The purpose of the node pool and of IRQ 13 is not identified. The event-group and queue code in this packet (ble_msgq_write_items, ble_msgq_read_items) is a likely consumer. The caller 0x0C0459D4 is not described yet.
+
+- Addresses by version: 219: 0x0C0420D0
+- Called by: `ble_hw_init_stage0`, `ble_host_start`
+- Calls: `ble_hw_init_stage0`
+- Confidence: medium
+
+## ble_irq42_rf_queue_isr
+
+**IRQ42 handler: run the RF status ISR, post to the channel queue, pend PendSV if woken**
+
+Vector handler for IRQ42. It loads the context pointer from DAT_2000F574, follows it to the channel object, runs the RF status interrupt (ble_rf_event_status_isr) and gives the channel queue from ISR context with xQueueGiveFromISR, keeping the higher-priority-task-woken flag. The 16-bit status word at ctx+0x0A is then tested for bit 2 (0x4): when set, the BLE event helper FUN_0C0482B8 (ble_evt_read_bits in the call graph) is called with the index byte at ctx+0x08 and selector 1, and the channel flag byte at channel+2 is set from that bit. When the queue give woke a task, PendSV is requested by writing 0x10000000 to SCB ICSR (0xE000ED04) before returning.
+
+**Notes:** The decompile passes a third argument to the event helper that the two-argument annotation of ble_evt_read_bits does not take; it is probably a leftover register and is ignored. The meaning of status bit 2 is not confirmed.
+
+- Addresses by version: 219: 0x0C04533C
+- Vector: `IRQ42_Handler`
+- Peripheral registers: `0xe000ed04` (W)
+- Calls: `ble_rf_event_status_isr`, `xQueueGiveFromISR`, `ble_evt_read_bits`
+- Confidence: medium
+
 ## ble_rf_event_status_isr
 
 **RF/analog interrupt handler: acknowledge 0x305E, 0x3051, 0x3048 and call up to six callbacks**
@@ -96,7 +126,7 @@ Interrupt handler installed at vector 58 by ble_rf_event_source_enable (the cons
 **Notes:** Write-back acknowledge assumed to be write-1-to-clear. The slot table is shared with ble_rf_event_source_enable.
 
 - Addresses by version: 219: 0x0C038730
-- Called by: `ble_219_0c04533c`
+- Called by: `ble_irq42_rf_queue_isr`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -185,7 +215,7 @@ Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c): nvic_clear_
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C046F54
-- Called by: `ble_219_0c0300d0`, `ble_219_0c0315d8`, `ble_219_0c031810`, `ble_irq_binary_sem_init`, `ble_219_0c0459d4`, `ble_uart_port_start`
+- Called by: `hal_irq_source_configure`, `hal_isr_chan_register`, `hal_isr_chan_stop`, `ble_irq_binary_sem_init`, `ble_hw_init_stage0`, `ble_uart_port_start`
 - Calls: `nvic_clear_pending_irq`, `nvic_set_default_priority_and_enable_irq`, `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: medium
 
@@ -215,6 +245,20 @@ For IPC channel 0 and 1 it tests register 0x400000a0 (bit 23 for channel 0, bit 
 - Peripheral registers: `0x400000a0` (RW), `0x400000a4` (W)
 - Calls: `pm_busy_mask_clear_bit`
 - Confidence: medium
+
+## isr_unexpected_irq_handler
+
+**Catch-all for unexpected IRQ75: log the exception number and return**
+
+Vector slot for IRQ75 (exception 91). The body is the generic default handler: it reads SCB->ICSR (DAT_E000ED04), takes the active exception number from its low byte, subtracts 16 to get the IRQ number, and prints 'Unexpected interrupt %d occur' through the trace log at 0x0C035D0C. It does not mask the interrupt or halt, so a level-triggered source that stays pending will re-enter the handler. The fault-dumping default handler is a separate function at 0x0C035F90.
+
+**Notes:** The packet labels the vector IRQ75_Handler and the body Default_Handler. The name here is distinct because the body differs from the Default_Handler at 0x0C035F90.
+
+- Addresses by version: 219: 0x0C046F0C
+- Vector: `IRQ75_Handler`
+- Peripheral registers: `0xe000e000` (A), `0xe000ed04` (R)
+- Calls: `trace_printf`
+- Confidence: high
 
 ## nvic_any_masked_irq_pending
 

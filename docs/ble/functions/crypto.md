@@ -1,6 +1,6 @@
 # BLE - `crypto` functions
 
-100 functions.
+202 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -11,16 +11,76 @@
 | [`GetASNInt`](#getasnint) | 0x0C05E3B8 | Parse a DER INTEGER header and strip a leading 0x00 pad byte (wolfSSL GetASNInt) |
 | [`GetInt`](#getint) | 0x0C05E420 | Parse one ASN.1 DER INTEGER at an index and load it into a big integer |
 | [`GetLength_ex`](#getlength_ex) | 0x0C05E350 | Parse an ASN.1 DER length field (wolfSSL GetLength_ex) |
+| [`Hash_DRBG_Generate`](#hash_drbg_generate) | 0x0C061270 | Hash_DRBG generate: stream SHA-256 of V with a counter, run a repeat test, then update V |
+| [`Hash_DRBG_Instantiate`](#hash_drbg_instantiate) | 0x0C061174 | Instantiate a Hash_DRBG: V = Hash_df(entropy \|\| nonce), C = Hash_df(0x00 \|\| V), counter = 1 |
+| [`Hash_DRBG_Reseed`](#hash_drbg_reseed) | 0x0C0611D0 | Reseed a Hash_DRBG: V = Hash_df(0x01 \|\| V \|\| entropy), C = Hash_df(0x00 \|\| V), counter reset to 1 |
+| [`Hash_df`](#hash_df) | 0x0C061034 | NIST SP 800-90A Hash_df: derive 55 bytes from two SHA-256 blocks over a counter, tag and two inputs |
+| [`Transform_Sha256`](#transform_sha256) | 0x0C061950 | SHA-256 compression: process one 64-byte block into the eight-word state |
 | [`aes128_encrypt_block`](#aes128_encrypt_block) | 0x0C048FD4 | AES-128 ECB encrypt of one 16-byte block, in place, using an expanded key |
 | [`aes128_key_expansion`](#aes128_key_expansion) | 0x0C048F3C | AES-128 key schedule: expand a 16-byte key into 176 bytes of round keys |
+| [`ble_crypto_auth_derive_own_word`](#ble_crypto_auth_derive_own_word) | 0x0C04FA38 | Derive the local auth word as stored word XOR peer word, then send it as request type 0 |
+| [`ble_crypto_auth_load_keys`](#ble_crypto_auth_load_keys) | 0x0C050310 | Load the 16-byte auth keys from the key store, set the mode, and fall back to generating one |
+| [`ble_crypto_auth_pubkey_begin`](#ble_crypto_auth_pubkey_begin) | 0x0C04F894 | Store a 65-byte key block (X, Y, flag) and start an operation over it with a 16-byte value |
+| [`ble_crypto_auth_send_word_type1`](#ble_crypto_auth_send_word_type1) | 0x0C04F9B0 | Send the local 16-bit auth word as request type 1 on the crypto channel |
+| [`ble_crypto_auth_start_by_mode`](#ble_crypto_auth_start_by_mode) | 0x0C04FB64 | Start the crypto operation for the current auth mode: type 0 with value 1 (mode 1) or 3 (mode 2) |
+| [`ble_crypto_auth_step`](#ble_crypto_auth_step) | 0x0C04F7B8 | Advance the crypto-auth state machine: state 1 starts the address check, state 3 starts the next op |
+| [`ble_crypto_auth_store_xor_word`](#ble_crypto_auth_store_xor_word) | 0x0C04FACC | Store peer XOR local as the shared auth word, then send the local word as request type 0 |
 | [`ble_crypto_ccm_cbc_mac`](#ble_crypto_ccm_cbc_mac) | 0x0C049288 | AES-128 CBC-MAC over a packet (CCM B0/B1 style blocks), emitting a 4-byte MIC |
+| [`ble_crypto_ccm_open_frame`](#ble_crypto_ccm_open_frame) | 0x0C0496A8 | Verify and decrypt a received CCM-style frame, accepting only a counter above the last one |
+| [`ble_crypto_ccm_seal_frame`](#ble_crypto_ccm_seal_frame) | 0x0C0493D4 | Encrypt and authenticate an outgoing frame: 3-byte header, CCM-style payload, 4-byte MIC, 2-byte counter |
+| [`ble_crypto_diversify`](#ble_crypto_diversify) | 0x0C05BD30 | Diversify a 32-byte secret with a peer P-224 point into a 28-byte value |
+| [`ble_crypto_ecdh_seal_p256`](#ble_crypto_ecdh_seal_p256) | 0x0C05C13C | ECDH-P256 seal: ephemeral key, KDF, AES-128-GCM, output ephemeral public key, ciphertext and tag |
+| [`ble_crypto_ecdsa_p256_verify`](#ble_crypto_ecdsa_p256_verify) | 0x0C05BFA4 | Verify an ECDSA P-256 signature over the SHA-256 digest of a message |
+| [`ble_crypto_init`](#ble_crypto_init) | 0x0C02BDD0 | Copy the vehicle serial number and seed the pairing crypto contexts at startup |
+| [`ble_crypto_kdf_connect`](#ble_crypto_kdf_connect) | 0x0C05BCE4 | Two-step key derivation: 'intermediate' then 'connect', producing 16 bytes |
+| [`ble_crypto_kdf_update`](#ble_crypto_kdf_update) | 0x0C05BCC0 | Derive 32 bytes from the 32-byte key at param_1 with the label 'update' |
+| [`ble_crypto_report_auth_state`](#ble_crypto_report_auth_state) | 0x0C02BF20 | Post the pairing result event 0x0A or 0x0B when any key slot holds a valid key |
+| [`ble_crypto_serial_mac`](#ble_crypto_serial_mac) | 0x0C05C088 | HMAC-SHA256 over a message, keyed by a derivation of param_1 with 'SerialNumberProtection' |
+| [`ble_crypto_server_secret`](#ble_crypto_server_secret) | 0x0C05BE98 | Derive the 32-byte server shared secret from two 32-byte values |
+| [`ble_crypto_session_decrypt`](#ble_crypto_session_decrypt) | 0x0C05BF00 | AES-128-GCM decrypt a pairing-session message whose 16-byte tag is at its end |
+| [`ble_crypto_sha256_commit`](#ble_crypto_sha256_commit) | 0x0C05BA6C | SHA-256 over the 28-byte X of ctx+0x150 followed by the 32 bytes at ctx+0x1BC |
+| [`ble_crypto_sha256_digest`](#ble_crypto_sha256_digest) | 0x0C05B984 | One-shot SHA-256 of param_1 bytes at param_2 into the 32-byte digest at param_3 |
+| [`ble_crypto_try_default_pwd`](#ble_crypto_try_default_pwd) | 0x0C02BE44 | Try each stored 16-byte pairing key against the challenge until one authenticates |
+| [`ble_ecc_ctx_release`](#ble_ecc_ctx_release) | 0x0C05BA4C | Release an ECC context: wc_ecc_free, free its temporary point and zero 512 bytes |
+| [`ble_ecc_heap_alloc`](#ble_ecc_heap_alloc) | 0x0C05CBA4 | Allocate a block of the given size from the BLE crypto heap pool at DAT_200049A8 |
+| [`ble_ecc_heap_free`](#ble_ecc_heap_free) | 0x0C05CBA0 | Release a block to the BLE crypto heap pool at DAT_200049A8 |
+| [`ble_ecc_p224_export_derive`](#ble_ecc_p224_export_derive) | 0x0C05BBCC | Export the P-224 point at ctx+0x1FC and derive two 32-byte secrets from its X coordinate |
+| [`ble_ecc_point_add_mont`](#ble_ecc_point_add_mont) | 0x0C05B724 | Add two projective ECC points in Montgomery form and write the result to param_1 |
+| [`ble_ecc_scalar_base_mult`](#ble_ecc_scalar_base_mult) | 0x0C05B86C | Derive a scalar in 1..n-1 from 36 bytes and multiply the point at param_3 by it |
+| [`ble_ecc_share_derive`](#ble_ecc_share_derive) | 0x0C05BAF0 | Import the peer's P-224 point, combine it with the context point and build the 60-byte share record |
+| [`ble_rng_get_32`](#ble_rng_get_32) | 0x0C05C10C | Fill 32 bytes at param_1 with random data from a temporary RNG context |
+| [`ble_secure_blob_wipe_1k`](#ble_secure_blob_wipe_1k) | 0x0C053EE4 | Clear the 1 KB secure buffer at 0x20011A10 through the wipe helper |
+| [`ble_secure_ctx_restore_from_nv`](#ble_secure_ctx_restore_from_nv) | 0x0C053A48 | Verify and unwrap the stored secure context at boot and rebuild its RAM copies |
 | [`ble_sha1_mix_pair16`](#ble_sha1_mix_pair16) | 0x0C04920C | SHA-1 over two 16-byte inputs (built-in defaults for NULL), keeping 16 digest bytes |
 | [`ble_sha1_oneshot`](#ble_sha1_oneshot) | 0x0C04AA80 | One-shot SHA-1 of a buffer into a 20-byte digest, wiping the context on exit |
 | [`ble_sha1_oneshot_thunk`](#ble_sha1_oneshot_thunk) | 0x0C04AAE8 | Thunk: branch to ble_sha1_oneshot at 0x0C04AA80 |
+| [`btstack_crypto_aes128_encrypt`](#btstack_crypto_aes128_encrypt) | 0x0C065038 | Queue an AES-128 block encryption (type 1, HCI LE Encrypt) and run the crypto request loop |
 | [`btstack_crypto_ccm_next_block`](#btstack_crypto_ccm_next_block) | 0x0C0645EC | Advance an AES-CCM request to its next 16-byte block, finishing it when done |
+| [`btstack_crypto_ccm_submit`](#btstack_crypto_ccm_submit) | 0x0C065078 | Queue an AES-CCM request (type 3) and run the crypto job pump |
+| [`btstack_crypto_cmac_step`](#btstack_crypto_cmac_step) | 0x0C06464C | Advance the BTstack AES-CMAC (RFC 4493) operation: subkeys, CBC-MAC blocks, final block |
+| [`btstack_crypto_ecc_p256_calculate_dhkey`](#btstack_crypto_ecc_p256_calculate_dhkey) | 0x0C065108 | Queue a P-256 ECDH request (remote public key in, shared secret out) |
+| [`btstack_crypto_ecc_p256_generate_key`](#btstack_crypto_ecc_p256_generate_key) | 0x0C0650C0 | Queue a P-256 local public-key read and copy the 64-byte result to the caller |
+| [`btstack_crypto_random_generate`](#btstack_crypto_random_generate) | 0x0C064FFC | Queue a random-bytes request (type 0, LE Rand) on the crypto list and run it |
 | [`crc32_compute_poly`](#crc32_compute_poly) | 0x0C02C454 | CRC-32 (reflected, init/xorout 0xffffffff) of a buffer using a table built for a given polynomial |
 | [`crc32_make_table`](#crc32_make_table) | 0x0C02C3FC | Build the 256-entry reflected CRC-32 lookup table for a given polynomial |
 | [`crypto_tea_cbc_decrypt`](#crypto_tea_cbc_decrypt) | 0x0C036418 | TEA (32-round) decryption of a buffer in place with CBC-style chaining |
+| [`ecc_check_privkey_gen`](#ecc_check_privkey_gen) | 0x0C05FF44 | Check a private key by recomputing k*G and comparing it with the stored public key |
+| [`ecc_check_pubkey_order`](#ecc_check_pubkey_order) | 0x0C05F830 | Check that order * Q is the point at infinity (encoded as x = y = 0) for a public key |
+| [`ecc_field_inv_fermat`](#ecc_field_inv_fermat) | 0x0C063D2C | Field inverse by Fermat: result = base^(m-2) mod m with an 8-entry run-of-ones table |
+| [`ecc_field_inv_fermat_thunk`](#ecc_field_inv_fermat_thunk) | 0x0C0640F4 | Branch-only alias of ecc_field_inv_fermat (base^(m-2) mod m) |
+| [`ecc_make_pub_ex`](#ecc_make_pub_ex) | 0x0C05FD18 | Compute the public point k*G for a private key, check its order, and set the key type |
+| [`ecc_map_ex`](#ecc_map_ex) | 0x0C05EFC0 | Map a Jacobian point to affine (x*z^-2, y*z^-3, z=1); infinity is encoded as (0, 0, 1) |
+| [`ecc_mulmod_ex`](#ecc_mulmod_ex) | 0x0C05F71C | Scalar multiply R = k * P without blinding; optional affine mapping of the result |
+| [`ecc_mulmod_ex2`](#ecc_mulmod_ex2) | 0x0C05F8C4 | Blinded scalar multiply R = k * G: k + order blinding, optional RNG, optional affine map |
+| [`ecc_mulmod_ex_thunk`](#ecc_mulmod_ex_thunk) | 0x0C05F818 | Branch-only alias of ecc_mulmod_ex; the argument registers pass straight through |
+| [`ecc_mulmod_ladder_ct`](#ecc_mulmod_ladder_ct) | 0x0C05F338 | Constant-time Montgomery-ladder scalar multiply over a table of points, optional RNG blinding |
+| [`ecc_point_on_curve_check`](#ecc_point_on_curve_check) | 0x0C060828 | Test y^2 == x^3 - 3x + b (mod p) for the point at param 1; returns 0 when it is on the curve |
+| [`ecc_point_to_montgomery`](#ecc_point_to_montgomery) | 0x0C05E558 | Convert the X, Y and Z coordinates of a point to Montgomery form |
+| [`ecc_projective_add_point`](#ecc_projective_add_point) | 0x0C05EB00 | Add two Jacobian points, R = P + Q, with constant-time field helpers; equal inputs double |
+| [`ecc_projective_dbl_point`](#ecc_projective_dbl_point) | 0x0C05E868 | Double a Jacobian point (a = -3 shortcut): out = 2 * in, with constant-time field operations |
+| [`ecc_randomize_projective`](#ecc_randomize_projective) | 0x0C05F28C | Re-randomise a point's projective coordinates with a random factor r (Z*=r, X*=r^2, Y*=r^3) |
+| [`ecc_shared_secret`](#ecc_shared_secret) | 0x0C05FB10 | ECDH core: X coordinate of (private scalar * peer point) written to the output buffer |
+| [`ecc_verify_hash_ex`](#ecc_verify_hash_ex) | 0x0C0601FC | ECDSA verify core: check x(u1*G + u2*Q) mod n against r and set *res |
 | [`fp_add`](#fp_add) | 0x0C061FE8 | Signed big-integer add c = a + b (wolfSSL TFM fp_add) using s_fp_add / s_fp_sub |
 | [`fp_add_d`](#fp_add_d) | 0x0C06428C | Add a single 32-bit digit to a big integer magnitude: c = a + b |
 | [`fp_add_thunk`](#fp_add_thunk) | 0x0C064088 | Branch-only alias of fp_add (signed big-integer addition) |
@@ -29,29 +89,50 @@
 | [`fp_clear`](#fp_clear) | 0x0C063FEC | Zero a big integer in place (NULL-safe, no return value) |
 | [`fp_cmp`](#fp_cmp) | 0x0C0628B4 | Signed comparison of two big integers |
 | [`fp_cmp_mag_ct`](#fp_cmp_mag_ct) | 0x0C061E14 | Constant-time magnitude compare of two fp_int digit arrays |
+| [`fp_div`](#fp_div) | 0x0C062FE4 | Divide two fp_ints: quotient c = a / b and remainder d = a mod b (Knuth algorithm D) |
 | [`fp_div_2`](#fp_div_2) | 0x0C0623CC | Halve a big integer b = a / 2 by a one-bit right shift from the top digit down (wolfSSL) |
 | [`fp_div_2_mod_ct`](#fp_div_2_mod_ct) | 0x0C062450 | Constant-time modular halving c = (a / 2) mod b for 0 <= a < b (wolfSSL fp_div_2_mod_ct) |
 | [`fp_div_2_mod_ct_thunk`](#fp_div_2_mod_ct_thunk) | 0x0C064498 | Branch-only alias of fp_div_2_mod_ct (constant-time halving modulo b) |
 | [`fp_div_2d`](#fp_div_2d) | 0x0C062F28 | Divide a big integer by 2^b giving quotient and optional remainder |
+| [`fp_invmod`](#fp_invmod) | 0x0C0635AC | Modular inverse c = a^-1 mod b (TFM fp_invmod): odd modulus uses binary extended Euclid |
+| [`fp_invmod_thunk`](#fp_invmod_thunk) | 0x0C0640F0 | Branch-only alias of fp_invmod (modular inverse c = a^-1 mod b) |
 | [`fp_lshd`](#fp_lshd) | 0x0C062D08 | Shift a big integer left by whole 32-bit digits |
+| [`fp_mod`](#fp_mod) | 0x0C0634C4 | Modular reduction c = a mod b with the remainder taking the sign of b |
 | [`fp_mod_2d`](#fp_mod_2d) | 0x0C0624E8 | Big integer modulo a power of two: c = a mod 2^b |
+| [`fp_mod_thunk`](#fp_mod_thunk) | 0x0C0640EC | Branch-only alias of fp_mod (c = a mod b, remainder takes the sign of b) |
 | [`fp_montgomery_calc_normalization`](#fp_montgomery_calc_normalization) | 0x0C062940 | Compute a = R mod b (R = 2^(32*used)) for Montgomery normalisation |
 | [`fp_montgomery_calc_normalization_thunk`](#fp_montgomery_calc_normalization_thunk) | 0x0C064288 | Branch-only alias of fp_montgomery_calc_normalization (R mod b) |
+| [`fp_montgomery_reduce`](#fp_montgomery_reduce) | 0x0C062A28 | Montgomery reduction x = x * R^-1 mod m, word by word, with a final conditional subtract of m |
+| [`fp_montgomery_reduce_thunk`](#fp_montgomery_reduce_thunk) | 0x0C064450 | Two-instruction wrapper that calls fp_montgomery_reduce and returns |
+| [`fp_mul`](#fp_mul) | 0x0C062218 | Multiply two fp_ints, c = a * b (comba column accumulation); fails when the digit sum exceeds 23 |
 | [`fp_mul_2`](#fp_mul_2) | 0x0C0620DC | Double a big integer b = a * 2 by a one-bit left shift across the digits (wolfSSL fp_mul_2) |
 | [`fp_mul_2d`](#fp_mul_2d) | 0x0C062D84 | Multiply a big integer by 2^b: c = a << b |
+| [`fp_mul_checked`](#fp_mul_checked) | 0x0C064090 | Checked multiply c = a * b: rejects digit sums above 24, then fp_mul and clears stale digits |
+| [`fp_mul_comba24`](#fp_mul_comba24) | 0x0C06237C | Fixed-capacity multiply wrapper c = a * b for digit sums up to 24; clears stale digits of c |
 | [`fp_mul_d`](#fp_mul_d) | 0x0C062168 | Multiply a big integer by a single 32-bit digit: c = a * b |
+| [`fp_mulmod`](#fp_mulmod) | 0x0C06353C | Modular multiply c = a * b mod m for total digit counts up to 24 |
+| [`fp_mulmod_thunk`](#fp_mulmod_thunk) | 0x0C0640E0 | Branch-only alias of fp_mulmod (modular multiply c = a * b mod m) |
 | [`fp_read_radix`](#fp_read_radix) | 0x0C0642F8 | Parse an ASCII number of radix 2..64 (fast path for hex) into a big integer |
 | [`fp_read_unsigned_bin`](#fp_read_unsigned_bin) | 0x0C062BAC | Load a big-endian byte string into a big integer |
 | [`fp_rshb`](#fp_rshb) | 0x0C062EA8 | Shift a big integer right by x bits in place |
 | [`fp_rshb_thunk`](#fp_rshb_thunk) | 0x0C064284 | Branch-only alias of fp_rshb (in-place right shift by bits) |
 | [`fp_rshd`](#fp_rshd) | 0x0C062E40 | Shift a big integer right by whole 32-bit digits |
+| [`fp_sqr`](#fp_sqr) | 0x0C062880 | Square wrapper b = a^2: runs fp_sqr_comba and clears stale digits of b above the new used count |
+| [`fp_sqr_comba`](#fp_sqr_comba) | 0x0C0626F4 | Square a fp_int, b = a^2, with the comba method that doubles the cross products |
+| [`fp_sqr_thunk`](#fp_sqr_thunk) | 0x0C06444C | Branch-only alias of fp_sqr (b = a^2, stale high digits cleared) |
 | [`fp_sub`](#fp_sub) | 0x0C062068 | Signed big-integer subtract c = a - b (wolfSSL TFM fp_sub) using s_fp_add / s_fp_sub |
+| [`fp_sub_d`](#fp_sub_d) | 0x0C063CE4 | Subtract a 32-bit digit from a big integer: c = a - d |
+| [`fp_sub_d_thunk`](#fp_sub_d_thunk) | 0x0C064230 | Branch-only alias of fp_sub_d (c = a - d) |
 | [`fp_sub_thunk`](#fp_sub_thunk) | 0x0C06408C | Branch-only alias of fp_sub (signed big-integer subtraction) |
 | [`fp_submod_ct`](#fp_submod_ct) | 0x0C0625A0 | Constant-time modular subtraction d = (a - b) mod c for a, b < c |
 | [`fp_submod_ct_thunk`](#fp_submod_ct_thunk) | 0x0C0640E4 | Branch-only alias of fp_submod_ct (constant-time modular subtraction) |
+| [`fp_to_unsigned_bin`](#fp_to_unsigned_bin) | 0x0C062C84 | Export a fp_int as big-endian bytes: emit little-endian then reverse in place |
 | [`fp_to_unsigned_bin_at_pos`](#fp_to_unsigned_bin_at_pos) | 0x0C062C20 | Append a big integer's bytes (least significant first) at an offset |
+| [`fp_to_unsigned_bin_thunk`](#fp_to_unsigned_bin_thunk) | 0x0C0641F0 | Branch-only alias of fp_to_unsigned_bin (big-endian export of a big integer) |
 | [`get_digit`](#get_digit) | 0x0C0644C8 | Read digit n of a big integer (0 when out of range) |
 | [`get_digit_count`](#get_digit_count) | 0x0C0644C0 | Number of used digits in a big integer (NULL-safe) |
+| [`hash_drbg_kat_generate`](#hash_drbg_kat_generate) | 0x0C0615C0 | Known-answer self-test: instantiate, generate twice, return the 128-byte second output |
+| [`hsm_trng_read_bytes`](#hsm_trng_read_bytes) | 0x0C033328 | Fill a buffer with hardware TRNG bytes, polling the HSM TRNG status register |
 | [`mbedtls_sha1_finish_ret`](#mbedtls_sha1_finish_ret) | 0x0C04A9A8 | mbedTLS SHA-1 finish: pad, append 64-bit big-endian bit length, output the 20-byte digest |
 | [`mbedtls_sha1_update_ret`](#mbedtls_sha1_update_ret) | 0x0C04A924 | mbedTLS SHA-1 update: absorb input, running the compression on each full 64-byte block |
 | [`md5_encode_le_words`](#md5_encode_le_words) | 0x0C0476D8 | Serialise 32-bit words to little-endian bytes (MD5 'Encode') |
@@ -89,21 +170,42 @@
 | [`wc_AesGcmSetKey`](#wc_aesgcmsetkey) | 0x0C05DBE0 | Set a 16-byte AES-GCM key: expand the key and compute the GHASH key H = E_K(0^128) |
 | [`wc_AesInit`](#wc_aesinit) | 0x0C05E338 | Initialise an Aes context: store heap pointer (device id unused) |
 | [`wc_AesSetKeyLocal`](#wc_aessetkeylocal) | 0x0C05D8F8 | AES-128 key expansion into the Aes context (+ inverse key for decrypt) and IV set (wolfSSL) |
+| [`wc_FreeRng`](#wc_freerng) | 0x0C06156C | Wipe and free the Hash_DRBG object of an RNG; returns -199 if the wipe did not zero it |
+| [`wc_HashFinal`](#wc_hashfinal) | 0x0C060D80 | Finish a wolfSSL hash of a given type into a digest buffer; only SHA-256 (type 6) is implemented |
 | [`wc_HashFree`](#wc_hashfree) | 0x0C060DAC | Free a wc_HashAlg by type: only SHA-256 (type 6) is built in (wolfSSL wc_HashFree) |
 | [`wc_HashGetDigestSize`](#wc_hashgetdigestsize) | 0x0C060CE0 | Digest size in bytes for a wolfSSL hash type |
 | [`wc_HashInit`](#wc_hashinit) | 0x0C060D0C | Initialise a wolfSSL hash context for a given hash type (SHA-256 only) |
+| [`wc_HashUpdate`](#wc_hashupdate) | 0x0C060D3C | Feed bytes into a wolfSSL hash context of a given type; only SHA-256 (type 6) is implemented |
+| [`wc_HmacFinal`](#wc_hmacfinal) | 0x0C060F58 | Finish HMAC-SHA-256: H((K ^ opad) \|\| H((K ^ ipad) \|\| message)) written to the output |
 | [`wc_HmacFree`](#wc_hmacfree) | 0x0C06100C | Free an Hmac context: for macType SHA-256 (6) release the inner hash (wolfSSL wc_HmacFree) |
 | [`wc_HmacInit`](#wc_hmacinit) | 0x0C060FEC | Zero a 0x118-byte Hmac context and store its heap pointer (wolfSSL wc_HmacInit) |
+| [`wc_HmacSetKey`](#wc_hmacsetkey) | 0x0C060DE0 | Key an HMAC-SHA-256: build the ipad and opad blocks, hashing keys longer than 64 bytes first |
+| [`wc_HmacUpdate`](#wc_hmacupdate) | 0x0C060EF4 | Absorb message bytes into an HMAC-SHA-256; the first update hashes the ipad block |
+| [`wc_InitRng`](#wc_initrng) | 0x0C061828 | wolfSSL wc_InitRng(rng): seed and instantiate the RNG with no nonce, discarding the status |
 | [`wc_InitSha256`](#wc_initsha256) | 0x0C061DB0 | Initialise a SHA-256 context |
+| [`wc_RNG_GenerateBlock`](#wc_rng_generateblock) | 0x0C061834 | Generate up to 65536 random bytes; reseed from the entropy source when the DRBG asks for it |
 | [`wc_RNG_TestSeed`](#wc_rng_testseed) | 0x0C061500 | Continuous test on RNG seed: reject repeated adjacent 4-byte blocks |
+| [`wc_Sha256Final`](#wc_sha256final) | 0x0C061C80 | Finish SHA-256: pad with 0x80 and bit length, write digest big-endian, reset to IV |
 | [`wc_Sha256Free`](#wc_sha256free) | 0x0C061E10 | Free a SHA-256 context (empty in this build) |
+| [`wc_Sha256Update`](#wc_sha256update) | 0x0C061B7C | Absorb bytes into a SHA-256 context: fill and transform 64-byte blocks, count bytes in loLen/hiLen |
+| [`wc_X963_KDF`](#wc_x963_kdf) | 0x0C060BE8 | ANSI X9.63 KDF: out = Hash(Z \|\| counter \|\| SharedInfo) blocks with a counter from 1 (SHA-256 only) |
+| [`wc_ecc_check_key`](#wc_ecc_check_key) | 0x0C060974 | Validate an ECC key: coordinates in range, point on curve, point order, and private scalar range |
 | [`wc_ecc_copy_point`](#wc_ecc_copy_point) | 0x0C05F1D8 | Copy an ecc_point (x, y, z big integers) into another (wolfSSL wc_ecc_copy_point) |
 | [`wc_ecc_curve_free`](#wc_ecc_curve_free) | 0x0C05E4E8 | Clear the loaded curve parameters of an ecc_curve_spec according to its load_mask |
 | [`wc_ecc_curve_load`](#wc_ecc_curve_load) | 0x0C05E614 | Load selected fields of a standard ECC curve into an ecc_curve_spec |
+| [`wc_ecc_del_point`](#wc_ecc_del_point) | 0x0C05F1B0 | Zero the three coordinates of an ecc_point and free it (wc_ecc_del_point) |
 | [`wc_ecc_free`](#wc_ecc_free) | 0x0C0601D0 | Release an ecc_key: clear pubkey.x/y/z and force-zero the private scalar k (wolfSSL) |
+| [`wc_ecc_gen_k`](#wc_ecc_gen_k) | 0x0C05F218 | Draw a random ECC scalar: size+8 RNG bytes read as an integer and reduced modulo the order |
+| [`wc_ecc_import_x963_ex`](#wc_ecc_import_x963_ex) | 0x0C060AE4 | Import an ECC public key from an X9.63 uncompressed point (0x04 \|\| X \|\| Y) and validate it |
 | [`wc_ecc_init`](#wc_ecc_init) | 0x0C060190 | Zero a 0x1bc-byte ecc_key and init its pubkey.x/y/z and private scalar k (wolfSSL wc_ecc_init) |
+| [`wc_ecc_make_key_ex`](#wc_ecc_make_key_ex) | 0x0C0600C0 | Generate an ECC key pair: select the curve, draw k, derive the public point (wc_ecc_make_key_ex) |
+| [`wc_ecc_new_point`](#wc_ecc_new_point) | 0x0C05F1A8 | Allocate a new ecc_point with no heap hint (wc_ecc_new_point) |
+| [`wc_ecc_new_point_h`](#wc_ecc_new_point_h) | 0x0C05F164 | Allocate and zero an ecc_point (0x138 bytes) and initialise its three fp_ints |
 | [`wc_ecc_set_curve`](#wc_ecc_set_curve) | 0x0C05E7FC | Select ECC curve parameters for a key by key size or curve id |
 | [`wc_ecc_set_rng`](#wc_ecc_set_rng) | 0x0C060BD4 | Attach a random number generator to an ECC key |
+| [`wc_ecc_shared_secret`](#wc_ecc_shared_secret) | 0x0C05FCCC | wc_ecc_shared_secret state machine: validate keys, run the ECDH core, retry on pending |
+| [`wc_ecc_verify_hash`](#wc_ecc_verify_hash) | 0x0C060720 | wc_ecc_verify_hash state machine: decode the DER signature, then verify |
+| [`wc_rng_seed_instantiate`](#wc_rng_seed_instantiate) | 0x0C061688 | Init an RNG: DRBG known-answer checks, TRNG entropy with a continuous test, then instantiate |
 
 ## AES_GCM_encrypt_C
 
@@ -149,7 +251,7 @@ wolfSSL DecodeECC_DSA_Sig. It requires the first byte to be 0x30 (SEQUENCE tag),
 **Notes:** The wolfSSL identification is inferred from the SEQUENCE plus two INTEGER structure and the argument order.
 
 - Addresses by version: 219: 0x0C05E474
-- Called by: `ble_219_0c060720`
+- Called by: `wc_ecc_verify_hash`
 - Calls: `GetLength_ex`, `GetInt`, `fp_clear`
 - Confidence: medium
 
@@ -248,6 +350,107 @@ Reads the length octet at input[*inOutIdx]. Short form (<0x80) is the length its
 - Called by: `GetASNInt`, `DecodeECC_DSA_Sig`
 - Confidence: high
 
+## Hash_DRBG_Generate
+
+**Hash_DRBG generate: stream SHA-256 of V with a counter, run a repeat test, then update V**
+
+wolfSSL Hash_DRBG_Generate with a continuous test. It returns 2 (reseed needed) when the reseed counter at +0x00 equals 1000000. Otherwise it produces outLen bytes in 32-byte blocks: each block is SHA-256 of a local copy of V, copied to out (truncated on the last block), and the copy of V is incremented as a 55-byte big-endian number. The continuous test compares the first 32-bit word of each block with the previous one, kept at +0x04. The first repeat sets the flag at +0x76 and costs one extra block, and a second repeat fails with 1. After the output H = SHA-256(0x03 || V) is computed and V := V + H + C + counter (mod 2^440), following the SP 800-90A step, then the reseed counter at +0x00 is incremented. The counter, the previous-block word and the flag live in the same DRBG object that Instantiate and Reseed set up.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | DRBG object |
+| `param_2` | `ptr` | output buffer |
+| `param_3` | `u32` | number of bytes to produce |
+
+**Returns** `u32`: 0 on success, 1 on a hash or continuous-test failure, 2 when a reseed is required
+
+**Notes:** The V update step (V + H + C + counter) is read from the decompile and not checked against a reference. The reseed-required value 1000000 is taken as the wolfSSL reseed interval.
+
+- Addresses by version: 219: 0x0C061270
+- Called by: `hash_drbg_kat_generate`, `wc_RNG_GenerateBlock`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`, `memcpy`
+- Confidence: medium
+
+## Hash_DRBG_Instantiate
+
+**Instantiate a Hash_DRBG: V = Hash_df(entropy || nonce), C = Hash_df(0x00 || V), counter = 1**
+
+wolfSSL Hash_DRBG_Instantiate. It zeroes the 0x78-byte DRBG object. V (55 bytes at +0x08) is derived with Hash_df using tag 0x04 (no tag) over the entropy (param 2 and 3) and the nonce or personalisation string (param 4 and 5). C (55 bytes at +0x3f) is then Hash_df(0x00 || V). The reseed counter at +0x00 is set to 1 and the word at +0x04 (the previous output block for the continuous test) and the flag byte at +0x76 are cleared. Layout of the DRBG object: counter +0, previous block +4, V +8..+62, C +63..+117, flag +118.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | DRBG object (0x78 bytes) |
+| `param_2` | `ptr` | entropy input |
+| `param_3` | `u32` | entropy length |
+| `param_4` | `ptr` | nonce or personalisation string, may be NULL |
+| `param_5` | `u32` | its length |
+
+**Returns** `u32`: 0 on success, 1 if either Hash_df fails
+
+- Addresses by version: 219: 0x0C061174
+- Called by: `hash_drbg_kat_generate`, `wc_rng_seed_instantiate`
+- Calls: `Hash_df`, `memset`
+- Confidence: high
+
+## Hash_DRBG_Reseed
+
+**Reseed a Hash_DRBG: V = Hash_df(0x01 || V || entropy), C = Hash_df(0x00 || V), counter reset to 1**
+
+wolfSSL Hash_DRBG_Reseed. A new V is computed into a 55-byte temporary as Hash_df with tag 0x01 over the current V and the supplied entropy, then copied into V and the temporary is zeroed. C is recomputed as Hash_df(0x00 || V). The reseed counter at +0x00 is set to 1, the word at +0x04 and the flag byte at +0x76 are cleared.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | DRBG object |
+| `param_2` | `ptr` | fresh entropy input |
+| `param_3` | `u32` | entropy length |
+
+**Returns** `u32`: 0 on success, 1 if a Hash_df fails
+
+- Addresses by version: 219: 0x0C0611D0
+- Called by: `hash_drbg_kat_generate`, `wc_RNG_GenerateBlock`
+- Calls: `Hash_df`, `memset`
+- Confidence: high
+
+## Hash_df
+
+**NIST SP 800-90A Hash_df: derive 55 bytes from two SHA-256 blocks over a counter, tag and two inputs**
+
+wolfSSL Hash_df from random.c. It produces the 55-byte seed (0x37, 440 bits) in two SHA-256 blocks. Block i (counter byte 1, then 2) hashes the counter, the 4-byte big-endian bit length 0x000001B8 (440), an optional tag byte (param 2, omitted when it equals 0x04), input 1 and, when non-NULL, input 2. Each digest is appended to out: 32 bytes for the first block and the remaining 23 for the second. Each block uses a fresh SHA-256 context (wc_InitSha256, wc_Sha256Update, wc_Sha256Final, wc_Sha256Free). Callers are Hash_DRBG_Instantiate (V with tag 0x04, C with tag 0x00) and Hash_DRBG_Reseed (tag 0x01).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output, 55 bytes |
+| `param_2` | `u8` | tag byte; 0x04 means no tag |
+| `param_3` | `ptr` | input 1 |
+| `param_4` | `u32` | input 1 length |
+| `param_5` | `ptr` | input 2, may be NULL |
+| `param_6` | `u32` | input 2 length |
+
+**Returns** `bool`: true (1) when any SHA-256 step failed, false (0) on success
+
+- Addresses by version: 219: 0x0C061034
+- Called by: `Hash_DRBG_Instantiate`, `Hash_DRBG_Reseed`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`, `memcpy`
+- Confidence: high
+
+## Transform_Sha256
+
+**SHA-256 compression: process one 64-byte block into the eight-word state**
+
+wolfSSL Transform_Sha256, the SHA-256 block function. It allocates a 256-byte message schedule on the heap (malloc 0x100) and copies the 16 message words from the block (param 2) into it. The schedule is extended to 64 words with sigma0 (rotr7 ^ rotr18 ^ shr3) and sigma1 (rotr17 ^ rotr19 ^ shr10). The 64 rounds use the SHA-256 round constants at 0x0c074668 and keep the eight working variables in a stack array that rotates index by index. At the end the working variables are added to the state (param 1 digest words) and the schedule is freed. The caller has already converted the buffer words to host order.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | SHA-256 context; digest words at +0x00 |
+| `param_2` | `ptr` | 64-byte block, words in host order |
+
+**Returns** `s32`: 0 on success, -125 (0xffffff83) if the schedule cannot be allocated
+
+- Addresses by version: 219: 0x0C061950
+- Called by: `wc_Sha256Update`, `wc_Sha256Final`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`
+- Confidence: high
+
 ## aes128_encrypt_block
 
 **AES-128 ECB encrypt of one 16-byte block, in place, using an expanded key**
@@ -260,7 +463,7 @@ Standard byte-oriented AES-128 encryption: initial AddRoundKey, nine rounds of S
 | `param_2` | `ptr` | 16-byte block, encrypted in place |
 
 - Addresses by version: 219: 0x0C048FD4
-- Called by: `ble_crypto_ccm_cbc_mac`, `ble_219_0c0493d4`, `ble_219_0c0496a8`
+- Called by: `ble_crypto_ccm_cbc_mac`, `ble_crypto_ccm_seal_frame`, `ble_crypto_ccm_open_frame`
 - Confidence: high
 
 ## aes128_key_expansion
@@ -275,8 +478,121 @@ Copies the 16-byte key from param_2 to param_1, then generates words 4..43: each
 | `param_2` | `ptr` | input: 16-byte AES-128 key |
 
 - Addresses by version: 219: 0x0C048F3C
-- Called by: `ble_crypto_ccm_cbc_mac`, `ble_219_0c0493d4`, `ble_219_0c0496a8`
+- Called by: `ble_crypto_ccm_cbc_mac`, `ble_crypto_ccm_seal_frame`, `ble_crypto_ccm_open_frame`
 - Confidence: high
+
+## ble_crypto_auth_derive_own_word
+
+**Derive the local auth word as stored word XOR peer word, then send it as request type 0**
+
+Clears busy and returns when the connection for handle param_1 is absent. It reads the 16-bit peer word from 0x2000FD94 at offset 0xE, big-endian, and sets the local word DAT_200100CE to DAT_200100D0 XOR peer. It zeroes the request block, writes type 0 at 0xC and the local word at 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x2000FFD9, completion callback 0x0C050068 and the connection's +0x1A8 parameter.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | connection handle |
+
+- Addresses by version: 219: 0x0C04FA38
+- Calls: `btstack_crypto_aes128_encrypt`, `co_read16_be`, `co_write16_be`, `ble_ctrl_conn_find_by_handle`
+- Confidence: medium
+
+## ble_crypto_auth_load_keys
+
+**Load the 16-byte auth keys from the key store, set the mode, and fall back to generating one**
+
+When param_1 is nonzero, it first writes the 16-byte block at 0x2000FEC4 back to the store under tag 0x534D4552 (the bytes 'REMS' in memory order) using the store's put method. It then clears the failure flag DAT_2000FEF4 and reads the 16-byte record for tag 0x534D4952 ('RIMS') into 0x2000FED4. If that read returns 16 bytes, the mode byte DAT_2000FD14 becomes 1 and the second record is attempted (mode 2 when DAT_2000FF40 is set). Otherwise the failure flag is set and operation 0x0C064FFC is started over 0x2000FED4 with callback 0x0C050120. If DAT_2000FEB0 is set, the timer at 0x2000FF0C is re-armed with zero delay.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | nonzero to persist the 0x2000FEC4 record before loading |
+
+**Notes:** Potential defect: the second key record and the constant defaults are loaded through util_nop_stub_b (0x0C065CE0), which the stub annotation describes as a bare return. If so, the copies from 0x0C084200, 0x0C084204 and 0x0C0768A0 do nothing and mode 2 uses an unloaded 0x2000FEE4. Verify the disassembly of 0x0C065CE0 before trusting the key loading.
+
+- Addresses by version: 219: 0x0C050310
+- Calls: `btstack_crypto_random_generate`, `btstack_run_loop_set_timer`, `btstack_run_loop_add_timer`, `btstack_run_loop_remove_timer`, `util_nop_stub_b`
+- Confidence: medium
+
+## ble_crypto_auth_pubkey_begin
+
+**Store a 65-byte key block (X, Y, flag) and start an operation over it with a 16-byte value**
+
+Copies param_2 (32 bytes) to 0x2000FE00 as X and param_3 (32 bytes) to 0x2000FE20 as Y, writes param_5 into the byte at 0x2000FE40, and records param_1 at DAT_2000FDC8. The resulting 65-byte block is the size of an uncompressed P-256 public key, so this may be the start of an LE Secure Connections key exchange. It arms DAT_2000FDC6, sets the callback at DAT_2000FDCC to 0x0C0503F4, and starts operation 0x0C065078 with the 16-byte value param_4, the key block, the output at DAT_2000FDD0 and completion callback 0x0C04FD4C. The two calls to util_nop_stub_a in the body do nothing.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | context value stored at DAT_2000FDC8 |
+| `param_2` | `ptr` | X coordinate, 32 bytes |
+| `param_3` | `ptr` | Y coordinate, 32 bytes |
+| `param_4` | `ptr` | 16-byte value passed to the operation |
+| `param_5` | `u8` | flag byte stored at 0x2000FE40 |
+
+**Notes:** The public-key reading is an inference from the 65-byte size. The roles of the 16-byte value and the flag are not determined. Operation 0x0C065078 is not in this packet.
+
+- Addresses by version: 219: 0x0C04F894
+- Called by: `sm_pairing_engine_step`
+- Calls: `btstack_crypto_ccm_submit`, `util_nop_stub_a`
+- Confidence: low
+
+## ble_crypto_auth_send_word_type1
+
+**Send the local 16-bit auth word as request type 1 on the crypto channel**
+
+Clears the busy byte DAT_2000FDC4 and looks up the connection for handle param_1; it does nothing when the connection is absent. Otherwise it zeroes the 16-byte request block at 0x2000FDB4, writes type 1 at offset 0xC and the local word DAT_200100CE, big-endian, at offset 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x200100EA, completion callback 0x0C050618 and the connection's +0x1A8 parameter. The call to util_nop_stub_b in the body copies nothing.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | connection handle |
+
+**Notes:** The stub call (copy from 0x0C0841F8 to 0x2000FFD9) is a no-op if util_nop_stub_b really is a bare return. See notes on ble_crypto_auth_load_keys.
+
+- Addresses by version: 219: 0x0C04F9B0
+- Calls: `btstack_crypto_aes128_encrypt`, `co_write16_be`, `util_nop_stub_b`, `ble_ctrl_conn_find_by_handle`
+- Confidence: medium
+
+## ble_crypto_auth_start_by_mode
+
+**Start the crypto operation for the current auth mode: type 0 with value 1 (mode 1) or 3 (mode 2)**
+
+Reads the mode byte DAT_2000FD14, set by ble_crypto_auth_load_keys to 1 or 2. In mode 1, when the busy byte DAT_2000FDC4 is clear, it zeroes the request block, writes type 0 and value 1, and starts operation 0x0C065038 with input 0x2000FEE4 and completion callback 0x0C04FCAC. In mode 2 it writes type 0 and value 3, uses input 0x2000FEB4 and callback 0x0C04FCFC. Both set busy, use output 0x2000FED4, and return 1. Any other mode, or a busy operation, returns 0.
+
+**Returns** `u8`: 1 when an operation was started, 0 otherwise
+
+**Notes:** The meaning of the mode values and of the 16-byte inputs (fee4 and feb4) follows from ble_crypto_auth_load_keys. The mode 2 input (0x2000FEB4) is not loaded by ble_crypto_auth_load_keys, which may leave it unset.
+
+- Addresses by version: 219: 0x0C04FB64
+- Called by: `sm_pairing_engine_step`
+- Calls: `btstack_crypto_aes128_encrypt`, `co_write16_be`
+- Confidence: medium
+
+## ble_crypto_auth_step
+
+**Advance the crypto-auth state machine: state 1 starts the address check, state 3 starts the next op**
+
+The auth state byte DAT_2000FD78 drives the sequence. In state 1 it moves to state 2 and starts an operation (0x0C064FFC) on the 6-byte peer address at DAT_2000FEF8 with completion callback 0x0C04FEE4, returning 1. In state 3, when the busy byte DAT_2000FDC4 is clear, it copies the first three address bytes into the request block at DAT_2000FDC0, marks busy, and starts operation 0x0C065038 with the request block (zeroed at DAT_2000FDB4) and the output at DAT_2000FD94, with callback 0x0C04FE38. Any other state, or a busy operation, returns 0.
+
+**Returns** `u32`: 1 when an operation was started, 0 otherwise
+
+**Notes:** The operations started here (0x0C064FFC, 0x0C065038) are not in this packet. The state numbering is inferred from the transitions in this function.
+
+- Addresses by version: 219: 0x0C04F7B8
+- Called by: `sm_pairing_engine_step`
+- Calls: `btstack_crypto_random_generate`, `btstack_crypto_aes128_encrypt`
+- Confidence: medium
+
+## ble_crypto_auth_store_xor_word
+
+**Store peer XOR local as the shared auth word, then send the local word as request type 0**
+
+Clears busy and returns when the connection for handle param_1 is absent. It reads the peer word from 0x2000FD94 at offset 0xE, big-endian, saves the current local word, and sets DAT_200100D0 to peer XOR local, which the derive step later reads. It zeroes the request block, writes type 0 at 0xC and the saved local word at 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x2000FFD9, completion callback 0x0C04F9B1 (the Thumb entry of ble_crypto_auth_send_word_type1) and the connection's +0x1A8 parameter.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | connection handle |
+
+**Notes:** With ble_crypto_auth_derive_own_word, this forms a two-step XOR exchange of 16-bit words. Its completion path is ble_crypto_auth_send_word_type1.
+
+- Addresses by version: 219: 0x0C04FACC
+- Calls: `btstack_crypto_aes128_encrypt`, `co_read16_be`, `co_write16_be`, `ble_ctrl_conn_find_by_handle`
+- Confidence: medium
 
 ## ble_crypto_ccm_cbc_mac
 
@@ -295,8 +611,477 @@ Builds B0 = {0x59, 12 nonce bytes from param_4, 0x00, 0x00, payload_len} where p
 **Notes:** Whether the result is used as a CCM MIC or a plain CBC-MAC tag depends on the wrappers; byte 13 of B0 is always 0 so the effective nonce may be 13 bytes with a zero tail.
 
 - Addresses by version: 219: 0x0C049288
-- Called by: `ble_219_0c0493d4`, `ble_219_0c0496a8`
+- Called by: `ble_crypto_ccm_seal_frame`, `ble_crypto_ccm_open_frame`
 - Calls: `aes128_key_expansion`, `aes128_encrypt_block`, `memcpy`
+- Confidence: medium
+
+## ble_crypto_ccm_open_frame
+
+**Verify and decrypt a received CCM-style frame, accepting only a counter above the last one**
+
+Inverse of ble_crypto_ccm_seal_frame with the same context; +0x18 holds the last accepted receive counter. It reads the 2-byte big-endian counter from the last two bytes of the frame and handles the 16-bit wrap. A counter above the stored value decrypts the payload, recomputes the 4-byte CBC-MAC, and compares it with the decrypted trailer. The stored counter advances only when the MIC matches. A counter not above the stored value is rejected with a result of 2, which reads as true. A counter of zero takes a separate path: the payload is decrypted with the same constant-block keystream and only the 16-bit sum in the trailer is checked, with no MIC. The header and decrypted payload go to param_4 and the payload length to *param_5.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | crypto context: key pointers, IV, last accepted counter |
+| `param_2` | `ptr` | received frame |
+| `param_3` | `s32` | received frame length |
+| `param_4` | `ptr` | output buffer for header and plaintext |
+| `param_5` | `ptr` | receives the payload length |
+
+**Returns** `bool`: false on accept, true on reject (MIC or checksum mismatch, or replayed counter)
+
+**Notes:** Security concern (medium confidence): a frame whose trailing counter is zero is accepted on an unkeyed 16-bit checksum with no MIC. Because the keystream is the same for every chunk, one known plaintext would reveal it. Confirm whether the caller filters counter zero before relying on this function.
+
+- Addresses by version: 219: 0x0C0496A8
+- Called by: `ble_rx_data_handler`, `ble_crypto_try_default_pwd`
+- Calls: `aes128_key_expansion`, `aes128_encrypt_block`, `ble_sha1_mix_pair16`, `ble_crypto_ccm_cbc_mac`, `memcpy`
+- Confidence: medium
+
+## ble_crypto_ccm_seal_frame
+
+**Encrypt and authenticate an outgoing frame: 3-byte header, CCM-style payload, 4-byte MIC, 2-byte counter**
+
+The context holds pointers to two 16-byte keys at +0x00 and +0x04, which ble_sha1_mix_pair16 mixes into a session key; an 8-byte IV at +0x08; and the transmit counter at +0x18, which is incremented for each frame. The 3-byte header is copied through unchanged. With a nonzero counter, the payload is encrypted in 16-byte CCM counter-mode blocks (flags 0x01, the counter, the IV and a block index), and a 4-byte CBC-MAC over the header and plaintext (ble_crypto_ccm_cbc_mac) is XORed with keystream block 0. The output layout is header(3) | ciphertext | MIC(4) | counter(2, big-endian). With a counter of zero, the payload is XORed with AES of one fixed constant block for every 16-byte chunk, and the trailer carries a 16-bit one's-complement sum of the plaintext instead of a MIC.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | crypto context: key pointers, IV, transmit counter |
+| `param_2` | `ptr` | input frame: 3-byte header then plaintext |
+| `param_3` | `s32` | input frame length including the header |
+| `param_4` | `ptr` | output frame buffer |
+
+**Returns** `u32`: output frame length, truncated to 8 bits by the code
+
+**Notes:** Security concern (medium confidence): in the zero-counter path the keystream is AES of the same constant block for every 16-byte chunk, so the keystream repeats across chunks and frames. The integrity check there is an unkeyed 16-bit sum. Check whether any pairing or connection state can produce a zero counter.
+
+- Addresses by version: 219: 0x0C0493D4
+- Calls: `aes128_key_expansion`, `aes128_encrypt_block`, `ble_sha1_mix_pair16`, `ble_crypto_ccm_cbc_mac`, `memcpy`
+- Confidence: medium
+
+## ble_crypto_diversify
+
+**Diversify a 32-byte secret with a peer P-224 point into a 28-byte value**
+
+Imports the peer's 57-byte P-224 point at param_2 (curve id 14) into a temporary key and validates it. It derives 72 bytes from the 32-byte secret at param_1 with the label 'diversify' (9 bytes) and splits them into two 36-byte scalars. It multiplies the stack point auStack_1C4 by the first scalar (0c05B86C) and the constant point built from curve block +0x1C/+0x20 (Z set to 1 with mp_set) by the second, adds the two with ble_ecc_point_add_mont, and on success exports the X coordinate (28 bytes) to param_3. Temporary points are released on all paths. The purpose is inferred from the label.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte secret |
+| `param_2` | `ptr` | peer public point, 57 bytes |
+| `param_3` | `ptr` | 28-byte output (X coordinate) |
+
+**Returns** `s32`: 0 on success, else the first failing status
+
+**Notes:** The curve block pointer is a stack local that the decompile does not show being set; the parameters of the scalar multiplications are read from that layout.
+
+- Addresses by version: 219: 0x0C05BD30
+- Called by: `ble_record_a_derive_and_commit`, `ble_record_b_derive_and_commit`
+- Calls: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `wc_ecc_new_point`, `wc_ecc_del_point`, `wc_ecc_init`, `wc_ecc_free`, `wc_ecc_check_key`, `wc_ecc_import_x963_ex`, `wc_X963_KDF`, `mp_to_unsigned_bin_len`, `fp_read_radix`, `mp_set`
+- Confidence: low
+
+## ble_crypto_ecdh_seal_p256
+
+**ECDH-P256 seal: ephemeral key, KDF, AES-128-GCM, output ephemeral public key, ciphertext and tag**
+
+Requires an output buffer of at least param_2 + 0x51 bytes, otherwise returns -1. It creates an ephemeral P-256 key pair (0c0600C0 make-key with curve 7, RNG attached with 0c060BD4) and computes the ECDH shared secret with the peer's 65-byte public key at param_1 (0c05FCCC, 32 bytes). It derives 32 bytes with 0c060BE8 from the secret and the 130-byte block ephemeral public key || peer public key; the first 16 bytes key AES-128-GCM (0c05DBE0) and the last 16 are the IV. The plaintext (param_3, param_2 bytes) is encrypted to param_5+0x41 with a 16-byte tag appended, and the ephemeral public key is written first as 0x04 || X || Y (65 bytes). *param_4 becomes param_2 + 0x51.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | peer public key, 65 bytes uncompressed P-256 |
+| `param_2` | `u32` | plaintext length |
+| `param_3` | `ptr` | plaintext |
+| `param_4` | `ptr` | in/out: output capacity on entry, total output length on success |
+| `param_5` | `ptr` | output: ephemeral public key, ciphertext, tag |
+
+**Returns** `s32`: 0 on success, -1 for a short output buffer, else the first failing status
+
+**Notes:** Called from 0c053954, 0c053A48 and 0c053E1C. The ECIES-style layout is inferred from the buffer offsets and the KDF input length of 0x82.
+
+- Addresses by version: 219: 0x0C05C13C
+- Called by: `ble_fmna_state_save`, `ble_secure_ctx_restore_from_nv`, `ble_session_msg_build`
+- Calls: `wc_AesGcmSetKey`, `wc_AesGcmEncrypt`, `wc_AesInit`, `wc_AesFree`, `wc_ecc_shared_secret`, `wc_ecc_make_key_ex`, `wc_ecc_init`, `wc_ecc_free`, `wc_ecc_check_key`, `wc_ecc_import_x963_ex`, `wc_ecc_set_rng`, `wc_X963_KDF`, `wc_FreeRng`, `wc_InitRng`, `mp_to_unsigned_bin_len`, `memcpy`
+- Confidence: medium
+
+## ble_crypto_ecdsa_p256_verify
+
+**Verify an ECDSA P-256 signature over the SHA-256 digest of a message**
+
+Imports the 65-byte uncompressed P-256 public key at param_1 (curve id 7) into a temporary key and validates it. It hashes the message at param_5 (length param_4) with SHA-256 (init, update 0c061B7C, final 0c061C80) and calls 0c060720 with the signature at param_3 (length param_2), the 32-byte digest and the key, which presumably is wc_ecc_verify_hash. The verification counts only when the result flag equals 1. Returns 0 for a valid signature and -1 otherwise, freeing the key and hash context on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 65-byte uncompressed P-256 public key |
+| `param_2` | `u32` | signature length |
+| `param_3` | `ptr` | signature |
+| `param_4` | `u32` | message length |
+| `param_5` | `ptr` | message |
+
+**Returns** `s32`: 0 for a valid signature, -1 for an invalid one or a failure of the verify call
+
+**Notes:** 0c060720 is presumably wc_ecc_verify_hash from its argument shape. Called from 0c053A48.
+
+- Addresses by version: 219: 0x0C05BFA4
+- Called by: `ble_secure_ctx_restore_from_nv`
+- Calls: `wc_ecc_init`, `wc_ecc_free`, `wc_ecc_verify_hash`, `wc_ecc_check_key`, `wc_ecc_import_x963_ex`, `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`, `mp_init`, `fp_clear`
+- Confidence: medium
+
+## ble_crypto_init
+
+**Copy the vehicle serial number and seed the pairing crypto contexts at startup**
+
+Reads the vehicle record from ble_219_0c059558 and logs 'INFO:ble_crypto_init, vehicle_sn[%s]'. It copies the 14-byte serial (record offset 0x18 to 0x25) to 0x20009404 and NUL-terminates it at 0x20009412, fills the 16-byte seed block at 0x200093F4 with ble_219_0c05b5c0, and initialises two SHA-1 style contexts from that block with sha1_ctx_init_with_seed, at 0x20009414 and 0x20009430. The 16-bit value at record offset 0x24 (the last two serial bytes) is also passed as an argument to the first initialisation. Finally it sets the crypto-ready flag DAT_200092EC to 1, stores the callback address 0x0C02BD44 with ble_cb_slot_15f28_set, and clears DAT_200091D4.
+
+**Notes:** The 16-byte block at 0x200093F4 is the seed used by ble_crypto_try_default_pwd. Whether the u16 argument to the first sha1 init is a length or a counter is unclear. ble_219_0c05b5c0 is a 16-byte fill whose semantics (random or zero) are not known yet.
+
+- Addresses by version: 219: 0x0C02BDD0
+- Called by: `btle_connect_status_change`, `ble_app_init_callbacks_nv`, `ble_app_main_init`
+- Calls: `btle_connect_status_change`, `trace_printf`, `sha1_ctx_init_with_seed`, `ble_link_table_get_base`, `ble_cb_slot_15f28_set`, `ble_random_fill_seeded`
+- Confidence: medium
+
+## ble_crypto_kdf_connect
+
+**Two-step key derivation: 'intermediate' then 'connect', producing 16 bytes**
+
+Derives a 32-byte intermediate from the key at param_1 with the label 'intermediate' (12 bytes) through 0c060BE8. If that succeeds it derives 16 bytes into param_2 from the intermediate with the label 'connect' (7 bytes). No status is returned and the output is left unchanged on the first failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte input key |
+| `param_2` | `ptr` | 16-byte output |
+
+**Notes:** Called from 0c053D04.
+
+- Addresses by version: 219: 0x0C05BCE4
+- Called by: `ble_record_a_derive_and_commit`
+- Calls: `wc_X963_KDF`
+- Confidence: high
+
+## ble_crypto_kdf_update
+
+**Derive 32 bytes from the 32-byte key at param_1 with the label 'update'**
+
+Calls the key-derivation helper 0c060BE8 with SHA-256 (type 6), the 32-byte key at param_1, the 6-byte label 'update' and a 32-byte output at param_2. One of the four label-based derivations of the pairing and serial-protection group.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte input key |
+| `param_2` | `ptr` | 32-byte output |
+
+**Notes:** Callers: 0c053C94, 0c053CCC, 0c053D04, 0c053DA4. 0c060BE8 is the shared KDF helper of the pairing group and is not described in this packet.
+
+- Addresses by version: 219: 0x0C05BCC0
+- Called by: `ble_record_a_reload`, `ble_record_b_reload`, `ble_record_a_derive_and_commit`, `ble_record_b_derive_and_commit`
+- Calls: `wc_X963_KDF`
+- Confidence: high
+
+## ble_crypto_report_auth_state
+
+**Post the pairing result event 0x0A or 0x0B when any key slot holds a valid key**
+
+Does nothing unless at least one of the key-state bytes at 0x20008FF5, 0x20009006 and 0x20009017 equals '='. Otherwise it reads the authentication-failure byte in ble_get_state_ptr_42f8 + 0x2D and posts event 0x0B through ble_219_0c058a94 when it is not 1, or event 0x0A when it is 1.
+
+**Notes:** The meaning of events 0x0A and 0x0B is not decoded, and ble_219_0c058a94 is not described yet.
+
+- Addresses by version: 219: 0x0C02BF20
+- Called by: `ble_rx_data_handler`
+- Calls: `ble_get_state_ptr_42f8`, `ble_evt_report_conn_state_02`
+- Confidence: medium
+
+## ble_crypto_serial_mac
+
+**HMAC-SHA256 over a message, keyed by a derivation of param_1 with 'SerialNumberProtection'**
+
+Initialises an Hmac context (wc_HmacInit with devId -2) and derives a 32-byte HMAC key from the 32-byte key at param_1 with the label 'SerialNumberProtection' (22 bytes) using 0c060BE8. It sets that key for SHA-256 HMAC (type 6), feeds param_2 bytes from param_3 through wc_HmacUpdate, and writes the 32-byte tag to param_4 with wc_HmacFinal. The context is freed with wc_HmacFree on every path. This is the protection tag for the vehicle serial number.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte key material |
+| `param_2` | `u32` | message length |
+| `param_3` | `ptr` | message |
+| `param_4` | `ptr` | 32-byte tag output |
+
+**Returns** `s32`: 0 on success, else the first failing status
+
+**Notes:** Called from 0c053E1C. The 'serial number protection' purpose comes from the label string and the brief.
+
+- Addresses by version: 219: 0x0C05C088
+- Called by: `ble_session_msg_build`
+- Calls: `wc_X963_KDF`, `wc_HmacSetKey`, `wc_HmacUpdate`, `wc_HmacFinal`, `wc_HmacInit`, `wc_HmacFree`
+- Confidence: medium
+
+## ble_crypto_server_secret
+
+**Derive the 32-byte server shared secret from two 32-byte values**
+
+Concatenates the 32-byte value at param_1 and the 32-byte value at param_2 into one 64-byte block on the stack and derives 32 bytes into param_3 with 0c060BE8 (SHA-256 type 6), using the label 'ServerSharedSecret' (18 bytes). Part of the pairing key-derivation group.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | first 32-byte value |
+| `param_2` | `ptr` | second 32-byte value |
+| `param_3` | `ptr` | 32-byte output secret |
+
+**Notes:** Called from 0c053A48.
+
+- Addresses by version: 219: 0x0C05BE98
+- Called by: `ble_secure_ctx_restore_from_nv`
+- Calls: `wc_X963_KDF`
+- Confidence: high
+
+## ble_crypto_session_decrypt
+
+**AES-128-GCM decrypt a pairing-session message whose 16-byte tag is at its end**
+
+Rejects an input shorter than 17 bytes or an output capacity below the ciphertext length (returns -1). It derives 32 bytes from the 32-byte key at param_1 with the label 'PairingSession' (14 bytes): bytes 0..15 are the AES-128 key for wc_AesGcmSetKey and bytes 16..31 are the GCM IV. It creates an Aes context (wc_AesInit with devId -2), decrypts the input minus its 16-byte trailing tag with wc_AesGcmDecrypt into param_5, verifies the tag, stores the plaintext length in *param_4 and frees the context.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte key material |
+| `param_2` | `u32` | input length including the 16-byte tag |
+| `param_3` | `ptr` | input (ciphertext followed by tag) |
+| `param_4` | `ptr` | in/out: output capacity on entry, plaintext length on success |
+| `param_5` | `ptr` | plaintext output |
+
+**Returns** `s32`: 0 when the tag verifies, -1 for bad sizes, else the GCM status
+
+**Notes:** The IV source is the second half of the KDF output, which the decompile shows as a separate stack buffer (auStack_160); the byte layout is inferred from the contiguous stack slots. Called from 0c053A48.
+
+- Addresses by version: 219: 0x0C05BF00
+- Called by: `ble_secure_ctx_restore_from_nv`
+- Calls: `wc_AesGcmSetKey`, `wc_AesGcmDecrypt`, `wc_AesInit`, `wc_AesFree`, `wc_X963_KDF`
+- Confidence: medium
+
+## ble_crypto_sha256_commit
+
+**SHA-256 over the 28-byte X of ctx+0x150 followed by the 32 bytes at ctx+0x1BC**
+
+Copies the 32 bytes at context+0x1BC..0x1DB, exports the bignum at context+0x150 as 28 big-endian bytes with 0c0641F4 (mp_to_unsigned_bin_len), and hashes these 60 bytes (28 + 32) with wc_InitSha256, the update 0c061B7C, the final 0c061C80 and wc_Sha256Free. The 32-byte digest goes to param_2. The 60-byte input is the same record that ble_ecc_share_derive writes, so this is the digest of that record.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | ECC context |
+| `param_2` | `ptr` | 32-byte digest output |
+
+**Returns** `s32`: 0 on success, else the first failing status
+
+**Notes:** Purpose (commitment or confirmation value) is inferred. Called from 0c053954.
+
+- Addresses by version: 219: 0x0C05BA6C
+- Called by: `ble_fmna_state_save`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`, `mp_to_unsigned_bin_len`
+- Confidence: medium
+
+## ble_crypto_sha256_digest
+
+**One-shot SHA-256 of param_1 bytes at param_2 into the 32-byte digest at param_3**
+
+Initialises a SHA-256 context with wc_InitSha256 (0c061DB0), feeds param_1 bytes from param_2 to the unnamed update routine 0c061B7C, finalises into the 32-byte digest at param_3 with 0c061C80 and releases the context with wc_Sha256Free. The update call uses the (context, data, length) order, so param_1 is the length. Returns the first failing status, or the finalisation status.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | message length in bytes |
+| `param_2` | `ptr` | message data |
+| `param_3` | `ptr` | 32-byte digest output |
+
+**Returns** `s32`: 0 on success, else the initialisation or update status
+
+**Notes:** 0c061B7C and 0c061C80 are presumably wc_Sha256Update and wc_Sha256Final from their call shapes; they are not named in the packet. Called from 0c053A48.
+
+- Addresses by version: 219: 0x0C05B984
+- Called by: `ble_secure_ctx_restore_from_nv`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`
+- Confidence: medium
+
+## ble_crypto_try_default_pwd
+
+**Try each stored 16-byte pairing key against the challenge until one authenticates**
+
+Clears the authentication-failure byte at ble_get_state_ptr_42f8 + 0x2D and walks the three pairing-key slots, each a state byte followed by a 16-byte key (states at 0x20008FF5, 0x20009006 and 0x20009017). For a slot whose state is '=', the key is copied to 0x20009450, the context at 0x20009414 is pointed at that key and at the seed block 0x200093F4, and ble_219_0c0496a8 runs the challenge with its output written to 0x200092F0 and the output length in a local byte. Result 0 routes the output through ble_219_0c02c1e8 with the length as its second argument and returns 0; result 1 sets the failure byte to 1 and moves on; any other result, or an empty slot (status 3), is logged with the attempt count. After the three slots the function returns the status of the last slot tried.
+
+**Returns** `s32`: 0 if a stored key authenticated, otherwise the status of the last slot tried (1 for a mismatch, 3 for an empty slot)
+
+**Notes:** The challenge routine ble_219_0c0496a8 is not described yet, so its status meanings (0, 1, other) are inferred from this caller only. The slot layout and the '=' state marker are inferred from ble_219_0c02b480 and ble_219_0c02bf20. The log name suggests default passwords, but the code tries whatever keys are stored in the three slots.
+
+- Addresses by version: 219: 0x0C02BE44
+- Called by: `ble_rx_data_handler`
+- Calls: `ble_msg_route_by_key`, `trace_printf`, `ble_crypto_ccm_open_frame`, `ble_get_state_ptr_42f8`
+- Confidence: medium
+
+## ble_ecc_ctx_release
+
+**Release an ECC context: wc_ecc_free, free its temporary point and zero 512 bytes**
+
+Calls wc_ecc_free (0c0601D0) on the key object, which takes the key from r0 (the context pointer here), frees the temporary point stored at context+0x1FC through 0c05F1B0 (the release half of the temporary-bignum pool; allocation is 0c05F1A8), and then zeroes the 512 bytes at the context base with memset. The wipe removes private scalars and key material at the end of an ECC operation.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | ECC context (0x200+ bytes) |
+
+**Notes:** The argument to 0c0601D0 is implicit in r0 in the decompile.
+
+- Addresses by version: 219: 0x0C05BA4C
+- Calls: `wc_ecc_del_point`, `wc_ecc_free`, `memset`
+- Confidence: medium
+
+## ble_ecc_heap_alloc
+
+**Allocate a block of the given size from the BLE crypto heap pool at DAT_200049A8**
+
+Thunk that returns 0x0C071080(DAT_200049A8, size), the pool allocation routine (not yet described), for the same pool handle that ble_ecc_heap_free uses. Callers request 0x68 bytes (one fp_int), 0x138 bytes (one ecc_point) or 0x208 bytes (one ecc_curve_spec) and treat a NULL result as MEMORY_E (-0x7D). The block is not zeroed here; callers clear it themselves with memset or mp_init.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `size` | `u32` | block size in bytes |
+
+**Returns** `ptr`: block, or NULL when the pool is exhausted
+
+- Addresses by version: 219: 0x0C05CBA4
+- Called by: `ecc_point_to_montgomery`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `wc_ecc_make_key_ex`, `ecc_verify_hash_ex`, `wc_ecc_verify_hash`, `ecc_point_on_curve_check` ...
+- Calls: `ble_219_0c07097c`
+- Confidence: medium
+
+## ble_ecc_heap_free
+
+**Release a block to the BLE crypto heap pool at DAT_200049A8**
+
+Thunk that calls the pool free routine 0x0C070F40 with the pool handle stored at DAT_200049A8 as the first argument and the block as the second. The ECC routines in this packet release their 0x68-byte fp_int and 0x138-byte ecc_point temporaries through it, usually after zeroing them. The handle is used only by this pair and ble_ecc_heap_alloc, and every observed caller is ECC code, so this is most likely a dedicated ECC heap, although the pool may be shared with other users. 0x0C070F40 itself is not yet described.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | block previously returned by ble_ecc_heap_alloc |
+
+- Addresses by version: 219: 0x0C05CBA0
+- Called by: `ecc_point_to_montgomery`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `wc_ecc_new_point_h`, `wc_ecc_del_point`, `ecc_mulmod_ex`, `ecc_check_pubkey_order`, `ecc_mulmod_ex2`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen` ...
+- Calls: `ble_219_0c07098c`
+- Confidence: medium
+
+## ble_ecc_p224_export_derive
+
+**Export the P-224 point at ctx+0x1FC and derive two 32-byte secrets from its X coordinate**
+
+Exports the 28-byte X coordinate of the temporary point at context+0x1FC, then runs the 0c060BE8 key derivation with that X as key over the 64-byte input at context+0x1BC..0x1FB (two 32-byte blocks) to produce 64 bytes. If the derivation succeeds it writes the first 32 bytes to param_3 and the second 32 bytes to param_4, sets param_2[0] = 0x04 and writes X (28 bytes) and Y (28 bytes, point+0x68) after it, giving the 57-byte uncompressed P-224 public point. It has no direct caller in the packet and is reached indirectly.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | ECC context |
+| `param_2` | `ptr` | 57-byte output: uncompressed P-224 point |
+| `param_3` | `ptr` | first 32-byte derived secret |
+| `param_4` | `ptr` | second 32-byte derived secret |
+
+**Notes:** Unnamed: 0c0641F4 (export), 0c060BE8 (key derivation, SHA-256 type 6). The roles of the two derived halves are not established.
+
+- Addresses by version: 219: 0x0C05BBCC
+- Calls: `wc_X963_KDF`, `mp_to_unsigned_bin_len`
+- Confidence: medium
+
+## ble_ecc_point_add_mont
+
+**Add two projective ECC points in Montgomery form and write the result to param_1**
+
+Loads the modulus p from the curve block at param_4+0x0C and the constant a from param_4+0x10 as fp_int values (hex, radix 16). It computes R mod p with the normalisation thunk and converts the three 104-byte coordinates of each input point (offsets 0, 0x68, 0xD0) to Montgomery form by multiplying with R. It derives rho = -1/p mod 2^32 with mp_montgomery_setup, adds the points with 0c05EB00 (curve a, modulus p, rho) and, on success, converts the result at param_1 back with the Montgomery reduction 0c05EFC0. Temporary bignums are cleared before return. Called from 0c05BAF0 and 0c05BD30.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output point (three 104-byte fp_int coordinates) |
+| `param_2` | `ptr` | first input point P |
+| `param_3` | `ptr` | second input point Q |
+| `param_4` | `ptr` | curve block: +0x0C modulus p, +0x10 constant a (hex strings) |
+
+**Returns** `s32`: 0 on success, else the first failing status (-1 for a temporary allocation failure)
+
+**Notes:** The operation name (point addition) is inferred from the caller. Unnamed: 0c05EB00, 0c05EFC0, thunk 0c062940, thunk 0c06353C.
+
+- Addresses by version: 219: 0x0C05B724
+- Called by: `ble_ecc_share_derive`, `ble_crypto_diversify`
+- Calls: `ecc_projective_add_point`, `ecc_map_ex`, `mp_init`, `fp_clear`, `fp_mulmod_thunk`, `fp_montgomery_calc_normalization_thunk`, `fp_read_radix`, `mp_montgomery_setup`
+- Confidence: medium
+
+## ble_ecc_scalar_base_mult
+
+**Derive a scalar in 1..n-1 from 36 bytes and multiply the point at param_3 by it**
+
+Imports the 36-byte big-endian value at param_2 into a temporary bignum and loads the curve order n from param_4+0x18 (hex, radix 16). It reduces the value modulo n-1 and adds 1 to get a scalar in 1..n-1; the final +1 is the mp_add_d thunk and the earlier subtract step is an unnamed digit op (medium confidence). It loads the modulus p from param_4+0x0C and the constant a from param_4+0x10, then runs the projective scalar multiplication 0c05F818(scalar, param_3, param_1, a, p, 0). On success it computes rho with mp_montgomery_setup and converts the result out of Montgomery form with 0c05EFC0. Used by the 'diversify' step 0c05BD30.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output point |
+| `param_2` | `ptr` | 36-byte big-endian scalar seed |
+| `param_3` | `ptr` | base point |
+| `param_4` | `ptr` | curve block: +0x0C p, +0x10 a, +0x18 n |
+
+**Returns** `s32`: 0 on success, else the first failing status
+
+**Notes:** The subtract step and the exact reduction rule are inferred from the thunk sequence (sub 1, mod, add 1). Unnamed: 0c05F818 (scalar multiplication), 0c063CE4, 0c0634C4, 0c06428C.
+
+- Addresses by version: 219: 0x0C05B86C
+- Called by: `ble_crypto_diversify`
+- Calls: `ecc_map_ex`, `ecc_mulmod_ex_thunk`, `mp_init`, `fp_clear`, `fp_mod_thunk`, `mp_read_unsigned_bin`, `fp_sub_d_thunk`, `mp_add_d`, `fp_read_radix`, `mp_montgomery_setup`
+- Confidence: medium
+
+## ble_ecc_share_derive
+
+**Import the peer's P-224 point, combine it with the context point and build the 60-byte share record**
+
+Initialises a temporary key and imports the peer's 57-byte uncompressed P-224 point at param_2 (length 0x39, curve id 14) with 0c060AE4, then validates it with 0c060974. It combines the context point at context+0x18 with a stack point through ble_ecc_point_add_mont into the temporary point at context+0x1FC. On success it writes the 28-byte X of context+0x150 to param_3[0..27], copies the 32 bytes at context+0x1BC..0x1DB to param_3[0x1C..0x3B] (a 60-byte record), and stores the 32 bytes at param_2+0x39..0x58 into context+0x1DC..0x1FB. Temporaries are freed on every path. Part of the ECC/pairing group with ble_ecc_p224_export_derive.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | ECC context (point at +0x18, temporary point pointer at +0x1FC) |
+| `param_2` | `ptr` | peer public point, 57 bytes (0x04 \|\| X28 \|\| Y28) followed by 32 bytes |
+| `param_3` | `ptr` | 60-byte output record |
+
+**Returns** `s32`: 0 on success, else the first failing status
+
+**Notes:** Curve identification (P-224) comes from the 0x39 length and curve id 0x0E used on the import. The use of the stack point passed as the second point is not fully resolved in the decompile.
+
+- Addresses by version: 219: 0x0C05BAF0
+- Called by: `ble_secure_ctx_restore_from_nv`
+- Calls: `ble_ecc_point_add_mont`, `wc_ecc_init`, `wc_ecc_free`, `wc_ecc_check_key`, `wc_ecc_import_x963_ex`, `mp_to_unsigned_bin_len`
+- Confidence: medium
+
+## ble_rng_get_32
+
+**Fill 32 bytes at param_1 with random data from a temporary RNG context**
+
+Initialises a 20-byte random-number context with the unnamed 0c061828, generates 32 bytes into param_1 with 0c061834 and releases the context with 0c06156C. Returns the generator status. The call shape (init, generate 32 bytes, free) matches the wolfSSL RNG API, but the names are not confirmed.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 32-byte output buffer |
+
+**Returns** `s32`: 0 on success, else the status of the generator or init
+
+**Notes:** Callers: 0c053954.
+
+- Addresses by version: 219: 0x0C05C10C
+- Called by: `ble_fmna_state_save`
+- Calls: `wc_FreeRng`, `wc_InitRng`, `wc_RNG_GenerateBlock`
+- Confidence: low
+
+## ble_secure_blob_wipe_1k
+
+**Clear the 1 KB secure buffer at 0x20011A10 through the wipe helper**
+
+Calls ble_219_0c05c860 with the buffer at 0x20011A10, length 0x400 and fill value 0. It is the cleanup step reached from ble_219_0c05c8a8 for the 1 KB decrypted output that ble_219_0c053a48 also clears directly. Whether ble_219_0c05c860 is a plain memset or a secure wipe is not confirmed, but the zero fill value suggests a clear.
+
+- Addresses by version: 219: 0x0C053EE4
+- Called by: `ble_crypto_nv_store_blob`
+- Calls: `ble_transfer_chunks_64`
+- Confidence: medium
+
+## ble_secure_ctx_restore_from_nv
+
+**Verify and unwrap the stored secure context at boot and rebuild its RAM copies**
+
+Boot-time restore of the secure link context; it has no direct callers. The record at 0x200122E4 is checked and loaded through ble_219_0c05be98 (its result gates everything), and on success it is saved back as NV record 0xFAF (ble_nv_record_write, 32 bytes). An 80-byte snapshot is then assembled at 0x2001150C: 16 bytes from 0x20011A00, 32 bytes from 0x200109E0 at +0x10 and 32 bytes from 0x2001091D at +0x30. The 0x410-byte blob at 0x2001050D is copied to 0x200115ED and transformed by ble_219_0c05bf00 with the key at 0x200122E4 into a 0x400-byte output at 0x20011A10 (probably decryption with an integrity check); the output is then handled by ble_219_0c05c860, ble_219_0c065c88 and ble_219_0c05c8a8, a second record is loaded by ble_219_0c05baf0 and folded into the snapshot, and the output is memcpy'd to 0x200115BD. Finally ble_219_0c05c13c encodes message 0x4B5 from the snapshot into 0x20011004 (capacity 0x506) using context 0x20004030. The function returns 0 on success and 0xC if any step fails.
+
+**Returns** `u32`: 0 on success, 0xC if any step fails
+
+**Notes:** Callees ble_219_0c05be98, ble_219_0c05b984, ble_219_0c05bfa4, ble_219_0c05bf00, ble_219_0c05baf0, ble_219_0c05c860, ble_219_0c05c8a8, ble_219_0c05c13c and ble_219_0c065c88 are not described yet, so the cipher, the integrity check and the meaning of message ids 0x59 and 0x4B5 are inferred from the call shape only.
+
+- Addresses by version: 219: 0x0C053A48
+- Calls: `ble_nv_record_write`, `ble_crypto_sha256_digest`, `ble_ecc_share_derive`, `ble_crypto_server_secret`, `ble_crypto_session_decrypt`, `ble_crypto_ecdsa_p256_verify`, `ble_crypto_ecdh_seal_p256`, `ble_transfer_chunks_64`, `ble_crypto_nv_store_blob`, `printf_hexdump`, `memcpy`
 - Confidence: medium
 
 ## ble_sha1_mix_pair16
@@ -314,7 +1099,7 @@ Forms the 32-byte message A || B, where each 16-byte half is the input pointer o
 **Notes:** The SHA-1 identity comes from the mbedTLS calls in the callee. The purpose is low confidence.
 
 - Addresses by version: 219: 0x0C04920C
-- Called by: `ble_219_0c0493d4`, `ble_219_0c0496a8`
+- Called by: `ble_crypto_ccm_seal_frame`, `ble_crypto_ccm_open_frame`
 - Calls: `ble_sha1_oneshot_thunk`
 - Confidence: medium
 
@@ -352,6 +1137,28 @@ A single-instruction branch to ble_sha1_oneshot at 0x0C04AA80; Ghidra shows the 
 - Calls: `ble_sha1_oneshot`
 - Confidence: high
 
+## btstack_crypto_aes128_encrypt
+
+**Queue an AES-128 block encryption (type 1, HCI LE Encrypt) and run the crypto request loop**
+
+BTstack btstack_crypto_aes128_encrypt. It stores the key pointer at +0x10, plaintext pointer at +0x14, encrypted-output pointer at +0x18, callback at +0x04, argument at +0x08 and type 1 at +0x0C in the request, appends it to the crypto list at 0x20017388, and runs the loop only when the controller state byte is 2. Type 1 reverses the key and plaintext into HCI byte order with co_reverse_copy_16 and sends LE Encrypt (template 0x0C081148). The loop dispatches the head request by type: 0 random, 1 AES, 2 and 3 CMAC (btstack_crypto_cmac_step), 4 local P-256 public key (answered from a cached 64-byte copy at 0x20017304 once the state byte at 0x20017300 reaches 4), 5 ECDH shared secret (template 0x0C081150, two 32-byte halves), and 6 to 8 AES-CCM requests. The CCM sub-states at +0x10 build B0 from the flags, a 13-byte nonce at +0x18 and a 16-bit message length (state 0), absorb the AAD length prefix and data into the CBC-MAC state at +0x24 (state 2), absorb the final partial block (state 4), and build counter blocks A0 or A(i) with a 16-bit counter (states 6 and 8); even states issue the next step and odd states wait for the LE Encrypt result.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `request` | `ptr` | caller-owned request record (linked-list node) |
+| `key` | `ptr` | 16-byte AES key |
+| `plaintext` | `ptr` | 16-byte input block |
+| `encrypted` | `ptr` | 16-byte output block |
+| `callback` | `ptr` | completion callback, called with arg |
+| `arg` | `ptr` | argument for the callback |
+
+**Notes:** The argument layout matches the upstream BTstack request. The CCM sub-state meanings and the type 4 and 5 identities are inferred from the block constructions and the HCI template count. The same loop is inlined into ble_219_0c064ffc (btstack_crypto_random_generate). The HCI template identities for 0x0C081148, 0x0C081150 and 0x0C081168 are not decoded in this packet.
+
+- Addresses by version: 219: 0x0C065038
+- Called by: `ble_crypto_auth_step`, `ble_crypto_auth_send_word_type1`, `ble_crypto_auth_derive_own_word`, `ble_crypto_auth_store_xor_word`, `ble_crypto_auth_start_by_mode`, `sm_pairing_engine_step`, `btstack_crypto_random_generate`, `btstack_crypto_ccm_submit`, `btstack_crypto_ecc_p256_generate_key`, `btstack_crypto_ecc_p256_calculate_dhkey`
+- Calls: `btstack_crypto_cmac_step`, `btstack_linked_list_empty`, `btstack_linked_list_add_tail`, `btstack_linked_list_get_first_item`, `btstack_linked_list_pop`, `co_write16_be`, `co_reverse_copy_16`, `co_min_u32`, `ll_env_is_ready`, `hci_send_cmd_no_status`, `ble_ctrl_env_get_u8_at_0x198`, `memcpy`
+- Confidence: medium
+
 ## btstack_crypto_ccm_next_block
 
 **Advance an AES-CCM request to its next 16-byte block, finishing it when done**
@@ -369,6 +1176,108 @@ BTstack btstack_crypto.c btstack_crypto_ccm_next_block(ccm, state_when_done). by
 - Calls: `btstack_linked_list_pop`, `co_min_u32`
 - Confidence: high
 
+## btstack_crypto_ccm_submit
+
+**Queue an AES-CCM request (type 3) and run the crypto job pump**
+
+Appends a type-3 request to the BTstack crypto list at DAT_20017388 and then runs the job pump. The request holds the key pointer (+0x10), a u16 message length (+0x14), the nonce pointer (+0x18), the data pointer (+0x1C), the completion callback (+0x04) and its context (+0x08). The pump runs only when env+0x198 equals 2 (ble_ctrl_env_get_u8_at_0x198), no HCI command is in flight (DAT_2001738C clear) and ll_env_is_ready (0x0C066978) is true. It pops the head and switches on the type byte at +0x0C: 0 sends HCI LE Rand (opcode 0x2018), 1 sends HCI LE Encrypt (0x2017) on byte-reversed key and plaintext, 4 and 5 are the P-256 jobs (0x0C0650C0 and 0x0C065108), and 6 to 8 are CCM job steps. Types 2 and 3 latch a CCM job only when the single CCM engine is idle (DAT_200172DC clear): the 16-byte key goes to 0x200172CC, the block count ((length+15)>>4, minimum 1) to 0x200172C8, the accumulator at 0x200172F0 is zeroed and the engine is marked busy; otherwise the active job is continued. The job helper 0x0C06464C is called with the item and is not described here. Within a CCM job the sub-state byte at +0x10 selects the step. State 0 builds B0 = ((M-2)*4 & 0xF8) | (AAD!=0)<<6 | 1, with M at +0x3E, then the 13-byte nonce and the big-endian length at offset 14, and encrypts it. State 2 absorbs the AAD behind a 2-byte big-endian length, then the payload, into the 16-byte CBC-MAC accumulator at +0x24, encrypting each full block. State 4 encrypts the final partial block (accumulator XOR zero-padded data). States 6 and 8 encrypt counter blocks A0 (counter 0) and Ai (counter at +0x3A), each with flags 1, the nonce and a 2-byte counter, to make the MIC and payload keystream. Even sub-states issue an encrypt and odd sub-states (1, 3, 5, 7, 9) wait for its completion, which is handled outside this packet. This is the CCM member of three near-identical copies of the same pump (0x0C0650C0 and 0x0C065108 carry the same dispatch loop). Callers are ble_crypto_auth_pubkey_begin (0x0C04F894) and sm_pairing_engine_step (0x0C051EB8).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | btstack_crypto_ccm_t request, queued on the list at 0x20017388 |
+| `param_2` | `ptr` | 16-byte AES key |
+| `param_3` | `u16` | message length in bytes |
+| `param_4` | `ptr` | 13-byte CCM nonce |
+| `param_5` | `ptr` | message data buffer |
+| `param_6` | `ptr` | completion callback, stored at +0x04 |
+| `param_7` | `ptr` | callback context, stored at +0x08 |
+
+**Notes:** The job type is set to 3 here, and the CCM steps 6 to 8 later reuse the same item. The item's +0x14 field is a u16 length on enqueue but is used as a key pointer by the CCM steps, so the job helper 0x0C06464C must rewrite it. The completion handler that sets DAT_20017300 and advances sub-states is not in this packet. The exact B0 and MIC byte layout is inferred from the code and from the flags formula, and it matches CCM with M=4 and L=2 (BLE link layer).
+
+- Addresses by version: 219: 0x0C065078
+- Called by: `ble_crypto_auth_pubkey_begin`, `sm_pairing_engine_step`
+- Calls: `btstack_crypto_aes128_encrypt`, `btstack_linked_list_add_tail`, `ble_ctrl_env_get_u8_at_0x198`
+- Confidence: medium
+
+## btstack_crypto_cmac_step
+
+**Advance the BTstack AES-CMAC (RFC 4493) operation: subkeys, CBC-MAC blocks, final block**
+
+BTstack AES-CMAC engine, one step per LE Encrypt round trip, with the key at 0x200172CC and the CBC-MAC state at 0x200172F0. The phase byte DAT_200172DC selects the step: phase 1 starts the operation by encrypting the constant block at 0x0C08625C to obtain L = E_K(0), stored in 0x200172E0, and moves to phase 2 to wait; phase 3 absorbs one 16-byte message block as X = E_K(X xor M_i), where M_i comes from a byte callback at request+0x18 when request+0x0C is 2 (otherwise from the buffer that request+0x18 points to), at offset block_index*16 + i; phase 5 handles the final block, deriving K1 = dbl(L) and K2 = dbl(K1) in GF(2^128) with Rb = 0x87, XORing K1 into a full final block or K2 with 0x80 padding into a partial or empty one, and then encrypting. Phases 2, 4 and 6 are waiting for an LE Encrypt result, and the block index at 0x200172C9 is compared against the block count at 0x200172C8 (ceil(length/16)). Three calls to util_nop_stub_b (ble_219_0c065ce0) are empty trace hooks.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `request` | `ptr` | crypto request record (type, mode, length at +0x14, source at +0x18, callback fields) |
+
+**Notes:** The identification as BTstack's CMAC follows the RFC 4493 structure and the shared btstack_crypto request queue. The phase numbers and the 0x0C08625C zero block are inferred from the code. The completion handler that moves phases 2, 4 and 6 on is outside this packet.
+
+- Addresses by version: 219: 0x0C06464C
+- Called by: `btstack_crypto_aes128_encrypt`
+- Calls: `co_reverse_copy_16`, `util_nop_stub_b`, `hci_send_cmd_no_status`
+- Confidence: medium
+
+## btstack_crypto_ecc_p256_calculate_dhkey
+
+**Queue a P-256 ECDH request (remote public key in, shared secret out)**
+
+Queues a type-5 request holding the remote P-256 public key pointer (param_2, stored at +0x10), the DHKey output pointer (param_3, stored at +0x14), the completion callback (param_4, +0x04) and its context (param_5, +0x08), then runs the shared job pump. The pump sends HCI LE Generate DHKey (opcode 0x2026, template 0x0C081150) with two 32-byte arguments: X at the key pointer and Y at that pointer plus 0x20, and it marks the controller busy. The 32-byte shared secret is written by the completion path, which is not in this packet, so the use of +0x14 is inferred. This is the DHKey member of the same three-copy pump group as 0x0C065078 and 0x0C0650C0, and its only caller in this packet is sm_pdu_rx_handler (0x0C051EF0), the SMP receive path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | btstack_crypto_ecc_p256_t request |
+| `param_2` | `ptr` | remote P-256 public key, 64 bytes (X then Y) |
+| `param_3` | `ptr` | 32-byte DHKey output buffer, stored at +0x14 |
+| `param_4` | `ptr` | completion callback, stored at +0x04 |
+| `param_5` | `ptr` | callback context, stored at +0x08 |
+
+**Notes:** Template 0x0C081150 was decoded from the firmware image as opcode 0x2026, LE Generate DHKey, with format QQ. The public-key layout matches the template's two 32-byte arguments. The DHKey output routing is inferred because the completion handler is not in this packet.
+
+- Addresses by version: 219: 0x0C065108
+- Called by: `sm_pdu_rx_handler`
+- Calls: `btstack_crypto_aes128_encrypt`, `btstack_linked_list_add_tail`, `ble_ctrl_env_get_u8_at_0x198`
+- Confidence: medium
+
+## btstack_crypto_ecc_p256_generate_key
+
+**Queue a P-256 local public-key read and copy the 64-byte result to the caller**
+
+Queues a type-4 request with the output buffer pointer (param_2, stored at +0x10), the completion callback (param_3, +0x04) and its context (param_4, +0x08), then runs the same job pump as 0x0C065078 (the loop is a copy of that one, and 0x0C065108 has the same copy). Before queuing it resets the handshake byte DAT_20017300 from 4 back to 0. When serviced, a DAT_20017300 of 0 is set to 3 and HCI LE Read Local P-256 Public Key (opcode 0x2025, template 0x0C081180, no arguments) is sent. When DAT_20017300 has reached 4, the pump copies the 64-byte X||Y public key from 0x20017304 into the caller's buffer in four 16-byte copies, pops the request and invokes the callback with its context. The shape of the API matches BTstack's btstack_crypto_ecc_p256_generate_key, which is why this name is used. Pump behaviour is the same as in the other two copies, and the caller list contains ble_link_pending_timer_done (0x0C04FC10), sm_pairing_engine_step (0x0C051EB8) and sm_pdu_rx_handler (0x0C051EF0).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | btstack_crypto_ecc_p256_t request |
+| `param_2` | `ptr` | 64-byte output buffer for the local P-256 public key (X then Y) |
+| `param_3` | `ptr` | completion callback, stored at +0x04 |
+| `param_4` | `ptr` | callback context, stored at +0x08 |
+
+**Notes:** Template 0x0C081180 was decoded from the firmware image as opcode 0x2025, LE Read Local P-256 Public Key. The handshake values 3 (command in flight) and 4 (result in 0x20017304) are inferred from the code paths. The completion handler that sets 4 is not in this packet.
+
+- Addresses by version: 219: 0x0C0650C0
+- Called by: `ble_link_pending_timer_done`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`
+- Calls: `btstack_crypto_aes128_encrypt`, `btstack_linked_list_add_tail`, `ble_ctrl_env_get_u8_at_0x198`
+- Confidence: medium
+
+## btstack_crypto_random_generate
+
+**Queue a random-bytes request (type 0, LE Rand) on the crypto list and run it**
+
+BTstack btstack_crypto_random_generate. It records the request as callback at +0x04, argument at +0x08, type 0 at +0x0C, output buffer at +0x10 and byte count (u16) at +0x14, then appends it to the crypto list at 0x20017388 through btstack_linked_list_add_tail_impl (ble_219_0c065416). If ble_ctrl_env_get_u8_at_0x198 returns 2 it runs the request loop, which is inlined here as a copy of the loop in btstack_crypto_aes128_encrypt (ble_219_0c065038). For a type 0 request that loop sends the parameterless HCI command template at 0x0C081168, which is most likely LE Rand (0x2018), and sets the busy byte at 0x2001738C. The loop only dispatches while ll_env_is_ready (ble_219_0c066978) holds and the busy byte is clear.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `request` | `ptr` | caller-owned request record (linked-list node) |
+| `buffer` | `ptr` | output buffer for the random bytes |
+| `size` | `u16` | number of random bytes requested |
+| `callback` | `ptr` | completion callback, called with arg when the bytes are ready |
+| `arg` | `ptr` | argument for the callback |
+
+**Notes:** The signature matches upstream btstack_crypto_random_generate. The LE Rand identification of template 0x0C081168 is an inference, since the template itself is not decoded in this packet. The completion path that fills the buffer is outside this packet.
+
+- Addresses by version: 219: 0x0C064FFC
+- Called by: `ble_crypto_auth_step`, `ble_crypto_auth_load_keys`, `sm_pairing_engine_step`, `sm_pdu_rx_handler`, `sm_crypto_done_resume`
+- Calls: `btstack_crypto_aes128_encrypt`, `btstack_linked_list_add_tail`, `ble_ctrl_env_get_u8_at_0x198`
+- Confidence: medium
+
 ## crc32_compute_poly
 
 **CRC-32 (reflected, init/xorout 0xffffffff) of a buffer using a table built for a given polynomial**
@@ -384,7 +1293,7 @@ Zeroes the 1 KB table at 0x20009484 (memset 0x400), rebuilds it with crc32_make_
 **Returns** `u32`: CRC-32 of the buffer, or 0 for an empty buffer
 
 - Addresses by version: 219: 0x0C02C454
-- Called by: `ble_219_0c029414`
+- Called by: `bt_app_set_name_and_advdata`
 - Calls: `crc32_make_table`, `memset`
 - Confidence: high
 
@@ -421,8 +1330,370 @@ Requires param_2 (byte length) to be a multiple of 8, otherwise returns -1. For 
 **Notes:** Likely used to decrypt firmware-update or config data; the caller context was not examined.
 
 - Addresses by version: 219: 0x0C036418
-- Called by: `ble_219_0c0285ec`
+- Called by: `nb_upgrade_process_cmd`
 - Confidence: high
+
+## ecc_check_privkey_gen
+
+**Check a private key by recomputing k*G and comparing it with the stored public key**
+
+wolfSSL-style ecc_check_privkey_gen(key, a, prime). Loads order, Gx and Gy (mask 0x38) with wc_ecc_curve_load, sets a temporary point to (Gx, Gy, 1), and computes R = k * G with ecc_mulmod_ex2 using the key's RNG, then maps R to affine. R's x, y and z are compared with the stored public point (key+0x18, +0x80, +0xE8). A match returns 0 and a mismatch returns ECC_PRIV_KEY_E (-0xD8). Temporaries and the curve context are zeroed and freed on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `key` | `ptr` | ecc_key with private scalar and stored public point |
+| `a` | `ptr` | curve parameter a |
+| `prime` | `ptr` | field prime fp_int |
+
+**Returns** `s32`: 0 on match, -0xD8 (ECC_PRIV_KEY_E) on mismatch, -0xAD for NULL key, or a setup error
+
+- Addresses by version: 219: 0x0C05FF44
+- Called by: `wc_ecc_check_key`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `wc_ecc_new_point_h`, `ecc_mulmod_ex2`, `fp_clear`, `mp_cmp`, `mp_copy`, `mp_set`, `memset`
+- Confidence: medium
+
+## ecc_check_pubkey_order
+
+**Check that order * Q is the point at infinity (encoded as x = y = 0) for a public key**
+
+Computes order * Q with ecc_mulmod_ex on a temporary point, mapping the result to affine (map flag 1). It returns 0 only when both mapped coordinates are zero, which is the (0, 0) encoding of infinity written by ecc_map_ex; any other result returns ECC_INF_E (-0xD7). A NULL key returns BAD_FUNC_ARG (-0xAD). Only the heap field (key+0x14) is read from the key, and the temporary is zeroed and freed on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `key` | `ptr` | ecc_key, only its heap field is read |
+| `pub` | `ptr` | public point Q |
+| `a` | `ptr` | curve parameter a |
+| `prime` | `ptr` | field prime fp_int |
+| `order` | `ptr` | curve order fp_int |
+
+**Returns** `s32`: 0 when order * Q is infinity, -0xD7 (ECC_INF_E) otherwise, -0xAD for NULL key
+
+- Addresses by version: 219: 0x0C05F830
+- Called by: `ecc_make_pub_ex`, `wc_ecc_check_key`
+- Calls: `ble_ecc_heap_free`, `wc_ecc_new_point_h`, `ecc_mulmod_ex`, `fp_clear`, `get_digit_count`
+- Confidence: high
+
+## ecc_field_inv_fermat
+
+**Field inverse by Fermat: result = base^(m-2) mod m with an 8-entry run-of-ones table**
+
+Computes base^(m-2) mod m with Montgomery products, which is the field inverse when m is prime. It allocates 0x410 bytes (ten 104-byte fp_int slots) through thunk_FUN_0c07097c, copies the base into table slot 0 and fills slots 1 to 7 by square-then-multiply: fp_sqr (ble_219_0c062880), fp_mul_comba24 (ble_219_0c06237c), then fp_montgomery_reduce (ble_219_0c062a28) with mp. Table entry j therefore holds base^(2^(j+1) - 1), so a run of up to eight one-bits in the exponent costs a single multiply. The exponent m - 2 is produced by fp_sub_d (ble_219_0c063ce4) and scanned from its top bit down: each zero bit costs a square, and at the end of each run of ones the matching table entry is multiplied in, with Montgomery reduction after every product. The result is written to the output slot, and the function returns 0, or -2 (0xFFFFFFFE) when the scratch block cannot be allocated. The scan is bounded to 512 exponent bits by a guard of 0x201.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `base` | `ptr` | value to invert (fp_int, Montgomery form) |
+| `modulus` | `ptr` | modulus m (fp_int) |
+| `result` | `ptr` | output (fp_int) |
+| `mp` | `u32` | Montgomery constant -1/m mod 2^32, passed to fp_montgomery_reduce |
+
+**Returns** `s32`: 0 on success, -2 when the scratch block cannot be allocated
+
+**Notes:** Identity (Fermat inverse with a run-of-ones window) is inferred from the exponent m - 2 and the 2^k - 1 table. Use for the P-256 field prime is an assumption and is not verified in this packet. Operands are assumed to be in Montgomery form (R = 2^(32*used)) because every product is Montgomery-reduced.
+
+- Addresses by version: 219: 0x0C063D2C
+- Called by: `ecc_field_inv_fermat_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_mul_comba24`, `fp_sqr`, `fp_montgomery_reduce`, `fp_sub_d`, `memcpy`, `memset`
+- Confidence: medium
+
+## ecc_field_inv_fermat_thunk
+
+**Branch-only alias of ecc_field_inv_fermat (base^(m-2) mod m)**
+
+One-instruction tail branch to ble_219_0c063d2c (ecc_field_inv_fermat). Arguments pass through unchanged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `base` | `ptr` | value to invert (fp_int, Montgomery form) |
+| `modulus` | `ptr` | modulus m (fp_int) |
+| `result` | `ptr` | output (fp_int) |
+| `mp` | `u32` | Montgomery constant -1/m mod 2^32 |
+
+**Returns** `s32`: 0 on success, -2 when the scratch block cannot be allocated
+
+- Addresses by version: 219: 0x0C0640F4
+- Called by: `ecc_map_ex`
+- Calls: `ecc_field_inv_fermat`
+- Confidence: high
+
+## ecc_make_pub_ex
+
+**Compute the public point k*G for a private key, check its order, and set the key type**
+
+wolfSSL-style ecc_make_pub_ex(key, curve, pubOut, rng). If no curve context is given it allocates a 0x208-byte ecc_curve_spec and loads prime, a, order, Gx and Gy from key->dp (mask 0x3B). When pubOut is NULL the key's own public point (key+0x18) is used and the key type is set to ECC_PRIVATEKEY_ONLY (3) on entry and to ECC_PRIVATEKEY (2) on exit. The private scalar at key+0x150 must satisfy 0 < k < order, otherwise ECC_PRIV_KEY_E (-0xD8) is returned. pubOut = k * G is then computed with ecc_mulmod_ex2 (RNG blinding), mapped to affine, and checked with ecc_check_pubkey_order. Temporaries are freed on every path. ecc_verify_hash_ex calls it with (key, NULL, NULL) to fill in the public point of a private-only key.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `key` | `ptr` | ecc_key |
+| `curve` | `ptr` | curve context, or NULL to load one |
+| `pubOut` | `ptr` | output point, or NULL for key->pubkey |
+| `rng` | `ptr` | RNG for blinding |
+
+**Returns** `s32`: 0, -0xD8 (ECC_PRIV_KEY_E) for an out-of-range scalar, or an error from the steps above
+
+- Addresses by version: 219: 0x0C05FD18
+- Called by: `wc_ecc_make_key_ex`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_check_pubkey_order`, `ecc_mulmod_ex2`, `fp_clear`, `mp_init_multi`, `mp_cmp`, `mp_copy`, `mp_iszero`, `mp_montgomery_setup`, `mp_set`, `memset`
+- Confidence: medium
+
+## ecc_map_ex
+
+**Map a Jacobian point to affine (x*z^-2, y*z^-3, z=1); infinity is encoded as (0, 0, 1)**
+
+wolfSSL-style affine mapping. If z is zero the point is set to (0, 0, 1), the infinity encoding that ecc_check_pubkey_order tests for. Otherwise, with montgomeryRepr 0 z is first reduced out of Montgomery form and inverted with the modular inverse at 0x0C0635AC; with a non-zero flag the Montgomery-domain inverse at 0x0C063D2C (not yet described) is used instead. With t = z^-1 it computes t2 = t^2, x = x * t2 mod p, t = t * t2 = z^-3, y = y * t mod p, and sets z = 1. Two temporaries are allocated (MEMORY_E on failure) and zeroed before being freed.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `P` | `ptr` | point, overwritten with its affine form |
+| `modulus` | `ptr` | fp_int field modulus |
+| `rho` | `u32` | Montgomery reduction digit |
+| `montgomeryRepr` | `s32` | 0 when the coordinates are in Montgomery form, non-zero otherwise |
+
+**Returns** `s32`: 0, -0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error
+
+**Notes:** The meaning of the flag is inferred from which inverse path it selects.
+
+- Addresses by version: 219: 0x0C05EFC0
+- Called by: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `ecc_mulmod_ex`, `ecc_mulmod_ex2`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_clear`, `mp_init_multi`, `fp_mul_checked`, `fp_mod_thunk`, `fp_invmod_thunk`, `ecc_field_inv_fermat_thunk`, `mp_cmp_d`, `fp_sqr_thunk`, `fp_montgomery_reduce_thunk`, `mp_set`
+- Confidence: medium
+
+## ecc_mulmod_ex
+
+**Scalar multiply R = k * P without blinding; optional affine mapping of the result**
+
+wolfSSL-style ecc_mulmod_ex(k, P, R, a, modulus, map, heap). Validates the pointers, creates five table points and one temporary with wc_ecc_new_point, converts P to Montgomery form with ecc_point_to_montgomery, and computes rho with mp_montgomery_setup. It then runs ecc_mulmod_ladder_ct with no RNG and, when map is non-zero, maps R to affine with ecc_map_ex(R, modulus, rho, 0). The table and the temporary are freed with wc_ecc_del_point before returning. The verify path uses it for u1 * G and u2 * Q, and ecc_check_pubkey_order uses it with k = order.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `k` | `ptr` | scalar fp_int |
+| `P` | `ptr` | input point |
+| `R` | `ptr` | output point |
+| `a` | `ptr` | curve parameter a |
+| `modulus` | `ptr` | fp_int field modulus |
+| `map` | `s32` | non-zero maps R to affine |
+| `heap` | `ptr` | heap hint for temporaries |
+
+**Returns** `s32`: 0, -0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error
+
+- Addresses by version: 219: 0x0C05F71C
+- Called by: `ecc_mulmod_ex_thunk`, `ecc_check_pubkey_order`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ecc_point_to_montgomery`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_mulmod_ladder_ct`, `fp_clear`, `mp_montgomery_setup`
+- Confidence: medium
+
+## ecc_mulmod_ex2
+
+**Blinded scalar multiply R = k * G: k + order blinding, optional RNG, optional affine map**
+
+wolfSSL-style ecc_mulmod_ex2(k, G, R, a, modulus, order, rng, map, heap). Converts G to Montgomery form, takes rho, and rejects a scalar wider than the order (-0xD9). It computes the blinded scalar k + order, adding the order a second time only when that sum still has the order's bit length, so the ladder always runs over a fixed number of bits. It then calls ecc_mulmod_ladder_ct with the RNG enabling projective blinding. If k is 1 modulo the order the result is replaced by the input point through a constant-time conditional copy. Finally it maps R to affine when map is non-zero and frees its temporaries. Callers are ecc_shared_secret, ecc_make_pub_ex and ecc_check_privkey_gen.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `k` | `ptr` | private scalar fp_int |
+| `G` | `ptr` | input point |
+| `R` | `ptr` | output point |
+| `a` | `ptr` | curve parameter a |
+| `modulus` | `ptr` | fp_int field modulus |
+| `order` | `ptr` | curve order fp_int |
+| `rng` | `ptr` | RNG for blinding, may be NULL |
+| `map` | `s32` | non-zero maps R to affine |
+| `heap` | `ptr` | heap hint |
+
+**Returns** `s32`: 0, -0xAA for NULL input, -0xD9 for an over-wide scalar, MEMORY_E, or an arithmetic error
+
+- Addresses by version: 219: 0x0C05F8C4
+- Called by: `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`
+- Calls: `ble_ecc_heap_free`, `ecc_point_to_montgomery`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_mulmod_ladder_ct`, `mp_init`, `mp_forcezero`, `fp_clear`, `mp_clear`, `fp_add_thunk`, `mp_cmp`, `mp_cmp_d`, `mp_copy`, `mp_count_bits`, `mp_add_d`, `mp_montgomery_setup` ...
+- Confidence: medium
+
+## ecc_mulmod_ex_thunk
+
+**Branch-only alias of ecc_mulmod_ex; the argument registers pass straight through**
+
+Tail-calls ecc_mulmod_ex (0x0C05F71C) without setting up any arguments, so the caller (0x0C05B86C, not yet described) must already hold the argument registers. Like the other *_thunk entries it is a pure branch alias.
+
+- Addresses by version: 219: 0x0C05F818
+- Called by: `ble_ecc_scalar_base_mult`
+- Calls: `ecc_mulmod_ex`
+- Confidence: medium
+
+## ecc_mulmod_ladder_ct
+
+**Constant-time Montgomery-ladder scalar multiply over a table of points, optional RNG blinding**
+
+Core of the scalar multiplication. It copies P into table entry 0, computes entry 1 = 2P with ecc_projective_dbl_point, and copies entries 0 and 1 into entries 3 and 4. When the RNG argument is non-zero, entries 3 and 4 are first randomised with ecc_randomize_projective. It then walks the digits and bits of the scalar from the top; each bit performs one ecc_projective_add_point and conditional copies (mp_cond_copy) that select the accumulator, so the sequence of operations does not depend on the bit values. The top digit is located with get_digit_count of the modulus, and bits are read with get_digit. The final accumulator is written to R, and errors from any step are returned.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `k` | `ptr` | scalar fp_int |
+| `P` | `ptr` | input point, Montgomery form |
+| `R` | `ptr` | output point |
+| `table` | `ptr` | array of point pointers, entries 0..4 used |
+| `a` | `ptr` | curve parameter a |
+| `modulus` | `ptr` | fp_int field modulus |
+| `rho` | `u32` | Montgomery reduction digit |
+| `rng` | `ptr` | RNG for projective blinding, NULL for none |
+
+**Returns** `s32`: 0 or the first error from the point or field operations
+
+**Notes:** The exact ladder update is not traced line by line; the constant-time structure (fixed add plus cond-copy per bit) is what the code shows.
+
+- Addresses by version: 219: 0x0C05F338
+- Called by: `ecc_mulmod_ex`, `ecc_mulmod_ex2`
+- Calls: `stub_return_zero_0c0360c8`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `wc_ecc_copy_point`, `ecc_randomize_projective`, `mp_copy`, `mp_count_bits`, `get_digit_count`, `get_digit`, `mp_cond_copy`
+- Confidence: medium
+
+## ecc_point_on_curve_check
+
+**Test y^2 == x^3 - 3x + b (mod p) for the point at param 1; returns 0 when it is on the curve**
+
+ECC on-curve test for a short Weierstrass curve with a = -3 (the NIST prime-curve family). Parameter 1 points at the x coordinate of the point and y is the fp_int 0x68 bytes further on, the same layout as pubkey.x/pubkey.y in the ECC key. It computes t1 = y^2 (fp_sqr), t2 = x^2 mod p (fp_mod), t2 = x * t2 through the 3-operand multiply thunk ble_219_0c064090 (not yet described), t1 = t1 - t2 (fp_sub), then adds x three times, which leaves t1 = y^2 - x^3 + 3x. t1 is reduced with fp_mod and normalised into [0, p) by repeated add or subtract of p, then compared with the curve constant b (param 3) using mp_cmp. Two temporaries come from mp_init_multi and are released with fp_clear. Parameter 2 (the a coefficient) is never read because a = -3 is built in.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | point; x fp_int at +0, y fp_int at +0x68 |
+| `param_2` | `u32` | curve a coefficient slot; not read (a = -3 is built in) |
+| `param_3` | `ptr` | curve constant b as an fp_int |
+| `param_4` | `ptr` | field prime p as an fp_int |
+
+**Returns** `s32`: 0 when y^2 == x^3 - 3x + b (mod p); -214 (0xffffff2a) when not equal; -2 on allocation failure, -125 (0xffffff83) if a temporary cannot be allocated
+
+**Notes:** Identity of the test is inferred from the arithmetic (the a = -3 form, the three additions of x, and the final compare with the constant). Callee ble_219_0c064090 is taken to be a 3-operand multiply and is not verified.
+
+- Addresses by version: 219: 0x0C060828
+- Called by: `wc_ecc_check_key`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_clear`, `mp_init_multi`, `fp_add_thunk`, `fp_sub_thunk`, `fp_mul_checked`, `fp_mod_thunk`, `mp_cmp`, `fp_sqr_thunk`
+- Confidence: medium
+
+## ecc_point_to_montgomery
+
+**Convert the X, Y and Z coordinates of a point to Montgomery form**
+
+Computes t = R mod modulus with fp_montgomery_calc_normalization (0x0C062940, R = 2^(32*used)). For each coordinate (offsets 0, 0x68, 0xD0) of the source point it writes the product with t, reduced modulo the modulus (0x0C06353C), into the destination point. When t equals 1 the three coordinates are plain-copied with mp_copy instead. The temporary t comes from ble_ecc_heap_alloc(0x68) and is freed with ble_ecc_heap_free, and an allocation failure returns MEMORY_E (-0x7D). Used before each ladder run in ecc_mulmod_ex, ecc_mulmod_ex2 and the verify path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `src` | `ptr` | source ecc_point in plain form |
+| `dst` | `ptr` | destination ecc_point in Montgomery form |
+| `modulus` | `ptr` | fp_int modulus |
+
+**Returns** `s32`: 0, MEMORY_E (-0x7D), or the first failing arithmetic result
+
+- Addresses by version: 219: 0x0C05E558
+- Called by: `ecc_mulmod_ex`, `ecc_mulmod_ex2`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `mp_init`, `fp_clear`, `fp_mulmod_thunk`, `mp_cmp_d`, `mp_copy`, `fp_montgomery_calc_normalization_thunk`
+- Confidence: medium
+
+## ecc_projective_add_point
+
+**Add two Jacobian points, R = P + Q, with constant-time field helpers; equal inputs double**
+
+wolfSSL-style Jacobian addition. If the two operands alias (Q and R the same pointer) they are swapped first. When the operands are the same point (x and y compare equal, with the Z tests passing) it returns ecc_projective_dbl_point(P, R, a, modulus, rho) instead. The general path uses squarings and multiplications with Montgomery reduction, constant-time modular add and subtract (fp_addmod_ct, fp_submod_ct), and zero tests on the Z coordinates (mp_iszero, get_digit_count) to detect the point at infinity and select the other operand. Two temporaries are allocated with ble_ecc_heap_alloc and freed on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `P` | `ptr` | first input point |
+| `Q` | `ptr` | second input point |
+| `R` | `ptr` | output point |
+| `a` | `ptr` | curve parameter a |
+| `modulus` | `ptr` | fp_int field modulus |
+| `rho` | `u32` | Montgomery reduction digit |
+
+**Returns** `s32`: 0, or an error code (-0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error)
+
+**Notes:** Exact formula sequence for the general (non-doubling) case was not traced line by line; the description covers the structure.
+
+- Addresses by version: 219: 0x0C05EB00
+- Called by: `ble_ecc_point_add_mont`, `ecc_mulmod_ladder_ct`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `ecc_projective_dbl_point`, `fp_clear`, `mp_init_multi`, `fp_mul_checked`, `fp_submod_ct_thunk`, `fp_addmod_ct_thunk`, `mp_cmp`, `mp_copy`, `mp_iszero`, `fp_sqr_thunk`, `fp_montgomery_reduce_thunk`, `fp_div_2_mod_ct_thunk`, `get_digit_count`
+- Confidence: medium
+
+## ecc_projective_dbl_point
+
+**Double a Jacobian point (a = -3 shortcut): out = 2 * in, with constant-time field operations**
+
+wolfSSL-style Jacobian doubling. The input point (X, Y, Z at offsets 0, 0x68, 0xD0) is copied to the output and then computed with the a = -3 sequence: t1 = Z^2, t2 = (X - t1)(X + t1), M = 3 * t2, Z3 = 2 * Y * Z, followed by the X and Y updates. Every multiply is followed by Montgomery reduction with the modulus and rho, and additions, subtractions and halvings use the constant-time helpers fp_addmod_ct, fp_submod_ct and fp_div_2_mod_ct. The curve parameter a (third argument) is not read by the decompiled body, so the routine is correct only for a = -3, which holds for the NIST prime curves. Two temporaries are allocated and freed; NULL input returns ECC_BAD_ARG_E (-0xAA). Called by ecc_projective_add_point when both inputs are the same point and by ecc_mulmod_ladder_ct to form 2P.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `in` | `ptr` | input point P (X at +0, Y at +0x68, Z at +0xD0) |
+| `out` | `ptr` | output point, receives 2P |
+| `a` | `ptr` | curve parameter a (not read by the body) |
+| `modulus` | `ptr` | fp_int field modulus |
+| `rho` | `u32` | Montgomery reduction digit |
+
+**Returns** `s32`: 0, or an error code (-0xAA for NULL input, MEMORY_E -0x7D, or an arithmetic error)
+
+- Addresses by version: 219: 0x0C05E868
+- Called by: `ecc_projective_add_point`, `ecc_mulmod_ladder_ct`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_clear`, `mp_init_multi`, `fp_mul_checked`, `fp_submod_ct_thunk`, `fp_addmod_ct_thunk`, `mp_copy`, `fp_sqr_thunk`, `fp_montgomery_reduce_thunk`, `fp_div_2_mod_ct_thunk`
+- Confidence: medium
+
+## ecc_randomize_projective
+
+**Re-randomise a point's projective coordinates with a random factor r (Z*=r, X*=r^2, Y*=r^3)**
+
+Draws r with wc_ecc_gen_k (0x0C05F218) into temp2, then multiplies Z by r, computes t1 = r^2 and r = r^3, and multiplies X by r^2 and Y by r^3, with a Montgomery reduction after each product. This is the Coron-style projective blinding that hides intermediate values during the ladder. It runs only when the ladder is given an RNG (see ecc_mulmod_ladder_ct), and a failed random draw returns before any coordinate is touched.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `rng` | `ptr` | RNG state |
+| `size` | `s32` | key size in bytes |
+| `point` | `ptr` | ecc_point to re-randomise |
+| `modulus` | `ptr` | fp_int field modulus |
+| `rho` | `u32` | Montgomery reduction digit |
+| `t1` | `ptr` | temporary fp_int |
+| `t2` | `ptr` | temporary fp_int, receives r |
+
+**Returns** `s32`: 0 or the error from wc_ecc_gen_k
+
+**Notes:** The bound used when drawing r is uncertain: the decompiled call to 0x0C05F218 passes only three arguments, so the fourth is not known.
+
+- Addresses by version: 219: 0x0C05F28C
+- Called by: `ecc_mulmod_ladder_ct`
+- Calls: `wc_ecc_gen_k`, `fp_mul_checked`, `fp_sqr_thunk`, `fp_montgomery_reduce_thunk`
+- Confidence: medium
+
+## ecc_shared_secret
+
+**ECDH core: X coordinate of (private scalar * peer point) written to the output buffer**
+
+wolfSSL-style ecc_shared_secret(key, point, out, outlen). It loads prime, a and order from key->dp with wc_ecc_curve_load (mask 0x0B), requires an RNG on the key (MISSING_RNG_E, -0xEC, otherwise), and multiplies the private scalar at key+0x150 by the peer point with ecc_mulmod_ex2 (RNG on), then maps the product to affine with ecc_map_ex. The big-endian X coordinate is written right-aligned into out with leading zero padding up to the field size. A too-small out returns BUFFER_E (-0x84), and *outlen is set to the required field size in that case and on success. The other failure paths set *outlen to 0. Temporaries and the curve context are zeroed and freed.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `key` | `ptr` | private ecc_key (dp at +0x10, rng at +0x1b8, scalar at +0x150) |
+| `point` | `ptr` | peer public point |
+| `out` | `ptr` | output buffer |
+| `outlen` | `ptr` | in: buffer size, out: bytes written (u32) |
+
+**Returns** `s32`: 0, -0xEC (MISSING_RNG_E), -0x84 (BUFFER_E), -0x7D, or an ECC arithmetic error
+
+- Addresses by version: 219: 0x0C05FB10
+- Called by: `wc_ecc_shared_secret`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_mulmod_ex2`, `fp_clear`, `mp_unsigned_bin_size`, `fp_to_unsigned_bin_thunk`, `mp_montgomery_setup`, `memset`
+- Confidence: medium
+
+## ecc_verify_hash_ex
+
+**ECDSA verify core: check x(u1*G + u2*Q) mod n against r and set *res**
+
+wolfSSL-style ecc_verify_hash_ex(r, s, hash, hashlen, res, key). *res is cleared first. It rejects r or s that are zero or not below the order (-0x79), reads the digest with fp_read_unsigned_bin and truncates it to the order's bit length, then computes w = s^-1 mod n (0x0C0635AC), u1 = e * w mod n and u2 = r * w mod n. The point R = u1 * G + u2 * Q is formed with two ecc_mulmod_ex calls (G from the curve context, Q = key->pubkey) and ecc_projective_add_point, then mapped to affine with ecc_map_ex. *res is set to 1 when x(R) mod n equals r. A private-only key (type 3) first gets its public point from ecc_make_pub_ex. All temporaries are freed on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `r` | `ptr` | signature r fp_int |
+| `s` | `ptr` | signature s fp_int |
+| `hash` | `ptr` | message digest |
+| `hashlen` | `s32` | digest length in bytes |
+| `res` | `ptr` | output verdict, 1 = valid, 0 = invalid (s32) |
+| `key` | `ptr` | ecc_key with public point |
+
+**Returns** `s32`: 0 when the check ran (verdict in *res), -0x79 for out-of-range r or s, or an error code
+
+- Addresses by version: 219: 0x0C0601FC
+- Called by: `wc_ecc_verify_hash`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_mulmod_ex`, `ecc_make_pub_ex`, `mp_init`, `fp_clear`, `mp_init_multi`, `fp_mulmod_thunk`, `fp_mod_thunk`, `fp_invmod_thunk` ...
+- Confidence: medium
 
 ## fp_add
 
@@ -440,7 +1711,7 @@ wolfSSL fp_add(a, b, c). If the signs are equal: c->sign = a->sign and return s_
 **Returns** `s32`: 0, or FP_VAL from s_fp_add
 
 - Addresses by version: 219: 0x0C061FE8
-- Called by: `ble_219_0c062fe4`, `ble_219_0c0634c4`, `ble_219_0c0635ac`, `fp_add_thunk`
+- Called by: `fp_div`, `fp_mod`, `fp_invmod`, `fp_add_thunk`
 - Calls: `s_fp_add`, `s_fp_sub`
 - Confidence: high
 
@@ -482,7 +1753,7 @@ Single-instruction thunk that branches to fp_add at 0x0C061FE8; the decompiled b
 **Returns** `s32`: 0 (as the target returns)
 
 - Addresses by version: 219: 0x0C064088
-- Called by: `ble_219_0c05f8c4`, `ble_219_0c060828`
+- Called by: `ecc_mulmod_ex2`, `ecc_point_on_curve_check`
 - Calls: `fp_add`
 - Confidence: high
 
@@ -522,7 +1793,7 @@ Single-instruction thunk that branches to fp_addmod_ct at 0x0C062654; the decomp
 **Returns** `s32`: 0 (as the target returns)
 
 - Addresses by version: 219: 0x0C0640E8
-- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`
 - Calls: `fp_addmod_ct`
 - Confidence: high
 
@@ -539,7 +1810,7 @@ If a is non-NULL: used = 0, sign = 0 and the 24-digit array (0x60 bytes) cleared
 **Notes:** Functionally this is wolfSSL's mp_clear; the name mp_clear was already assigned in wave 1 to the empty function 0c064000 (which is more likely mp_free/fp_free), so the inner routine's name fp_clear is used here.
 
 - Addresses by version: 219: 0x0C063FEC
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `GetInt`, `DecodeECC_DSA_Sig`, `wc_ecc_curve_free`, `ble_219_0c05e558`, `ble_219_0c05e868`, `ble_219_0c05eb00`, `ble_219_0c05efc0`, `ble_219_0c05f1b0`, `ble_219_0c05f71c` ...
+- Called by: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `ble_crypto_ecdsa_p256_verify`, `GetInt`, `DecodeECC_DSA_Sig`, `wc_ecc_curve_free`, `ecc_point_to_montgomery`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `wc_ecc_del_point`, `ecc_mulmod_ex` ...
 - Calls: `memset`
 - Confidence: medium
 
@@ -557,7 +1828,7 @@ Returns 1 (FP_GT), 0 (FP_EQ) or -1 (FP_LT). If signs differ the positive operand
 **Returns** `s32`: 1 if a > b, 0 if equal, -1 if a < b
 
 - Addresses by version: 219: 0x0C0628B4
-- Called by: `ble_219_0c062fe4`, `ble_219_0c0635ac`
+- Called by: `fp_div`, `fp_invmod`
 - Confidence: high
 
 ## fp_cmp_mag_ct
@@ -580,6 +1851,26 @@ Compares the lowest n digits of two fp_int values from the most significant digi
 - Called by: `fp_submod_ct`, `fp_addmod_ct`
 - Confidence: medium
 
+## fp_div
+
+**Divide two fp_ints: quotient c = a / b and remainder d = a mod b (Knuth algorithm D)**
+
+TFM fp_div. A zero divisor returns -1 (FP_VAL). When |a| < |b| the quotient is 0 and the remainder is a. Otherwise both operands are normalised by a left shift (fp_mul_2d) so the top divisor digit has its high bit set. The quotient digits are estimated with 64-bit division (__udivdi3), corrected with fp_mul_d, fp_sub and fp_cmp, and the remainder is un-normalised with fp_div_2d. Either output (c or d) may be NULL. A 0x208-byte scratch structure is used. Returns 0 on success, -1 for a zero divisor, -2 on allocation failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | dividend a |
+| `param_2` | `ptr` | divisor b |
+| `param_3` | `ptr` | quotient c, may be NULL |
+| `param_4` | `ptr` | remainder d, may be NULL |
+
+**Returns** `s32`: 0 on success; -1 for a zero divisor; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C062FE4
+- Called by: `fp_mod`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_add`, `fp_sub`, `fp_mul_d`, `fp_cmp`, `fp_lshd`, `fp_mul_2d`, `fp_rshd`, `fp_div_2d`, `__udivdi3`, `memcpy`, `memset`
+- Confidence: high
+
 ## fp_div_2
 
 **Halve a big integer b = a / 2 by a one-bit right shift from the top digit down (wolfSSL)**
@@ -594,7 +1885,7 @@ wolfSSL TFM fp_div_2(a, b). b->used = a->used; starting at digit used-1 each dig
 | `param_4` | `u32` | unused |
 
 - Addresses by version: 219: 0x0C0623CC
-- Called by: `fp_div_2_mod_ct`, `ble_219_0c0635ac`
+- Called by: `fp_div_2_mod_ct`, `fp_invmod`
 - Calls: `memset`
 - Confidence: high
 
@@ -632,7 +1923,7 @@ Single-instruction thunk that branches to fp_div_2_mod_ct at 0x0C062450; the dec
 **Returns** `s32`: 0 (as the target returns)
 
 - Addresses by version: 219: 0x0C064498
-- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`
 - Calls: `fp_div_2_mod_ct`
 - Confidence: high
 
@@ -650,8 +1941,48 @@ wolfSSL TFM fp_div_2d: c = a >> b and, when d is non-NULL, d = a mod 2^b. For b 
 | `param_4` | `ptr` | remainder output d, or NULL |
 
 - Addresses by version: 219: 0x0C062F28
-- Called by: `ble_219_0c062fe4`
+- Called by: `fp_div`
 - Calls: `fp_mod_2d`, `fp_rshd`, `fp_rshb`, `memcpy`, `memset`
+- Confidence: high
+
+## fp_invmod
+
+**Modular inverse c = a^-1 mod b (TFM fp_invmod): odd modulus uses binary extended Euclid**
+
+wolfSSL TFM fp_invmod. Returns -1 when b is negative or zero, or when a is zero. Otherwise it allocates a scratch block through the allocator thunk thunk_FUN_0c07097c (0x270 bytes = six 104-byte fp_int slots when b is odd, 0x340 bytes = eight slots when b is even) and returns -2 if that fails. For an odd modulus it first reduces a with fp_mod (ble_219_0c0634c4) when fp_cmp (ble_219_0c0628b4) reports a >= b, then runs a binary extended Euclid on u = b and v = a mod b: u (or v) is halved with fp_div_2 (ble_219_0c0623cc) while even, and the matching coefficient slots are adjusted by plus or minus b with fp_add and fp_sub until u reaches 0. If the leftover v equals 1, the coefficient in slot 5 is reduced into [0, b) with fp_add and fp_sub and copied to c, and the function returns 0; any other leftover means there is no inverse and it returns -1. The even-modulus branch runs a similar loop over eight slots with the same helpers, and its details are less certain. Scratch memory is zeroed with memset and released through thunk_FUN_0c07098c on every path.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | value to invert (fp_int) |
+| `b` | `ptr` | modulus (fp_int), must be positive and nonzero |
+| `c` | `ptr` | output (fp_int), receives the inverse in [0, b) |
+
+**Returns** `s32`: 0 on success; -1 for invalid input or when a has no inverse mod b; -2 when the scratch block cannot be allocated
+
+**Notes:** The odd/even split is on b->dp[0] & 1, as in TFM (fp_invmod_slow for an odd modulus). The even branch is identified only by its structure. The packet lists ble_219_0c05cba0 and ble_219_0c05cba4 as callees, but no call to them is visible in this decompile, so they are not described here.
+
+- Addresses by version: 219: 0x0C0635AC
+- Called by: `fp_invmod_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_add`, `fp_sub`, `fp_div_2`, `fp_cmp`, `fp_mod`, `memcpy`, `memset`
+- Confidence: medium
+
+## fp_invmod_thunk
+
+**Branch-only alias of fp_invmod (modular inverse c = a^-1 mod b)**
+
+One-instruction tail branch to ble_219_0c0635ac (fp_invmod). Arguments a, b and c pass through unchanged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | value to invert (fp_int) |
+| `b` | `ptr` | modulus (fp_int) |
+| `c` | `ptr` | output (fp_int) |
+
+**Returns** `s32`: as fp_invmod: 0, -1 or -2
+
+- Addresses by version: 219: 0x0C0640F0
+- Called by: `ecc_map_ex`, `ecc_verify_hash_ex`
+- Calls: `fp_invmod`
 - Confidence: high
 
 ## fp_lshd
@@ -670,8 +2001,28 @@ wolfSSL TFM fp_lshd(a, x). If a->used + x > 24 (FP_SIZE) returns -1 (FP_VAL) wit
 **Returns** `s32`: 0 (FP_OKAY) or -1 (FP_VAL) if the result would exceed 24 digits
 
 - Addresses by version: 219: 0x0C062D08
-- Called by: `fp_mul_2d`, `ble_219_0c062fe4`
+- Called by: `fp_mul_2d`, `fp_div`
 - Calls: `memset`
+- Confidence: high
+
+## fp_mod
+
+**Modular reduction c = a mod b with the remainder taking the sign of b**
+
+TFM fp_mod. It takes the remainder of a divided by b with fp_div (0c062fe4) into a scratch value. If the remainder's sign matches b's sign it is copied to c. Otherwise b is added to it (fp_add), so the result lies in [0, b) for positive b.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | dividend a |
+| `param_2` | `ptr` | modulus b |
+| `param_3` | `ptr` | result c |
+| `param_4` | `u32` | unused |
+
+**Returns** `s32`: 0 on success; -1 for a zero modulus; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C0634C4
+- Called by: `fp_mulmod`, `fp_invmod`, `fp_mod_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_add`, `fp_div`, `memcpy`, `memset`
 - Confidence: high
 
 ## fp_mod_2d
@@ -689,6 +2040,26 @@ wolfSSL TFM fp_mod_2d(a, b, c). If b <= 0 the result c is zeroed (used = 0, sign
 - Addresses by version: 219: 0x0C0624E8
 - Called by: `fp_div_2d`
 - Calls: `memcpy`, `memset`
+- Confidence: high
+
+## fp_mod_thunk
+
+**Branch-only alias of fp_mod (c = a mod b, remainder takes the sign of b)**
+
+One-instruction tail branch to ble_219_0c0634c4 (fp_mod). The target computes the remainder with fp_div (ble_219_0c062fe4) into a heap temporary, copies it to the output when its sign already matches b, and otherwise adds b with fp_add. Arguments pass through unchanged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | dividend (fp_int) |
+| `b` | `ptr` | modulus (fp_int) |
+| `c` | `ptr` | output (fp_int) |
+| `param_4` | `u32` | forwarded to the target unchanged |
+
+**Returns** `s32`: as fp_mod: 0 on success, otherwise the failing status
+
+- Addresses by version: 219: 0x0C0640EC
+- Called by: `ble_ecc_scalar_base_mult`, `ecc_map_ex`, `wc_ecc_gen_k`, `ecc_verify_hash_ex`, `ecc_point_on_curve_check`
+- Calls: `fp_mod`
 - Confidence: high
 
 ## fp_montgomery_calc_normalization
@@ -727,8 +2098,61 @@ Single-instruction thunk that branches to fp_montgomery_calc_normalization at 0x
 **Returns** `s32`: 0 on success, or the error code from the doubling helper
 
 - Addresses by version: 219: 0x0C064288
-- Called by: `ble_219_0c05b724`, `ble_219_0c05e558`
+- Called by: `ble_ecc_point_add_mont`, `ecc_point_to_montgomery`
 - Calls: `fp_montgomery_calc_normalization`
+- Confidence: high
+
+## fp_montgomery_reduce
+
+**Montgomery reduction x = x * R^-1 mod m, word by word, with a final conditional subtract of m**
+
+TFM fp_montgomery_reduce. The modulus must have at most 12 digits (384 bits), else -1. It works on a scratch copy of x. For each of the low digits it computes u = x[i] * rho (mod 2^32), where rho = -1/m mod 2^32, and adds u * m shifted by i digits with carry propagation. After all digits the high half is shifted down by the modulus digit count. A final s_fp_sub subtracts m when the result is at least m, comparing from the top digit. Returns 0 on success, -1 for a modulus too big, -2 on allocation failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | x, in and out (reduced value) |
+| `param_2` | `ptr` | modulus m, at most 12 digits |
+| `param_3` | `u32` | rho = -1/m mod 2^32 |
+
+**Returns** `s32`: 0 on success; -1 for a modulus above 12 digits; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C062A28
+- Called by: `ecc_field_inv_fermat`, `fp_montgomery_reduce_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `s_fp_sub`, `memset`
+- Confidence: high
+
+## fp_montgomery_reduce_thunk
+
+**Two-instruction wrapper that calls fp_montgomery_reduce and returns**
+
+Calls ble_219_0c062a28 (fp_montgomery_reduce) with whatever the caller left in the argument registers, and returns. It takes no arguments of its own and leaves the callee's result in r0. Its callers in the packet list are ECC code paths.
+
+**Returns** `s32`: the callee's result in r0 (fp_montgomery_reduce: 0, -1 or -2)
+
+**Notes:** The decompile shows an empty argument list, but fp_montgomery_reduce takes three meaningful arguments (x, modulus, mp) that the caller places in r0 to r2.
+
+- Addresses by version: 219: 0x0C064450
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `ecc_randomize_projective`
+- Calls: `fp_montgomery_reduce`
+- Confidence: high
+
+## fp_mul
+
+**Multiply two fp_ints, c = a * b (comba column accumulation); fails when the digit sum exceeds 23**
+
+TFM fp_mul in comba form. It requires used(a) + used(b) <= 23, otherwise -1 (FP_VAL), and allocates a 0x68-byte scratch fp_int, returning -2 on allocation failure. Column by column it accumulates 32x32 to 64-bit products with carry propagation, writing one result digit per column. The result sign is the XOR of the operand signs, zero is normalised to positive, and the scratch value is copied into c with memcpy before the scratch is freed. The shared group of big-integer routines (fp_sqr, fp_div and so on) sits next to it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | operand a |
+| `param_2` | `ptr` | operand b |
+| `param_3` | `ptr` | destination c |
+
+**Returns** `s32`: 0 on success; -1 when the digit sum exceeds 23; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C062218
+- Called by: `fp_mul_comba24`, `fp_mulmod`, `fp_mul_checked`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `memcpy`, `memset`
 - Confidence: high
 
 ## fp_mul_2
@@ -766,9 +2190,51 @@ wolfSSL TFM fp_mul_2d(a, b, c). Copies a to c when the pointers differ. If b >= 
 **Returns** `s32`: 0 (FP_OKAY) or -1 (FP_VAL) on overflow of the 24-digit buffer
 
 - Addresses by version: 219: 0x0C062D84
-- Called by: `ble_219_0c062fe4`
+- Called by: `fp_div`
 - Calls: `fp_lshd`, `memcpy`
 - Confidence: high
+
+## fp_mul_checked
+
+**Checked multiply c = a * b: rejects digit sums above 24, then fp_mul and clears stale digits**
+
+Returns -1 without computing anything when a->used + b->used exceeds 24, the 24-digit capacity of a 104-byte fp_int. Otherwise it calls fp_mul (ble_219_0c062218) to form the product in c, then zeroes the dp digits of c between its new used count and its previous used count so that no stale high digits remain. The return value is fp_mul's status (0 on success).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | multiplicand (fp_int) |
+| `b` | `ptr` | multiplier (fp_int) |
+| `c` | `ptr` | product output (fp_int) |
+
+**Returns** `s32`: 0 on success, -1 when the digit sum exceeds 24, otherwise fp_mul's status
+
+**Notes:** Same contract as fp_mul_comba24 (ble_219_0c06237c) but without its temporary allocation, so it is likely a second copy of the same wrapper in the binary. The name is chosen to keep names unique.
+
+- Addresses by version: 219: 0x0C064090
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `ecc_randomize_projective`, `ecc_point_on_curve_check`
+- Calls: `fp_mul`
+- Confidence: high
+
+## fp_mul_comba24
+
+**Fixed-capacity multiply wrapper c = a * b for digit sums up to 24; clears stale digits of c**
+
+TFM-style fp_mul_comba24 wrapper. It rejects operand digit sums above 24 with -1, multiplies through fp_mul (0c062218), and then zeroes the digits of c above its new used count so no stale digits remain from an earlier, larger value.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | operand a |
+| `param_2` | `ptr` | operand b |
+| `param_3` | `ptr` | destination c |
+
+**Returns** `s32`: 0 on success; -1 when the digit sum exceeds 24; -2 on allocation failure
+
+**Notes:** The name follows the TFM fixed-size variant with a 24-digit cutoff; the decompile only shows the size guard and the call to fp_mul.
+
+- Addresses by version: 219: 0x0C06237C
+- Called by: `ecc_field_inv_fermat`
+- Calls: `fp_mul`
+- Confidence: medium
 
 ## fp_mul_d
 
@@ -785,7 +2251,47 @@ Copies a's used count and sign to c, then multiplies each digit of a by b with a
 **Returns** `s32`: 0 (FP_OKAY) or -1 (FP_VAL) on overflow of the 24-digit buffer
 
 - Addresses by version: 219: 0x0C062168
-- Called by: `ble_219_0c062fe4`, `fp_read_radix`
+- Called by: `fp_div`, `fp_read_radix`
+- Confidence: high
+
+## fp_mulmod
+
+**Modular multiply c = a * b mod m for total digit counts up to 24**
+
+TFM fp_mulmod. It requires used(a) + used(b) <= 24, otherwise -1. It multiplies a and b into a scratch fp_int with fp_mul (0c062218) and reduces the product modulo m with fp_mod (0c0634c4) into the result. Returns 0 on success.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | operand a |
+| `param_2` | `ptr` | operand b |
+| `param_3` | `ptr` | modulus m |
+| `param_4` | `ptr` | result c |
+
+**Returns** `s32`: 0 on success; -1 when the digit sum exceeds 24; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C06353C
+- Called by: `fp_mulmod_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_mul`, `fp_mod`, `memset`
+- Confidence: high
+
+## fp_mulmod_thunk
+
+**Branch-only alias of fp_mulmod (modular multiply c = a * b mod m)**
+
+One-instruction tail branch to ble_219_0c06353c (fp_mulmod). It has no logic of its own and passes all four arguments through unchanged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | multiplicand (fp_int) |
+| `b` | `ptr` | multiplier (fp_int) |
+| `m` | `ptr` | modulus (fp_int) |
+| `c` | `ptr` | output (fp_int) |
+
+**Returns** `s32`: as fp_mulmod: 0 on success, -1 for a digit sum above 24, -2 on allocation failure
+
+- Addresses by version: 219: 0x0C0640E0
+- Called by: `ble_ecc_point_add_mont`, `ecc_point_to_montgomery`, `ecc_verify_hash_ex`
+- Calls: `fp_mulmod`
 - Confidence: high
 
 ## fp_read_radix
@@ -804,7 +2310,7 @@ wolfSSL TFM fp_read_radix(a, str, radix). a is zeroed first. For radix 16 the in
 **Returns** `s32`: 0 (FP_OKAY), -1 (FP_VAL) for bad radix / bad hex digit / overflow, or an fp_mul_d/fp_add_d error
 
 - Addresses by version: 219: 0x0C0642F8
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bd30`, `wc_ecc_curve_load`, `ble_219_0c060974`
+- Called by: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `ble_crypto_diversify`, `wc_ecc_curve_load`, `wc_ecc_check_key`
 - Calls: `fp_mul_d`, `fp_add_d`, `memset`, `strlen`
 - Confidence: high
 
@@ -857,7 +2363,7 @@ Single-instruction thunk that branches to fp_rshb at 0x0C062EA8; the decompiled 
 | `param_2` | `u32` | bit count |
 
 - Addresses by version: 219: 0x0C064284
-- Called by: `ble_219_0c0601fc`
+- Called by: `ecc_verify_hash_ex`
 - Calls: `fp_rshb`
 - Confidence: high
 
@@ -873,8 +2379,58 @@ wolfSSL TFM fp_rshd(a, x). If x >= a->used the value becomes zero (used = 0, sig
 | `x` | `s32` | number of digits to shift right |
 
 - Addresses by version: 219: 0x0C062E40
-- Called by: `fp_rshb`, `fp_div_2d`, `ble_219_0c062fe4`
+- Called by: `fp_rshb`, `fp_div_2d`, `fp_div`
 - Calls: `memset`
+- Confidence: high
+
+## fp_sqr
+
+**Square wrapper b = a^2: runs fp_sqr_comba and clears stale digits of b above the new used count**
+
+TFM fp_sqr wrapper. The source a is passed through to fp_sqr_comba (0c0626f4) in the first argument register, so the decompile shows it as unused. After squaring it zeroes the digits of b above the new used count, so stale digits from an earlier value are cleared.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source a (passed through to fp_sqr_comba) |
+| `param_2` | `ptr` | destination b |
+
+- Addresses by version: 219: 0x0C062880
+- Called by: `ecc_field_inv_fermat`, `fp_sqr_thunk`
+- Calls: `fp_sqr_comba`
+- Confidence: high
+
+## fp_sqr_comba
+
+**Square a fp_int, b = a^2, with the comba method that doubles the cross products**
+
+TFM comba squaring. The result digit count is 2 * used(a), clamped to 23 digits. The routine accumulates each cross product a[i] * a[j] (i < j) once and then doubles the running sum, and adds the diagonal square a[i]^2 in the even columns. The sign of the result is zero (positive). The destination may alias the source, in which case a scratch fp_int is used. Returns 0, or -2 on allocation failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source a |
+| `param_2` | `ptr` | destination b |
+
+**Returns** `s32`: 0 on success; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C0626F4
+- Called by: `fp_sqr`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `memcpy`, `memset`
+- Confidence: high
+
+## fp_sqr_thunk
+
+**Branch-only alias of fp_sqr (b = a^2, stale high digits cleared)**
+
+One-instruction tail branch to ble_219_0c062880 (fp_sqr). The target squares the source (param_1) into the destination (param_2) through fp_sqr_comba (ble_219_0c0626f4) and then zeroes the destination digits above its new used count.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | source (fp_int) |
+| `b` | `ptr` | destination (fp_int) |
+
+- Addresses by version: 219: 0x0C06444C
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `ecc_randomize_projective`, `ecc_point_on_curve_check`
+- Calls: `fp_sqr`
 - Confidence: high
 
 ## fp_sub
@@ -892,8 +2448,49 @@ wolfSSL fp_sub(a, b, c). If the signs differ: c->sign = a->sign and return s_fp_
 **Returns** `s32`: 0, or FP_VAL from s_fp_add
 
 - Addresses by version: 219: 0x0C062068
-- Called by: `ble_219_0c062fe4`, `ble_219_0c0635ac`, `ble_219_0c063ce4`, `fp_sub_thunk`
+- Called by: `fp_div`, `fp_invmod`, `fp_sub_d`, `fp_sub_thunk`
 - Calls: `s_fp_add`, `s_fp_sub`
+- Confidence: high
+
+## fp_sub_d
+
+**Subtract a 32-bit digit from a big integer: c = a - d**
+
+Builds a one-digit fp_int holding d in a temporary (used = 1 when d is nonzero, dp[0] = d, sign = 0, and the other 23 digits zeroed with memset), calls fp_sub (ble_219_0c062068) to compute c = a - temp, and frees the temporary. The temporary is 0x68 bytes from the allocator thunk thunk_FUN_0c07097c; if that allocation fails the function returns -2 and c is not touched. Callers pass d = 2 to form modulus - 2, the Fermat exponent used by ecc_field_inv_fermat (ble_219_0c063d2c).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | minuend (fp_int) |
+| `d` | `u32` | digit to subtract (0 allowed) |
+| `c` | `ptr` | output (fp_int) |
+
+**Returns** `s32`: 0 on success, -2 if the temporary cannot be allocated, otherwise the status returned by fp_sub
+
+**Notes:** Named after TFM fp_sub_d, which is not otherwise present in this build. The decompile passes five arguments to fp_sub; only the three meaningful ones are used here.
+
+- Addresses by version: 219: 0x0C063CE4
+- Called by: `ecc_field_inv_fermat`, `fp_sub_d_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_sub`, `memset`
+- Confidence: high
+
+## fp_sub_d_thunk
+
+**Branch-only alias of fp_sub_d (c = a - d)**
+
+One-instruction tail branch to ble_219_0c063ce4 (fp_sub_d). Arguments pass through unchanged. Its caller in the packet list is ble_219_0c05b86c.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | minuend (fp_int) |
+| `d` | `u32` | digit to subtract |
+| `c` | `ptr` | output (fp_int) |
+| `param_4` | `u32` | forwarded to the target unchanged |
+
+**Returns** `s32`: as fp_sub_d: 0, -2 or the status of fp_sub
+
+- Addresses by version: 219: 0x0C064230
+- Called by: `ble_ecc_scalar_base_mult`
+- Calls: `fp_sub_d`
 - Confidence: high
 
 ## fp_sub_thunk
@@ -911,7 +2508,7 @@ Single-instruction thunk that branches to fp_sub at 0x0C062068; the decompiled b
 **Returns** `s32`: 0 (as the target returns)
 
 - Addresses by version: 219: 0x0C06408C
-- Called by: `ble_219_0c060828`
+- Called by: `ecc_point_on_curve_check`
 - Calls: `fp_sub`
 - Confidence: high
 
@@ -953,8 +2550,28 @@ Single-instruction thunk that branches to fp_submod_ct at 0x0C0625A0; the decomp
 **Returns** `s32`: 0 (as the target returns)
 
 - Addresses by version: 219: 0x0C0640E4
-- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`
 - Calls: `fp_submod_ct`
+- Confidence: high
+
+## fp_to_unsigned_bin
+
+**Export a fp_int as big-endian bytes: emit little-endian then reverse in place**
+
+TFM fp_to_unsigned_bin. It copies the source into a scratch fp_int, calls fp_to_unsigned_bin_at_pos (0c062c20) to write the magnitude in little-endian order at offset 0 and gets the byte count, then reverses the byte run in place so the output is big-endian. The extra arguments in the decompile are not used by the logic (decompiler artifacts of the memset call). Returns 0, or -2 on allocation failure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | source fp_int |
+| `param_2` | `ptr` | output buffer (at least the magnitude byte count) |
+| `param_3` | `u32` | unused |
+| `param_4` | `u32` | unused |
+
+**Returns** `s32`: 0 on success; -2 on allocation failure
+
+- Addresses by version: 219: 0x0C062C84
+- Called by: `fp_to_unsigned_bin_thunk`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `fp_to_unsigned_bin_at_pos`, `memcpy`, `memset`
 - Confidence: high
 
 ## fp_to_unsigned_bin_at_pos
@@ -974,7 +2591,27 @@ Writes b[x++] for every byte of t in little-endian order: for all but the top di
 **Notes:** The decompiler shows the first and third arguments swapped/typed as pointers; semantics follow wolfSSL's fp_to_unsigned_bin_at_pos(int x, fp_int*, unsigned char*).
 
 - Addresses by version: 219: 0x0C062C20
-- Called by: `ble_219_0c062c84`
+- Called by: `fp_to_unsigned_bin`
+- Confidence: high
+
+## fp_to_unsigned_bin_thunk
+
+**Branch-only alias of fp_to_unsigned_bin (big-endian export of a big integer)**
+
+One-instruction tail branch to ble_219_0c062c84 (fp_to_unsigned_bin). The target copies the integer into a heap temporary, exports it with fp_to_unsigned_bin_at_pos (ble_219_0c062c20) at offset 0, reverses the byte string in place to make it big-endian, and frees the temporary.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `a` | `ptr` | integer to export (fp_int) |
+| `buf` | `ptr` | output byte buffer, big-endian |
+| `param_3` | `u32` | forwarded to the target unchanged |
+| `param_4` | `u32` | forwarded to the target unchanged |
+
+**Returns** `s32`: 0 on success, -2 when the temporary cannot be allocated
+
+- Addresses by version: 219: 0x0C0641F0
+- Called by: `ecc_shared_secret`
+- Calls: `fp_to_unsigned_bin`
 - Confidence: high
 
 ## get_digit
@@ -991,7 +2628,7 @@ Returns a->dp[n] (word n+2) if a is non-NULL and 0 <= n < used, else 0. wolfSSL'
 **Returns** `u32`: digit value or 0
 
 - Addresses by version: 219: 0x0C0644C8
-- Called by: `ble_219_0c05f338`
+- Called by: `ecc_mulmod_ladder_ct`
 - Confidence: high
 
 ## get_digit_count
@@ -1007,8 +2644,54 @@ Returns the first word (used) of the mp_int, or 0 when the pointer is NULL. wolf
 **Returns** `s32`: number of used digits, 0 for NULL
 
 - Addresses by version: 219: 0x0C0644C0
-- Called by: `ble_219_0c05eb00`, `ble_219_0c05f338`, `ble_219_0c05f830`, `ble_219_0c060974`
+- Called by: `ecc_projective_add_point`, `ecc_mulmod_ladder_ct`, `ecc_check_pubkey_order`, `wc_ecc_check_key`
 - Confidence: high
+
+## hash_drbg_kat_generate
+
+**Known-answer self-test: instantiate, generate twice, return the 128-byte second output**
+
+One-shot Hash_DRBG run used only as the FIPS-style known-answer test in the RNG init and reseed paths (wc_rng_seed_instantiate and wc_RNG_GenerateBlock). It requires entropy (param 4) and an output buffer, and when param 1 is non-zero it also requires the reseed input (param 6). Only a 128-byte request (param 9 == 0x80) is accepted. It allocates a 0x78-byte DRBG, instantiates it from the entropy and the personalisation string (param 2 and 3), optionally reseeds from param 6 and 7, generates once and discards the output, then generates again into out. The DRBG object is wiped, the wipe is verified with an OR-accumulated check, and it is freed. The callers pass an extra argument (0xfffffffe) that the decompiled signature does not declare.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | non-zero to run the reseed step |
+| `param_2` | `ptr` | personalisation string, may be NULL |
+| `param_3` | `u32` | personalisation length |
+| `param_4` | `ptr` | entropy input |
+| `param_5` | `u32` | entropy length |
+| `param_6` | `ptr` | reseed entropy, required when param 1 is non-zero |
+| `param_7` | `u32` | reseed entropy length |
+| `param_8` | `ptr` | 128-byte output |
+| `param_9` | `s32` | output length; must be 128 |
+
+**Returns** `s32`: 0 when the known answer runs cleanly; -1 on any instantiate, reseed or generate failure or a failed wipe check; -173 for bad arguments; -125 on allocation failure
+
+- Addresses by version: 219: 0x0C0615C0
+- Called by: `wc_rng_seed_instantiate`, `wc_RNG_GenerateBlock`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `Hash_DRBG_Instantiate`, `Hash_DRBG_Reseed`, `Hash_DRBG_Generate`
+- Confidence: high
+
+## hsm_trng_read_bytes
+
+**Fill a buffer with hardware TRNG bytes, polling the HSM TRNG status register**
+
+Waits for hardware semaphore 1 (hal_hwsem_try_lock polled for about 500 timer units), then fills the buffer from the TRNG in chunks. For each chunk it sets the 0x40008000 block run state with hal_block_40008000_set_run(0), polls status register 0x40008104 for a ready nibble (timeout DAT_20003E24, 4 us between polls) and, when the error bits 0x0E are clear, reads up to six 32-bit words from 0x40008114..0x40008128 and copies them out little-endian, with the last partial word copied by memcpy. Error bits make it retry up to 20 times before printing the error. On exit it clears 0x4000812C, writes 0xF to 0x40008108 and 0x40008100 and releases semaphore 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output buffer |
+| `param_2` | `s32` | number of bytes to produce |
+
+**Returns** `s32`: 0 on success, -1 on repeated error status, -2 on a ready timeout
+
+**Notes:** The hardware semaphore result is not checked: after the 500-unit wait the code continues even without the lock. The meaning of the 0x40008000 block and of the control writes is inferred from the register accesses. The time source ble_219_0c073b30 and the 500 wait value (ble_219_0c073cb0) are not yet named.
+
+- Addresses by version: 219: 0x0C033328
+- Peripheral registers: `0x40008004` (A), `0x40008100` (W), `0x40008104` (R), `0x40008108` (W), `0x40008114` (R), `0x40008118` (R), `0x40008128` (R), `0x4000812c` (RW)
+- Called by: `ble_chunked_write_24`
+- Calls: `hal_hwsem_try_lock`, `hal_hwsem_unlock`, `hal_sys_timer_delay_us`, `hal_block_40008000_set_run`, `trace_printf`, `memcpy`, `ble_ram_patch_thunk_2000031c`, `ble_ram_patch_thunk_20000570`
+- Confidence: medium
 
 ## mbedtls_sha1_finish_ret
 
@@ -1074,7 +2757,7 @@ RFC 1321 MD5Final. Saves the 64-bit bit count ctx[0..1] as 8 little-endian bytes
 | `param_2` | `ptr` | output: 16-byte digest |
 
 - Addresses by version: 219: 0x0C047EFC
-- Called by: `ble_219_0c03477c`, `ble_219_0c036868`, `ble_219_0c037588`
+- Called by: `nb_upgrade_image_digest`, `nb_upgrade_verify_app_image`, `nb_upgrade_session_finish`
 - Calls: `md5_encode_le_words`, `md5_update`
 - Confidence: high
 
@@ -1089,7 +2772,7 @@ Zeroes the 64-bit bit-count words at ctx[0],ctx[1] and loads the standard MD5 in
 | `param_1` | `ptr` | MD5 context (6 x u32: count lo/hi, state A..D) |
 
 - Addresses by version: 219: 0x0C047E44
-- Called by: `ble_219_0c03477c`, `ble_219_0c036868`, `ble_219_0c0369d8`
+- Called by: `nb_upgrade_image_digest`, `nb_upgrade_verify_app_image`, `nb_upgrade_session_begin`
 - Confidence: high
 
 ## md5_transform
@@ -1121,7 +2804,7 @@ RFC 1321 MD5Update over a context laid out as ctx[0..1] = 64-bit bit count, ctx[
 | `param_4` | `u32` | unused (register pass-through to memcpy) |
 
 - Addresses by version: 219: 0x0C047E70
-- Called by: `ble_219_0c0285ec`, `ble_219_0c03477c`, `ble_219_0c036868`, `md5_final`
+- Called by: `nb_upgrade_process_cmd`, `nb_upgrade_image_digest`, `nb_upgrade_verify_app_image`, `md5_final`
 - Calls: `md5_transform`, `memcpy`
 - Confidence: high
 
@@ -1141,7 +2824,7 @@ Single branch to fp_add_d (0c06428c): c = a + b for a 32-bit digit b, carry-prop
 **Returns** `s32`: 0 (MP_OKAY) or -1 (MP_VAL) on overflow
 
 - Addresses by version: 219: 0x0C0642F4
-- Called by: `ble_219_0c05b86c`, `ble_219_0c05f8c4`
+- Called by: `ble_ecc_scalar_base_mult`, `ecc_mulmod_ex2`
 - Calls: `fp_add_d`
 - Confidence: high
 
@@ -1158,7 +2841,7 @@ Empty function (single return). With the static TFM fp_int there is no heap stor
 **Notes:** Could be mp_clear or mp_free; both are no-ops for static fp_int.
 
 - Addresses by version: 219: 0x0C064000
-- Called by: `ble_219_0c05f8c4`
+- Called by: `ecc_mulmod_ex2`
 - Confidence: low
 
 ## mp_cmp
@@ -1175,7 +2858,7 @@ Same algorithm as fp_cmp: differing signs decide immediately; two negatives comp
 **Returns** `s32`: 1 if a > b, 0 if equal, -1 if a < b
 
 - Addresses by version: 219: 0x0C0640F8
-- Called by: `ble_219_0c05eb00`, `ble_219_0c05f218`, `ble_219_0c05f8c4`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0601fc`, `ble_219_0c060828`, `ble_219_0c060974`
+- Called by: `ecc_projective_add_point`, `wc_ecc_gen_k`, `ecc_mulmod_ex2`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `ecc_verify_hash_ex`, `ecc_point_on_curve_check`, `wc_ecc_check_key`
 - Confidence: high
 
 ## mp_cmp_d
@@ -1192,7 +2875,7 @@ If a is zero (used == 0) the result is 0 when b == 0, else -1. If a is negative 
 **Returns** `s32`: 1 if a > b, 0 if equal, -1 if a < b
 
 - Addresses by version: 219: 0x0C064184
-- Called by: `ble_219_0c05e558`, `ble_219_0c05efc0`, `ble_219_0c05f8c4`
+- Called by: `ecc_point_to_montgomery`, `ecc_map_ex`, `ecc_mulmod_ex2`
 - Confidence: high
 
 ## mp_cond_copy
@@ -1210,7 +2893,7 @@ Builds mask = -copy (all ones or zero). Returns -173 if either pointer is NULL. 
 **Returns** `s32`: 0 on success, -173 (BAD_FUNC_ARG) on NULL argument
 
 - Addresses by version: 219: 0x0C0644E0
-- Called by: `ble_219_0c05f338`, `ble_219_0c05f8c4`
+- Called by: `ecc_mulmod_ladder_ct`, `ecc_mulmod_ex2`
 - Confidence: high
 
 ## mp_copy
@@ -1227,7 +2910,7 @@ wolfSSL mp_copy(a, b) / fp_copy: when the pointers differ it copies used and sig
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C064234
-- Called by: `ble_219_0c05e558`, `ble_219_0c05e868`, `ble_219_0c05eb00`, `wc_ecc_copy_point`, `ble_219_0c05f338`, `ble_219_0c05f8c4`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0601fc`
+- Called by: `ecc_point_to_montgomery`, `ecc_projective_dbl_point`, `ecc_projective_add_point`, `wc_ecc_copy_point`, `ecc_mulmod_ladder_ct`, `ecc_mulmod_ex2`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `ecc_verify_hash_ex`
 - Calls: `memcpy`
 - Confidence: high
 
@@ -1244,7 +2927,7 @@ Returns 0 for used == 0, otherwise (used-1)*32 plus the number of significant bi
 **Returns** `s32`: number of significant bits
 
 - Addresses by version: 219: 0x0C064268
-- Called by: `ble_219_0c05f338`, `ble_219_0c05f8c4`, `ble_219_0c0601fc`
+- Called by: `ecc_mulmod_ladder_ct`, `ecc_mulmod_ex2`, `ecc_verify_hash_ex`
 - Confidence: high
 
 ## mp_forcezero
@@ -1260,7 +2943,7 @@ Sets used = 0 and sign = 0, then clears the 24-digit dp array byte by byte with 
 **Notes:** Could be fp_zero; the byte-wise loop and the use after secret-dependent computations suggest the ForceZero variant.
 
 - Addresses by version: 219: 0x0C063FD4
-- Called by: `ble_219_0c05f8c4`, `ble_219_0c0600c0`, `wc_ecc_free`
+- Called by: `ecc_mulmod_ex2`, `wc_ecc_make_key_ex`, `wc_ecc_free`
 - Confidence: medium
 
 ## mp_init
@@ -1279,7 +2962,7 @@ wolfSSL mp_init(a): if a is non-NULL it performs fp_init/fp_zero - used = 0, sig
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C063FB8
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `GetInt`, `ble_219_0c05e558`, `wc_ecc_curve_load`, `ble_219_0c05f8c4`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `ble_crypto_ecdsa_p256_verify`, `GetInt`, `ecc_point_to_montgomery`, `wc_ecc_curve_load`, `ecc_mulmod_ex2`, `wc_ecc_make_key_ex`, `ecc_verify_hash_ex`, `wc_ecc_check_key`
 - Calls: `memset`
 - Confidence: high
 
@@ -1301,7 +2984,7 @@ wolfSSL mp_init_multi(a, b, c, d, e, f): for each of the six pointer arguments t
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C064004
-- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`, `ble_219_0c05efc0`, `ble_219_0c05f164`, `ble_219_0c05fd18`, `wc_ecc_init`, `ble_219_0c0601fc`, `ble_219_0c060828`, `ble_219_0c060ae4`
+- Called by: `ecc_projective_dbl_point`, `ecc_projective_add_point`, `ecc_map_ex`, `wc_ecc_new_point_h`, `ecc_make_pub_ex`, `wc_ecc_init`, `ecc_verify_hash_ex`, `ecc_point_on_curve_check`, `wc_ecc_import_x963_ex`
 - Calls: `memset`
 - Confidence: high
 
@@ -1318,7 +3001,7 @@ Returns true when the used-digit count (first word) is 0. Used throughout the EC
 **Returns** `bool`: true if a == 0
 
 - Addresses by version: 219: 0x0C06425C
-- Called by: `ble_219_0c05eb00`, `ble_219_0c05f218`, `ble_219_0c05fd18`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `ecc_projective_add_point`, `wc_ecc_gen_k`, `ecc_make_pub_ex`, `ecc_verify_hash_ex`, `wc_ecc_check_key`
 - Confidence: high
 
 ## mp_montgomery_setup
@@ -1335,7 +3018,7 @@ Takes dp[0] (at offset 8) of the modulus; if it is even returns -1 (FP_VAL). Oth
 **Returns** `s32`: 0 on success, -1 if the modulus is even
 
 - Addresses by version: 219: 0x0C064458
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05f71c`, `ble_219_0c05f8c4`, `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c0601fc`
+- Called by: `ble_ecc_point_add_mont`, `ble_ecc_scalar_base_mult`, `ecc_mulmod_ex`, `ecc_mulmod_ex2`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_verify_hash_ex`
 - Confidence: high
 
 ## mp_read_unsigned_bin
@@ -1353,7 +3036,7 @@ Single branch instruction to fp_read_unsigned_bin (0c062bac): zeroes a, copies u
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C06422C
-- Called by: `ble_219_0c05b86c`, `GetInt`, `ble_219_0c05f218`, `ble_219_0c0601fc`, `ble_219_0c060ae4`
+- Called by: `ble_ecc_scalar_base_mult`, `GetInt`, `wc_ecc_gen_k`, `ecc_verify_hash_ex`, `wc_ecc_import_x963_ex`
 - Calls: `fp_read_unsigned_bin`
 - Confidence: high
 
@@ -1371,7 +3054,7 @@ wolfSSL mp_set(a, b) / fp_set: sign = 0, digits dp[1..23] cleared with memset (0
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C06449C
-- Called by: `ble_219_0c05bd30`, `ble_219_0c05efc0`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0601fc`, `ble_219_0c060ae4`
+- Called by: `ble_crypto_diversify`, `ecc_map_ex`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `ecc_verify_hash_ex`, `wc_ecc_import_x963_ex`
 - Calls: `memset`
 - Confidence: high
 
@@ -1390,7 +3073,7 @@ Writes exactly n bytes, filling the output from the last byte backwards: byte k 
 **Returns** `s32`: always 0
 
 - Addresses by version: 219: 0x0C0641F4
-- Called by: `ble_219_0c05ba6c`, `ble_219_0c05baf0`, `ble_219_0c05bbcc`, `ble_219_0c05bd30`, `ble_219_0c05c13c`
+- Called by: `ble_crypto_sha256_commit`, `ble_ecc_share_derive`, `ble_ecc_p224_export_derive`, `ble_crypto_diversify`, `ble_crypto_ecdh_seal_p256`
 - Confidence: high
 
 ## mp_unsigned_bin_size
@@ -1406,7 +3089,7 @@ Computes ceil(bit_length / 8) where the bit length is (used-1)*32 plus the posit
 **Returns** `s32`: size in bytes
 
 - Addresses by version: 219: 0x0C0641B8
-- Called by: `ble_219_0c05fb10`
+- Called by: `ecc_shared_secret`
 - Confidence: high
 
 ## s_fp_add
@@ -1442,7 +3125,7 @@ wolfSSL TFM s_fp_sub(a, b, c). c->used = a->used. For x < b->used: c->dp[x] = a-
 | `param_4` | `u32` | unused (leftover register) |
 
 - Addresses by version: 219: 0x0C061F2C
-- Called by: `fp_add`, `fp_sub`, `fp_submod_ct`, `fp_montgomery_calc_normalization`, `ble_219_0c062a28`
+- Called by: `fp_add`, `fp_sub`, `fp_submod_ct`, `fp_montgomery_calc_normalization`, `fp_montgomery_reduce`
 - Calls: `memset`
 - Confidence: high
 
@@ -1460,7 +3143,7 @@ Zeroes the 64-bit length counter ctx[0],ctx[1] and ctx[6] (the fifth state word 
 **Notes:** Role of the 4-word seed is unverified; may be a keyed/seeded hash construct.
 
 - Addresses by version: 219: 0x0C0499F0
-- Called by: `ble_219_0c02bdd0`
+- Called by: `ble_crypto_init`
 - Confidence: medium
 
 ## sha1_ctx_set_e_word_one
@@ -1510,7 +3193,7 @@ Creates the 16-byte p1 on the stack: bytes 0..6 are param_3 and bytes 7..13 are 
 **Notes:** Assigning param_2 to preq and param_3 to pres follows the c1 byte order; the argument names are an assumption.
 
 - Addresses by version: 219: 0x0C04F30C
-- Called by: `ble_219_0c051eb8`
+- Called by: `sm_pairing_engine_step`
 - Calls: `co_reverse_copy_7`, `util_nop_stub_b`
 - Confidence: medium
 
@@ -1563,7 +3246,7 @@ Empty function (single return). In wolfSSL wc_AesFree only releases async/hardwa
 **Notes:** The callers pass the Aes context in r0; the function ignores it.
 
 - Addresses by version: 219: 0x0C05E34C
-- Called by: `ble_219_0c05bf00`, `ble_219_0c05c13c`
+- Called by: `ble_crypto_session_decrypt`, `ble_crypto_ecdh_seal_p256`
 - Confidence: medium
 
 ## wc_AesGcmDecrypt
@@ -1588,7 +3271,7 @@ wolfSSL wc_AesGcmDecrypt(aes, out, in, sz, iv, ivSz, authTag, authTagSz, authIn,
 **Returns** `s32`: 0, BAD_FUNC_ARG (-173) or AES_GCM_AUTH_E (-180)
 
 - Addresses by version: 219: 0x0C05E2F0
-- Called by: `ble_219_0c05bf00`
+- Called by: `ble_crypto_session_decrypt`
 - Calls: `wc_AesEncrypt`, `GHASH`, `memcpy`
 - Confidence: high
 
@@ -1607,7 +3290,7 @@ wolfSSL wc_AesGcmEncrypt argument check. It rejects a NULL context (first argume
 **Notes:** The 6th and 8th arguments are read from the stack at offsets 0x4 and 0xC, which the decompiler does not declare. The mapping follows the AAPCS stack layout.
 
 - Addresses by version: 219: 0x0C05E2C0
-- Called by: `ble_219_0c05c13c`
+- Called by: `ble_crypto_ecdh_seal_p256`
 - Calls: `AES_GCM_encrypt_C`
 - Confidence: medium
 
@@ -1626,7 +3309,7 @@ wolfSSL wc_AesGcmSetKey, restricted to len == 16. Zeroes a 16-byte IV on the sta
 **Returns** `s32`: 0, BAD_FUNC_ARG (-173) or the error from wc_AesSetKeyLocal
 
 - Addresses by version: 219: 0x0C05DBE0
-- Called by: `ble_219_0c05bf00`, `ble_219_0c05c13c`
+- Called by: `ble_crypto_session_decrypt`, `ble_crypto_ecdh_seal_p256`
 - Calls: `wc_AesEncrypt`, `wc_AesSetKeyLocal`
 - Confidence: high
 
@@ -1646,7 +3329,7 @@ If the context pointer is NULL returns BAD_FUNC_ARG (-173); otherwise stores par
 **Notes:** Third argument (devId = 0xfffffffe) is passed by the caller but not used by this build.
 
 - Addresses by version: 219: 0x0C05E338
-- Called by: `ble_219_0c05bf00`, `ble_219_0c05c13c`
+- Called by: `ble_crypto_session_decrypt`, `ble_crypto_ecdh_seal_p256`
 - Confidence: high
 
 ## wc_AesSetKeyLocal
@@ -1670,6 +3353,42 @@ wolfSSL AesSetKeyLocal with wc_AesSetIV inlined. Writes aes->keylen (+0xf4) = ke
 - Calls: `memcpy`
 - Confidence: high
 
+## wc_FreeRng
+
+**Wipe and free the Hash_DRBG object of an RNG; returns -199 if the wipe did not zero it**
+
+wolfSSL wc_FreeRng. A NULL RNG returns -173. If the DRBG pointer at +0x08 is set, the 0x78-byte object is overwritten with zeros, read back and OR-accumulated, which gives -199 (0xffffff39) if any byte is still non-zero. The object is then freed. The DRBG pointer and the status byte at +0x0c are cleared and 0 returned otherwise.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | RNG object |
+
+**Returns** `s32`: 0 on success; -199 if the wipe check fails; -173 for NULL
+
+- Addresses by version: 219: 0x0C06156C
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_rng_get_32`, `ble_crypto_ecdh_seal_p256`
+- Calls: `ble_ecc_heap_free`
+- Confidence: high
+
+## wc_HashFinal
+
+**Finish a wolfSSL hash of a given type into a digest buffer; only SHA-256 (type 6) is implemented**
+
+wolfSSL wc_HashFinal with the same type dispatch as wc_HashUpdate. Type 6 calls wc_Sha256Final (0c061c80), which writes the 32-byte digest to the output and resets the context. A NULL context or NULL output returns -173. Types 3, 4, 5, 7, 8 and 10 to 13 return -232 and other values return -173. It is the finish half of the wc_Hash* group.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | hash context |
+| `param_2` | `s32` | wc_HashType |
+| `param_3` | `ptr` | digest output buffer |
+
+**Returns** `s32`: 0 on success; -173 for bad arguments, -232 for a type that is not built in, or the Sha256Final error
+
+- Addresses by version: 219: 0x0C060D80
+- Called by: `wc_X963_KDF`
+- Calls: `wc_Sha256Final`
+- Confidence: high
+
 ## wc_HashFree
 
 **Free a wc_HashAlg by type: only SHA-256 (type 6) is built in (wolfSSL wc_HashFree)**
@@ -1684,7 +3403,7 @@ wolfSSL wc_HashFree(hash, type). NULL hash returns BAD_FUNC_ARG (-173 = 0xffffff
 **Returns** `s32`: 0, HASH_TYPE_E (-232) or BAD_FUNC_ARG (-173)
 
 - Addresses by version: 219: 0x0C060DAC
-- Called by: `ble_219_0c060be8`
+- Called by: `wc_X963_KDF`
 - Calls: `wc_Sha256Free`
 - Confidence: high
 
@@ -1701,7 +3420,7 @@ Maps a wc_HashType enum value to its digest length. Only type 6 (WC_HASH_TYPE_SH
 **Returns** `s32`: 32 for SHA-256, -232 for unsupported hash types, -173 for invalid types
 
 - Addresses by version: 219: 0x0C060CE0
-- Called by: `ble_219_0c060be8`
+- Called by: `wc_X963_KDF`
 - Confidence: high
 
 ## wc_HashInit
@@ -1720,7 +3439,45 @@ Returns -173 for a NULL context. For hash type 6 (SHA-256) it loads the eight SH
 **Notes:** This is the wc_InitSha256 body inlined into the type switch.
 
 - Addresses by version: 219: 0x0C060D0C
-- Called by: `ble_219_0c060be8`
+- Called by: `wc_X963_KDF`
+- Confidence: high
+
+## wc_HashUpdate
+
+**Feed bytes into a wolfSSL hash context of a given type; only SHA-256 (type 6) is implemented**
+
+wolfSSL wc_HashUpdate, dispatching on the hash type. Type 6 forwards to wc_Sha256Update (0c061b7c). Types 3, 4, 5, 7, 8 and 10 to 13 return -232 (HASH_TYPE_E) because they are not built in. A NULL context or NULL data pointer, and any other type, return -173. This is the update half of the hash group that also holds wc_HashInit (0c060d0c), wc_HashFinal (0c060d80), wc_HashFree (0c060dac) and wc_HashGetDigestSize (0c060ce0), and it is used by wc_X963_KDF.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | hash context |
+| `param_2` | `s32` | wc_HashType |
+| `param_3` | `ptr` | input data |
+| `param_4` | `u32` | input length |
+
+**Returns** `s32`: 0 on success; -173 for bad arguments or unsupported type, -232 for types not built in, or the Sha256Update error
+
+- Addresses by version: 219: 0x0C060D3C
+- Called by: `wc_X963_KDF`
+- Calls: `wc_Sha256Update`
+- Confidence: high
+
+## wc_HmacFinal
+
+**Finish HMAC-SHA-256: H((K ^ opad) || H((K ^ ipad) || message)) written to the output**
+
+wolfSSL wc_HmacFinal. A non-NULL output is required. If no update has been made yet, the ipad block is absorbed first. The inner hash is finished with wc_Sha256Final into the inner-digest slot (+0xf0, 32 bytes). Because Final resets the context to the IV, the same context then absorbs the opad block (+0xb0, 64 bytes) and the inner digest (+0xf0, 32 bytes) and is finalised into the caller's buffer. The update flag is cleared and 0 returned. A non-SHA-256 type returns -173 and so does a NULL output.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | Hmac context |
+| `param_2` | `ptr` | output buffer (32 bytes for SHA-256) |
+
+**Returns** `s32`: 0 on success; -173 for NULL output or a non-SHA-256 type, or the underlying SHA-256 error
+
+- Addresses by version: 219: 0x0C060F58
+- Called by: `ble_crypto_serial_mac`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`
 - Confidence: high
 
 ## wc_HmacFree
@@ -1734,7 +3491,7 @@ wolfSSL wc_HmacFree(hmac). Does nothing for NULL. If hmac->macType (byte at +0x1
 | `param_1` | `ptr` | Hmac context (may be NULL) |
 
 - Addresses by version: 219: 0x0C06100C
-- Called by: `ble_219_0c05c088`
+- Called by: `ble_crypto_serial_mac`
 - Calls: `wc_Sha256Free`
 - Confidence: high
 
@@ -1753,8 +3510,66 @@ wolfSSL wc_HmacInit(hmac, heap, devId). Returns BAD_FUNC_ARG (-173 = 0xffffff53)
 **Returns** `s32`: 0 or BAD_FUNC_ARG (-173)
 
 - Addresses by version: 219: 0x0C060FEC
-- Called by: `ble_219_0c05c088`
+- Called by: `ble_crypto_serial_mac`
 - Calls: `memset`
+- Confidence: high
+
+## wc_HmacSetKey
+
+**Key an HMAC-SHA-256: build the ipad and opad blocks, hashing keys longer than 64 bytes first**
+
+wolfSSL wc_HmacSetKey, restricted to SHA-256. The Hmac object (layout: inner SHA-256 context at +0x00, ipad at +0x70, opad at +0xb0, inner digest at +0xf0, macType byte at +0x114, update flag byte at +0x115) is first checked for a previous SHA-256 key (macType == 6), in which case wc_Sha256Free is called. The new type is stored at +0x114 and the update flag cleared. Types outside 3..8 and 10..13 return -173. Then wc_InitSha256 resets the inner context. A key of up to 64 bytes is copied into the ipad block and zero-padded. A longer key is hashed with wc_Sha256Update and wc_Sha256Final to 32 bytes and zero-padded to 64. The ipad block is XORed with 0x36 and the opad block (+0xb0) is filled with key ^ 0x5c. Non-SHA-256 types return -173 after the state reset. The word at +0x110 is also cleared (see notes). This is part of the HMAC group with wc_HmacUpdate, wc_HmacFinal, wc_HmacInit and wc_HmacFree.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | Hmac context |
+| `param_2` | `s32` | wc_HashType; only 6 (SHA-256) is accepted |
+| `param_3` | `ptr` | key bytes |
+| `param_4` | `u32` | key length in bytes |
+
+**Returns** `s32`: 0 on success; -173 for bad arguments or a non-SHA-256 type, -125 or the hash error otherwise
+
+**Notes:** The store of zero at +0x110 is a 32-bit write to the word wc_HmacInit uses for the heap pointer. The decompile does not show why wolfSSL clears it here; it may be a leftover field clear that is harmless with a NULL heap. Worth checking against the wolfSSL source.
+
+- Addresses by version: 219: 0x0C060DE0
+- Called by: `ble_crypto_serial_mac`
+- Calls: `wc_Sha256Update`, `wc_Sha256Final`, `wc_InitSha256`, `wc_Sha256Free`, `memcpy`, `memset`
+- Confidence: high
+
+## wc_HmacUpdate
+
+**Absorb message bytes into an HMAC-SHA-256; the first update hashes the ipad block**
+
+wolfSSL wc_HmacUpdate. On the first update after wc_HmacSetKey (update flag at +0x115 == 0) the 64-byte ipad block (+0x70) is absorbed into the inner SHA-256 and the flag is set. For a macType other than 6 it only sets the flag and returns 0 without hashing. For SHA-256 the message bytes are then forwarded to wc_Sha256Update (0c061b7c). A NULL Hmac, or a NULL data pointer with a non-zero length, returns -173.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | Hmac context |
+| `param_2` | `ptr` | message bytes |
+| `param_3` | `u32` | message length |
+
+**Returns** `s32`: 0 on success; -173 for bad arguments, or the Sha256Update error
+
+**Notes:** A zero-initialised Hmac that was never keyed (macType 0) is accepted and produces no error at update time; the error surfaces only in wc_HmacFinal.
+
+- Addresses by version: 219: 0x0C060EF4
+- Called by: `ble_crypto_serial_mac`
+- Calls: `wc_Sha256Update`
+- Confidence: high
+
+## wc_InitRng
+
+**wolfSSL wc_InitRng(rng): seed and instantiate the RNG with no nonce, discarding the status**
+
+wolfSSL wc_InitRng wrapper. It calls the RNG seed-and-instantiate routine ble_219_0c061688 with a NULL nonce and zero length and returns nothing. A caller therefore learns about failure only through the status byte at +0x0c of the RNG object, which is 1 when the RNG is ready.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | RNG object |
+
+- Addresses by version: 219: 0x0C061828
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_rng_get_32`, `ble_crypto_ecdh_seal_p256`
+- Calls: `wc_rng_seed_instantiate`
 - Confidence: high
 
 ## wc_InitSha256
@@ -1770,7 +3585,26 @@ Returns -173 (BAD_FUNC_ARG) when the context is NULL. Otherwise loads the SHA-25
 **Returns** `s32`: 0 on success, -173 if sha256 is NULL
 
 - Addresses by version: 219: 0x0C061DB0
-- Called by: `ble_219_0c05b984`, `ble_219_0c05ba6c`, `ble_219_0c05bfa4`, `ble_219_0c060de0`, `ble_219_0c061034`, `ble_219_0c061270`
+- Called by: `ble_crypto_sha256_digest`, `ble_crypto_sha256_commit`, `ble_crypto_ecdsa_p256_verify`, `wc_HmacSetKey`, `Hash_df`, `Hash_DRBG_Generate`
+- Confidence: high
+
+## wc_RNG_GenerateBlock
+
+**Generate up to 65536 random bytes; reseed from the entropy source when the DRBG asks for it**
+
+wolfSSL wc_RNG_GenerateBlock. The output must be non-NULL and at most 0x10000 bytes, else -173. The status byte at +0x0c must be 1 (ready), else -199. Hash_DRBG_Generate is called first. When it returns 2 (reseed needed) the reseed path runs: a known-answer check with hash_drbg_kat_generate and reseed input, compared against a flash-resident vector; 36 bytes of entropy from ble_219_0c04585c (not yet described); wc_RNG_TestSeed over that entropy; Hash_DRBG_Reseed with the last 32 bytes; then Hash_DRBG_Generate again. A failed known-answer check sets status 3 and returns -209. Any other generate failure sets status 2 and returns -199.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | RNG object |
+| `param_2` | `ptr` | output buffer |
+| `param_3` | `u32` | number of bytes, 1..65536 |
+
+**Returns** `s32`: 0 on success; -173 for bad arguments; -199 when the RNG is not ready or generate failed; -209 on a self-test failure
+
+- Addresses by version: 219: 0x0C061834
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_rng_get_32`, `wc_ecc_gen_k`
+- Calls: `ble_chunked_write_24`, `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `Hash_DRBG_Reseed`, `Hash_DRBG_Generate`, `wc_RNG_TestSeed`, `hash_drbg_kat_generate`
 - Confidence: high
 
 ## wc_RNG_TestSeed
@@ -1787,7 +3621,25 @@ Implements the NIST SP 800-90B style continuous test used by wolfSSL's Hash_DRBG
 **Returns** `s32`: 0 = ok (DRBG_SUCCESS), 3 = DRBG_CONT_FIPS_E (repeated block detected)
 
 - Addresses by version: 219: 0x0C061500
-- Called by: `ble_219_0c061688`, `ble_219_0c061834`
+- Called by: `wc_rng_seed_instantiate`, `wc_RNG_GenerateBlock`
+- Confidence: high
+
+## wc_Sha256Final
+
+**Finish SHA-256: pad with 0x80 and bit length, write digest big-endian, reset to IV**
+
+wolfSSL wc_Sha256Final. It appends 0x80 and zero bytes, then the total length in bits as a 64-bit big-endian value (hiLen * 8 plus loLen >> 29 for the high word, loLen << 3 for the low word), transforms the block, and byte-swaps the eight digest words. The digest is written to param 2 as 32 big-endian bytes. The context is then reset to the SHA-256 IV with buffLen, loLen and hiLen cleared, so the same object can be reused. This Final resetting is what lets wc_HmacFinal reuse the context for the outer hash.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | SHA-256 context |
+| `param_2` | `ptr` | 32-byte digest output |
+
+**Returns** `s32`: 0 on success; -173 for NULL pointers; or the transform error
+
+- Addresses by version: 219: 0x0C061C80
+- Called by: `ble_crypto_sha256_digest`, `ble_crypto_sha256_commit`, `ble_crypto_ecdsa_p256_verify`, `wc_HashFinal`, `wc_HmacSetKey`, `wc_HmacFinal`, `Hash_df`, `Hash_DRBG_Generate`
+- Calls: `Transform_Sha256`, `memset`
 - Confidence: high
 
 ## wc_Sha256Free
@@ -1803,7 +3655,68 @@ Empty function (single return). wolfSSL's wc_Sha256Free only has work to do for 
 **Notes:** Shared empty free hook; could equally be another trivial free function used with SHA-256 contexts.
 
 - Addresses by version: 219: 0x0C061E10
-- Called by: `ble_219_0c05b984`, `ble_219_0c05ba6c`, `ble_219_0c05bfa4`, `wc_HashFree`, `ble_219_0c060de0`, `wc_HmacFree`, `ble_219_0c061034`, `ble_219_0c061270`
+- Called by: `ble_crypto_sha256_digest`, `ble_crypto_sha256_commit`, `ble_crypto_ecdsa_p256_verify`, `wc_HashFree`, `wc_HmacSetKey`, `wc_HmacFree`, `Hash_df`, `Hash_DRBG_Generate`
+- Confidence: medium
+
+## wc_Sha256Update
+
+**Absorb bytes into a SHA-256 context: fill and transform 64-byte blocks, count bytes in loLen/hiLen**
+
+wolfSSL wc_Sha256Update. The 64-byte buffer is at +0x20 and the bytes buffered so far at +0x60. The byte count is kept in loLen (+0x64) with a carry into hiLen (+0x68), in bytes, and converted to bits only at Final. Partial data is copied into the buffer first. When the buffer fills it is byte-swapped in place to big-endian words and Transform_Sha256 (0c061950) runs. Full 64-byte blocks in the input are swapped and transformed directly. The tail goes back into the buffer. A corrupt buffer length returns -132 (BUFFER_E).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | SHA-256 context |
+| `param_2` | `ptr` | input data |
+| `param_3` | `u32` | input length in bytes |
+
+**Returns** `s32`: 0 on success; -173 for a NULL context or a NULL pointer with non-zero length; -132 for a corrupt buffer length; or the transform error
+
+- Addresses by version: 219: 0x0C061B7C
+- Called by: `ble_crypto_sha256_digest`, `ble_crypto_sha256_commit`, `ble_crypto_ecdsa_p256_verify`, `wc_HashUpdate`, `wc_HmacSetKey`, `wc_HmacUpdate`, `wc_HmacFinal`, `Hash_df`, `Hash_DRBG_Generate`
+- Calls: `Transform_Sha256`, `memcpy`
+- Confidence: high
+
+## wc_X963_KDF
+
+**ANSI X9.63 KDF: out = Hash(Z || counter || SharedInfo) blocks with a counter from 1 (SHA-256 only)**
+
+wolfSSL wc_X963_KDF. The hash type must lie in 4..8 (the wolfSSL SHA-family range), but only SHA-256 (type 6) is built, so the other types fail with -232 from wc_HashInit. The shared secret Z (param 2, length param 3) and the optional SharedInfo (param 4 and 5, skipped when NULL) are hashed after a 4-byte big-endian counter. The counter starts at 0 and is incremented before each block, so the first block uses counter 1. Each digest is copied to the output with memcpy and the last block is truncated. The hash context is a 0x70-byte heap object driven by wc_HashInit, wc_HashUpdate, wc_HashFinal and wc_HashFree.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | hash type (wolfSSL enum; 6 = SHA-256) |
+| `param_2` | `ptr` | shared secret Z |
+| `param_3` | `u32` | length of Z |
+| `param_4` | `ptr` | SharedInfo, may be NULL |
+| `param_5` | `u32` | length of SharedInfo |
+| `param_6` | `ptr` | output buffer |
+| `param_7` | `u32` | requested output length |
+
+**Returns** `s32`: 0 on success; -173 for NULL pointers or zero lengths, -232 for a hash type that is not built in, -125 on allocation failure
+
+- Addresses by version: 219: 0x0C060BE8
+- Called by: `ble_ecc_p224_export_derive`, `ble_crypto_kdf_update`, `ble_crypto_kdf_connect`, `ble_crypto_diversify`, `ble_crypto_server_secret`, `ble_crypto_session_decrypt`, `ble_crypto_serial_mac`, `ble_crypto_ecdh_seal_p256`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_HashGetDigestSize`, `wc_HashInit`, `wc_HashUpdate`, `wc_HashFinal`, `wc_HashFree`, `memcpy`
+- Confidence: high
+
+## wc_ecc_check_key
+
+**Validate an ECC key: coordinates in range, point on curve, point order, and private scalar range**
+
+wolfSSL-style wc_ecc_check_key. It loads the key's curve (key->dp at +0x10) with wc_ecc_curve_load and mask 0x0b (prime, A, order) into a 0x138-byte pool of three fp_ints, and reads the curve constant b from the ecc_set_type hex string at dp+0x14 into a temporary with fp_read_radix (radix 16). If both x and y have zero digits it returns -215 (point at infinity). If x or y is not less than p it returns -217. Otherwise ble_219_0c060828 (on-curve test with b) must return 0, and the point-order check ble_219_0c05f830 (not yet described) is run with (key, x, A, p, n). For a private key (key->type == 2) the scalar k at +0x150 must be non-zero, non-negative and less than the order n, else -216, and ble_219_0c05ff44 (not yet described) checks the public point against k. The curve spec is released with wc_ecc_curve_free and both temporaries with fp_clear.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | ecc_key: type +0, dp +0x10, pubkey x/y/z at +0x18/+0x80/+0xe8, private scalar k at +0x150 |
+
+**Returns** `s32`: 0 when the key is valid; -215, -216, -217 or the failing check's code otherwise; -173 for NULL
+
+**Notes:** The final order and private-key checks are delegated to ble_219_0c05f830 and ble_219_0c05ff44, which are not yet named; their roles are guessed from the wolfSSL structure. The curve-spec field offsets follow wc_ecc_curve_free.
+
+- Addresses by version: 219: 0x0C060974
+- Called by: `ble_ecc_share_derive`, `ble_crypto_diversify`, `ble_crypto_ecdsa_p256_verify`, `ble_crypto_ecdh_seal_p256`, `wc_ecc_import_x963_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `ecc_check_pubkey_order`, `ecc_check_privkey_gen`, `ecc_point_on_curve_check`, `mp_init`, `fp_clear`, `mp_cmp`, `mp_iszero`, `fp_read_radix`, `get_digit_count`, `memset`
 - Confidence: medium
 
 ## wc_ecc_copy_point
@@ -1820,7 +3733,7 @@ Returns ECC_BAD_ARG_E (-170 = -0xaa) if either point is NULL. Otherwise copies t
 **Returns** `s32`: 0, ECC_BAD_ARG_E (-170) or an mp_copy error
 
 - Addresses by version: 219: 0x0C05F1D8
-- Called by: `ble_219_0c05f338`
+- Called by: `ecc_mulmod_ladder_ct`
 - Calls: `mp_copy`
 - Confidence: high
 
@@ -1837,7 +3750,7 @@ wolfSSL wc_ecc_curve_free(curve) for a build without USE_ECC_B_PARAM: the struct
 **Notes:** 0x0c063fec is the real mp_clear (the empty 0c064000 named mp_clear in wave 1 is more likely mp_free).
 
 - Addresses by version: 219: 0x0C05E4E8
-- Called by: `wc_ecc_curve_load`, `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `wc_ecc_curve_load`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `wc_ecc_make_key_ex`, `ecc_verify_hash_ex`, `wc_ecc_check_key`
 - Calls: `fp_clear`
 - Confidence: high
 
@@ -1858,9 +3771,24 @@ wolfSSL wc_ecc_curve_load. A NULL curve returns BAD_FUNC_ARG (-173). The spec st
 **Notes:** The bit-to-field mapping is inferred from the slot assignments. Bit 2 is not tested by the decompiled branches, so one field may be loaded through a path not seen here.
 
 - Addresses by version: 219: 0x0C05E614
-- Called by: `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `wc_ecc_make_key_ex`, `ecc_verify_hash_ex`, `wc_ecc_check_key`
 - Calls: `wc_ecc_curve_free`, `mp_init`, `fp_read_radix`
 - Confidence: medium
+
+## wc_ecc_del_point
+
+**Zero the three coordinates of an ecc_point and free it (wc_ecc_del_point)**
+
+If the pointer is not NULL, it zeroes the x, y and z fp_ints (offsets 0, 0x68 and 0xD0) with fp_clear (0x0C063FEC) and then frees the block through ble_ecc_heap_free. NULL is ignored. The explicit zeroing matters because mp_clear is empty in this build, so the secret-bearing digits would otherwise survive the free.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `p` | `ptr` | ecc_point to release, may be NULL |
+
+- Addresses by version: 219: 0x0C05F1B0
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_ecc_ctx_release`, `ble_crypto_diversify`
+- Calls: `ble_ecc_heap_free`, `fp_clear`
+- Confidence: high
 
 ## wc_ecc_free
 
@@ -1875,8 +3803,48 @@ wolfSSL wc_ecc_free(key). For a non-NULL key it calls the mp_clear routine at 0x
 **Returns** `s32`: always 0
 
 - Addresses by version: 219: 0x0C0601D0
-- Called by: `ble_219_0c0537b4`, `ble_219_0c05ba4c`, `ble_219_0c05baf0`, `ble_219_0c05bd30`, `ble_219_0c05bfa4`, `ble_219_0c05c13c`
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_ecc_ctx_release`, `ble_ecc_share_derive`, `ble_crypto_diversify`, `ble_crypto_ecdsa_p256_verify`, `ble_crypto_ecdh_seal_p256`
 - Calls: `mp_forcezero`, `fp_clear`
+- Confidence: high
+
+## wc_ecc_gen_k
+
+**Draw a random ECC scalar: size+8 RNG bytes read as an integer and reduced modulo the order**
+
+wolfSSL wc_ecc_gen_k(rng, size, k, order). Fills a stack buffer with size+8 random bytes from the RNG routine at 0x0C061834 (not yet described), reads them into k with fp_read_unsigned_bin (0x0C062BAC), and when k >= order reduces it modulo order with 0x0C0634C4. A zero result returns RNG_FAILURE_E (-0x79). The stack buffer is zeroed over its full 80 bytes before returning on every path. The 8 extra bytes keep the bias from the modular reduction small. Used by wc_ecc_make_key_ex and ecc_randomize_projective.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `rng` | `ptr` | RNG state |
+| `size` | `s32` | key size in bytes |
+| `k` | `ptr` | output fp_int scalar |
+| `order` | `ptr` | curve order fp_int |
+
+**Returns** `s32`: 0, the RNG routine's error code, or -0x79 (RNG_FAILURE_E) when k is zero
+
+- Addresses by version: 219: 0x0C05F218
+- Called by: `ecc_randomize_projective`, `wc_ecc_make_key_ex`
+- Calls: `wc_RNG_GenerateBlock`, `fp_mod_thunk`, `mp_cmp`, `mp_read_unsigned_bin`, `mp_iszero`
+- Confidence: medium
+
+## wc_ecc_import_x963_ex
+
+**Import an ECC public key from an X9.63 uncompressed point (0x04 || X || Y) and validate it**
+
+wolfSSL wc_ecc_import_x963_ex. The input length must be odd (1 + 2 * coordinate size) or -170 is returned. The first byte selects the format: 0x04 is uncompressed, 0x02 and 0x03 (compressed) return -174 because they are not compiled in, anything else returns -140. The coordinate size is (len - 1) / 2. The key is initialised with mp_init_multi on x (+0x18), y (+0x80), z (+0xe8) and the scalar k (+0x150), wc_ecc_set_curve picks the curve from that size and the curve id, key->type (+0) is set to 1 (public key), X and Y are read big-endian with fp_read_unsigned_bin, z is set to 1 with mp_set, and wc_ecc_check_key (0c060974) validates the result. On any failure x, y, z and k are cleared with fp_clear and the error is returned.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | input octet string |
+| `param_2` | `u32` | input length in bytes |
+| `param_3` | `ptr` | ecc_key to fill |
+| `param_4` | `s32` | curve id, or 0 to select by size |
+
+**Returns** `s32`: 0 on success; -173 for NULL, -170 for an odd length, -174 for a compressed point, -140 for an unknown format byte, -125 on allocation failure, or the error from wc_ecc_check_key
+
+- Addresses by version: 219: 0x0C060AE4
+- Called by: `ble_ecc_share_derive`, `ble_crypto_diversify`, `ble_crypto_ecdsa_p256_verify`, `ble_crypto_ecdh_seal_p256`
+- Calls: `wc_ecc_set_curve`, `wc_ecc_check_key`, `fp_clear`, `mp_init_multi`, `mp_read_unsigned_bin`, `mp_set`
 - Confidence: high
 
 ## wc_ecc_init
@@ -1892,8 +3860,58 @@ wolfSSL wc_ecc_init(key) (wc_ecc_init_ex with heap = NULL inlined). Returns BAD_
 **Returns** `s32`: 0, BAD_FUNC_ARG (-173) or MEMORY_E (-125)
 
 - Addresses by version: 219: 0x0C060190
-- Called by: `ble_219_0c0537b4`, `ble_219_0c05baf0`, `ble_219_0c05bd30`, `ble_219_0c05bfa4`, `ble_219_0c05c13c`
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_ecc_share_derive`, `ble_crypto_diversify`, `ble_crypto_ecdsa_p256_verify`, `ble_crypto_ecdh_seal_p256`
 - Calls: `mp_init_multi`, `memset`
+- Confidence: high
+
+## wc_ecc_make_key_ex
+
+**Generate an ECC key pair: select the curve, draw k, derive the public point (wc_ecc_make_key_ex)**
+
+wolfSSL wc_ecc_make_key_ex(rng, keysize, key, curve_id). Sets the key state at +8 to 0, selects the curve by keysize or curve id with wc_ecc_set_curve, initialises the private scalar at key+0x150 with mp_init, and loads a 0x208-byte curve context (mask 0x3B). It draws k with wc_ecc_gen_k over the order and calls ecc_make_pub_ex to derive the public point. On success the key type is set to ECC_PRIVATEKEY (2); on failure the scalar is force-zeroed with mp_forcezero. A NULL rng or key returns BAD_FUNC_ARG (-0xAD) and an allocation failure returns MEMORY_E (-0x7D).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `rng` | `ptr` | RNG state |
+| `keysize` | `s32` | key size in bytes, used when curve_id is not set |
+| `key` | `ptr` | ecc_key to fill (0x1bc bytes) |
+| `curve_id` | `s32` | ecc_curve_id, or 0 to choose by keysize |
+
+**Returns** `s32`: 0, -0xAD (BAD_FUNC_ARG), -0x7D (MEMORY_E), or the error from curve selection or key generation
+
+- Addresses by version: 219: 0x0C0600C0
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_crypto_ecdh_seal_p256`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `wc_ecc_curve_free`, `wc_ecc_curve_load`, `wc_ecc_set_curve`, `wc_ecc_gen_k`, `ecc_make_pub_ex`, `mp_init`, `mp_forcezero`, `memset`
+- Confidence: high
+
+## wc_ecc_new_point
+
+**Allocate a new ecc_point with no heap hint (wc_ecc_new_point)**
+
+Calls wc_ecc_new_point_h (0x0C05F164) with a NULL heap hint and returns its result. The result is the new zeroed point, or NULL when the allocation or initialisation fails. It is the usual constructor used by the ECC routines in this packet.
+
+**Returns** `ptr`: new point, or NULL
+
+- Addresses by version: 219: 0x0C05F1A8
+- Called by: `ble_fmna_reset_gen_keypair`, `ble_crypto_diversify`
+- Calls: `wc_ecc_new_point_h`
+- Confidence: high
+
+## wc_ecc_new_point_h
+
+**Allocate and zero an ecc_point (0x138 bytes) and initialise its three fp_ints**
+
+wolfSSL wc_ecc_new_point_h(heap). Allocates 0x138 bytes with ble_ecc_heap_alloc, zeroes them with memset, and calls mp_init_multi on x (+0), y (+0x68) and z (+0xD0). If the initialisation fails the block is released and NULL is returned. The heap argument is accepted but not used, because the BLE pool handle is fixed at DAT_200049A8.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `heap` | `ptr` | heap hint, ignored |
+
+**Returns** `ptr`: new point, or NULL on allocation or init failure
+
+- Addresses by version: 219: 0x0C05F164
+- Called by: `wc_ecc_new_point`, `ecc_mulmod_ex`, `ecc_check_pubkey_order`, `ecc_mulmod_ex2`, `ecc_shared_secret`, `ecc_make_pub_ex`, `ecc_check_privkey_gen`, `ecc_verify_hash_ex`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `mp_init_multi`, `memset`
 - Confidence: high
 
 ## wc_ecc_set_curve
@@ -1913,7 +3931,7 @@ Validates the arguments (keysize <= 0 together with curve_id < 0 gives -173 BAD_
 **Notes:** Table contents (28/14, 32/7 entries) verified from firmware bytes; the Find My code uses P-224, the pairing code P-256.
 
 - Addresses by version: 219: 0x0C05E7FC
-- Called by: `ble_219_0c0600c0`, `ble_219_0c060ae4`
+- Called by: `wc_ecc_make_key_ex`, `wc_ecc_import_x963_ex`
 - Confidence: high
 
 ## wc_ecc_set_rng
@@ -1930,5 +3948,71 @@ If key is NULL returns -173 (BAD_FUNC_ARG); otherwise stores param_2 at key+0x1b
 **Returns** `s32`: 0 on success, -173 (BAD_FUNC_ARG) if key is NULL
 
 - Addresses by version: 219: 0x0C060BD4
-- Called by: `ble_219_0c05c13c`
+- Called by: `ble_crypto_ecdh_seal_p256`
 - Confidence: high
+
+## wc_ecc_shared_secret
+
+**wc_ecc_shared_secret state machine: validate keys, run the ECDH core, retry on pending**
+
+wolfSSL-style wc_ecc_shared_secret wrapper with a non-blocking state machine. It requires non-NULL out and outlen (BAD_FUNC_ARG -0xAD), a private key type of 2 or 3, and matching curve identity (dp id) between the two keys, otherwise it returns -0xAA. The state word at key+8 selects the step: state 0 or 1 runs ecc_shared_secret with the state set to 1; a WC_PENDING (-0x6C) result leaves the state at 2 so the call can be repeated; state 2 on entry returns 0; any other state returns BAD_STATE_E (-0xC0). Other results reset the state to 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `private_key` | `ptr` | private ecc_key, state word at +8 |
+| `public_key` | `ptr` | peer ecc_key |
+| `out` | `ptr` | output buffer |
+| `outlen` | `ptr` | in/out byte count (u32) |
+
+**Returns** `s32`: 0, -0x6C (WC_PENDING, retry), or an error code (-0xAD, -0xAA, -0xC0, or from ecc_shared_secret)
+
+**Notes:** The exact key-validation conditions were read from the decompiled comparisons and are not fully named.
+
+- Addresses by version: 219: 0x0C05FCCC
+- Called by: `ble_crypto_ecdh_seal_p256`
+- Calls: `ecc_shared_secret`
+- Confidence: medium
+
+## wc_ecc_verify_hash
+
+**wc_ecc_verify_hash state machine: decode the DER signature, then verify**
+
+wolfSSL wc_ecc_verify_hash(sig, siglen, hash, hashlen, res, key) with a state machine in key+8. It rejects NULL sig, hash, res or key (ECC_BAD_ARG_E -0xAA) and allocates two temporary mp_ints for r and s. State 0 or 5 sets the state to 5, clears *res and decodes the DER ECDSA signature into r and s with DecodeECC_DSA_Sig (0x0C05E474); state 6 runs ecc_verify_hash_ex (0x0C0601FC) on r, s, hash, res and key; state 7 returns 0 at once. A WC_PENDING (-0x6C) from a step advances the state so the call can be repeated. A completed run resets the state to 0 and returns 0 with the verdict in *res. Any other state returns BAD_STATE_E (-0xC0).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sig` | `ptr` | DER-encoded ECDSA signature |
+| `siglen` | `u32` | signature length in bytes |
+| `hash` | `ptr` | message digest |
+| `hashlen` | `u32` | digest length in bytes |
+| `res` | `ptr` | output verdict, 1 = valid, 0 = invalid (s32) |
+| `key` | `ptr` | ecc_key, state word at +8 |
+
+**Returns** `s32`: 0 when the check completed (verdict in *res), -0x6C (WC_PENDING), or an error code
+
+- Addresses by version: 219: 0x0C060720
+- Called by: `ble_crypto_ecdsa_p256_verify`
+- Calls: `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `DecodeECC_DSA_Sig`, `ecc_verify_hash_ex`, `fp_clear`, `memset`
+- Confidence: high
+
+## wc_rng_seed_instantiate
+
+**Init an RNG: DRBG known-answer checks, TRNG entropy with a continuous test, then instantiate**
+
+Initialises an RNG object (param 1) in four steps. It stores param 4 at +0x04 and clears the DRBG pointer at +0x08 and the status byte at +0x0c. It runs two known-answer checks with hash_drbg_kat_generate. Each 128-byte result is compared with a flash-resident expected vector using an OR-accumulated XOR. A mismatch sets status 3 and returns -209. Entropy is then read from ble_219_0c04585c (not yet described): 52 bytes, or 36 bytes when a nonce is supplied. The four leading bytes are checked and the whole buffer goes through the continuous test wc_RNG_TestSeed. A 0x78-byte DRBG is allocated and instantiated from the remaining bytes (entropy plus nonce, param 2 and 3). Status values in the RNG object are 1 for ready, 2 for an entropy or instantiate failure (returns -199) and 3 for a self-test or continuous-test failure (returns -209).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | RNG object (status +0x0c, DRBG pointer +0x08, heap +0x04) |
+| `param_2` | `ptr` | nonce, may be NULL |
+| `param_3` | `u32` | nonce length; must be 0 when param 2 is NULL |
+| `param_4` | `u32` | value stored at +0x04 (heap or devId in wolfSSL terms) |
+
+**Returns** `s32`: 0 when the RNG is ready; -199 on an entropy or instantiate failure; -209 on a self-test or continuous-test failure; -173 for bad arguments; -125 on allocation failure
+
+**Notes:** Which argument goes to which wolfSSL field is inferred. The signature matches neither wc_InitRng_ex nor a plain nonce API, so the name is descriptive rather than a library name.
+
+- Addresses by version: 219: 0x0C061688
+- Called by: `wc_InitRng`
+- Calls: `ble_chunked_write_24`, `ble_ecc_heap_free`, `ble_ecc_heap_alloc`, `Hash_DRBG_Instantiate`, `wc_RNG_TestSeed`, `hash_drbg_kat_generate`
+- Confidence: medium

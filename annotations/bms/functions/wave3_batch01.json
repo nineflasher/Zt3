@@ -1,0 +1,215 @@
+{
+  "bms_4168_0800172a": {
+    "name": "bms_fdcan_handle_stop",
+    "summary": "Stop an FDCAN handle, disable its interrupt lines 0 and 1, and mark the handle stopped",
+    "description": "Returns 1 for a NULL handle. Otherwise it calls HAL_FDCAN_Stop (bms_4168_08001d22), clears ILE.EINT0 and ILE.EINT1 (bits 0 and 1 of the instance register at offset 0x5C) so that no FDCAN interrupt line can fire, and calls bms_4168_08001bf4 (not yet described; a further teardown step on the handle). It then zeroes the 32-bit error word at handle+0x60 and the state byte at handle+0x5C, the value that bms_fdcan_handle_init tests for 'not initialised', and returns 0. This is the inverse of bms_fdcan_handle_init.",
+    "category": "fdcan",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "FDCAN handle; the word at +0x00 is the FDCAN instance pointer, the state byte is at +0x5C"}
+    ],
+    "returns": {"type": "u32", "description": "0 when the handle is stopped, 1 for a NULL handle"},
+    "confidence": "high",
+    "notes": "bms_4168_08001bf4 is not yet described, so its effect on the handle or the message RAM is unknown."
+  },
+
+  "bms_4168_080019c8": {
+    "name": "bms_fdcan_handle_init",
+    "summary": "Bring up an FDCAN handle: enter INIT, program CCCR, bit timing, filters and message RAM",
+    "description": "Enters INIT through CCCR (clears CSR, waits for CSA to drop, sets INIT, polls up to 10 ticks of bms_get_ram_word_200006a0) and then sets CCE to unlock configuration. CCCR mode bits come from the handle: the word at +0x08 selects FD and bit-rate switching (0x300 = FD with BRS, which also programs DBTP from +0x24..+0x30), byte +0x10 selects auto-retransmit (clears DAR when 1), byte +0x11 selects TX pause (CCCR bit 14), byte +0x12 enables protocol-exception handling (clears PXHD when 1), and word +0x0C selects the operating mode (1 = ASM restricted, 2 = MON bus monitoring, 3 = MON plus TEST with loopback TEST.LBCK, 4 and above = TEST with loopback). NBTP is written from the 1-based nominal timing fields at +0x14 (prescaler), +0x18 (NSJW), +0x1C (NTSEG1) and +0x20 (NTSEG2), each stored minus one. For FDCAN1 it writes the handle word +0x04 into FDCAN_CONFIG.CKDIV at 0x40006500, then sets RXGFC LSS and LSE from +0x34 and +0x38, ORs +0x3C into TXBC, and derives six message-RAM pointers from the FDCAN1 or FDCAN2 SRAMCAN base (standard filters at base, extended filters at base+0x70, RX FIFO0 at base+0xB0, RX FIFO1 at base+0x188, TX event FIFO at base+0x260, TX buffers at base+0x278) stored at +0x40..+0x54. It zeroes 0xD4 words of message RAM, clears +0x58 and the error word +0x60, and sets the state byte +0x5C to 1 (running). A timeout sets error bit 0 at +0x60 and state 3 and returns 1. If the state byte was 0 on entry, it first calls bms_4168_08001c24 (not yet described, presumably the clock or pin setup).",
+    "category": "fdcan",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "FDCAN handle: +0x00 instance, +0x04 CKDIV, +0x08 FD mode, +0x0C operating mode, +0x10..+0x12 flag bytes, +0x14..+0x20 nominal timing, +0x24..+0x30 data timing, +0x34 std filter count, +0x38 ext filter count, +0x3C TXBC bits, +0x40..+0x54 message RAM pointers, +0x5C state byte, +0x60 error word"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success; 1 for a NULL handle or an INIT timeout (state set to 3)"},
+    "confidence": "high",
+    "notes": "The handle layout is inferred from every access in the function; field names come from the ST FDCAN register map (RXGFC LSS/LSE, CCCR bit names) and the register JSON. The +0x0C operating-mode meanings follow the bit tests and are medium confidence. bms_4168_08001c24 is not yet described. The 1-based timing convention is inferred from the minus-one arithmetic."
+  },
+
+  "bms_4168_08003140": {
+    "name": "bms_usart_init_from_config",
+    "summary": "Configure a USART from a config record: CR1/CR2/CR3 fields, PRESC and BRR from the peripheral clock",
+    "description": "Returns 1 when the USART is already enabled (CR1.UE set). Otherwise it rebuilds CR1 from config words +0x08, +0x10, +0x14 and +0x1C (mask 0xEFFF69F3 clears M0/M1, parity, TE/RE and FIFO-independent mode bits before the config words are OR-ed in), replaces CR2 bits 12-13 (STOP) from +0x0C, and replaces CR3 bits 8-9 (RTSE and CTSE) from +0x18. It fetches the peripheral clock with bms_4168_08002d24 for USART1 (id 3), USART2 (id 0xC) and USART3 (id 0x30), or with bms_4168_08002d0c for USART4 to USART6. When the clock and the baud rate (+0x04) are nonzero, it divides the clock by the prescaler table entry at 0x08010A24 (1, 2, 4, 6, 8, 10, 12, 16, 32, 64, 128, 256, indexed by the +0x00 prescaler code 0 to 11) and computes BRR as the rounded quotient of clock/(divisor*baud) with bms_udiv32. When +0x1C is 0x8000 (CR1.OVER8) the divisor is doubled and BRR is shifted so that BRR[3] is dropped and BRR[2:0] takes the old BRR[3:1]. PRESC is written last from the prescaler code in every path. The routine follows the shape of ST HAL UART_SetConfig.",
+    "category": "uart",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "USART instance (USART1 to USART6 or another peripheral)"},
+      {"name": "param_2", "type": "ptr", "description": "USART config record: +0x00 prescaler code (0 to 11), +0x04 baud rate, +0x08 CR1 bits, +0x0C CR2 STOP bits, +0x10 and +0x14 CR1 bits, +0x18 CR3 flow-control bits, +0x1C CR1 bits (0x8000 = OVER8)"}
+    ],
+    "returns": {"type": "u32", "description": "0 when the clock and baud checks passed (BRR written); 1 when the USART was already enabled or the instance is not handled"},
+    "confidence": "medium",
+    "notes": "For USART4 to USART6 the clock is returned through bms_4168_08002d0c into auStack_20, but the code then tests local_18, which that path never assigns. The test therefore reads a stale stack value, so BRR for those instances may be computed from garbage. This may be a decompiler artifact; check the disassembly. bms_4168_08002d24 and bms_4168_08002d0c are not yet described."
+  },
+
+  "bms_4168_08003440": {
+    "name": "RCC_CRS_IRQHandler",
+    "summary": "RCC/CRS interrupt: on HSE ready, bring up HSE/PLL SYSCLK, enable CSS and clear the flag",
+    "description": "Vector for the RCC and CRS interrupt. It reads the clock interrupt flag register CIFR (0x4002101C) and acts only when HSERDYF (bit 4) is set. In that case it calls bms_sysclk_hse_pll_bringup (bms_4168_0800a130), calls HAL_RCC_EnableCSS (bms_4168_08002334), clears HSERDYIE in CIER (0x40021018 bit 4) so the interrupt does not refire, writes bit 4 to CICR (0x40021020) to clear the flag, and clears bit 31 of the word at the RAM object returned by bms_ram_200001c8_addr. The other CIFR flags, including CSSF and LSECSSF, are not handled here.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Bit 31 of the word at 0x200001C8 is presumably a wait-for-HSE pending flag that other code polls; its meaning is inferred from the clear only. The register bit names come from the register JSON (CIFR bit 4 = HSERDYF)."
+  },
+
+  "bms_4168_0800366c": {
+    "name": "TIM16_FDCAN_IT0_IRQHandler",
+    "summary": "Shared TIM16 and FDCAN IT0 vector: forward to the FDCAN handle at 0x20005C50",
+    "description": "Vector for the interrupt line shared by TIM16 and FDCAN interrupt 0. It does not test any TIM16 flag. It passes the address of the RAM object at 0x20005C50 to bms_4168_0800185a (not yet described; the FDCAN interrupt dispatcher by its role) and returns, so all FDCAN interrupt work happens in that callee.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Whether 0x20005C50 is the same FDCAN handle that bms_fdcan_handle_init configures is not verified. If TIM16 is ever enabled in this build, its update flag would be ignored here."
+  },
+
+  "bms_4168_08003a50": {
+    "name": "bms_extflash_journal_step",
+    "summary": "Journal step: write one 660-byte record to external flash, verify it, then rewrite the 12-byte header",
+    "description": "A six-state machine stepped once per call from the state byte at 0x20001341. It returns 0 while a flash operation is pending and 1 when the cycle has finished, successfully or after retries are exhausted. State 0 erases the next 4 KB sector when the write pointer 0x20001350 is on a sector boundary, and lowers the sequence counter 0x20001348 by 5 when it is above 2999. State 1 starts a 660-byte (0x294) write of RAM buffer 0x200010A8 to the write pointer. State 2 waits for the write, reads the record back with bms_extflash_read and compares it with bms_memcmp_prefix. On success it advances 0x20001350 by 0x294, or by 0x5B0 when the new offset within the sector would exceed 0xCE3, wraps it to 0x10000 past 0x267FFE, moves the erase-ahead pointer 0x2000134C forward by 0x1000 when the write pointer reaches it, adds 1 to the counter and goes to state 3; on a failed verify it adds 5 to the counter and retries up to three times. States 3 to 5 erase sector 0, write the 12-byte header (counter, erase pointer, write pointer at 0x20001348 to 0x2000134C to 0x20001350) to flash address 0, and read it back, again with up to three retries.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 while busy or waiting; 1 when a cycle has finished (check of the header or record done, or retries used up)"},
+    "confidence": "high",
+    "notes": "Every record write is followed by a sector-0 erase and header rewrite, so sector 0 wears at the record rate. The helper bms_4168_0800bc20 (external-flash write taking source, flash address and length) is not yet described; it is treated here as a write from its use. The constants 0x10000 and 0x267FFE bound the log region. The meaning of the counter at 0x20001348 is inferred (it moves by 1 on success and by 5 on failure, like a wear or back-off count)."
+  },
+
+  "bms_4168_08003cc0": {
+    "name": "bms_profile_select_from_code",
+    "summary": "Decode the identity code into table and block profile ids, store a date value, load defaults",
+    "description": "Reads the identity block whose pointer is stored at 0x2000002C. If the first byte at block+4 has bit 7 set, the 7-bit packed string is unpacked with bms_unpack_7bit_string (bms_4168_080033ce) into a 16-byte stack buffer and fields are read from offset 7; otherwise they are read in place from offset 9. It decodes a two-character decimal field and two alphanumeric characters into a 16-bit value stored at block+0x14, a date-like code. It then matches the model code starting with 'Z0' against a table: Z01M gives (2,2), Z020 (0,0), Z050 (3,3), Z060 (4,4), Z056 (5,5), Z0B8 (6,6), Z0AB (7,7), Z0AN (8,8), Z0EC, Z0ED, Z0EE, Z0EF give (1,9), (2,10), (3,11), (4,12); anything else gives (1,1). The two results go into the bytes at 0x20000024 (table profile, used by bms_profile_table_fill_4168) and 0x20000026 (block profile, used by bms_profile_block_fill_4168). It stores five constants into 0x2000051C with bms_4168_0800bffc, fills the blocks returned by bms_4168_0800c378, bms_4168_0800c370 and bms_4168_0800b8a4 (the last holds mV and degC thresholds, with a 2500 or 2700 mV low limit and profile-class-dependent bytes for profiles 6 to 8 versus the others), calls both profile fill routines, and writes 7 to the word at block+0x1D8.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The decode of the date-like field is inconsistent: the first digit is ASCII-decoded while the second is used raw, and the two alphanumeric characters use a letter map where I and O decode to the same values as H and N. The field offsets also differ by two between the packed path (+7) and the plain path (+5 from the prefix). These may be real firmware quirks or decoder artifacts. The threshold values (4200, 4100, 4000, 3000, 2500 or 2700 mV; 58, 55, 65, 60 and negative degC limits) are read from the stores and are medium confidence. Helper routines bms_4168_0800c378, bms_4168_0800c370 and bms_4168_0800b8a4 are described elsewhere under the names in the packet; their use here is a pointer return followed by stores."
+  },
+
+  "bms_4168_08004774": {
+    "name": "bms_limit_status_update",
+    "summary": "Once per 1000 ticks: compute current limits and status word, publish them to the state block",
+    "description": "Accumulates the elapsed time in 0x2000000C and returns until it passes 1000, then resets it. It computes the working current limit (sVar1) from the state word at +0x120: it is capped at 400 while DAT_20000DDC and the latched high-current flag DAT_20000DE6 are set, is forced to 100 when the word at +0x198 has bit 6 or 7 set, and when flag 0x20000B57 is set it subtracts the reserve DAT_200001C4 (derived in bms_4168_080054f8). The flag DAT_20000DE6 latches when the current at +0x11A exceeds 799 on three updates (counter DAT_20000010 reaching 3) while DAT_20000DDF is clear. It packs a 32-bit status from the current, the state-of-charge fields at +0x104 and +0x11E, and the 1-bit flags DAT_20000DDC to DAT_20000DE5 and the byte at +0x194. A second limit comes from the block at 0x20000E58 (+0x3A), overridden with 500 when DAT_20000DDF is set, and a small-current hysteresis accumulator (DAT_20000004 with latch DAT_20000003 and counter DAT_20000014, capped at 500) adjusts it. The seven resulting words are copied to 0x20002BF0 with bms_block_store_u16x7, eight reply values are cached at +0x15C to +0x16A, and the flag words are copied to +0x16C to +0x17A.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "elapsed ticks since the last call; 1000 ticks make one update"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "bms_reply_buffer_get is called, and it clears the reply buffer while its busy flag is clear. The 0x1554 constant in the status pack, the field at +0x118 and the reserve value are inferred from use. The names of the limits are based on how they are used and are not confirmed."
+  },
+
+  "bms_4168_08004a40": {
+    "name": "bms_remaining_time_4168",
+    "summary": "Update the minutes-like remaining-time estimate at +0x128 with hold and hysteresis (BMS_4148, BMS_4168)",
+    "description": "Computes a time-to-go value in minutes. It takes the energy gap between the SOC-based charge (+0x104 percent times full capacity DAT_20000E34) and a blended estimate (DAT_20000EEC times 80 plus DAT_20000EE8 times 20, over 100), divides it by a reference current (DAT_200001FA, learned from +0x11A while the 0x124 bit 2 flag is set) and scales by 60/10000. Two paths are taken by the reply-buffer word +6: when it is zero the estimate uses only the local current and the 0x124 bit 2 flag; otherwise it adds a term from the reply words +6, +8 and +0x16, and clamps +0x16 to 100 outside 80 to 100. A pack-voltage band (+0x118 against 0x1504 and 0x152D) adds 20 minutes when the SOC is above 95 and applies a linear correction in between. The published value at +0x128 rises only after a change event (DAT_200001EE) and is otherwise held at the lower value; it is cleared when the current is within +/-24 of zero and the SOC does not exceed the ceiling at +0x11E.",
+    "category": "soc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The units of +0x118 (apparently a pack voltage in 10 mV steps), +0x11A and the reference current are inferred. bms_reply_buffer_get can clear the reply buffer. The counter and latch names (DAT_200001EA to DAT_20000200) are address-only names. The 4130 and 4139 versions of this estimator are separate families (bms_remaining_time_4130, bms_remaining_time_4139)."
+  },
+
+  "bms_4168_0800549c": {
+    "name": "bms_status_bit4_from_reply",
+    "summary": "Copy reply bit 9 into state bit 0x10 when no limit flag is active; set the request byte at +0xF9",
+    "description": "Clears the byte at the context's +0x103. When neither DAT_20000A53 nor flag 0x20000B57 is set, it copies bit 9 of the reply-buffer word at +0x10 into bit 4 (0x10) of the 16-bit state word at +0x194 and clears DAT_200001BA. It then sets the byte at the context's +0xF9 to 1, which marks the context as ready for its next step. The reply-buffer getter is called and can clear the reply buffer when its busy flag is clear.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "unused"},
+      {"name": "param_2", "type": "ptr", "description": "per-channel context: byte +0x103 cleared, byte +0xF9 set to 1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of bit 0x10 in the state word at +0x194 and of DAT_20000A53 is not identified. The caller is bms_4168_08007a0c's family and is not in this packet."
+  },
+
+  "bms_4168_080054f8": {
+    "name": "bms_limit_report_cmd08",
+    "summary": "Derive a reserve current and send command 0x08 with a limit payload every 500 ticks",
+    "description": "Builds the working limit DAT_200001C2 from the charge limit at state +0x120, replacing it with reply word +0x0C when the reply word +6 is nonzero, flag 0x20000B57 is set and the 0x194 bit 6 is clear (or the +0x11E and +0x11A conditions hold), and halving it when DAT_20000A53 and DAT_20000B57 are both 1. The 32-bit word at the argument's +0x14 packs three fields: bits 0 to 11 cap the limit, bits 12 to 17 are a divisor and bits 18 to 27 cap the limit again, and the cap from +0x10 (12 bits) is scaled by 100000/54370 (0xD462). It divides the limit and the caps by the divisor, keeps the smallest value and stores the product as the reserve DAT_200001C4, which bms_limit_status_update subtracts. When the argument's tick counter at +0x04 exceeds 499 it resets the counter, builds a 4-byte payload with the constant 0x2A7A in the low half and the limit in bits 16 to 27, sends it with bms_comm_send_frame as command 8, and sets the byte at +0xF9 to 10.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "unused"},
+      {"name": "param_2", "type": "ptr", "description": "limit record: u32 tick counter at +0x04, u32 fields at +0x10 and +0x14, payload word at +0x2C, byte counter +0xFB, state byte +0xF9"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 0x2A7A constant is read as a fixed message tag, which is an inference. The divisor and cap semantics come from the bit extraction and are medium confidence. The 0xD462 scale is not identified."
+  },
+
+  "bms_4168_08005768": {
+    "name": "bms_extlog_request_dispatch",
+    "summary": "External-flash log dispatcher: init regions, read records, run journal step, append, rewrite header",
+    "description": "Runs once per call and executes the request selected by the op byte at request+1, where the request block pointer is stored at 0x2000133C and holds the argument at +4 and the destination buffer at +8. The op is cancelled (treated as op 0) when the byte at the address from bms_byte_20000628_addr plus 4 is set, or when bit 12 of the state word at 0x196 is set. Op 1 erases sectors 0 and 1 and initialises region A (counter 0x20001348, erase pointer 0x2000134C, write pointer 0x20001350, starting at 0x10000) and region B (0x20001354, 0x20001358, 0x2000135C, starting at 0x280000). Op 2 reads 20 bytes of a logical record (mode 0). Op 3 maps the record number in argument bytes 2 and 3 (mode 0) and reads 64 bytes at that base plus bytes 0 and 1 times 0x40, minus 0x2C. Op 4 reads 64 bytes of the record with a 32-bit number (mode 1). Op 5 runs bms_extflash_journal_step (bms_4168_08003a50) and completes when it returns nonzero. Op 6 appends a 64-byte record from staging RAM 0x20001360 to region B, with sector erase ahead, read-back verification and up to three retries. Op 7 rewrites the 12-byte region-B header at flash 0x1000 (erase, write, verify, up to three retries). Each op sets the status byte DAT_20001340 to 2 when finished and leaves it unchanged while a wait or retry is pending.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none; completion is reported through the status byte at 0x20001340 (2 when done)"},
+    "confidence": "medium",
+    "notes": "Logical record mapping is bms_logical_addr_map. Argument and buffer offsets come from the decompile; the request block layout is inferred from it. The reads in ops 2 to 4 are through bms_extflash_read. The 64-byte records and the staging buffer 0x20001360 are inferred from the copy sizes."
+  },
+
+  "bms_4130_08005d2c": {
+    "name": "bms_soc_estimate_4130",
+    "summary": "4130 state-of-charge estimator: rest-voltage or coulomb-count mode, 8-sample OCV filter, slewed integrators",
+    "description": "Runs once per tick on the 4130 state block (bms_ram_20000bdc_addr), with the elapsed time in param_3 divided by 100 as the step. Bit 6 of the byte at 0x200001C8 (bms_ram_200001c8_addr) selects the rest branch: SOC is taken from the OCV lookup (bms_soc_from_ocv_table) applied to DAT_20000108 minus the current times DAT_20000D3E, clamped to 0 to 100 in DAT_20000CCC, and after 1200 rest ticks the integrators DAT_20000D90, D94 and D98 are seeded from it and bit 4 of the flag byte is set. In active mode the rest counters are cleared and current times time is integrated into DAT_20000DA8 with a 3600-unit rollover into the hour integrators DAT_20000D94 and D98 (clamped at 0), keeping the sub-unit residual in DAT_20000DA4. Every ten steps, or on a large step, a voltage-error sample (DAT_20000108 minus a current-compensated term) goes into an eight-entry ring at DAT_20000DAC indexed by DAT_200000FC, and the mean of the ring feeds the filtered estimate DAT_20000D90. D94 and D98 are slewed toward it with +/-128 hysteresis accumulators (DAT_2000010E and DAT_20000110), and the 16-bit value at +0x1F4 is latched into DAT_20000112 when bit 4 of the byte at 0x200005C0 is set. The reported SOC is a blend of 20 percent of D90 and 80 percent of D94 or D98 (selected by bit 2 of the state word at +0x124), with rate-limited 1 percent steps of DAT_20000CCE driven by the accumulators at DAT_20000130, 0x2000012C, 0x20000134 to 0x2000013C and 0x20000140.",
+    "category": "soc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "unused"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "elapsed time of this step; divided by 100 to give the integration step"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "This is the 4130 counterpart of the 4148 and 4168 estimator (bms_soc_main_step). The full rate-limit and step-direction logic of DAT_20000CCE and the meaning of DAT_20000D3E are not traced in detail; the description is a structural summary. The 4130 state-block helpers are the packet's family names (bms_ram_20000bdc_addr, bms_ram_200001c8_addr, bms_get_block_200005c0_ptr); their 4130 addresses differ from the 4168 ones."
+  },
+
+  "bms_4168_08005fc4": {
+    "name": "bms_status_latch_step",
+    "summary": "Latch state bit 0 and clear bit 2 at once, or after 3000 units of low current when bit 5 is set",
+    "description": "Called from the switch in bms_4168_0800ce64 with the elapsed time as its argument. If bit 5 (0x20) of the byte at state +0x194 is set, it adds the argument to DAT_20000E14 while the current at +0x11A is below 5 and the reply word +0x10 is not negative, resets DAT_20000E14 otherwise, and latches only after it exceeds 2999. If bit 5 is clear it latches immediately. Latching clears bit 2 and sets bit 0 of the 16-bit state word at +0x124 and sets DAT_20000E20 to 1. The reply-buffer getter is called and can clear the reply buffer when its busy flag is clear.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "elapsed time added to the 3000-unit timer"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The purpose of the latch and of bit 5 at +0x194 is not identified; the name describes the mechanics only. The caller, bms_4168_0800ce64, is not in this packet."
+  },
+
+  "bms_4168_080065e0": {
+    "name": "bms_rtc_timestamp_record_start",
+    "summary": "Capture the RTC date and time, prepare the record at 0x20001C84 and set its state byte to 2",
+    "description": "Calls bms_rtc_datetime_pack (bms_4168_08009d84), which reads the RTC date and time in binary and packs them into a 4-byte bit-field record. It then calls bms_4168_08009c4c, calls bms_4168_08009e40 with argument 3 and the record at 0x20001C84, and calls bms_4168_08009f78 on that record. It sets the byte at 0x20001C8A to 2 and returns 1. The helpers are not yet described, so the record layout and what argument 3 selects are open.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "low",
+    "notes": "The return value of bms_rtc_datetime_pack is not used here, so the packed record must be stored by the helper itself. The meaning of 2 in the state byte and of argument 3 are inferred."
+  },
+
+  "bms_4168_080068e8": {
+    "name": "bms_soc_main_step",
+    "summary": "Per-tick 4168 SOC step: integrate current, blend count and OCV estimates, step the reported SOC",
+    "description": "Runs once per tick with dt = param_3/100. If bit 6 of the byte at 0x200001C8 is set it hands off to bms_4168_08007348 and returns. It calls bms_charge_integrate_step with dt, then bms_voltage_error_track (bms_4168_0800708c), which refreshes DAT_20000EE8 from the OCV table. The blended charge DAT_20000EF0 depends on the profile class: for profiles 6 to 8 it is the count estimate DAT_20000EEC times 100 unless a latch from low current, near-full voltage (16-bit value at +8 of param_1 at or above 4101 mV for 1200 ticks) or low SOC (below 21 percent) is set, in which case EEC is slewed toward EE8 by bms_tracking_filter_step and blended 80/20; for other profiles it is EEC alone or a 70/30 blend of EEC and EE8 at low SOC or at high SOC with the 0x124 bit 2 flag. A cell voltage below 3000 mV (value at +4 of param_1) zeroes EE8, the reported SOC DAT_20000E26 and EEC. The blend is converted to a 0 to 100 SOC in DAT_20000EF4, the capacity DAT_20000E28 is derived from it, and the reported SOC DAT_20000E26 moves in rate-limited 1 percent steps with direction and rate set by the current bands, the 0x124 bits 1 and 2, and the timers at DAT_20000210, DAT_20000224 and DAT_2000023C.",
+    "category": "soc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "voltage record: u16 at +4 (mV, checked against 3000) and u16 at +8 (mV, checked against 4101 and 4150)"},
+      {"name": "param_2", "type": "ptr", "description": "context record: s16 at +2 gates the low-voltage reset (below 6, or below 10 with a latch)"},
+      {"name": "param_3", "type": "u32", "description": "elapsed time of this step; divided by 100 to give the integration step"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Units are read from the constants: the 1000 to 3000 ticks and 100 ticks per 1 percent rate, and the mV thresholds. The OCV table and the rest handler bms_4168_08007348 are not described in this packet. The per-class blend weights and step thresholds are summarised, not fully traced."
+  },
+
+  "bms_4168_0800708c": {
+    "name": "bms_voltage_error_track",
+    "summary": "Accumulate the IR-compensated voltage over samples, average it, and refresh the OCV-based charge estimate",
+    "description": "Called once per tick from bms_soc_main_step with the elapsed step. It adds the step to a high-current timer at DAT_200001DE (capped at 40) when the current at +0x11A is above 300. When the current is at or below 300 or the sample timer DAT_200001F4 exceeds 100, it adds a weighted voltage sample to the accumulator DAT_20000214: the reference DAT_200001F0 minus the current times a profile-dependent weight (DAT_20000E96 plus 4, with a low-SOC boost) divided by 100, and counts it in DAT_200001F2. Every ten samples, or when the timer passes 100, it divides the accumulator by the count with bms_sdiv32 to form one voltage sample and pushes it into an eight-entry ring at DAT_20000F00 indexed by DAT_200001DD. If the sample exceeds the threshold DAT_20000EBC, it substitutes the rounded mean of the eight ring entries. The sample is mapped to a 0 to 100 percent value with bms_soc_from_ocv_table (bms_4168_08006674), and DAT_20000EE8 is set to DAT_20000E34 times that percentage over 100. The accumulators DAT_20000214, DAT_200001F2 and DAT_200001F4 are then cleared.",
+    "category": "soc",
+    "params": [
+      {"name": "param_1", "type": "s16", "description": "elapsed time of this step; added to the sample timer DAT_200001F4"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The division bms_4168_0800113c (bms_sdiv32) is called without visible arguments in the decompile, so the dividend and divisor (DAT_20000214 over DAT_200001F2) are inferred from the surrounding code. The source of DAT_200001F0 is not identified. The profile weights are summarised; the exact boost formula is not fully traced."
+  }
+}

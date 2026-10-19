@@ -1,6 +1,6 @@
 # BMS - `timer` functions
 
-21 functions.
+23 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -14,6 +14,7 @@
 | [`SysTick_Config`](#systick_config) | 0x080028B8 | Starts SysTick with the given reload count at lowest priority and enables its interrupt |
 | [`bms_counter_1000_tick`](#bms_counter_1000_tick) | 0x0800868C | Count 1000-tick periods into the signed 16-bit counter that 0x2000002C points to |
 | [`bms_pb11_hold_timer_step`](#bms_pb11_hold_timer_step) | (removed) | Accumulate time while GPIOB pin 11 is high; latch output past 2000 units, clear when low |
+| [`bms_systick_1khz_start`](#bms_systick_1khz_start) | 0x080021EC | Starts SysTick as a 1 kHz tick at the given priority when the enable byte at 0x20000698 is set |
 | [`bms_systick_base_set`](#bms_systick_base_set) | 0x08008D4C | Store the SysTick base count used by the busy-wait helpers |
 | [`bms_systick_wait_repeat`](#bms_systick_wait_repeat) | 0x08008D58 | Busy-wait param_1 times, each for DAT_20000688 * 1000 SysTick counts |
 | [`bms_systick_wait_scaled`](#bms_systick_wait_scaled) | 0x08008DA0 | Busy-wait for param_1 * DAT_20000688 SysTick counts |
@@ -23,6 +24,7 @@
 | [`bms_tim6_tim7_stop`](#bms_tim6_tim7_stop) | 0x0800A4B4 | Stop TIM6 and TIM7, reset both timers and disable IRQ 18 |
 | [`bms_tim6_tim7_stop_reset`](#bms_tim6_tim7_stop_reset) | (removed) | Stop and reset TIM6 and TIM7: counter disable, then peripheral reset |
 | [`bms_tim6_update_flag_poll`](#bms_tim6_update_flag_poll) | 0x0800A3C8 | Return true if TIM6 has an update flag pending, and clear it |
+| [`bms_timed_step_sequence_run`](#bms_timed_step_sequence_run) | 0x08007F48 | Run one step of the 5000-unit timed sequence and rewind it on expiry |
 | [`bms_timeout_arm_from_record`](#bms_timeout_arm_from_record) | 0x08005710 | Arm the 0x2000067E countdown from the record at 0x2000133C; set state 0x20001340 from bit 12 |
 | [`bms_timer10_poll`](#bms_timer10_poll) | 0x08008254 | Poll a 10-tick periodic timer and arm it when the request byte at 0x20000020 is set |
 
@@ -145,7 +147,7 @@ CMSIS SysTick_Config. It returns 1 without touching hardware when ticks - 1 exce
 
 - Addresses by version: 4130: 0x080028B8, 4139: 0x080028B8, 4148: 0x080028B8, 4168: 0x080028B8
 - Peripheral registers: `SysTick+0x0` (W), `SysTick+0x4` (W), `SysTick+0x8` (W), `SCB+0x20` (RW)
-- Called by: `bms_4168_080021ec`
+- Called by: `bms_systick_1khz_start`
 - Confidence: high
 
 ## bms_counter_1000_tick
@@ -174,7 +176,26 @@ Samples GPIOB pin 11 (GPIOB.IDR at 0x50000410, bit 11) on each call. While the p
 **Notes:** Present in the 4130 and 4139 builds only. The pin's function and the step units are not established here. It is grouped with bms_exti11_irq_disarm, which clears the armed byte at 0x20000594, and the 0x20000594..0x20000596 block. The EXTI line that goes with PB11 is set in SYSCFG EXTICR, which is not visible in this packet.
 
 - Addresses by version: 4130: 0x08009638, 4139: 0x08009B70
-- Called by: `bms_4139_08007238`
+- Called by: `bms_pb11_trigger_sequence_step`
+- Confidence: medium
+
+## bms_systick_1khz_start
+
+**Starts SysTick as a 1 kHz tick at the given priority when the enable byte at 0x20000698 is set**
+
+Returns 1 unless the byte at 0x20000698 is non-zero. When it is, it computes the SysTick reload as the 32-bit clock word at 0x200006A4 divided by a value derived from 1000 through bms_udiv32, which for a 1 ms tick gives clock/1000, then calls SysTick_Config (bms_4168_080028b8). On success it sets the SysTick priority with __NVIC_SetPriority(-1, param_1), stores param_1 at 0x2000069C and returns 0. A failed SysTick_Config (reload out of range) or a priority of 4 or more also returns 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `priority` | `u32` | param_1, SysTick priority, 0 (highest) to 3 (lowest) |
+
+**Returns** `u32`: 0 on success, 1 when disabled, out of range or priority 4 or more
+
+**Notes:** The divisor passed to bms_udiv32 is partly invisible in the decompile (one argument comes from a register that is not set here), so the 1 kHz reading is inferred. The clock word at 0x200006A4 is presumed to be SystemCoreClock. The enable byte at 0x20000698 is also the step word read by bms_counter_accumulate.
+
+- Addresses by version: 4130: 0x080021EC, 4139: 0x080021EC, 4148: 0x080021EC, 4168: 0x080021EC
+- Called by: `bms_hw_init_systick_prefetch`, `bms_sysclk_hse_pll_bringup`, `bms_sysclk_hsi16_switch`
+- Calls: `bms_udiv32`, `__NVIC_SetPriority`, `SysTick_Config`
 - Confidence: medium
 
 ## bms_systick_base_set
@@ -188,7 +209,7 @@ Writes param_1 to the RAM word at 0x20000688. That word is the base count multip
 | `param_1` | `u32` | base SysTick count |
 
 - Addresses by version: 4130: 0x08007D00, 4139: 0x08008200, 4148: 0x08008A4C, 4168: 0x08008D4C
-- Called by: `bms_4168_080082f0`, `bms_4168_080086d4`
+- Called by: `bms_4168_080082f0`, `bms_system_clock_setup`
 - Confidence: medium
 
 ## bms_systick_wait_repeat
@@ -236,7 +257,7 @@ Returns the u32 at RAM 0x20000678. Many callers use it as a time stamp, and bms_
 **Notes:** Callers in the packet include bms_4139_0800c950, bms_4139_0800cd7c, bms_4139_0800cebc and about a dozen bms_4168 functions; the packet's caller list is truncated.
 
 - Addresses by version: 4130: 0x080092E8, 4139: 0x080097E8, 4148: 0x0800A034, 4168: 0x0800A348
-- Called by: `bms_event_capture_on_match`, `bms_proto_build_reply`, `bms_nibble_debounce_1s`, `bms_rtc_reset_with_snapshot`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_4168_0800ddb0` ...
+- Called by: `bms_event_capture_on_match`, `bms_proto_build_reply`, `bms_nibble_debounce_1s`, `bms_rtc_reset_with_snapshot`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_telemetry_block_fill_16`, `bms_telemetry_sched_16_step` ...
 - Confidence: medium
 
 ## bms_tick_timeout_check
@@ -256,7 +277,7 @@ Computes an elapsed time from the 32-bit time base at 0x20000678 and the start s
 **Notes:** The wrap case subtracts one more than a plain unsigned subtraction. This may be a decompiler artifact of a borrow idiom or a real off-by-one; check the disassembly. Callers: bms_4139_0800cd7c, bms_4168_080064a0, bms_4168_08007f48, bms_4168_08008254, bms_4168_080082f0, bms_4168_0800868c, bms_4168_0800b9a8, bms_4168_0800b9f2, bms_4168_0800ddb0, bms_4168_0800e2c8, bms_4168_0800f8b4, bms_4168_0800fabc.
 
 - Addresses by version: 4130: 0x08009490, 4139: 0x080099C8, 4148: 0x0800A214, 4168: 0x0800A528
-- Called by: `bms_nibble_debounce_1s`, `bms_4168_08007f48`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800ddb0`, `bms_can_status_frame_rx`, `bms_4168_0800f8b4`, `bms_fault_record_service`
+- Called by: `bms_nibble_debounce_1s`, `bms_timed_step_sequence_run`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_telemetry_sched_16_step`, `bms_can_status_frame_rx`, `bms_tp_service_tick`, `bms_fault_record_service`
 - Confidence: medium
 
 ## bms_tim6_tim7_start
@@ -269,8 +290,8 @@ Sets up two basic timers from the 16 MHz clock. It calls a fill helper (FUN_0800
 
 - Addresses by version: 4130: 0x08009388, 4139: 0x08009888, 4148: 0x0800A0D4, 4168: 0x0800A3E8
 - Peripheral registers: `TIM6.CR1` (A), `TIM7.CR1` (A), `TIM7.DIER` (RW), `NVIC+0x0` (AW)
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
-- Calls: `bms_4168_08001246`, `LL_APB1_GRP1_EnableClock`, `bms_request_reset`, `LL_TIM_DisableMasterSlaveMode`, `LL_TIM_EnableARRPreload`, `LL_TIM_EnableCounter`, `LL_TIM_Init`, `LL_TIM_SetTriggerOutput`, `NVIC_SetPriority`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
+- Calls: `bms_mem_zero`, `LL_APB1_GRP1_EnableClock`, `bms_request_reset`, `LL_TIM_DisableMasterSlaveMode`, `LL_TIM_EnableARRPreload`, `LL_TIM_EnableCounter`, `LL_TIM_Init`, `LL_TIM_SetTriggerOutput`, `NVIC_SetPriority`
 - Confidence: medium
 
 ## bms_tim6_tim7_stop
@@ -312,6 +333,19 @@ Checks and clears the TIM6 update flag. It calls bms_request_is_done with the TI
 - Called by: `bms_4168_080082f0`
 - Calls: `bms_request_reset`, `bms_request_is_done`
 - Confidence: high
+
+## bms_timed_step_sequence_run
+
+**Run one step of the 5000-unit timed sequence and rewind it on expiry**
+
+Called from the main loop. It checks bms_tick_timeout_check on the start stamp at 0x200008E8 against 5000 time units, writing the elapsed value back through that word. On expiry it clears bit 8 (0x0100) of the u16 at +0x196 of the state block (pointer at 0x200008F0) and resets the step word 0x200008F4 to 0. It then calls the function at index 0x200008F4 in the pointer table at 0x080107D8 and finishes with bms_tp_service_tick (0x0800F8B4).
+
+**Notes:** The step functions in the 0x080107D8 table are outside this packet. The sibling restart routine is bms_seq_restart_stamp.
+
+- Addresses by version: 4130: 0x08006F00, 4139: 0x08007400, 4148: 0x08007C40, 4168: 0x08007F48
+- Called by: `bms_4168_08010558`
+- Calls: `bms_tick_timeout_check`, `bms_tp_service_tick`
+- Confidence: medium
 
 ## bms_timeout_arm_from_record
 

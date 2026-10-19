@@ -28,6 +28,6 @@ Configures and starts the IWDG. It fetches the status object from bms_ram_20000b
 
 - Addresses by version: 4130: 0x080092F4, 4139: 0x080097F4, 4148: 0x0800A040, 4168: 0x0800A354
 - Peripheral registers: `IWDG.IWDG_KR` (W), `IWDG.IWDG_PR` (W), `IWDG.IWDG_RLR` (W), `IWDG.IWDG_SR` (R), `IWDG.IWDG_WINR` (W)
-- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: high

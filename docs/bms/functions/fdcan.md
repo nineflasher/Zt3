@@ -1,6 +1,6 @@
 # BMS - `fdcan` functions
 
-24 functions.
+34 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -8,9 +8,14 @@
 | [`HAL_FDCAN_AddMessageToTxFifoQ`](#hal_fdcan_addmessagetotxfifoq) | 0x080015C4 | Writes one frame into the next Tx FIFO slot in message RAM and requests transmission |
 | [`HAL_FDCAN_ConfigFilter`](#hal_fdcan_configfilter) | 0x0800168C | Writes one standard or extended acceptance filter element into message RAM |
 | [`HAL_FDCAN_ConfigGlobalFilter`](#hal_fdcan_configglobalfilter) | 0x080016F0 | Sets the global filter (RXGFC) actions for non-matching and remote frames |
+| [`HAL_FDCAN_DeInit`](#hal_fdcan_deinit) | 0x08001732 | Deinitialises FDCAN: stops the node, clears interrupt line enables, runs MSP deinit |
 | [`HAL_FDCAN_ErrorCallback`](#hal_fdcan_errorcallback) | 0x08001754 | Empty weak FDCAN error callback, invoked by the FDCAN interrupt dispatcher |
 | [`HAL_FDCAN_GetRxMessage`](#hal_fdcan_getrxmessage) | 0x08001758 | Reads one received frame from RX FIFO0 or FIFO1 and releases its element |
 | [`HAL_FDCAN_GetTxFifoFreeLevel`](#hal_fdcan_gettxfifofreelevel) | 0x0800184C | Returns the Tx FIFO free level from TXFQS, masked to bits 0-2 |
+| [`HAL_FDCAN_IRQHandler`](#hal_fdcan_irqhandler) | 0x0800185A | FDCAN interrupt dispatcher: acknowledges enabled IR flags and calls their callbacks |
+| [`HAL_FDCAN_Init`](#hal_fdcan_init) | 0x080019D0 | Initialises FDCAN: init mode, CCCR modes, bit timing and message RAM layout |
+| [`HAL_FDCAN_MspDeInit`](#hal_fdcan_mspdeinit) | 0x08001BF4 | Disables the FDCAN2 clock, deinitialises PC2 and PC3, and disables IRQ 21 |
+| [`HAL_FDCAN_MspInit`](#hal_fdcan_mspinit) | 0x08001C24 | Enables FDCAN2 clocks, maps PC2 and PC3 to AF3, and enables IRQ 21 at priority 1 |
 | [`HAL_FDCAN_Start`](#hal_fdcan_start) | 0x08001CF6 | Starts FDCAN: requires READY, clears CCCR.INIT and moves the state to BUSY |
 | [`HAL_FDCAN_Stop`](#hal_fdcan_stop) | 0x08001D22 | Stops FDCAN: sets CCCR.INIT, handles clock-stop acknowledge, re-enables configuration change |
 | [`bms_can_pack_ext_frame`](#bms_can_pack_ext_frame) | 0x080105FC | Pack a 29-bit extended CAN frame (ID, DLC, 3 header bytes, payload) into a TX buffer |
@@ -25,6 +30,11 @@
 | [`bms_fdcan_cb_ir_8000`](#bms_fdcan_cb_ir_8000) | 0x08001DAE | Empty FDCAN interrupt hook for IR flag 0x8000 (bit 15) |
 | [`bms_fdcan_cb_ir_e0000`](#bms_fdcan_cb_ir_e0000) | 0x08001756 | Empty FDCAN interrupt hook for IR bits 17-19 (mask 0xE0000) |
 | [`bms_fdcan_filters_start`](#bms_fdcan_filters_start) | 0x08008CA0 | Set up FDCAN1 filters, reject unmatched frames, start FDCAN and enable RX FIFO 0 interrupts |
+| [`bms_fdcan_handle_init`](#bms_fdcan_handle_init) | 0x080019C8 | Bring up an FDCAN handle: enter INIT, program CCCR, bit timing, filters and message RAM |
+| [`bms_fdcan_handle_stop`](#bms_fdcan_handle_stop) | 0x0800172A | Stop an FDCAN handle, disable its interrupt lines 0 and 1, and mark the handle stopped |
+| [`bms_fdcan_irq_service_thunk`](#bms_fdcan_irq_service_thunk) | 0x08008BEC | Forward to the FDCAN handle service routine bms_4168_0800172A (likely HAL_FDCAN_IRQHandler) |
+| [`bms_fdcan_nominal_500k_setup`](#bms_fdcan_nominal_500k_setup) | 0x08008B98 | Fill the FDCAN handle with 500 kbit/s nominal timing and init it, resetting on failure |
+| [`bms_fdcan_rx_fifo0_service`](#bms_fdcan_rx_fifo0_service) | 0x08001C90 | Drains up to three frames from RX FIFO0 of handle 0x20005C50 to the RX callback |
 | [`bms_fdcan_send_frame`](#bms_fdcan_send_frame) | 0x08008C14 | Build an FDCAN Tx header from a frame record and queue it in the Tx FIFO |
 | [`bms_fdcan_tx_fifo_full`](#bms_fdcan_tx_fifo_full) | 0x08008BFC | Return 1 when the FDCAN1 Tx FIFO has no free element, else 0 |
 | [`fdcan2_is_bus_off`](#fdcan2_is_bus_off) | 0x08008C8C | Return 1 when FDCAN2 is bus-off (FDCAN_PSR.BO set) |
@@ -110,6 +120,21 @@ Requires state READY (1); otherwise sets error 0x4 and returns 1. It rewrites th
 - Called by: `bms_fdcan_filters_start`
 - Confidence: high
 
+## HAL_FDCAN_DeInit
+
+**Deinitialises FDCAN: stops the node, clears interrupt line enables, runs MSP deinit**
+
+Calls HAL_FDCAN_Stop (bms_4168_08001d22) to take the node off the bus, then clears interrupt line enable bits 0 and 1 in the instance ILE register (instance offset 0x5C). It calls HAL_FDCAN_MspDeInit (bms_4168_08001bf4), then sets the handle error word (+0x60) to 0 and the handle state (+0x5C) to RESET (0). This is the teardown counterpart of HAL_FDCAN_Init (bms_4168_080019d0).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle |
+
+- Addresses by version: 4130: 0x08001732, 4139: 0x08001732, 4148: 0x08001732, 4168: 0x08001732
+- Called by: `bms_fdcan_handle_stop`
+- Calls: `HAL_FDCAN_MspDeInit`, `HAL_FDCAN_Stop`
+- Confidence: high
+
 ## HAL_FDCAN_ErrorCallback
 
 **Empty weak FDCAN error callback, invoked by the FDCAN interrupt dispatcher**
@@ -119,7 +144,7 @@ The body is a bare return, so the callback does nothing in this image. The FDCAN
 **Notes:** The HAL callback name is inferred from the dispatcher's call position, not from a symbol.
 
 - Addresses by version: 4130: 0x08001754, 4139: 0x08001754, 4148: 0x08001754, 4168: 0x08001754
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## HAL_FDCAN_GetRxMessage
@@ -140,7 +165,7 @@ Requires state BUSY (else error 0x8). RxLocation 0x40 selects FIFO0 and any othe
 **Notes:** Name follows the ST HAL routine from its behaviour and header layout. Header fields keep their raw bit positions, so id type and flags are not normalised to 0/1.
 
 - Addresses by version: 4130: 0x08001758, 4139: 0x08001758, 4148: 0x08001758, 4168: 0x08001758
-- Called by: `bms_4168_08001c90`
+- Called by: `bms_fdcan_rx_fifo0_service`
 - Confidence: high
 
 ## HAL_FDCAN_GetTxFifoFreeLevel
@@ -159,6 +184,71 @@ Returns TXFQS & 7, the TFFL free-entry count. The mask keeps only three bits, al
 
 - Addresses by version: 4130: 0x0800184C, 4139: 0x0800184C, 4148: 0x0800184C, 4168: 0x0800184C
 - Called by: `bms_fdcan_tx_fifo_full`
+- Confidence: high
+
+## HAL_FDCAN_IRQHandler
+
+**FDCAN interrupt dispatcher: acknowledges enabled IR flags and calls their callbacks**
+
+Reads IR (instance offset 0x50) and IE (0x54). For each enabled flag group it writes the flag back to IR to clear it and calls the matching callback: bit 6 to bms_fdcan_cb_ir_40, bit 7 to bms_fdcan_cb_ir_80 (TXBTO AND TXBTIE), bit 8 to bms_fdcan_cb_ir_100 (TXBCF AND TXBCIE), bit 9 to bms_fdcan_cb_ir_200, bit 13 to bms_fdcan_cb_ir_2000, bit 15 to bms_fdcan_cb_ir_8000, bits 10-12 to bms_fdcan_cb_ir_1c00, bits 3-5 to bms_fdcan_cb_ir_38, bits 17-19 to bms_fdcan_cb_ir_e0000, and bits 0-2 to bms_fdcan_rx_fifo0_service. Bit 14 sets error 0x80 in the handle, bits 16 and 20-23 are ORed into the handle error word, and HAL_FDCAN_ErrorCallback (bms_4168_08001754) runs when any error bit is set. The FDCAN interrupt line is IRQ 21 (TIM16_FDCAN_IT0); the function that calls this dispatcher is not in this packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle |
+
+- Addresses by version: 4130: 0x0800185A, 4139: 0x0800185A, 4148: 0x0800185A, 4168: 0x0800185A
+- Called by: `TIM16_FDCAN_IT0_IRQHandler`
+- Calls: `HAL_FDCAN_ErrorCallback`, `bms_fdcan_cb_ir_e0000`, `bms_fdcan_cb_ir_40`, `bms_fdcan_rx_fifo0_service`, `bms_fdcan_cb_ir_38`, `bms_fdcan_cb_ir_8000`, `bms_fdcan_cb_ir_2000`, `bms_fdcan_cb_ir_100`, `bms_fdcan_cb_ir_80`, `bms_fdcan_cb_ir_1c00`, `bms_fdcan_cb_ir_200`
+- Confidence: high
+
+## HAL_FDCAN_Init
+
+**Initialises FDCAN: init mode, CCCR modes, bit timing and message RAM layout**
+
+On first use (state RESET) it clears the lock and calls HAL_FDCAN_MspInit (bms_4168_08001c24). It clears CCCR.CSR, waits up to 10 ms for CSA to clear, sets CCCR.INIT, waits up to 10 ms for it to read back, then sets CCE. The init record is read in ST FDCAN_InitTypeDef order: FrameFormat sets FDOE and BRSE, AutoRetransmission sets DAR (bit 6), TransmitPause sets TXP (bit 14), ProtocolException sets PXHD (bit 12), and Mode selects restricted operation (ASM, bit 2), bus monitoring (MON, bit 5) or internal loopback (TEST.LBCK plus MON and TEST bit 7). NBTP is built from the nominal prescaler, SJW and time segments, DBTP from the data values when the format is FD with BRS, and TXBC and RXGFC take the queue mode and list sizes. For FDCAN1 it writes the clock divider to 0x40006500. It clears 0x350 bytes of the FDCAN1 or FDCAN2 message RAM and stores the message RAM base and the standard filter (+0x70), extended filter (+0xB0), RX FIFO0 (+0x188), RX FIFO1 (+0x260) and TX buffer (+0x278) addresses in handle words 16 to 21. It sets state READY and returns 0, or on a 10 ms timeout sets error 1, state ERROR and returns 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle with the init record in words 2 to 15 |
+
+**Returns** `u32`: 0 on success, 1 on timeout
+
+- Addresses by version: 4130: 0x080019D0, 4139: 0x080019D0, 4148: 0x080019D0, 4168: 0x080019D0
+- Peripheral registers: `FDCAN1.FDCAN_CKDIV` (W), `SRAMCAN_FDCAN1+0x0` (A), `SRAMCAN_FDCAN1+0x70` (A), `SRAMCAN_FDCAN2+0x0` (AW), `SRAMCAN_FDCAN2+0x4` (W), `SRAMCAN_FDCAN2+0x70` (A), `SRAMCAN_FDCAN2+0xb0` (A), `SRAMCAN_FDCAN2+0x188` (A), `SRAMCAN_FDCAN2+0x260` (A), `SRAMCAN_FDCAN2+0x278` (A)
+- Called by: `bms_fdcan_handle_init`
+- Calls: `HAL_FDCAN_MspInit`, `bms_get_ram_word_200006a0`
+- Confidence: high
+
+## HAL_FDCAN_MspDeInit
+
+**Disables the FDCAN2 clock, deinitialises PC2 and PC3, and disables IRQ 21**
+
+For FDCAN2 only, it clears RCC APBENR1 bit 12 (FDCAN enable), calls HAL_GPIO_DeInit (bms_4168_08001f4c) on GPIOC pins 2 and 3 (mask 0xC), and calls __NVIC_DisableIRQ(21) for TIM16_FDCAN_IT0. For FDCAN1 it does nothing. It is called from HAL_FDCAN_DeInit (bms_4168_08001732).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle |
+
+- Addresses by version: 4130: 0x08001BF4, 4139: 0x08001BF4, 4148: 0x08001BF4, 4168: 0x08001BF4
+- Peripheral registers: `RCC.APBENR1` (RW)
+- Called by: `HAL_FDCAN_DeInit`
+- Calls: `HAL_GPIO_DeInit`, `__NVIC_DisableIRQ`
+- Confidence: high
+
+## HAL_FDCAN_MspInit
+
+**Enables FDCAN2 clocks, maps PC2 and PC3 to AF3, and enables IRQ 21 at priority 1**
+
+For FDCAN2 only, it sets RCC APBENR1 bit 12 (FDCAN enable) and IOPENR bit 2 (GPIOC clock), reading each back, then calls HAL_GPIO_Init (bms_4168_0800202c) on GPIOC pins 2 and 3 in alternate-function mode (mode 2) with alternate function 3. It sets NVIC priority 1 on IRQ 21 (TIM16_FDCAN_IT0) and enables it. Nothing is done for FDCAN1. It is called from HAL_FDCAN_Init on first use.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle |
+
+- Addresses by version: 4130: 0x08001C24, 4139: 0x08001C24, 4148: 0x08001C24, 4168: 0x08001C24
+- Peripheral registers: `RCC.IOPENR` (RW), `RCC.APBENR1` (RW)
+- Called by: `HAL_FDCAN_Init`
+- Calls: `HAL_GPIO_Init`, `__NVIC_EnableIRQ`, `__NVIC_SetPriority`
 - Confidence: high
 
 ## HAL_FDCAN_Start
@@ -194,7 +284,7 @@ Requires state BUSY (else error 0x8). It sets CCCR.INIT (bit 0) and polls about 
 **Notes:** Its caller bms_4168_08001732 calls this and then clears interrupt line enables ILE bits 0-1, sets the error code to 0 and the state to RESET, which looks like HAL_FDCAN_DeInit.
 
 - Addresses by version: 4130: 0x08001D22, 4139: 0x08001D22, 4148: 0x08001D22, 4168: 0x08001D22
-- Called by: `bms_4168_08001732`
+- Called by: `HAL_FDCAN_DeInit`
 - Confidence: high
 
 ## bms_can_pack_ext_frame
@@ -220,7 +310,7 @@ Writes one extended-identifier frame into the buffer at param_9. The 32-bit iden
 **Notes:** Byte 4 holds a length (payload + 3), not the FDCAN T1 DLC field, so this is a custom or simplified buffer layout. The meanings of identifier bit 29 and bit 31 are not confirmed. The J1939 reading is inferred from the constants and has not been checked against a real message from the image. param_3 is not limited to 8 bits, so values of 256 or more overlap param_4's field.
 
 - Addresses by version: 4130: 0x0800E7FA, 4139: 0x0800EE4E, 4148: 0x080100B0, 4168: 0x080105FC
-- Called by: `bms_4168_0800e9dc`, `bms_4168_0800ec04`, `bms_4168_0800f2e0`, `bms_4168_0800f8e0`
+- Called by: `bms_msg_dispatch_request`, `bms_can_cmd_set_handler`, `bms_4168_0800f2e0`, `bms_4168_0800f8e0`
 - Confidence: medium
 
 ## bms_fdcan_add_mask_filter
@@ -251,7 +341,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when 
 **Notes:** The mask argument comes from the dispatcher; the empty body ignores it. The probable ST callback is HAL_FDCAN_TxBufferAbortCallback.
 
 - Addresses by version: 4130: 0x08001DB2, 4139: 0x08001DB2, 4148: 0x08001DB2, 4168: 0x08001DB2
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_1c00
@@ -263,7 +353,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with 
 **Notes:** The dispatcher passes the masked flags as an argument that this empty body ignores.
 
 - Addresses by version: 4130: 0x08001DB6, 4139: 0x08001DB6, 4148: 0x08001DB6, 4168: 0x08001DB6
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_200
@@ -273,7 +363,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with 
 The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 9 (0x200) set, after clearing the bit through IR. In RM0444 numbering bit 9 is TC (transmission completed), which is the likely meaning and is not verified.
 
 - Addresses by version: 4130: 0x08001DB8, 4139: 0x08001DB8, 4148: 0x08001DB8, 4168: 0x08001DB8
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_2000
@@ -283,7 +373,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when 
 The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 13 (0x2000) set, after clearing the bit through IR. In RM0444 numbering bit 13 is TEFW (TX event FIFO watermark), which is the likely meaning and is not verified.
 
 - Addresses by version: 4130: 0x08001DB0, 4139: 0x08001DB0, 4148: 0x08001DB0, 4168: 0x08001DB0
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_38
@@ -293,7 +383,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when 
 The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with the masked IR/IE value for bits 3-5 (0x38) after clearing those IR bits. In RM0444 numbering this group is RF0L, RF1N and RF1W (FIFO0 message lost, FIFO1 new message, FIFO1 watermark), which is the likely meaning and is not verified.
 
 - Addresses by version: 4130: 0x08001CF4, 4139: 0x08001CF4, 4148: 0x08001CF4, 4168: 0x08001CF4
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_40
@@ -303,7 +393,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with 
 The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 6 (0x40) set, after writing 0x40 back to IR to clear it. In the RM0444 numbering bit 6 is RF1F (RX FIFO 1 full), which is the likely meaning, but this image's IR layout is not verified.
 
 - Addresses by version: 4130: 0x08001858, 4139: 0x08001858, 4148: 0x08001858, 4168: 0x08001858
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_80
@@ -315,7 +405,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when 
 **Notes:** The mask argument is ignored by the empty body. The probable ST callback is HAL_FDCAN_TxBufferCompleteCallback.
 
 - Addresses by version: 4130: 0x08001DB4, 4139: 0x08001DB4, 4148: 0x08001DB4, 4168: 0x08001DB4
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_8000
@@ -325,7 +415,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when 
 The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it when both IR and IE have bit 15 (0x8000) set, after writing that bit back to IR to clear it. In RM0444 numbering bit 15 is TEFL (TX event FIFO element lost), which is the likely meaning and is not verified.
 
 - Addresses by version: 4130: 0x08001DAE, 4139: 0x08001DAE, 4148: 0x08001DAE, 4168: 0x08001DAE
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_cb_ir_e0000
@@ -337,7 +427,7 @@ The body is a bare return. The FDCAN dispatcher bms_4168_0800185a calls it with 
 **Notes:** Probably a HAL error-status or timeout callback. The dispatcher passes the flag mask as an argument that this empty body ignores.
 
 - Addresses by version: 4130: 0x08001756, 4139: 0x08001756, 4148: 0x08001756, 4168: 0x08001756
-- Called by: `bms_4168_0800185a`
+- Called by: `HAL_FDCAN_IRQHandler`
 - Confidence: medium
 
 ## bms_fdcan_filters_start
@@ -353,6 +443,87 @@ Installs five mask filters through bms_fdcan_add_mask_filter: extended IDs 0x070
 - Called by: `bms_4168_080082bc`, `bms_4168_080082f0`
 - Calls: `NVIC_SystemReset`, `HAL_FDCAN_ActivateNotification`, `HAL_FDCAN_ConfigGlobalFilter`, `HAL_FDCAN_Start`, `bms_fdcan_add_mask_filter`
 - Confidence: high
+
+## bms_fdcan_handle_init
+
+**Bring up an FDCAN handle: enter INIT, program CCCR, bit timing, filters and message RAM**
+
+Enters INIT through CCCR (clears CSR, waits for CSA to drop, sets INIT, polls up to 10 ticks of bms_get_ram_word_200006a0) and then sets CCE to unlock configuration. CCCR mode bits come from the handle: the word at +0x08 selects FD and bit-rate switching (0x300 = FD with BRS, which also programs DBTP from +0x24..+0x30), byte +0x10 selects auto-retransmit (clears DAR when 1), byte +0x11 selects TX pause (CCCR bit 14), byte +0x12 enables protocol-exception handling (clears PXHD when 1), and word +0x0C selects the operating mode (1 = ASM restricted, 2 = MON bus monitoring, 3 = MON plus TEST with loopback TEST.LBCK, 4 and above = TEST with loopback). NBTP is written from the 1-based nominal timing fields at +0x14 (prescaler), +0x18 (NSJW), +0x1C (NTSEG1) and +0x20 (NTSEG2), each stored minus one. For FDCAN1 it writes the handle word +0x04 into FDCAN_CONFIG.CKDIV at 0x40006500, then sets RXGFC LSS and LSE from +0x34 and +0x38, ORs +0x3C into TXBC, and derives six message-RAM pointers from the FDCAN1 or FDCAN2 SRAMCAN base (standard filters at base, extended filters at base+0x70, RX FIFO0 at base+0xB0, RX FIFO1 at base+0x188, TX event FIFO at base+0x260, TX buffers at base+0x278) stored at +0x40..+0x54. It zeroes 0xD4 words of message RAM, clears +0x58 and the error word +0x60, and sets the state byte +0x5C to 1 (running). A timeout sets error bit 0 at +0x60 and state 3 and returns 1. If the state byte was 0 on entry, it first calls bms_4168_08001c24 (not yet described, presumably the clock or pin setup).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | FDCAN handle: +0x00 instance, +0x04 CKDIV, +0x08 FD mode, +0x0C operating mode, +0x10..+0x12 flag bytes, +0x14..+0x20 nominal timing, +0x24..+0x30 data timing, +0x34 std filter count, +0x38 ext filter count, +0x3C TXBC bits, +0x40..+0x54 message RAM pointers, +0x5C state byte, +0x60 error word |
+
+**Returns** `u32`: 0 on success; 1 for a NULL handle or an INIT timeout (state set to 3)
+
+**Notes:** The handle layout is inferred from every access in the function; field names come from the ST FDCAN register map (RXGFC LSS/LSE, CCCR bit names) and the register JSON. The +0x0C operating-mode meanings follow the bit tests and are medium confidence. bms_4168_08001c24 is not yet described. The 1-based timing convention is inferred from the minus-one arithmetic.
+
+- Addresses by version: 4130: 0x080019C8, 4139: 0x080019C8, 4148: 0x080019C8, 4168: 0x080019C8
+- Called by: `bms_fdcan_nominal_500k_setup`
+- Calls: `HAL_FDCAN_Init`
+- Confidence: high
+
+## bms_fdcan_handle_stop
+
+**Stop an FDCAN handle, disable its interrupt lines 0 and 1, and mark the handle stopped**
+
+Returns 1 for a NULL handle. Otherwise it calls HAL_FDCAN_Stop (bms_4168_08001d22), clears ILE.EINT0 and ILE.EINT1 (bits 0 and 1 of the instance register at offset 0x5C) so that no FDCAN interrupt line can fire, and calls bms_4168_08001bf4 (not yet described; a further teardown step on the handle). It then zeroes the 32-bit error word at handle+0x60 and the state byte at handle+0x5C, the value that bms_fdcan_handle_init tests for 'not initialised', and returns 0. This is the inverse of bms_fdcan_handle_init.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | FDCAN handle; the word at +0x00 is the FDCAN instance pointer, the state byte is at +0x5C |
+
+**Returns** `u32`: 0 when the handle is stopped, 1 for a NULL handle
+
+**Notes:** bms_4168_08001bf4 is not yet described, so its effect on the handle or the message RAM is unknown.
+
+- Addresses by version: 4130: 0x0800172A, 4139: 0x0800172A, 4148: 0x0800172A, 4168: 0x0800172A
+- Called by: `bms_fdcan_irq_service_thunk`
+- Calls: `HAL_FDCAN_DeInit`
+- Confidence: high
+
+## bms_fdcan_irq_service_thunk
+
+**Forward to the FDCAN handle service routine bms_4168_0800172A (likely HAL_FDCAN_IRQHandler)**
+
+Passes the address of the FDCAN handle at 0x20005C50 (see bms_fdcan_nominal_500k_setup) to bms_4168_0800172A, which is not described in this packet. The handle layout, with the instance pointer first, matches the HAL FDCAN handle, so the callee is probably HAL_FDCAN_IRQHandler.
+
+- Addresses by version: 4130: 0x08007BA0, 4139: 0x080080A0, 4148: 0x080088EC, 4168: 0x08008BEC
+- Called by: `bms_4168_080082f0`
+- Calls: `bms_fdcan_handle_stop`
+- Confidence: medium
+
+## bms_fdcan_nominal_500k_setup
+
+**Fill the FDCAN handle with 500 kbit/s nominal timing and init it, resetting on failure**
+
+Writes the FDCAN handle at 0x20005C50: the instance pointer (&FDCAN2) at +0, then the HAL-style init fields at 0x20005C58 to 0x20005C8C. The values are classic CAN frame format, normal mode, automatic retransmission on, nominal prescaler 4 with SJW 1 and time segments 5 and 2, data prescaler 4 with SJW 1 and segments 5 and 2, 4 standard and 5 extended filters, and FIFO queue mode 0. With a 16 MHz FDCAN kernel clock this gives 500 kbit/s (16 MHz / (4 * 8)). It then calls bms_fdcan_handle_init (bms_4168_080019C8, the FDCAN init routine described in wave3_batch01) and calls NVIC_SystemReset if that returns nonzero.
+
+**Notes:** The decompile uses FDCAN2 as the instance, but the BMS brief lists FDCAN1 with message RAM at 0x4000B400; check which instance is wired. The 16 MHz kernel clock is taken from the clock setup recorded in bms_sysclk_hse_pll_bringup.
+
+- Addresses by version: 4130: 0x08007B4C, 4139: 0x0800804C, 4148: 0x08008898, 4168: 0x08008B98
+- Peripheral registers: `FDCAN2.FDCAN_CREL` (A)
+- Called by: `bms_peripheral_bringup`, `bms_4168_080082f0`
+- Calls: `NVIC_SystemReset`, `bms_fdcan_handle_init`
+- Confidence: medium
+
+## bms_fdcan_rx_fifo0_service
+
+**Drains up to three frames from RX FIFO0 of handle 0x20005C50 to the RX callback**
+
+Runs only for the handle at RAM 0x20005C50 and only when bit 0 (RF0N, new message) is set in the mask passed by the dispatcher. It calls HAL_FDCAN_GetRxMessage (bms_4168_08001758) on FIFO0 up to three times, storing the header at 0x20005CD8 and the 8 data bytes in a stack buffer, and stops early when the FIFO is empty. Each frame becomes a six-word record (the upper half of header word 0x20005CE4, header words 0x20005CDC, 0x20005CE0 and 0x20005CD8, and the two data words), and the function pointer in RAM 0x20000684 is called with the record's address.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `hfdcan` | `ptr` | param_1, FDCAN handle (must be the one at 0x20005C50) |
+| `irq_mask` | `u32` | param_2, pending IR bits from the dispatcher (bit 0 selects RX FIFO0) |
+
+**Notes:** The callback pointer at 0x20000684 is set outside this packet. The field meanings of the six-word record are inferred from the header layout that HAL_FDCAN_GetRxMessage writes.
+
+- Addresses by version: 4130: 0x08001C90, 4139: 0x08001C90, 4148: 0x08001C90, 4168: 0x08001C90
+- Called by: `HAL_FDCAN_IRQHandler`
+- Calls: `HAL_FDCAN_GetRxMessage`
+- Confidence: medium
 
 ## bms_fdcan_send_frame
 

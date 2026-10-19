@@ -1,6 +1,6 @@
 # MCU - `clock` functions
 
-15 functions.
+18 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
@@ -10,8 +10,10 @@
 | [`crm_apb2_div_set`](#crm_apb2_div_set) | 0x0800C320 | Set the APB2 prescaler (APB2DIV) in CRM.CFG bits 13:11 |
 | [`crm_auto_step_mode_enable`](#crm_auto_step_mode_enable) | 0x0800C330 | Enable or disable automatic AHB step-up mode (CRM.MISC2 bits 5:4) |
 | [`crm_clock_source_enable`](#crm_clock_source_enable) | 0x0800C350 | Enable or disable an oscillator or PLL (HICK, HEXT, PLL, LEXT, LICK) |
+| [`crm_clocks_freq_get`](#crm_clocks_freq_get) | 0x0800C398 | Compute SYSCLK, AHB, APB2, APB1 and ADC clock frequencies from the CRM registers |
 | [`crm_flag_get`](#crm_flag_get) | 0x0800C4C4 | Test a CRM status flag given as packed register offset and bit number |
 | [`crm_hext_bypass`](#crm_hext_bypass) | 0x0800C4E8 | Set or clear the HEXT bypass bit (CRM.CTRL bit 18, HEXTBYPS) |
+| [`crm_hext_stable_wait`](#crm_hext_stable_wait) | 0x0800C4F8 | Wait up to 0x3000 polls for the HEXT stable flag and return 1 if it is set |
 | [`crm_lext_bypass`](#crm_lext_bypass) | 0x0800C524 | Set or clear the LEXT bypass bit (CRM.BPDC bit 2, LEXTBYPS) |
 | [`crm_periph_clock_enable`](#crm_periph_clock_enable) | 0x0800C534 | Enable or disable a peripheral bus clock (AHBEN, APB1EN or APB2EN bit) |
 | [`crm_periph_reset`](#crm_periph_reset) | 0x0800C55C | Assert or release a peripheral reset bit (APB1RST, APB2RST) |
@@ -19,6 +21,7 @@
 | [`crm_reset`](#crm_reset) | 0x0800C684 | Reset the clock tree to its power-on state, switching SYSCLK to HICK first |
 | [`crm_sysclk_switch`](#crm_sysclk_switch) | 0x0800C6D0 | Select the system clock source (CFG.SCLKSEL bits 1:0) |
 | [`crm_sysclk_switch_status_get`](#crm_sysclk_switch_status_get) | 0x0800C6E0 | Read which clock currently drives SYSCLK (CFG.SCLKSTS bits 3:2) |
+| [`system_clock_config`](#system_clock_config) | 0x08008DC0 | Start HEXT and the PLL, switch SYSCLK to the PLL and store the resulting SYSCLK frequency |
 
 ## crm_adc_clock_div_set
 
@@ -47,7 +50,7 @@ Read-modify-write of CRM.CFG (0x40021004): replaces bits 7:4 with the low four b
 
 - Addresses by version: 12b: 0x0800C054, 143: 0x0800C29C, 152: 0x0800C2A0, 0160: 0x0800C300
 - Peripheral registers: `CRM.CFG` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_apb1_div_set
@@ -62,7 +65,7 @@ Read-modify-write of CRM.CFG (0x40021004): replaces bits 10:8 with the low three
 
 - Addresses by version: 12b: 0x0800C064, 143: 0x0800C2AC, 152: 0x0800C2B0, 0160: 0x0800C310
 - Peripheral registers: `CRM.CFG` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_apb2_div_set
@@ -77,7 +80,7 @@ Read-modify-write of CRM.CFG (0x40021004): replaces bits 13:11 with the low thre
 
 - Addresses by version: 12b: 0x0800C074, 143: 0x0800C2BC, 152: 0x0800C2C0, 0160: 0x0800C320
 - Peripheral registers: `CRM.CFG` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_auto_step_mode_enable
@@ -92,7 +95,7 @@ Writes both bits of the AUTO_STEP_EN field (bits 5:4 of CRM.MISC2, 0x40021054) t
 
 - Addresses by version: 12b: 0x0800C084, 143: 0x0800C2CC, 152: 0x0800C2D0, 0160: 0x0800C330
 - Peripheral registers: `CRM.MISC2` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_clock_source_enable
@@ -108,7 +111,25 @@ Switches on the source code. 0 HICK sets CTRL bit 0 (HICKEN). 1 HEXT sets CTRL b
 
 - Addresses by version: 12b: 0x0800C0A4, 143: 0x0800C2EC, 152: 0x0800C2F0, 0160: 0x0800C350
 - Peripheral registers: `CRM.CTRL` (RW), `CRM.BPDC` (RW), `CRM.CTRLSTS` (RW)
-- Called by: `mcu_0160_08006028`, `mcu_0160_08008dc0`
+- Called by: `mcu_0160_08006028`, `system_clock_config`
+- Confidence: high
+
+## crm_clocks_freq_get
+
+**Compute SYSCLK, AHB, APB2, APB1 and ADC clock frequencies from the CRM registers**
+
+SDK crm_clocks_freq_get, compiled. The SYSCLK source comes from crm_sysclk_switch_status_get. HICK gives 8 MHz, or 48 MHz when MISC2 hick_to_sclk and MISC1 hickdiv are both set. HEXT gives 16 MHz on this board, where the SDK constant is 8 MHz. For the PLL the input is HICK/2 or HEXT (halved when the pllhextdiv bit is set) and the multiplier is either the CFG pllmult field plus 2 (with the high bits handled as in the SDK) or, when PLL bit 31 is set, the NS/MS/FR fields divided through __udivdi3. The results are written in SDK order: sclk_freq, ahb_freq, apb2_freq, apb1_freq, adc_freq, shifted by the AHB, APB2 and APB1 prescaler tables and divided by the ADC table (2, 4, 6, 8, 2, 12, 8, 16).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | crm_clocks_freq_type output: sclk, ahb, apb2, apb1, adc frequencies in Hz, five u32 words |
+
+**Notes:** The SDK source at libraries/drivers/src/at32f415_crm.c matches this function's structure. The HEXT value 16 MHz is from this build.
+
+- Addresses by version: 12b: 0x0800C0EC, 143: 0x0800C334, 152: 0x0800C338, 0160: 0x0800C398
+- Peripheral registers: `CRM.CFG` (R), `CRM.PLL` (R), `CRM.MISC1` (R), `CRM.MISC2` (R)
+- Called by: `mcu_0160_0800e1c0`
+- Calls: `__udivdi3`, `crm_sysclk_switch_status_get`
 - Confidence: high
 
 ## crm_flag_get
@@ -125,7 +146,7 @@ The argument packs the register offset from the CRM base in bits 31:16 and the b
 
 - Addresses by version: 12b: 0x0800C218, 143: 0x0800C460, 152: 0x0800C464, 0160: 0x0800C4C4
 - Peripheral registers: `CRM.CTRL` (A)
-- Called by: `mcu_0160_08008dc0`, `mcu_0160_0800c4f8`
+- Called by: `system_clock_config`, `crm_hext_stable_wait`
 - Confidence: high
 
 ## crm_hext_bypass
@@ -141,6 +162,19 @@ Writes bit 18 (HEXTBYPS) of CRM.CTRL from bit 0 of the argument. Bypass lets an 
 - Addresses by version: 12b: 0x0800C23C, 143: 0x0800C484, 152: 0x0800C488, 0160: 0x0800C4E8
 - Peripheral registers: `CRM.CTRL` (RW)
 - Called by: `mcu_0160_08006028`
+- Confidence: high
+
+## crm_hext_stable_wait
+
+**Wait up to 0x3000 polls for the HEXT stable flag and return 1 if it is set**
+
+SDK crm_hext_stable_wait. It polls CRM_HEXT_STABLE_FLAG (packed code 0x11, CRM.CTRL bit 17) until the flag is set or HEXT_STARTUP_TIMEOUT (0x3000) polls have elapsed, then returns 1 (SUCCESS) when the flag is set and 0 (ERROR) otherwise. It has no side effects beyond reading the flag.
+
+**Returns** `bool`: 1 when HEXT reports stable within the timeout, 0 otherwise
+
+- Addresses by version: 12b: 0x0800C24C, 143: 0x0800C494, 152: 0x0800C498, 0160: 0x0800C4F8
+- Called by: `system_clock_config`
+- Calls: `crm_flag_get`
 - Confidence: high
 
 ## crm_lext_bypass
@@ -171,7 +205,7 @@ param_1 packs the CRM register offset in bits 31:16 (0x14 AHBEN, 0x18 APB2EN, 0x
 
 - Addresses by version: 12b: 0x0800C288, 143: 0x0800C4D0, 152: 0x0800C4D4, 0160: 0x0800C534
 - Peripheral registers: `CRM.CTRL` (A)
-- Called by: `mcu_0160_08001f34`, `mcu_0160_08001fb0`, `mcu_0160_08002068`, `mcu_0160_08003060`, `mcu_0160_08003368`, `mcu_0160_08006028`, `mcu_0160_080064b4`, `mcu_0160_08009800`, `mcu_0160_08009f40`, `mcu_0160_0800a6b8`, `mcu_0160_0800abda`, `mcu_0160_0800ac52` ...
+- Called by: `mcu_adc1_dma_init`, `mcu_0160_08001fb0`, `mcu_0160_08002068`, `mcu_0160_08003060`, `mcu_can_init`, `mcu_0160_08006028`, `mcu_gpio_port_clock_enable`, `mcu_0160_08009800`, `mcu_pvm_init`, `mcu_0160_0800a6b8`, `mcu_dma_channel_start`, `mcu_0160_0800ac52` ...
 - Confidence: high
 
 ## crm_periph_reset
@@ -189,7 +223,7 @@ Same bit set/clear code as crm_periph_clock_enable, applied to the reset registe
 
 - Addresses by version: 12b: 0x0800C2B0, 143: 0x0800C4F8, 152: 0x0800C4FC, 0160: 0x0800C55C
 - Peripheral registers: `CRM.CTRL` (A)
-- Called by: `mcu_0160_0800c278`
+- Called by: `mcu_can1_reset_pulse`
 - Confidence: high
 
 ## crm_pll_config
@@ -205,7 +239,7 @@ param_1 chooses the PLL input. 0 is HICK (CFG.PLLRCS = 0, reference 4 MHz). 1 is
 
 - Addresses by version: 12b: 0x0800C2D8, 143: 0x0800C520, 152: 0x0800C524, 0160: 0x0800C584
 - Peripheral registers: `CRM.CFG` (RW), `CRM.PLL` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_reset
@@ -216,7 +250,7 @@ Sets CTRL.HICKEN and busy-waits for HICKSTBL. It selects HICK as SYSCLK (CFG.SCL
 
 - Addresses by version: 12b: 0x0800C3D8, 143: 0x0800C620, 152: 0x0800C624, 0160: 0x0800C684
 - Peripheral registers: `CRM.CTRL` (ARW), `CRM.CFG` (RW), `CRM.CLKINT` (W), `CRM.PLL` (W), `CRM.MISC1` (W)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_sysclk_switch
@@ -231,7 +265,7 @@ Replaces CFG bits 1:0 with the low two bits of the argument: 0 HICK, 1 HEXT, 2 P
 
 - Addresses by version: 12b: 0x0800C424, 143: 0x0800C66C, 152: 0x0800C670, 0160: 0x0800C6D0
 - Peripheral registers: `CRM.CFG` (RW)
-- Called by: `mcu_0160_08008dc0`
+- Called by: `system_clock_config`
 - Confidence: high
 
 ## crm_sysclk_switch_status_get
@@ -244,5 +278,19 @@ Returns CFG bits 3:2 (SCLKSTS): 0 HICK, 1 HEXT, 2 PLL. Used after crm_sysclk_swi
 
 - Addresses by version: 12b: 0x0800C434, 143: 0x0800C67C, 152: 0x0800C680, 0160: 0x0800C6E0
 - Peripheral registers: `CRM.CFG` (R)
-- Called by: `mcu_0160_08008dc0`, `mcu_0160_0800c398`
+- Called by: `system_clock_config`, `crm_clocks_freq_get`
+- Confidence: high
+
+## system_clock_config
+
+**Start HEXT and the PLL, switch SYSCLK to the PLL and store the resulting SYSCLK frequency**
+
+System clock bring-up with the call order of the Artery demo system_clock_config: clock tree reset (crm_reset), FLASH.PSR = 0x14 (prefetch on, 4 wait states), HEXT enable and a retry loop around crm_hext_stable_wait, PLL from HEXT with multiplier code 7 (x9) through crm_pll_config, PLL enable and wait for the PLL stable flag (0x19), AHB /1, APB1 /2 and APB2 /2, auto step-up mode on, SYSCLK switched to the PLL and confirmed by reading back 2, auto step-up mode off. Every wait is an unbounded loop, so the function does not return until HEXT and the PLL are stable. Finally it recomputes SYSCLK from the CRM registers, applies the AHB prescaler and stores the result in the global at 0x200000A8 (SystemCoreClock). With the 16 MHz HEXT of this board and the HEXT/2 bit clear, SYSCLK is 144 MHz.
+
+**Notes:** The name is the usual Artery BSP routine name, matched by call sequence to the SDK demo at utilities/at32f415_usb_iap_demo style clock code. HEXT is 16 MHz from this function's own frequency branch; the SDK template constant is 8 MHz.
+
+- Addresses by version: 12b: 0x08008B70, 143: 0x08008D0C, 152: 0x08008D4C, 0160: 0x08008DC0
+- Peripheral registers: `CRM.CFG` (R), `CRM.PLL` (R), `CRM.MISC1` (R), `CRM.MISC2` (R), `FLASH.PSR` (W)
+- Called by: `mcu_0160_0800d548`
+- Calls: `__udivdi3`, `crm_ahb_div_set`, `crm_apb1_div_set`, `crm_apb2_div_set`, `crm_auto_step_mode_enable`, `crm_clock_source_enable`, `crm_flag_get`, `crm_hext_stable_wait`, `crm_pll_config`, `crm_reset`, `crm_sysclk_switch`, `crm_sysclk_switch_status_get`
 - Confidence: high

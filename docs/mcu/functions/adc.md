@@ -1,6 +1,6 @@
 # MCU - `adc` functions
 
-17 functions.
+21 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
@@ -17,10 +17,14 @@
 | [`mcu_adc_calib_init_busy`](#mcu_adc_calib_init_busy) | 0x0800B6E6 | Return 1 while ADCALINIT (CTRL2 bit 3) is set |
 | [`mcu_adc_calibration_busy`](#mcu_adc_calibration_busy) | 0x0800B700 | Return 1 while ADCAL (CTRL2 bit 2) is set |
 | [`mcu_adc_config_set_default`](#mcu_adc_config_set_default) | 0x0800B6CE | Fill a 4-byte ADC config record with defaults: no scan, no repeat, right aligned, one conversion |
+| [`mcu_adc_dma_median5`](#mcu_adc_dma_median5) | 0x0800249C | Five-sample temporal median of the five ADC channels from the DMA ring into DAT_20000F58..F60 |
+| [`mcu_adc_injected_seq_select`](#mcu_adc_injected_seq_select) | 0x08002548 | Programs the ADC1 injected sequence order for the three phase-pair modes |
 | [`mcu_adc_set_enable`](#mcu_adc_set_enable) | 0x0800B71A | Set or clear the ADC enable bit ADCEN (CTRL2 bit 0) from bit 0 of the argument |
 | [`mcu_adc_set_ordinary_dma`](#mcu_adc_set_ordinary_dma) | 0x0800B710 | Set or clear the ordinary-channel DMA enable (CTRL2 bit 8, OCDMAEN) from bit 0 of the argument |
 | [`mcu_adc_start_calibration`](#mcu_adc_start_calibration) | 0x0800B6F6 | Set ADCAL (CTRL2 bit 2) to start A/D calibration |
 | [`mcu_adc_start_init_calibration`](#mcu_adc_start_init_calibration) | 0x0800B6DC | Set ADCALINIT (CTRL2 bit 3) to start ADC calibration initialisation |
+| [`mcu_phase_current_from_adc`](#mcu_phase_current_from_adc) | 0x080025D8 | Converts injected ADC results to offset-corrected phase currents with Kirchhoff reconstruction |
+| [`mcu_phase_current_read`](#mcu_phase_current_read) | 0x08002240 | Reads the phase-current pair for the current ADC sequence and derives the third phase if enabled |
 
 ## adc_flag_get
 
@@ -134,7 +138,7 @@ Sets the sample-time code for the channel in SPT2/SPT1 the same way adc_ordinary
 | `param_4` | `u32` | sample-time code 0..7 |
 
 - Addresses by version: 12b: 0x0800B656, 143: 0x0800B906, 152: 0x0800B90A, 0160: 0x0800B96A
-- Called by: `mcu_0160_08001fb0`, `mcu_0160_0800226c`, `mcu_0160_08002548`
+- Called by: `mcu_0160_08001fb0`, `mcu_0160_0800226c`, `mcu_adc_injected_seq_select`
 - Confidence: high
 
 ## adc_preempt_conversion_data_get
@@ -151,7 +155,7 @@ Returns the low 16 bits of the injected data register selected by the index: 0 r
 **Returns** `u16`: injected conversion result, 0..4095 (0 for an invalid index)
 
 - Addresses by version: 12b: 0x0800B7AE, 143: 0x0800BA5E, 152: 0x0800BA62, 0160: 0x0800BAC2
-- Called by: `mcu_0160_0800226c`, `mcu_0160_080025d8`
+- Called by: `mcu_0160_0800226c`, `mcu_phase_current_from_adc`
 - Confidence: high
 
 ## adc_preempt_conversion_trigger_set
@@ -237,6 +241,38 @@ Writes 0, 0, 0 and 1 into the record: scan off, repeat off, right alignment, and
 - Called by: `mcu_0160_08002068`
 - Confidence: high
 
+## mcu_adc_dma_median5
+
+**Five-sample temporal median of the five ADC channels from the DMA ring into DAT_20000F58..F60**
+
+Reads the DMA1 channel 1 remaining count through dma_data_number_get and converts it to the current scan index (39 - remaining / 5) in the 40-row ring at 0x20000FB4 (rows of five halfwords, one per scan). It copies the five most recent scans into a local 5x5 array transposed so each channel's five samples are contiguous, then mcu_sort_u16_exchange sorts each channel's five samples ascending and the middle value is stored in the filtered channel array DAT_20000F58 + 2*channel. A median rejects single-sample ADC spikes. DAT_20000F58 (channel 0) is read by mcu_speed_from_period_min and DAT_20000F5C (channel 2) by mcu_speed_from_max_u12.
+
+**Notes:** The write to (&DAT_20000F58)[channel] is decoded with a 1-byte index stride in the decompile. The 2-byte stride is inferred from the readers. The row index skips row 0 because the wrap test uses < 1.
+
+- Addresses by version: 12b: 0x080024C0, 143: 0x080024FC, 152: 0x08002480, 0160: 0x0800249C
+- Peripheral registers: `DMA1.C1CTRL` (A)
+- Called by: `mcu_0160_08002228`, `mcu_0160_08005c0c`, `mcu_0160_0800a320`
+- Calls: `mcu_sort_u16_exchange`, `dma_data_number_get`
+- Confidence: medium
+
+## mcu_adc_injected_seq_select
+
+**Programs the ADC1 injected sequence order for the three phase-pair modes**
+
+Sets the ADC1 injected (preempt) conversion sequence for mode 0x11, 0x22 or 0x33. Mode 0x11 ranks channels 6, 7, 5; mode 0x22 ranks 5, 7, 6; mode 0x33 ranks 5, 6, 7 (ranks 1 to 3), each through adc_preempt_channel_set on ADC1. Other values do nothing. The three mode codes are the same ones passed to mcu_0160_080025d8, so the rank order follows the phase-pair being sampled.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | mode code 0x11, 0x22 or 0x33 |
+
+**Notes:** Channels 5, 6 and 7 are taken to be the phase-current sense inputs by inference. The first call in each group leaves the fourth (sample-time) argument unmodelled, so the sample time is the SDK default.
+
+- Addresses by version: 12b: 0x0800256C, 143: 0x080025A8, 152: 0x0800252C, 0160: 0x08002548
+- Peripheral registers: `ADC1.STS` (A)
+- Called by: `mcu_0160_0800a49c`
+- Calls: `adc_preempt_channel_set`
+- Confidence: medium
+
 ## mcu_adc_set_enable
 
 **Set or clear the ADC enable bit ADCEN (CTRL2 bit 0) from bit 0 of the argument**
@@ -294,3 +330,39 @@ Sets bit 3 of the ADC CTRL2 register (ADCALINIT, initialise A/D calibration) at 
 - Addresses by version: 12b: 0x0800B3C8, 143: 0x0800B678, 152: 0x0800B67C, 0160: 0x0800B6DC
 - Called by: `mcu_0160_08001fb0`
 - Confidence: high
+
+## mcu_phase_current_from_adc
+
+**Converts injected ADC results to offset-corrected phase currents with Kirchhoff reconstruction**
+
+Reads injected results 0 and 1 from ADC1 (adc_preempt_conversion_data_get; result 2 is read and discarded) as (raw & 0xFFF) << 15. Each value has a calibrated zero-current offset subtracted (DAT_20001144, DAT_20001148, DAT_2000114C, one per phase), and the phase that was not measured is derived as -(sum of the other two). The scale K = (DAT_200003F0 << 15) / DAT_20000A60 is recomputed each call, with DAT_20000A60 clamped to 0x6666..0xA666, and each current is multiplied by -K in Q15 with a 64-bit product shifted right 15. Outputs go to param_1[0], param_1[1] and DAT_20000300, and the raw history is kept in DAT_200002E4..DAT_200002FC. DAT_20000070 selects a hold mode (0 restores the previous samples; 1 keeps the freshly measured phase or phases chosen by DAT_20000072 and restores the others), and some of those branches are only partly decoded.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output pair: phase current a and phase current b (s32 Q15) |
+| `param_2` | `s32` | mode code 0x11, 0x22 or 0x33, selecting which phases were measured |
+
+**Notes:** Several hold-mode branches (DAT_20000070 and DAT_20000072 combinations) are only partly decoded, and the sign convention of the -K scaling is taken as written. Checked against the decompile only.
+
+- Addresses by version: 12b: 0x080025FC, 143: 0x08002638, 152: 0x080025BC, 0160: 0x080025D8
+- Peripheral registers: `ADC1.STS` (A)
+- Called by: `mcu_phase_current_read`
+- Calls: `adc_preempt_conversion_data_get`
+- Confidence: low
+
+## mcu_phase_current_read
+
+**Reads the phase-current pair for the current ADC sequence and derives the third phase if enabled**
+
+Calls mcu_0160_080025d8 with the mode code in DAT_20000071 (0x11, 0x22 or 0x33, which select which two of the three phase inputs were measured in this window) to fill param_1[0] and param_1[1]. When DAT_200003D7 is nonzero the second element is replaced by -(param_1[0] + param_1[1]), so the pair then satisfies Kirchhoff's current law with the sum of the three phases equal to zero. The caller must read the pair according to that mode.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | two-word phase current output (s32 each, Q15 scaled) |
+
+**Notes:** Only the caller mcu_0160_08003148 is known. The meaning of DAT_200003D7 as a three-phase-sum flag is inferred from its use.
+
+- Addresses by version: 12b: 0x08002264, 143: 0x080022A0, 152: 0x08002224, 0160: 0x08002240
+- Called by: `mcu_0160_08003148`
+- Calls: `mcu_phase_current_from_adc`
+- Confidence: medium

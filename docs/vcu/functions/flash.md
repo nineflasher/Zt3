@@ -1,6 +1,6 @@
 # VCU - `flash` functions
 
-10 functions.
+17 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -13,7 +13,14 @@
 | [`flash_sector_erase`](#flash_sector_erase) | 0x0800CF10 | Erase one flash sector: set CTRL.SECERS, load FLASH.ADDR, start, wait |
 | [`flash_unlock`](#flash_unlock) | 0x0800CF3C | Write the two flash unlock keys to FLASH.UNLOCK to enable erase and program |
 | [`flash_user_system_data_erase`](#flash_user_system_data_erase) | 0x0800CE0C | Erase the user system data block, then restore the FAP halfword to 0xA5 if allowed |
+| [`vcu_config_ab_slot_load`](#vcu_config_ab_slot_load) | 0x08005BB4 | Load the newer valid 512-byte config copy from flash slot A (0x0801F000) or B (0x0801F400) |
+| [`vcu_flash_erase_range`](#vcu_flash_erase_range) | 0x08005B40 | Erase a byte range page by page with flash unlocked; returns 1 if all pages erased |
+| [`vcu_flash_erase_range_locked`](#vcu_flash_erase_range_locked) | 0x080060A4 | Erase a flash range with interrupts masked; returns 0 on success, 2 on failure |
 | [`vcu_flash_page_count`](#vcu_flash_page_count) | 0x08005B2C | Ceiling division of a byte count by 1024 |
+| [`vcu_flash_program_verified`](#vcu_flash_program_verified) | 0x08005D58 | Program a halfword buffer to flash, verifying each halfword by readback |
+| [`vcu_flash_record_pingpong_save`](#vcu_flash_record_pingpong_save) | 0x08007D88 | Save the 512-byte record to alternating flash half-pages at 0x0801F000 and 0x0801F400 |
+| [`vcu_flash_usd_reset_if_unprotected`](#vcu_flash_usd_reset_if_unprotected) | 0x08005B90 | Erase the user system data block if the argument is set and read-out protection is off |
+| [`vcu_upgrade_record_store`](#vcu_upgrade_record_store) | 0x080065B4 | Erase and rewrite the 12-byte upgrade record at flash 0x0801F800, interrupts masked |
 
 ## flash_fap_status_get
 
@@ -25,7 +32,7 @@ AT32 SDK flash_fap_status_get(): returns bit 1 of FLASH.USD (0x4002201c), the FA
 
 - Addresses by version: 148: 0x0800BFEC, 14a: 0x0800C430, 14b: 0x0800C8BC, 14e: 0x0800C950, 14f: 0x0800CA8C, 152: 0x0800CD18, 153: 0x0800CE0C, 0159: 0x0800CE78
 - Peripheral registers: `FLASH.USD` (R)
-- Called by: `vcu_0159_08005b90`
+- Called by: `vcu_flash_usd_reset_if_unprotected`
 - Confidence: high
 
 ## flash_flag_clear
@@ -40,7 +47,7 @@ AT32 SDK flash_flag_clear(): writes param_1 to FLASH.STS (0x4002200c); the ODF, 
 
 - Addresses by version: 148: 0x0800BFFC, 14a: 0x0800C440, 14b: 0x0800C8CC, 14e: 0x0800C960, 14f: 0x0800CA9C, 152: 0x0800CD28, 153: 0x0800CE1C, 0159: 0x0800CE88
 - Peripheral registers: `FLASH.STS` (W)
-- Called by: `vcu_0159_08005b40`
+- Called by: `vcu_flash_erase_range`
 - Confidence: high
 
 ## flash_halfword_program
@@ -56,7 +63,7 @@ AT32 SDK flash_halfword_program(address, data), void variant. It sets CTRL.FPRGM
 
 - Addresses by version: 148: 0x0800C008, 14a: 0x0800C44C, 14b: 0x0800C8D8, 14e: 0x0800C96C, 14f: 0x0800CAA8, 152: 0x0800CD34, 153: 0x0800CE28, 0159: 0x0800CE94
 - Peripheral registers: `FLASH.CTRL` (RW)
-- Called by: `vcu_0159_08005d58`
+- Called by: `vcu_flash_program_verified`
 - Calls: `flash_operation_wait_for`
 - Confidence: high
 
@@ -68,7 +75,7 @@ Read-modify-write of FLASH.CTRL (0x40022010, FLASH_REG_BASE+0x10) that sets bit 
 
 - Addresses by version: 148: 0x0800C02C, 14a: 0x0800C470, 14b: 0x0800C8FC, 14e: 0x0800C990, 14f: 0x0800CACC, 152: 0x0800CD58, 153: 0x0800CE4C, 0159: 0x0800CEB8
 - Peripheral registers: `FLASH.PSR` (A), `FLASH.CTRL` (RW)
-- Called by: `vcu_0159_08005b40`, `vcu_0159_08005b90`, `vcu_0159_08005d58`
+- Called by: `vcu_flash_erase_range`, `vcu_flash_usd_reset_if_unprotected`, `vcu_flash_program_verified`
 - Confidence: high
 
 ## flash_operation_status_get
@@ -113,7 +120,7 @@ AT32 SDK flash_sector_erase(sector_address). It sets CTRL.SECERS (bit 1), writes
 
 - Addresses by version: 148: 0x0800C084, 14a: 0x0800C4C8, 14b: 0x0800C954, 14e: 0x0800C9E8, 14f: 0x0800CB24, 152: 0x0800CDB0, 153: 0x0800CEA4, 0159: 0x0800CF10
 - Peripheral registers: `TMR2.CTRL1` (A), `FLASH.CTRL` (RW), `FLASH.ADDR` (W)
-- Called by: `vcu_0159_08005b40`
+- Called by: `vcu_flash_erase_range`
 - Calls: `flash_operation_wait_for`
 - Confidence: high
 
@@ -125,7 +132,7 @@ Writes key1 0x45670123 and then key2 0xCDEF89AB to FLASH.UNLOCK (0x40022004). Th
 
 - Addresses by version: 148: 0x0800C0B0, 14a: 0x0800C4F4, 14b: 0x0800C980, 14e: 0x0800CA14, 14f: 0x0800CB50, 152: 0x0800CDDC, 153: 0x0800CED0, 0159: 0x0800CF3C
 - Peripheral registers: `FLASH.PSR` (A), `FLASH.UNLOCK` (W)
-- Called by: `vcu_0159_08005b40`, `vcu_0159_08005b90`, `vcu_0159_08005d58`
+- Called by: `vcu_flash_erase_range`, `vcu_flash_usd_reset_if_unprotected`, `vcu_flash_program_verified`
 - Confidence: high
 
 ## flash_user_system_data_erase
@@ -142,8 +149,61 @@ AT32 SDK flash_user_system_data_erase, built with an argument. It writes the two
 
 - Addresses by version: 148: 0x0800BF80, 14a: 0x0800C3C4, 14b: 0x0800C850, 14e: 0x0800C8E4, 14f: 0x0800CA20, 152: 0x0800CCAC, 153: 0x0800CDA0, 0159: 0x0800CE0C
 - Peripheral registers: `TMR2.CTRL1` (A), `FLASH.USD_UNLOCK` (W), `FLASH.CTRL` (RW)
-- Called by: `vcu_0159_08005b90`
+- Called by: `vcu_flash_usd_reset_if_unprotected`
 - Calls: `flash_operation_wait_for`
+- Confidence: high
+
+## vcu_config_ab_slot_load
+
+**Load the newer valid 512-byte config copy from flash slot A (0x0801F000) or B (0x0801F400)**
+
+Reads the sequence halfwords at 0x0801F1FE (slot A, into DAT_20001024) and 0x0801F5FE (slot B, into DAT_20001026) and tries the newer copy first. The 512-byte copy is read to RAM at DAT_20001AB4 and checked with vcu_sum_s16_minus_trailer over 256 halfwords against the stored checksum pair in DAT_20001CA8 and DAT_20001CAA. If the newer copy fails it tries the other slot, and if both fail it uses vcu_serial_check_default (vcu_0159_080066DC) to choose a fallback copy to load without the check, or else sets DAT_20001022 to 0 and the first halfword of the buffer to 0xFFFF. A successful load sets DAT_20001022 to the chosen sequence number, and the fallback loads and the recovered-copy path call vcu_0159_08007D88 (not yet described).
+
+**Notes:** The call to vcu_0159_08007D88 is made only on the recovery and fallback paths, not when the first choice verifies. Callers: vcu_0159_08009DA8 (not described).
+
+- Addresses by version: 148: 0x080051B4, 14a: 0x080055A0, 14b: 0x080058C8, 14e: 0x08005900, 14f: 0x0800595C, 152: 0x080059B4, 153: 0x08005A50, 0159: 0x08005BB4
+- Called by: `vcu_0159_08009da8`
+- Calls: `vcu_sum_s16_minus_trailer`, `vcu_copy_bytes_src_dst`, `vcu_serial_check_default`, `vcu_flash_record_pingpong_save`
+- Confidence: high
+
+## vcu_flash_erase_range
+
+**Erase a byte range page by page with flash unlocked; returns 1 if all pages erased**
+
+Unlocks flash, clears the status flags (0x14) and computes the number of 1 KiB pages covering the length with vcu_flash_page_count. It erases pages upward from the start address with flash_sector_erase and stops at the first page whose erase does not return the done status (3), then locks flash again. It returns 1 if every page was erased and 0 otherwise.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash start address of the range |
+| `param_2` | `u32` | length of the range in bytes |
+
+**Returns** `u32`: 1 when all pages were erased, 0 when a page erase failed
+
+**Notes:** Callers: vcu_flash_erase_range_locked, vcu_upgrade_record_store and vcu_0159_08007D88 (not yet described).
+
+- Addresses by version: 148: 0x08005140, 14a: 0x0800552C, 14b: 0x08005854, 14e: 0x0800588C, 14f: 0x080058E8, 152: 0x08005940, 153: 0x080059DC, 0159: 0x08005B40
+- Called by: `vcu_flash_erase_range_locked`, `vcu_upgrade_record_store`, `vcu_flash_record_pingpong_save`
+- Calls: `vcu_flash_page_count`, `flash_flag_clear`, `flash_lock`, `flash_sector_erase`, `flash_unlock`
+- Confidence: high
+
+## vcu_flash_erase_range_locked
+
+**Erase a flash range with interrupts masked; returns 0 on success, 2 on failure**
+
+Masks interrupts with the CMSIS __disable_irq operation (shown in the decompile as disableIRQinterrupts), calls vcu_flash_erase_range with the address and length that arrive unchanged in r0 and r1, and returns 2 if that call reports failure or 0 otherwise. It re-enables interrupts before returning, so no interrupt handler runs while the flash is being erased.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash start address, passed through in r0 |
+| `param_2` | `u32` | length in bytes, passed through in r1 |
+
+**Returns** `u32`: 0 on success, 2 when a page erase failed
+
+**Notes:** The decompile shows no parameters because the arguments are passed through registers. Caller: vcu_fw_update_frame_handler.
+
+- Addresses by version: 148: 0x080055F8, 14a: 0x08005A18, 14b: 0x08005D70, 14e: 0x08005DA8, 14f: 0x08005E04, 152: 0x08005E84, 153: 0x08005F20, 0159: 0x080060A4
+- Called by: `vcu_fw_update_frame_handler`
+- Calls: `vcu_flash_erase_range`
 - Confidence: high
 
 ## vcu_flash_page_count
@@ -159,5 +219,69 @@ Returns param_1 >> 10, plus 1 if any of the low 10 bits are set, i.e. ceil(param
 **Returns** `u32`: number of 1 KiB pages
 
 - Addresses by version: 148: 0x0800512C, 14a: 0x08005518, 14b: 0x08005840, 14e: 0x08005878, 14f: 0x080058D4, 152: 0x0800592C, 153: 0x080059C8, 0159: 0x08005B2C
-- Called by: `vcu_0159_08005b40`
+- Called by: `vcu_flash_erase_range`
+- Confidence: high
+
+## vcu_flash_program_verified
+
+**Program a halfword buffer to flash, verifying each halfword by readback**
+
+Unlocks flash, then for each halfword calls flash_halfword_program to write the source value to the destination address, continuing only while the call returns the done status (3) and the flash readback equals the source value. It locks flash again at the end. It returns true only when the full byte count was programmed and verified, counting 2 bytes per halfword.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | flash destination address |
+| `param_2` | `ptr` | source buffer of halfwords |
+| `param_3` | `u32` | number of bytes to program |
+
+**Returns** `bool`: true when every halfword was programmed and read back equal
+
+**Notes:** Callers: vcu_fw_update_frame_handler (staging writes), vcu_upgrade_record_store and vcu_0159_08007D88 (not described).
+
+- Addresses by version: 148: 0x08005358, 14a: 0x08005744, 14b: 0x08005A6C, 14e: 0x08005AA4, 14f: 0x08005B00, 152: 0x08005B58, 153: 0x08005BF4, 0159: 0x08005D58
+- Called by: `vcu_fw_update_frame_handler`, `vcu_upgrade_record_store`, `vcu_flash_record_pingpong_save`
+- Calls: `flash_halfword_program`, `flash_lock`, `flash_unlock`
+- Confidence: high
+
+## vcu_flash_record_pingpong_save
+
+**Save the 512-byte record to alternating flash half-pages at 0x0801F000 and 0x0801F400**
+
+Saves the 512-byte RAM record at DAT_20001ab4 to flash in two alternating slots. It increments the generation counter DAT_20001022, copies it to DAT_20001cb2, and stores a checksum of the record (vcu_sum_s16_minus_trailer over 256 s16 words, which also subtracts the words at index 250 and 251) in DAT_20001ca8 and DAT_20001caa. With interrupts disabled, an even generation writes to 0x0801F000 and an odd generation to 0x0801F400: each write first calls vcu_0159_08005b40 on the 512-byte target and, only if that succeeds, vcu_0159_08005d58 with the record. The matching generation word DAT_20001024 (even) or DAT_20001026 (odd) is updated only when both calls succeed.
+
+**Notes:** vcu_0159_08005b40 and vcu_0159_08005d58 are not yet described; they are taken to be a flash pre-check and a flash program step from their arguments. The checksum is stored but not written into the record here.
+
+- Addresses by version: 148: 0x0800735C, 14a: 0x08007798, 14b: 0x08007AFC, 14e: 0x08007B34, 14f: 0x08007B90, 152: 0x08007C54, 153: 0x08007CF0, 0159: 0x08007D88
+- Called by: `vcu_pending_settings_commit`, `vcu_revolution_stage_tracker`, `vcu_0159_080047ac`, `vcu_0159_080054ec`, `vcu_config_ab_slot_load`, `vcu_crypto_identity_record_init`, `vcu_fw_update_frame_handler`, `vcu_0159_08009da8`
+- Calls: `vcu_sum_s16_minus_trailer`, `vcu_flash_erase_range`, `vcu_flash_program_verified`
+- Confidence: medium
+
+## vcu_flash_usd_reset_if_unprotected
+
+**Erase the user system data block if the argument is set and read-out protection is off**
+
+When the argument is nonzero and flash_fap_status_get reports a value other than 1 (flash access protection not active), it unlocks flash, calls flash_user_system_data_erase(1) and locks flash again. In every other case it does nothing.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | nonzero to allow the user system data erase |
+
+**Notes:** flash_user_system_data_erase also restores the FAP halfword, so this path can change the read-out protection state. The caller, vcu_0159_0800D858, is not described, so the intent of the erase is not established.
+
+- Addresses by version: 148: 0x08005190, 14a: 0x0800557C, 14b: 0x080058A4, 14e: 0x080058DC, 14f: 0x08005938, 152: 0x08005990, 153: 0x08005A2C, 0159: 0x08005B90
+- Called by: `vcu_0159_0800d858`
+- Calls: `flash_user_system_data_erase`, `flash_fap_status_get`, `flash_lock`, `flash_unlock`
+- Confidence: medium
+
+## vcu_upgrade_record_store
+
+**Erase and rewrite the 12-byte upgrade record at flash 0x0801F800, interrupts masked**
+
+Masks interrupts, erases the one-page record area at 0x0801F800 with vcu_flash_erase_range, and when the erase succeeds programs the 12-byte RAM record DAT_200020D0 to DAT_200020D8 into it with vcu_flash_program_verified. It re-enables interrupts and returns.
+
+**Notes:** The decompile is void, but the caller in vcu_fw_update_frame_handler uses the register left by the last flash call as a success flag, so a failed erase (0) is reported as status 3. Callers: vcu_crypto_identity_record_init and vcu_fw_update_frame_handler.
+
+- Addresses by version: 148: 0x08005B40, 14a: 0x08005F60, 14b: 0x080062B8, 14e: 0x080062F0, 14f: 0x0800634C, 152: 0x080063CC, 153: 0x08006468, 0159: 0x080065B4
+- Called by: `vcu_crypto_identity_record_init`, `vcu_fw_update_frame_handler`
+- Calls: `vcu_flash_erase_range`, `vcu_flash_program_verified`
 - Confidence: high

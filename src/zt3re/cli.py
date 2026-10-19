@@ -116,7 +116,10 @@ def cmd_plan(args) -> int:
     from . import plan
 
     for comp in args.component or sorted(config.COMPONENTS):
-        paths = plan.make_waves(comp, wave=args.wave, force=args.force, replan=args.replan)
+        if args.data:
+            paths = plan.make_data_waves(comp, kind=args.data)
+        else:
+            paths = plan.make_waves(comp, wave=args.wave, force=args.force, replan=args.replan)
         print(f"{comp}: {len(paths)} work packets")
         for p in paths:
             print("  ", p.relative_to(config.REPO_ROOT))
@@ -220,12 +223,31 @@ def cmd_validate(args) -> int:
     from . import annotations as ann, objects
 
     path = Path(args.file).resolve()
-    comp = path.parent.parent.name if path.name != "types.json" else path.parent.name
     kind = path.parent.name
+    comp = path.parent.parent.name if kind in ("functions", "globals", "tables", "types") else path.parent.name
     j = json.loads(path.read_text())
     errs: list[str] = []
-    if path.name == "types.json":
+    if path.name == "types.json" or kind == "types":
         errs += ann.validate_types(j)
+        try:
+            ann.load_types(comp)                      # duplicate definitions across packet files
+        except ann.AnnotationError as e:
+            errs.append(str(e))
+    elif kind in ("globals", "tables"):
+        fam = objects.load_families(comp)
+        for k, n in j.items():
+            errs += ann.validate_data(k, n)
+        if not errs:
+            resolved, _ = objects.resolve(comp, j, kind)
+            covered = {fid for r in resolved.values() for fid in r["covers"]}
+            for k, r in resolved.items():
+                if not r["covers"]:
+                    errs.append(f"{k}: anchor/size covers no known {kind[:-1]} family")
+            if args.packet:
+                ids = set(re.findall(r"^## `([\w]+)`", Path(args.packet).read_text(), re.M))
+                errs += [f"family {m} in the packet is not covered by any object" for m in sorted(ids - covered)]
+        names = [n.get("name") for n in j.values()]
+        errs += [f"duplicate name inside file: {d}" for d in sorted({x for x in names if names.count(x) > 1})]
     else:
         fam = objects.load_families(comp)
         key = {"functions": "functions", "globals": "globals", "tables": "tables"}[kind]
@@ -295,6 +317,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("plan", help="write annotation work packets (markdown) for subagents")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
     s.add_argument("-w", "--wave", type=int)
+    s.add_argument("--data", choices=["globals", "tables"], help="emit data packets (RAM variables or flash tables) instead")
     s.add_argument("--force", action="store_true", help="also re-emit functions that are already annotated")
     s.add_argument("--replan", action="store_true",
                    help="ignore existing packets (DANGEROUS while agents work on them)")

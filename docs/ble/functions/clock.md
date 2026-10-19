@@ -53,7 +53,7 @@ Returns the table value of the current maximum holder (DAT_20003544 indexes the 
 **Returns** `u32`: raw level request 0..7 of the holder, or the thunk value when there is none
 
 - Addresses by version: 219: 0x0C032D18
-- Called by: `ble_219_0c0459fc`
+- Called by: `ble_boot_notice_log`
 - Calls: `ble_ram_patch_thunk_20000934`
 - Confidence: high
 
@@ -65,7 +65,7 @@ Clears bit 9 of CMU register 0x4000005C (bes_cmu_reg5c_clear_bit9), writes 0x82 
 
 - Addresses by version: 219: 0x0C032EE8
 - Peripheral registers: `0x40002000` (A), `0x40002008` (W), `0x40003008` (W), `0x4008001c` (RW)
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Calls: `bes_cmu_reg5c_clear_bit9`, `bes_cmu_reg5c_set_bit10`
 - Confidence: medium
 
@@ -85,7 +85,7 @@ Stores the requested level param_2 for user index param_1 (0..36) in the byte ta
 **Notes:** RAM-patch thunk 0x20000934 supplies the value when no holder is recorded; its meaning is not identified.
 
 - Addresses by version: 219: 0x0C032C04
-- Called by: `ble_219_0c03ab80`, `ble_219_0c03bb70`
+- Called by: `ble_soc_bringup_sequence`, `bt_drv_rf_bringup`
 - Calls: `bes_cmu_set_sysclk_cfg`, `ble_ram_patch_thunk_20000934`, `ble_ram_patch_thunk_20000738`
 - Confidence: medium
 
@@ -104,5 +104,5 @@ Returns the entry at index param_1 of the pointer table at 0x0c080924 whose stri
 **Notes:** Function name is derived (BES SDK style) - the string table is the evidence.
 
 - Addresses by version: 219: 0x0C032D64
-- Called by: `ble_219_0c0459fc`
+- Called by: `ble_boot_notice_log`
 - Confidence: medium

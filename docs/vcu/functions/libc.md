@@ -253,7 +253,7 @@ Compiler runtime memcpy (ARM EABI __aeabi_memcpy). If (dst|src)&3 is zero it cop
 | `param_3` | `u32` | byte count |
 
 - Addresses by version: 148: 0x0800120E, 14a: 0x0800120E, 14b: 0x0800120E, 14e: 0x0800120E, 14f: 0x0800120E, 152: 0x0800120E, 153: 0x0800120E, 0159: 0x0800120E
-- Called by: `vcu_0159_080054ec`, `vcu_0159_08006184`, `vcu_crypto_key_load`, `vcu_rx_ring0_pop_record`, `vcu_can_tx_queue_peek`, `vcu_rx_ring0_push_record`, `vcu_can_tx_queue_push`, `vcu_0159_08009da8`, `vcu_record_send_chunked`, `vcu_0159_0800cfac`, `vcu_0159_0800ef14`
+- Called by: `vcu_0159_080054ec`, `vcu_fw_update_frame_handler`, `vcu_crypto_key_load`, `vcu_rx_ring0_pop_record`, `vcu_can_tx_queue_peek`, `vcu_rx_ring0_push_record`, `vcu_can_tx_queue_push`, `vcu_0159_08009da8`, `vcu_record_send_chunked`, `vcu_0159_0800cfac`, `vcu_0159_0800ef14`
 - Confidence: high
 
 ## __aeabi_memset

@@ -1,6 +1,6 @@
 # VCU - `exint` functions
 
-8 functions.
+10 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -10,6 +10,8 @@
 | [`exint_init`](#exint_init) | 0x0800CD88 | Configure an external-interrupt/event line |
 | [`exint_interrupt_enable`](#exint_interrupt_enable) | 0x0800CDF0 | Enable or disable the interrupt for EXINT lines |
 | [`vcu_exint14_pb14_init`](#vcu_exint14_pb14_init) | 0x080020A4 | Route PB14 to EXINT line 14 as a falling-edge interrupt on EXINT15_10, store a probe result |
+| [`vcu_exint14_pb14_init_thunk`](#vcu_exint14_pb14_init_thunk) | 0x080013F8 | One-instruction tail branch to vcu_exint14_pb14_init at 0x080020A4 |
+| [`vcu_exint14_pb14_init_thunk_14a`](#vcu_exint14_pb14_init_thunk_14a) | (removed) | One-instruction tail branch to the 14a build's vcu_exint14_pb14_init at 0x08001D24 |
 | [`vcu_exint3_pa3_init`](#vcu_exint3_pa3_init) | 0x080026F0 | Route PA3 to EXINT line 3 as a falling-edge interrupt on EXINT3 (IRQ 9) |
 | [`vcu_exint_pb12_pb14_init`](#vcu_exint_pb12_pb14_init) | 0x080021C4 | Route PB12 and PB14 to EXINT lines 12 and 14 as falling-edge interrupts on EXINT15_10 |
 
@@ -24,7 +26,7 @@ AT32 SDK exint_default_para_init(): writes line_mode (+0) = 1 (EXINT_LINE_EVENT)
 | `param_1` | `ptr` | exint_init_type* to initialise |
 
 - Addresses by version: 148: 0x0800BEC8, 14a: 0x0800C30C, 14b: 0x0800C798, 14e: 0x0800C82C, 14f: 0x0800C968, 152: 0x0800CBF4, 153: 0x0800CCE8, 0159: 0x0800CD54
-- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_0159_080024ec`, `vcu_exint3_pa3_init`
+- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_ertc_wakeup_exint_init`, `vcu_exint3_pa3_init`
 - Confidence: high
 
 ## exint_flag_clear
@@ -71,7 +73,7 @@ AT32 SDK exint_init(): reads the exint_init_type (line_mode +0, line_select +4, 
 
 - Addresses by version: 148: 0x0800BEFC, 14a: 0x0800C340, 14b: 0x0800C7CC, 14e: 0x0800C860, 14f: 0x0800C99C, 152: 0x0800CC28, 153: 0x0800CD1C, 0159: 0x0800CD88
 - Peripheral registers: `EXINT.INTEN` (RW), `EXINT.EVTEN` (RW), `EXINT.POLCFG1` (RW), `EXINT.POLCFG2` (RW)
-- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_0159_080024ec`, `vcu_exint3_pa3_init`
+- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_ertc_wakeup_exint_init`, `vcu_exint3_pa3_init`
 - Confidence: high
 
 ## exint_interrupt_enable
@@ -87,7 +89,7 @@ AT32 SDK exint_interrupt_enable(): if param_2 == 1 sets the bits of param_1 in E
 
 - Addresses by version: 148: 0x0800BF64, 14a: 0x0800C3A8, 14b: 0x0800C834, 14e: 0x0800C8C8, 14f: 0x0800CA04, 152: 0x0800CC90, 153: 0x0800CD84, 0159: 0x0800CDF0
 - Peripheral registers: `EXINT.INTEN` (RW)
-- Called by: `vcu_exint3_pa3_init`, `vcu_0159_0800688c`
+- Called by: `vcu_exint3_pa3_init`, `vcu_deep_sleep_enter_and_restore`
 - Confidence: high
 
 ## vcu_exint14_pb14_init
@@ -100,9 +102,35 @@ Configures a group of GPIO pins (PB2, PB10 to PB14, PF6, PA1) and routes PB14 to
 
 - Addresses by version: 148: 0x08001CBC, 14a: 0x08001D24, 14b: 0x08002004, 14e: 0x08002004, 14f: 0x08002060, 152: 0x0800209C, 153: 0x080020B8, 0159: 0x080020A4
 - Peripheral registers: `GPIOA.CFGLR` (A), `GPIOB.CFGLR` (A), `GPIOF.CFGLR` (A)
-- Called by: `vcu_0159_080013f8`
+- Called by: `vcu_exint14_pb14_init_thunk`
 - Calls: `vcu_pa1_input_high`, `crm_periph_clock_enable`, `exint_default_para_init`, `exint_flag_clear`, `exint_init`, `gpio_default_para_init`, `gpio_exint_line_config`, `gpio_init`, `nvic_irq_enable`
 - Confidence: medium
+
+## vcu_exint14_pb14_init_thunk
+
+**One-instruction tail branch to vcu_exint14_pb14_init at 0x080020A4**
+
+The function is a single branch instruction that jumps to 0x080020A4, so it has no logic of its own. vcu_peripheral_init_sequence calls this address, which is why the decompile names it thunk_FUN_080020A4. The target routes PB14 to EXINT line 14 as a falling-edge interrupt, enables the EXINT15_10 IRQ and stores the result of vcu_pa1_input_high in DAT_20001FEB.
+
+**Notes:** The thunk is the call target from vcu_peripheral_init_sequence; the routine it reaches is vcu_exint14_pb14_init (0x080020A4).
+
+- Addresses by version: 14b: 0x0800141C, 14e: 0x0800141C, 14f: 0x0800141C, 152: 0x080013F8, 153: 0x080013F8, 0159: 0x080013F8
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_exint14_pb14_init`
+- Confidence: high
+
+## vcu_exint14_pb14_init_thunk_14a
+
+**One-instruction tail branch to the 14a build's vcu_exint14_pb14_init at 0x08001D24**
+
+This is the VCU_14a counterpart of vcu_exint14_pb14_init_thunk: a single branch to 0x08001D24, which is the same PB14 EXINT14 setup used by the other builds. The thunk adds no logic and is present only in the 14a image.
+
+**Notes:** No direct caller is identified inside this packet.
+
+- Addresses by version: 14a: 0x08001E44
+- Called by: `vcu_peripheral_init_sequence`
+- Calls: `vcu_exint14_pb14_init`
+- Confidence: high
 
 ## vcu_exint3_pa3_init
 
@@ -114,7 +142,7 @@ Configures PA3 (mask 0x8) as an input with a pull-up (0x18) through gpio_init, a
 
 - Addresses by version: 148: 0x08002328, 14a: 0x08002398, 14b: 0x08002650, 14e: 0x08002650, 14f: 0x080026AC, 152: 0x080026E8, 153: 0x08002704, 0159: 0x080026F0
 - Peripheral registers: `GPIOA.CFGLR` (A)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Calls: `crm_periph_clock_enable`, `exint_default_para_init`, `exint_flag_clear`, `exint_init`, `exint_interrupt_enable`, `gpio_default_para_init`, `gpio_exint_line_config`, `gpio_init`, `nvic_irq_enable`
 - Confidence: medium
 
@@ -128,6 +156,6 @@ Configures the pins PB2, PB10, PB11, PB12, PB13, PB14 and PA1 with gpio_default_
 
 - Addresses by version: 148: 0x08001DD0, 14a: 0x08001E48, 14b: 0x08002124, 14e: 0x08002124, 14f: 0x08002180, 152: 0x080021BC, 153: 0x080021D8, 0159: 0x080021C4
 - Peripheral registers: `GPIOA.CFGLR` (A), `GPIOB.CFGLR` (A)
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Calls: `crm_periph_clock_enable`, `exint_default_para_init`, `exint_init`, `gpio_default_para_init`, `gpio_exint_line_config`, `gpio_init`, `nvic_irq_enable`
 - Confidence: medium

@@ -1,9 +1,14 @@
 # BLE - `flash` functions
 
-31 functions.
+36 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
+| [`ble_nvdata_open_all`](#ble_nvdata_open_all) | 0x0C02D604 | Open the three /dev/nvdata partitions and store their descriptors at 0x200098A0 |
+| [`ble_nvdata_read_record`](#ble_nvdata_read_record) | 0x0C02D784 | Read and CRC-check record N of an nvdata partition; return its size or -5 |
+| [`ble_nvdata_sector_header_write`](#ble_nvdata_sector_header_write) | 0x0C02D870 | Write the nvdata sector header: 0x55AAAA55 magic, optional block marking and the slot bitmap |
+| [`ble_nvdata_slot_mark_used`](#ble_nvdata_slot_mark_used) | 0x0C02DB00 | Mark the current nvdata slot used by clearing its bit in the sector bitmap |
+| [`ble_nvdata_write_task`](#ble_nvdata_write_task) | 0x0C02DC50 | Task loop: take queued nvdata writes, stamp a CRC and sequence number, and append the record |
 | [`flash_region_0x18000_io_cb`](#flash_region_0x18000_io_cb) | 0x0C045CC0 | Stream callback: access up to 64 KB at flash offset 0x18000 through a RAM-patched flash routine |
 | [`norflash_apply_dummy_cycles`](#norflash_apply_dummy_cycles) | 0x0C0882A0 | Program the per-device dummy-cycle byte into flash-IP REG_014[23:16] if it is non-zero |
 | [`norflash_apply_protect_entry`](#norflash_apply_protect_entry) | 0x0C087CDC | Pick the largest protect-table entry clear of an address range and apply it |
@@ -35,6 +40,91 @@
 | [`norflash_status_s8_s15`](#norflash_status_s8_s15) | 0x0C0883C8 | Issue Read Status Register-2 (0x35) and return the status byte from the RX FIFO |
 | [`norflash_wait_busy_or_suspend`](#norflash_wait_busy_or_suspend) | 0x0C0883F0 | Poll status WIP until the flash is idle; if an IRQ becomes pending, send Program/Erase Suspend (0x75) |
 | [`norflash_write_reg`](#norflash_write_reg) | 0x0C088978 | Write-enable, send a register-write command with data bytes, then poll RDSR until WIP clears |
+
+## ble_nvdata_open_all
+
+**Open the three /dev/nvdata partitions and store their descriptors at 0x200098A0**
+
+Loops over partition numbers 1 to 3, formats the path '/dev/nvdata%d' and opens it with flags 0. A successful descriptor is stored as one byte at 0x200098A0 + (partition index - 1), and an ioctl-style request 0x101 is issued on it, logging 'Invalid nvdata%d!' if that fails. A failed open logs 'Open nvdata %d failed' and stores 0. The function always returns 0.
+
+**Returns** `s32`: always 0
+
+**Notes:** A failed request 0x101 leaves the descriptor stored, so the partition is still used afterwards. The meaning of request 0x101 is not known.
+
+- Addresses by version: 219: 0x0C02D604
+- Calls: `trace_printf`, `_close`, `ble_219_0c0715d8`, `ble_219_0c071a94`
+- Confidence: high
+
+## ble_nvdata_read_record
+
+**Read and CRC-check record N of an nvdata partition; return its size or -5**
+
+Checks that the record index is in range (non-negative and less than (end address minus header size) divided by the record size), seeks to the record offset (sector base from config +0x04, plus header size at object +0x5C, plus index times record size) and reads one record. The record layout is a u16 at offset 2 holding a CRC-16/CCITT (crc16_ccitt_nibble, table at 0x0C08099C) over the bytes from offset 4 to the end of the record, followed by the body. A matching CRC returns the record size, and a bad index or CRC mismatch returns -5; if param_4 is non-zero the function finishes with the release seek ble_219_0c071a80(fd, 0, -1).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | record index within the partition |
+| `param_2` | `ptr` | partition object: +0 config pointer (record size u16 at config +0x0E, base at +0x04, end at +0x08), descriptor byte at +0x54, header size at +0x5C |
+| `param_3` | `ptr` | output buffer for one record |
+| `param_4` | `s32` | non-zero to finish with the release seek |
+
+**Returns** `s32`: record size in bytes on success, -5 (0xFFFFFFFB) for a bad index or CRC mismatch
+
+**Notes:** The meaning of the release seek with whence -1 is not known (ble_219_0c071a80 is not described yet). The field meanings are inferred from the arithmetic and from ble_nvdata_write_task, which writes the same layout.
+
+- Addresses by version: 219: 0x0C02D784
+- Called by: `nvdata_device_init`
+- Calls: `crc16_ccitt_nibble`, `ble_219_0c071a80`, `read`
+- Confidence: medium
+
+## ble_nvdata_sector_header_write
+
+**Write the nvdata sector header: 0x55AAAA55 magic, optional block marking and the slot bitmap**
+
+Writes the sector header of an nvdata partition: the magic 0x55AAAA55 at the sector base (config +0x04) and, after a 4-byte gap, a bitmap with one 32-bit word per 32 slots, in which 1 means free and 0 means used. The bitmap is written only when param_3 is 0: words before the current slot (object +0x56, signed 16-bit) are written as 0, the word holding the current slot has the bits up to it cleared, and later words are written as 0xFFFFFFFF when param_2 is NULL and left alone otherwise. When param_2 holds a block size, the function first marks each block covering the header area (header size at +0x5C divided by the block size) with ioctl-style request 0x110, from the last block back to the first. When param_2 is NULL and param_3 is non-zero, it instead overwrites the first header-size bytes of the sector with 0xFFFFFFFF before writing the magic.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | partition object: sector base via config +0x04, header size at +0x5C, descriptor at +0x54, slot index s16 at +0x56 |
+| `param_2` | `ptr` | optional u32 block size; NULL for the bitmap path |
+| `param_3` | `s32` | non-zero skips the bitmap write (erase path when param_2 is NULL) |
+
+**Notes:** The bitmap polarity (1 free, 0 used) is inferred from the masks used here and in ble_nvdata_slot_mark_used. The block-marking request 0x110 is shared with ble_nvdata_write_task. The packet shows the header size and bitmap write but not the caller that picks param_2 and param_3.
+
+- Addresses by version: 219: 0x0C02D870
+- Called by: `ble_nvdata_slot_mark_used`, `nvdata_device_init`
+- Calls: `_close`, `ble_219_0c071a80`, `write`
+- Confidence: medium
+
+## ble_nvdata_slot_mark_used
+
+**Mark the current nvdata slot used by clearing its bit in the sector bitmap**
+
+Takes the current slot index from object +0x56 (signed 16-bit), uses index mod 32, with the sign corrected, as the bit to clear, and when param_2 is non-zero and the index is 0 it first rewrites the whole sector header with ble_nvdata_sector_header_write. It then seeks to the bitmap word of that slot (sector base + 4 + 4 times (index / 32)) and writes the word with only that bit cleared and all other bits set to 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | partition object (slot index at +0x56, descriptor at +0x54) |
+| `param_2` | `s32` | non-zero: rewrite the sector header first when the slot index is 0 |
+
+**Notes:** Writing 1s to the other bits leaves them unchanged on flash that can only program 1 to 0, which is probably why the whole word is written. This is an interpretation, not seen in the code.
+
+- Addresses by version: 219: 0x0C02DB00
+- Called by: `ble_nvdata_write_task`, `nvdata_device_init`
+- Calls: `ble_nvdata_sector_header_write`, `ble_219_0c071a80`, `write`
+- Confidence: medium
+
+## ble_nvdata_write_task
+
+**Task loop: take queued nvdata writes, stamp a CRC and sequence number, and append the record**
+
+Task body that never returns. It waits on queue DAT_20009CBC (xQueueReceive with a 100-tick timeout, calling hal_wdt_task_checkin on each pass) for a pointer to a partition object, then takes that object's recursive mutex at +0x04 before writing. It computes the record CRC over the body at object +0x64 (record size minus 4 bytes) with crc16_ccitt_nibble and stores it at +0x62, increments the 14-bit sequence counter at +0x58 and writes it into the header word at +0x60 with its top two flag bits preserved. It then loops over the partition's count byte (config +0x0C), seeks to the current slot, checks the next area for erased bytes (0xFF, 16 bytes at a time, after block size is read with ioctl-style request 0x100), and skips to the next block with request 0x110 and logs 'nvdata flash not empty, skip to next block' when the area is not erased. The record is written with one write (or in 16-byte pieces when config +0x0D is set), the slot is marked with ble_nvdata_slot_mark_used when config +0x14 is set, the busy byte at +0x55 is cleared and the mutex is given back with xQueueGiveMutexRecursive.
+
+**Notes:** Logs 'nvdata seek error' on a failed seek. The config bytes (+0x0C count, +0x0D piecewise write, +0x14 mark-slot flag) are inferred from their use. The completion queue call after the give is not identified in this packet.
+
+- Addresses by version: 219: 0x0C02DC50
+- Calls: `ble_nvdata_slot_mark_used`, `trace_printf`, `hal_wdt_task_checkin`, `wdt_task_monitor_register_current`, `xQueueGiveMutexRecursive`, `xQueueReceive`, `xQueueTakeMutexRecursive`, `xQueuePeek`, `crc16_ccitt_nibble`, `_close`, `ble_219_0c071a80`, `read`, `write`
+- Confidence: medium
 
 ## flash_region_0x18000_io_cb
 

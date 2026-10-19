@@ -196,7 +196,7 @@ Brings up ADC1 as the 5-channel scan source for the averaging code. It calls vcu
 
 - Addresses by version: 148: 0x08001978, 14a: 0x080019E0, 14b: 0x08001C94, 14e: 0x08001C94, 14f: 0x08001CF0, 152: 0x08001D2C, 153: 0x08001D48, 0159: 0x08001D5C
 - Peripheral registers: `ADC1.STS` (A)
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Calls: `vcu_adc_dma_ring_init`, `vcu_adc_analog_pins_init`, `adc_base_config`, `adc_base_default_para_init`, `adc_calibration_init`, `adc_calibration_init_status_get`, `adc_calibration_start`, `adc_calibration_status_get`, `adc_dma_mode_enable`, `adc_enable`, `adc_ordinary_channel_set`, `adc_ordinary_conversion_trigger_set`, `adc_ordinary_software_trigger_enable`, `crm_adc_clock_div_set`, `crm_periph_clock_enable`
 - Confidence: high
 

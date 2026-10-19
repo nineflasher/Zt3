@@ -1,14 +1,16 @@
 # MCU - `timer` functions
 
-21 functions.
+23 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
 | [`mcu_busy_wait_systick_counts`](#mcu_busy_wait_systick_counts) | 0x080061A6 | Busy-wait until SysTick has counted down param_1 counts |
+| [`mcu_systick_free_run_start`](#mcu_systick_free_run_start) | 0x0800C8F8 | Start SysTick as a free-running 24-bit counter on the AHB clock with no interrupt |
 | [`mcu_timed_hold_countdown`](#mcu_timed_hold_countdown) | 0x08005E7C | One-shot 0x567-count hold timer: started by request flag 0x20001FC8, run down per call |
 | [`mcu_timeout_tick_v12b`](#mcu_timeout_tick_v12b) | (removed) | Advance the MCU_12b 100-tick timeout counter and set flag DAT_20001F8A at saturation |
 | [`mcu_timeout_tick_v143`](#mcu_timeout_tick_v143) | (removed) | Advance the MCU_143 100-tick timeout counter, decade counter and saturating byte counter |
 | [`mcu_timeout_tick_v152`](#mcu_timeout_tick_v152) | (removed) | Advance the MCU_152 100-tick timeout counter and the level field in status halfword 0x20001FCE |
+| [`mcu_tmr4_ch4_compare_clear`](#mcu_tmr4_ch4_compare_clear) | 0x080030F4 | Writes 0 to the TMR4 channel 4 compare register |
 | [`mcu_tmr_iden_c2ien_set`](#mcu_tmr_iden_c2ien_set) | 0x0800E224 | Enable or disable the channel 2 compare interrupt (IDEN.C2IEN, bit 2) |
 | [`mcu_tmr_iden_c3ien_set`](#mcu_tmr_iden_c3ien_set) | 0x0800E22E | Enable or disable the channel 3 compare interrupt (IDEN.C3IEN, bit 3) |
 | [`mcu_tmr_swevt_trgswtr_set`](#mcu_tmr_swevt_trgswtr_set) | 0x0800E1A2 | Set or clear the software trigger event bit SWEVT.TRGSWTR (bit 6) |
@@ -39,6 +41,18 @@ Polls the SysTick current-value register (SYST_CVR, 0xE000E018) and accumulates 
 - Addresses by version: 12b: 0x08006220, 143: 0x080060D6, 152: 0x08006106, 0160: 0x080061A6
 - Peripheral registers: `SysTick+0x8` (R)
 - Called by: `mcu_0160_0800226c`, `mcu_0160_08007df4`, `mcu_0160_0800d548`
+- Confidence: high
+
+## mcu_systick_free_run_start
+
+**Start SysTick as a free-running 24-bit counter on the AHB clock with no interrupt**
+
+Sets the SysTick clock source to the undivided AHB clock (systick_clock_source_config(4)), loads the reload value 0xFFFFFF, clears the current value and sets CTRL.ENABLE. TICKINT stays clear, so SysTick runs as a polled time base and raises no interrupt.
+
+- Addresses by version: 12b: 0x0800C600, 143: 0x0800C858, 152: 0x0800C898, 0160: 0x0800C8F8
+- Peripheral registers: `SCnSCB+0x0` (A), `SysTick+0x0` (RW), `SysTick+0x4` (W), `SysTick+0x8` (W)
+- Called by: `mcu_0160_0800d548`
+- Calls: `systick_clock_source_config`
 - Confidence: high
 
 ## mcu_timed_hold_countdown
@@ -87,6 +101,20 @@ Same timeout pattern as mcu_timeout_tick_v143 on DAT_200003B0: the counter satur
 
 - Addresses by version: 152: 0x08007E4C
 - Called by: `mcu_0160_0800a480`
+- Confidence: medium
+
+## mcu_tmr4_ch4_compare_clear
+
+**Writes 0 to the TMR4 channel 4 compare register**
+
+Calls tmr_channel_value_set(&TMR4, 4, 0), which writes compare value 0 to the compare register selected by channel code 4 (C4DT in the SDK layout). It is the single step of a TMR4 channel 4 clear routine; the call site mcu_0160_08003060 is outside this batch.
+
+**Notes:** The channel code 4 is passed literally. If the SDK enum is zero-based the channel may be 3. Check tmr_channel_value_set's encoding.
+
+- Addresses by version: 12b: 0x080031D4, 143: 0x080030D0, 152: 0x08003054, 0160: 0x080030F4
+- Peripheral registers: `TMR4.CTRL1` (A)
+- Called by: `mcu_0160_08003060`
+- Calls: `tmr_channel_value_set`
 - Confidence: medium
 
 ## mcu_tmr_iden_c2ien_set
@@ -152,7 +180,7 @@ Sets SysTick.CTRL bit 2 (CLKSOURCE) when param_1 equals 4 (SYSTICK_CLOCK_SOURCE_
 
 - Addresses by version: 12b: 0x0800D7B8, 143: 0x0800DA14, 152: 0x0800DAAC, 0160: 0x0800DBEC
 - Peripheral registers: `SysTick+0x0` (RW)
-- Called by: `mcu_0160_0800c8f8`
+- Called by: `mcu_systick_free_run_start`
 - Confidence: high
 
 ## tmr_32_bit_function_enable

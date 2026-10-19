@@ -1,6 +1,6 @@
 # VCU - `startup` functions
 
-7 functions.
+8 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -10,6 +10,7 @@
 | [`app_main_thunk`](#app_main_thunk) | 0x08001178 | Tail-call thunk that jumps to the application main entry FUN_0800d858 |
 | [`crt_init_then_main`](#crt_init_then_main) | 0x080016EC | C runtime start: run the two-record init hook table, then call the app main thunk |
 | [`crt_init_then_main_v148_14a`](#crt_init_then_main_v148_14a) | (removed) | Builds 148 and 14a start: run init hook table, call app main thunk, then divide loop |
+| [`vcu_peripheral_init_sequence`](#vcu_peripheral_init_sequence) | 0x08002060 | Boot-time peripheral bring-up in fixed order, ending with a GPIO remap |
 | [`vcu_uid_load`](#vcu_uid_load) | 0x08007CA4 | Read the 96-bit chip unique ID and derive a ones-complement checksum |
 
 ## Reset_Handler
@@ -92,6 +93,19 @@ Present only in builds 148 and 14a, with no direct callers, so it is an entry po
 - Addresses by version: 148: 0x080013AC, 14a: 0x080013A0
 - Calls: `app_main_thunk`, `vcu_udiv64_shift_subtract`
 - Confidence: low
+
+## vcu_peripheral_init_sequence
+
+**Boot-time peripheral bring-up in fixed order, ending with a GPIO remap**
+
+Sets the NVIC priority grouping to group 2 (argument 5, two preemption bits and two sub-priority bits), then runs the peripheral initialisers in order: SysTick timebase, ADC1 scan, board GPIO, USART2, the TMR2 PWM bring-up, CAN1, SPI2, the PB14 EXINT14 interrupt through its thunk, the ERTC wakeup, the watchdog, TMR5 and finally a GPIO remap written with the encoded code 0x30100304 and enable set. The watchdog is started only after most peripherals are up, and TMR5 starts just before the remap.
+
+**Notes:** Order as decompiled: vcu_systick_timebase_init, vcu_adc1_scan_init, vcu_gpio_board_init, vcu_usart2_init, vcu_tmr2_pwm_pa0_bringup, vcu_can1_init, vcu_spi2_init, vcu_exint14_pb14_init_thunk, vcu_ertc_wakeup_exint_init, vcu_watchdog_start, vcu_tmr5_1khz_tick_init, gpio_pin_remap_config. The remap code decodes as value 4 in the 3-bit field at bit 16 of the IOMUX register selected by 0x30; which remap that is was not identified. The peripheral behind 0x30100304 is not named in the packet.
+
+- Addresses by version: 148: 0x08001C7C, 14a: 0x08001CE4, 14b: 0x08001F98, 14e: 0x08001F98, 14f: 0x08001FF4, 152: 0x08002030, 153: 0x0800204C, 0159: 0x08002060
+- Called by: `vcu_0159_0800d858`
+- Calls: `vcu_exint14_pb14_init_thunk`, `vcu_adc1_scan_init`, `vcu_tmr2_pwm_pa0_bringup`, `vcu_usart2_init`, `vcu_systick_timebase_init`, `vcu_gpio_board_init`, `vcu_ertc_wakeup_exint_init`, `vcu_spi2_init`, `vcu_tmr5_1khz_tick_init`, `vcu_can1_init`, `vcu_watchdog_start`, `gpio_pin_remap_config`, `nvic_priority_group_config`
+- Confidence: high
 
 ## vcu_uid_load
 

@@ -1,0 +1,96 @@
+{
+  "ble_219_0c065078": {
+    "name": "btstack_crypto_ccm_submit",
+    "summary": "Queue an AES-CCM request (type 3) and run the crypto job pump",
+    "description": "Appends a type-3 request to the BTstack crypto list at DAT_20017388 and then runs the job pump. The request holds the key pointer (+0x10), a u16 message length (+0x14), the nonce pointer (+0x18), the data pointer (+0x1C), the completion callback (+0x04) and its context (+0x08). The pump runs only when env+0x198 equals 2 (ble_ctrl_env_get_u8_at_0x198), no HCI command is in flight (DAT_2001738C clear) and ll_env_is_ready (0x0C066978) is true. It pops the head and switches on the type byte at +0x0C: 0 sends HCI LE Rand (opcode 0x2018), 1 sends HCI LE Encrypt (0x2017) on byte-reversed key and plaintext, 4 and 5 are the P-256 jobs (0x0C0650C0 and 0x0C065108), and 6 to 8 are CCM job steps. Types 2 and 3 latch a CCM job only when the single CCM engine is idle (DAT_200172DC clear): the 16-byte key goes to 0x200172CC, the block count ((length+15)>>4, minimum 1) to 0x200172C8, the accumulator at 0x200172F0 is zeroed and the engine is marked busy; otherwise the active job is continued. The job helper 0x0C06464C is called with the item and is not described here. Within a CCM job the sub-state byte at +0x10 selects the step. State 0 builds B0 = ((M-2)*4 & 0xF8) | (AAD!=0)<<6 | 1, with M at +0x3E, then the 13-byte nonce and the big-endian length at offset 14, and encrypts it. State 2 absorbs the AAD behind a 2-byte big-endian length, then the payload, into the 16-byte CBC-MAC accumulator at +0x24, encrypting each full block. State 4 encrypts the final partial block (accumulator XOR zero-padded data). States 6 and 8 encrypt counter blocks A0 (counter 0) and Ai (counter at +0x3A), each with flags 1, the nonce and a 2-byte counter, to make the MIC and payload keystream. Even sub-states issue an encrypt and odd sub-states (1, 3, 5, 7, 9) wait for its completion, which is handled outside this packet. This is the CCM member of three near-identical copies of the same pump (0x0C0650C0 and 0x0C065108 carry the same dispatch loop). Callers are ble_crypto_auth_pubkey_begin (0x0C04F894) and sm_pairing_engine_step (0x0C051EB8).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "btstack_crypto_ccm_t request, queued on the list at 0x20017388"},
+      {"name": "param_2", "type": "ptr", "description": "16-byte AES key"},
+      {"name": "param_3", "type": "u16", "description": "message length in bytes"},
+      {"name": "param_4", "type": "ptr", "description": "13-byte CCM nonce"},
+      {"name": "param_5", "type": "ptr", "description": "message data buffer"},
+      {"name": "param_6", "type": "ptr", "description": "completion callback, stored at +0x04"},
+      {"name": "param_7", "type": "ptr", "description": "callback context, stored at +0x08"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The job type is set to 3 here, and the CCM steps 6 to 8 later reuse the same item. The item's +0x14 field is a u16 length on enqueue but is used as a key pointer by the CCM steps, so the job helper 0x0C06464C must rewrite it. The completion handler that sets DAT_20017300 and advances sub-states is not in this packet. The exact B0 and MIC byte layout is inferred from the code and from the flags formula, and it matches CCM with M=4 and L=2 (BLE link layer)."
+  },
+  "ble_219_0c0650c0": {
+    "name": "btstack_crypto_ecc_p256_generate_key",
+    "summary": "Queue a P-256 local public-key read and copy the 64-byte result to the caller",
+    "description": "Queues a type-4 request with the output buffer pointer (param_2, stored at +0x10), the completion callback (param_3, +0x04) and its context (param_4, +0x08), then runs the same job pump as 0x0C065078 (the loop is a copy of that one, and 0x0C065108 has the same copy). Before queuing it resets the handshake byte DAT_20017300 from 4 back to 0. When serviced, a DAT_20017300 of 0 is set to 3 and HCI LE Read Local P-256 Public Key (opcode 0x2025, template 0x0C081180, no arguments) is sent. When DAT_20017300 has reached 4, the pump copies the 64-byte X||Y public key from 0x20017304 into the caller's buffer in four 16-byte copies, pops the request and invokes the callback with its context. The shape of the API matches BTstack's btstack_crypto_ecc_p256_generate_key, which is why this name is used. Pump behaviour is the same as in the other two copies, and the caller list contains ble_link_pending_timer_done (0x0C04FC10), sm_pairing_engine_step (0x0C051EB8) and sm_pdu_rx_handler (0x0C051EF0).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "btstack_crypto_ecc_p256_t request"},
+      {"name": "param_2", "type": "ptr", "description": "64-byte output buffer for the local P-256 public key (X then Y)"},
+      {"name": "param_3", "type": "ptr", "description": "completion callback, stored at +0x04"},
+      {"name": "param_4", "type": "ptr", "description": "callback context, stored at +0x08"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Template 0x0C081180 was decoded from the firmware image as opcode 0x2025, LE Read Local P-256 Public Key. The handshake values 3 (command in flight) and 4 (result in 0x20017304) are inferred from the code paths. The completion handler that sets 4 is not in this packet."
+  },
+  "ble_219_0c065108": {
+    "name": "btstack_crypto_ecc_p256_calculate_dhkey",
+    "summary": "Queue a P-256 ECDH request (remote public key in, shared secret out)",
+    "description": "Queues a type-5 request holding the remote P-256 public key pointer (param_2, stored at +0x10), the DHKey output pointer (param_3, stored at +0x14), the completion callback (param_4, +0x04) and its context (param_5, +0x08), then runs the shared job pump. The pump sends HCI LE Generate DHKey (opcode 0x2026, template 0x0C081150) with two 32-byte arguments: X at the key pointer and Y at that pointer plus 0x20, and it marks the controller busy. The 32-byte shared secret is written by the completion path, which is not in this packet, so the use of +0x14 is inferred. This is the DHKey member of the same three-copy pump group as 0x0C065078 and 0x0C0650C0, and its only caller in this packet is sm_pdu_rx_handler (0x0C051EF0), the SMP receive path.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "btstack_crypto_ecc_p256_t request"},
+      {"name": "param_2", "type": "ptr", "description": "remote P-256 public key, 64 bytes (X then Y)"},
+      {"name": "param_3", "type": "ptr", "description": "32-byte DHKey output buffer, stored at +0x14"},
+      {"name": "param_4", "type": "ptr", "description": "completion callback, stored at +0x04"},
+      {"name": "param_5", "type": "ptr", "description": "callback context, stored at +0x08"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Template 0x0C081150 was decoded from the firmware image as opcode 0x2026, LE Generate DHKey, with format QQ. The public-key layout matches the template's two 32-byte arguments. The DHKey output routing is inferred because the completion handler is not in this packet."
+  },
+  "ble_219_0c065564": {
+    "name": "btstack_memory_pools_init",
+    "summary": "Create the 15 fixed BTstack memory pools at stack start and log the storage figure",
+    "description": "Boot-time initialiser that calls btstack_memory_pool_create (0x0C0656B0) fifteen times, each with a pool head cell, a storage start, a block count and a block size. The pools are (count x size): 3 x 800, 8 x 16, 8 x 92, 2 x 52, 2 x 16, 2 x 52, 4 x 28, 2 x 724, 8 x 12, 2 x 324, 1 x 528, 2 x 412, 1 x 120, 6 x 12 (the SM address-resolution pool at 0x2001903C) and 2 x 12. Its callers are ble_host_controller_init (0x0C05B67C) and an unannotated function at 0x0C06B154. The last step logs \"bthost total storage used[%d]bytes\" with the literal 0x1230 (4656) through the printf-style logger 0x0C035D0C. That literal does not equal the sum of the pool sizes above (7376 bytes), so it is a hard-coded figure and not a measured total.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The 0x1230 literal is a useful lead for anyone checking the memory budget. The pool names are not given in the firmware, so each pool is identified only by address and size."
+  },
+  "ble_219_0c065c88": {
+    "name": "printf_hexdump",
+    "summary": "Print a buffer as uppercase hex pairs separated by spaces, then a newline",
+    "description": "Prints param_2 bytes from param_1 as uppercase hex pairs separated by spaces, followed by a newline. Each byte is turned into two digits from the table \"0123456789ABCDEF\" and placed in a 4-byte stack string with a trailing space and NUL. That string is printed through the printf-style logger 0x0C035D0C with format \"%s\" (the string at 0x0C086184 in the image). Nothing is printed when the count is zero or negative, and a newline string at 0x0C07F24C ends the dump. The routine keeps no state and makes no heap calls. It has nine callers in the BLE host, listed in the packet.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "bytes to print"},
+      {"name": "param_2", "type": "s32", "description": "number of bytes; nothing printed when 0 or negative"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The name follows BTstack's printf_hexdump, which matches this behaviour (uppercase, space after each byte, newline at the end). The name is a match by behaviour and not a confirmed symbol. The format string and newline string were read from the firmware image."
+  },
+  "ble_219_0c066c2c": {
+    "name": "hci_send_acl_packet_buffer",
+    "summary": "Fragment the prepared ACL packet, check credits, and hand each fragment to the transport",
+    "description": "Sends the ACL packet already built in the HCI packet buffer (DAT_200190D0[0x1A]) with total length param_1 including the 4-byte header. It reads the 12-bit handle from the first two bytes and first checks ble_ctrl_can_send_to_handle. With no credits it logs \"hci_send_acl_packet_buffer called but no free ACL buffers on controller\" (hci.c line 0x396), clears the reserved-buffer flag at +0x170, emits event 0x6E and returns 0x57. It then searches the connection list at +0x14 for the handle, stamps the connection's last-send time (conn+0x7C from btstack_run_loop_get_time_ms) and counts fragments in flight in conn+0x194. Fragments are sized by the ACL length at +0x17A, or by the field at +0x60 when the connection class (conn+0x0C) is below 4 and that field is set. Each continuation fragment has its header rewritten in place with the packet-boundary flag 0x1000 (PB=01), and the length field is written at offset sent-2. Each fragment goes through ble_hook_invoke4 (0x0C06C0C0) and then the transport send at vtable +0x18 with packet type 2 (ACL). Between fragments the transport's optional flow-control hook at +0x14 and hci_number_free_acl_slots (0x0C0666E4) can stop the send, so the function returns early and the rest is sent later.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "total ACL packet length in bytes, header included"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 0x57 when the controller has no ACL credits, 2 when the handle is not a known connection, 3 when a transport send fails"},
+    "confidence": "medium",
+    "notes": "The name is BTstack's hci_send_acl_packet_buffer, confirmed by its log strings. The return codes and the meaning of conn+0x0C below 4 are inferred. Event 0x6E is taken to be BTstack's HCI_EVENT_TRANSPORT_PACKET_SENT, which is an assumption."
+  },
+  "ble_219_0c067248": {
+    "name": "hci_run_general_gap_bredr",
+    "summary": "Send the next pending BR/EDR GAP setting command (name, EIR, class, scan settings)",
+    "description": "Dispatcher for pending BR/EDR GAP settings. It reads the pending bitmask at controller state +0x48 and, on each call, sends one command for the highest-priority set bit and clears that bit. The priority order is 0x4 (Write_Class_of_Device 0x0C24 with the u32 at +0x34), 0x1 (Change_Local_Name 0x0C13, a 251-byte packet with a 248-byte name taken from the string at +0x2C, passed to ble_ctrl_addr_string_slot_store with the BD address at +0x38), 0x2 (Write_Extended_Inquiry_Response 0x0C52, a 241-byte packet that is either a default complete-local-name element or the AD structures from +0x30 copied through the ad_iterator_* helpers, with the address slot filled for name types 8 and 9), 0x8 (opcode 0x080F with a u16 at +0x3E), 0x20 (Write_Page_Scan_Activity 0x0C1C with +0x4A and +0x4C), 0x40 (Write_Page_Scan_Type 0x0C47 with the byte at +0x4E), 0x80 (Write_Page_Timeout 0x0C18 with +0x50), 0x10 (Write_Scan_Enable 0x0C1A with the byte at +0x1B1) and 0x100 (Write_Inquiry_Scan_Activity 0x0C1E with +0x60 and +0x62). The name and EIR packets reserve the shared packet buffer (flag +0x170, with a log if it is already reserved) and go through ble_ctrl_hci_cmd_dispatch (0x0C066F74). Every other command goes through hci_send_cmd_no_status (0x0C06722C) with its template.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The name follows BTstack's BR/EDR general GAP runner, which the log strings support (gap_run_set_local_name, gap_run_set_eir_data). The bit-to-command mapping was read from the code, and the command names come from the decoded template opcodes in the image. Opcode 0x080F with format 2 is not named. The EIR source pointer at +0x30 is not passed to ad_iterator_init in the visible call, so the data path there is not fully traced."
+  }
+}

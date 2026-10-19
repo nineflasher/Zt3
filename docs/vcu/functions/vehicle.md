@@ -1,6 +1,6 @@
 # VCU - `vehicle` functions
 
-25 functions.
+27 functions.
 
 | Function | Address (VCU_0159) | Summary |
 |---|---|---|
@@ -22,7 +22,9 @@
 | [`vcu_periodic_100_tick_check`](#vcu_periodic_100_tick_check) | 0x08003400 | Every 100 calls of the counter DAT_2000102c, raise DAT_20001fc0 if conditions hold |
 | [`vcu_ready_sequence_step_v148_14a`](#vcu_ready_sequence_step_v148_14a) | (removed) | Ready/arm/run/disarm state machine for builds 148 and 14a |
 | [`vcu_ready_sequence_step_v14b_0159`](#vcu_ready_sequence_step_v14b_0159) | 0x08002FC0 | Ready/arm/run/disarm state machine for builds 14b to 0159 |
+| [`vcu_revolution_stage_tracker`](#vcu_revolution_stage_tracker) | 0x08004594 | Count 5000-revolution marks into a 1..4 stage index and drive the indicator |
 | [`vcu_sensor_limit_derate_eval`](#vcu_sensor_limit_derate_eval) | 0x08003594 | Evaluate three scaled sensor words into limit flags and the derate word DAT_20001f90 |
+| [`vcu_sensor_threshold_pulse_count`](#vcu_sensor_threshold_pulse_count) | 0x08007ECC | Count sustained high readings of two sensor words and send a burst-count message |
 | [`vcu_speed_mode_snapshot_update`](#vcu_speed_mode_snapshot_update) | 0x08008CC0 | Per-tick speed conversion, drive sub-mode selection and periodic telemetry snapshot |
 | [`vcu_state_params_reset`](#vcu_state_params_reset) | 0x0800837C | Reset the packed state words at 0x20001f8c and load default 0x2800/0x3200 limit and 0xF00 base |
 | [`vcu_status_flags_mask_low`](#vcu_status_flags_mask_low) | 0x08007CFC | Clear the low 12 bits of two 16-bit status/limit words at 0x20001f92 and 0x20001f98 |
@@ -116,7 +118,7 @@ Companion of vcu_debounce_condition_a. If bit6 of DAT_20001e68 is set, DAT_20001
 **Notes:** Semantics of the individual bits are not known.
 
 - Addresses by version: 148: 0x08002E40, 14a: 0x08002F30, 14b: 0x08003240, 14e: 0x08003240, 14f: 0x0800329C, 152: 0x08003308, 153: 0x08003328, 0159: 0x0800339C
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a4e8`, `vcu_0159_0800a500`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_condition_b_slot_tick`, `vcu_state0_periodic_tick_v0159`
 - Confidence: medium
 
 ## vcu_cycle_mode_on_request
@@ -140,7 +142,7 @@ Part of a family of small per-tick condition/flag helpers (see vcu_condition_b_l
 **Notes:** Meaning of the status bits (f78 bit0/bit3, e6a bit3) and of b62 as speed is unknown; the decompiled OR/AND mixture of the bit tests is reproduced literally.
 
 - Addresses by version: 148: 0x08002DD0, 14a: 0x08002EC0, 14b: 0x080031D0, 14e: 0x080031D0, 14f: 0x0800322C, 152: 0x08003298, 153: 0x080032B8, 0159: 0x0800332C
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a500`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state0_periodic_tick_v0159`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
 - Confidence: medium
 
 ## vcu_event_countdown_a
@@ -156,7 +158,7 @@ One of a group of countdown helpers (see vcu_event_countdown_b). If DAT_20001f48
 **Notes:** DAT_20001fbc looks like a shared change/event latch (button or input edge) but its source is unknown.
 
 - Addresses by version: 148: 0x08003454, 14a: 0x0800366C, 14b: 0x08003990, 14e: 0x08003990, 14f: 0x080039EC, 152: 0x08003A54, 153: 0x08003A74, 0159: 0x08003B00
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a264`, `vcu_0159_0800a55c`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_0159_0800a55c`
 - Confidence: medium
 
 ## vcu_event_countdown_b
@@ -172,7 +174,7 @@ Sibling of vcu_event_countdown_a. When the latch DAT_20001fbc differs from the s
 **Notes:** Purpose of DAT_200021b8 and the consumer of fd4 not identified.
 
 - Addresses by version: 148: 0x080034CC, 14a: 0x080036E4, 14b: 0x08003A08, 14e: 0x08003A08, 14f: 0x08003A64, 152: 0x08003AC8, 153: 0x08003AE8, 0159: 0x08003B74
-- Called by: `vcu_0159_0800a500`
+- Called by: `vcu_state0_periodic_tick_v0159`
 - Confidence: medium
 
 ## vcu_input_b_hold_start_tick
@@ -221,7 +223,7 @@ Takes the 16-bit value from app_get_u16_2000329e and shifts it right by 4. While
 **Notes:** The unit of the 16-bit value is not established; a shift of 4 suggests a 12-bit ADC or a count scaled by 16. Callers are not in this packet.
 
 - Addresses by version: 148: 0x080073FC, 14a: 0x08007838, 14b: 0x08007B9C, 14e: 0x08007BD4, 14f: 0x08007C30, 152: 0x08007CF4, 153: 0x08007D90
-- Called by: `vcu_0159_080069b4`
+- Called by: `vcu_code_digit_entry_tick`
 - Calls: `app_get_u16_2000329e`
 - Confidence: medium
 
@@ -234,7 +236,7 @@ DAT_2000102c is a free-running tick counter incremented elsewhere (the access is
 **Notes:** Tick period (and whether 0x123e is a state/mode byte) not determined.
 
 - Addresses by version: 148: 0x08002E9C, 14a: 0x08002F90, 14b: 0x080032A4, 14e: 0x080032A4, 14f: 0x08003300, 152: 0x0800336C, 153: 0x0800338C, 0159: 0x08003400
-- Called by: `vcu_0159_08009fa4`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_pb14_timed_edge_sequence`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
 - Confidence: medium
 
 ## vcu_ready_sequence_step_v148_14a
@@ -263,6 +265,19 @@ Tick handler for the same ready-to-run sequence as vcu_ready_sequence_step_v148_
 - Calls: `app_set_state`
 - Confidence: medium
 
+## vcu_revolution_stage_tracker
+
+**Count 5000-revolution marks into a 1..4 stage index and drive the indicator**
+
+When bit 11 of DAT_20001AEC is set, it copies the revolution counter DAT_20001B78 to DAT_200013D4 and the stored baseline DAT_20001C88 to DAT_200013D8. If the counter is above the baseline and exactly equal to a multiple of 5000 up to 60000, DAT_20001BA4 is set to a stage index that cycles 1, 2, 3, 4 every 20000 revolutions (5000 gives 1, 10000 gives 2, 15000 gives 3, 20000 gives 4, 25000 gives 1 and so on), and the first nonzero stage sets the indicator DAT_20001D38 and the flag DAT_20001FBD. When DAT_20001FBE requests a reset, it clears the indicator, the stage and both flags, stores the current counter as the new baseline in DAT_20001C88 and calls vcu_0159_08007D88 (not yet described).
+
+**Notes:** DAT_20001B78 is the wheel revolution counter that vcu_wheel_odometer_limit_update increments. The 5000-revolution spacing comes from the explicit constants in the decompile. DAT_20001D38 is read by vcu_display_frame_render_tick in mode 3 and mode 8.
+
+- Addresses by version: 148: 0x080047EC, 14a: 0x08004B78, 14b: 0x08004EB8, 14e: 0x08004EF0, 14f: 0x08004F4C, 152: 0x08004FAC, 153: 0x08004FC4, 0159: 0x08004594
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`
+- Calls: `vcu_flash_record_pingpong_save`
+- Confidence: medium
+
 ## vcu_sensor_limit_derate_eval
 
 **Evaluate three scaled sensor words into limit flags and the derate word DAT_20001f90**
@@ -276,8 +291,21 @@ Reads three 16-bit words through app_get_u16_2000329c, app_get_u16_2000329e and 
 **Notes:** The physical quantity is not established: the 30, 55, 60 and 180 limits could be temperatures, and 215 or 220 as a high limit is unusual for that. The window constants are also written to DAT_20001392, DAT_20001394 and DAT_20001396 (180, 60, 180) for other code to read. When DAT_20001fd6 is set or bit 3 of DAT_20001e6a is set, the low byte of DAT_20001f90 is cleared.
 
 - Addresses by version: 148: 0x08003030, 14a: 0x08003124, 14b: 0x08003438, 14e: 0x08003438, 14f: 0x08003494, 152: 0x08003500, 153: 0x08003520, 0159: 0x08003594
-- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_0159_0800a264`, `vcu_0159_0800a39c`, `vcu_0159_0800a500`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
+- Called by: `vcu_0159_0800a15c`, `vcu_0159_0800a1d0`, `vcu_state2_periodic_tick`, `vcu_0159_0800a39c`, `vcu_state0_periodic_tick_v0159`, `vcu_0159_0800a55c`, `vcu_0159_0800a5c8`
 - Calls: `app_get_u16_2000329e`, `app_get_u16_200032a0`, `app_get_u16_2000329c`
+- Confidence: medium
+
+## vcu_sensor_threshold_pulse_count
+
+**Count sustained high readings of two sensor words and send a burst-count message**
+
+Takes the larger of app_get_u16_2000329e and app_get_u16_200032a0 after dividing each by 16. While DAT_20001cf6 is 0, DAT_20001b62 is below 60 and DAT_20001fd6 is 0, a value of 100 or more increments the debounce counter DAT_200014c9 (saturating at 100), and when it reaches 10 with DAT_200021c4 clear, DAT_200021c4 is set and the burst counter DAT_200021c5 increments modulo 10. A value below 50 clears DAT_200014c9 and DAT_200021c4. A nonzero burst counter opens a 300-tick window (DAT_200014d8); while vcu_pb12_input_active_low() is true, burst 3 sends command 0x3A with payload 1, burst 5 sends 0x1F with payload 0, calls app_set_state(4) and sets DAT_20001f6f, burst 8 sends 0x3B with payload 1 and burst 9 sends 0x20 with a 1-byte payload of 2, and the burst counter then resets. When DAT_20001f6f clears while DAT_2000101a is 0, DAT_20001fb4 is set. When the gate fails, the counters are cleared and DAT_200021c4 is set to 1.
+
+**Notes:** The meaning of the two sensor words and of the message commands is not established. The burst-to-message mapping is copied from the code.
+
+- Addresses by version: 148: 0x080074E8, 14a: 0x08007924, 14b: 0x08007C7C, 14e: 0x08007CB4, 14f: 0x08007D10, 152: 0x08007DD4, 153: 0x08007E70, 0159: 0x08007ECC
+- Called by: `vcu_0159_0800a1d0`
+- Calls: `app_get_u16_2000329e`, `app_get_u16_200032a0`, `app_set_state`, `vcu_pb12_input_active_low`, `vcu_ninebot_tx_queue_push`
 - Confidence: medium
 
 ## vcu_speed_mode_snapshot_update

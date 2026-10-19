@@ -1,9 +1,11 @@
 # BLE - `bt_controller` functions
 
-102 functions.
+111 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
+| [`ble_ctrl_dump_region`](#ble_ctrl_dump_region) | 0x0C03A8F4 | Hex-dump a memory region to the log in 100-byte lines, labelled by region id |
+| [`ble_ctrl_sysreg_pulse_bit19`](#ble_ctrl_sysreg_pulse_bit19) | 0x0C04554C | Assert and release bit 19 of the sysreg pair around the controller state word |
 | [`ble_flash_patch_thunk_a000e528`](#ble_flash_patch_thunk_a000e528) | 0x0C07DAD0 | Thunk forwarding param_1 to the code at 0xA000E528 |
 | [`ble_flash_patch_thunk_a0022c48`](#ble_flash_patch_thunk_a0022c48) | 0x0C07D9F0 | Thunk forwarding param_1 to the code at 0xA0022C48 |
 | [`ble_flash_patch_thunk_a0033f74`](#ble_flash_patch_thunk_a0033f74) | 0x0C07DE10 | Thunk forwarding param_1 to the code at 0xA0033F74 |
@@ -46,9 +48,13 @@
 | [`ble_ram_patch_thunk_20001ca0`](#ble_ram_patch_thunk_20001ca0) | 0x0C073B20 | Thunk forwarding param_1 to the code at 0x20001ca0 |
 | [`ble_ram_patch_thunk_20001d38`](#ble_ram_patch_thunk_20001d38) | 0x0C073BD0 | Thunk forwarding param_1 to the code at 0x20001D38 |
 | [`ble_ram_patch_thunk_20001d7c`](#ble_ram_patch_thunk_20001d7c) | 0x0C073C10 | Thunk forwarding param_1 to the code at 0x20001D7C |
+| [`bt_ctrl_crash_dump`](#bt_ctrl_crash_dump) | 0x0C03D69C | Log the BT controller crash record: ROM and patch versions, fault and stack registers, BT errors |
+| [`bt_ctrl_crash_dump_irq_safe`](#bt_ctrl_crash_dump_irq_safe) | 0x0C03DD80 | Run the BT crash dump with IRQs masked and memory barriers around it |
 | [`bt_drv_analog_init_20f2_variant`](#bt_drv_analog_init_20f2_variant) | 0x0C03E49C | On the variant path, clear analog 0x20F2 and 0x20F3 and set 0x20F4 to 0x7C |
 | [`bt_drv_analog_reg200f_set_1`](#bt_drv_analog_reg200f_set_1) | 0x0C03E490 | Write value 1 to analog register 0x200F |
+| [`bt_drv_ctrl_bringup`](#bt_drv_ctrl_bringup) | 0x0C04696C | BT controller bring-up sequence A: link init, callback, RF regset, vendor FC77 and FC81 |
 | [`bt_drv_ctrl_param_load_all`](#bt_drv_ctrl_param_load_all) | 0x0C03E314 | Load the controller RSSI, timing and table parameters and set the RF mode field |
+| [`bt_drv_digital_assert_check`](#bt_drv_digital_assert_check) | 0x0C03DF24 | Check BT digital error status and the crash-record word; log and return 1 on assert |
 | [`bt_drv_hci_cmd_complete_info_rx`](#bt_drv_hci_cmd_complete_info_rx) | 0x0C03BFBC | Command Complete hook that copies a 16-byte vendor response into RAM at 0x2000BD38 |
 | [`bt_drv_hci_cmd_post_settle`](#bt_drv_hci_cmd_post_settle) | 0x0C03BD70 | Send the fixed 4-byte HCI packet at 0x0C076914 and wait 350 units |
 | [`bt_drv_hci_cmd_send_wait`](#bt_drv_hci_cmd_send_wait) | 0x0C03AC98 | Send an HCI packet to the BT core and poll a reply flag with a timeout |
@@ -75,11 +81,13 @@
 | [`bt_drv_rf_0x2018_from_cfg_mode`](#bt_drv_rf_0x2018_from_cfg_mode) | 0x0C03E8F0 | Set the low 6 bits of analog 0x2018 from a 2-bit mode in calibration record 0x0C |
 | [`bt_drv_rf_0x2058_fields_remap`](#bt_drv_rf_0x2058_fields_remap) | 0x0C03E66C | Remap two 7-bit fields of analog 0x2058 into 0x202E and set bits 13:11 of 0x202D |
 | [`bt_drv_rf_0x208f_field_from_cfg`](#bt_drv_rf_0x208f_field_from_cfg) | 0x0C03E9AC | Copy bits 11:9 of calibration record 0x0C into analog 0x208F bits 6:4 |
+| [`bt_drv_rf_2168_cal_search`](#bt_drv_rf_2168_cal_search) | 0x0C03C070 | Closed-loop search that tunes the 9-bit field of analog 0x2168 until the RF cal error is zero |
 | [`bt_drv_rf_2168_field9_set`](#bt_drv_rf_2168_field9_set) | 0x0C03E454 | Set the 9-bit field of analog register 0x2168 and refresh its shadow |
 | [`bt_drv_rf_2168_update_from_src`](#bt_drv_rf_2168_update_from_src) | 0x0C03E5DC | Update the 9-bit field of analog 0x2168 from an external measurement or a fallback value |
 | [`bt_drv_rf_analog_bringup`](#bt_drv_rf_analog_bringup) | 0x0C03E9FC | RF analog front-end bring-up: init tables, LUT registers, config record and register sets |
 | [`bt_drv_rf_apply_cfg_record`](#bt_drv_rf_apply_cfg_record) | 0x0C03E51C | Apply the RAM config record at 0x2000BE0C-0x2000BE20 to the RF lookup registers |
 | [`bt_drv_rf_apply_config`](#bt_drv_rf_apply_config) | 0x0C03C4BC | Program the BT RF/analog registers 0xD0220Cxx and 0xD0350xxx from a ~0x27-byte config struct |
+| [`bt_drv_rf_bringup`](#bt_drv_rf_bringup) | 0x0C03BB70 | BT RF bring-up: clock level 4, RF init and calibration chain, ISR channel and IPC setup |
 | [`bt_drv_rf_dc_iq_cal_run`](#bt_drv_rf_dc_iq_cal_run) | 0x0C03B8D4 | Run the RF DC/IQ calibration sweep inside a save and restore of RF and analog state |
 | [`bt_drv_rf_gain_ratio_rescale`](#bt_drv_rf_gain_ratio_rescale) | 0x0C03AD44 | Rescale about 30 analog gain bit-fields by a power ratio read from register 0x2144 |
 | [`bt_drv_rf_init`](#bt_drv_rf_init) | 0x0C03CDFC | BT RF bring-up sequence: pre-init, 0xD0350xxx main init, analog defaults, then apply the built-in RF config |
@@ -91,6 +99,7 @@
 | [`bt_drv_rf_regset_select`](#bt_drv_rf_regset_select) | 0x0C03E844 | Switch analog 0x221D, 0x221E and the low byte of 0x2235 to saved set 0 or 1 |
 | [`bt_drv_rf_set_reg_c7c_bits13_14`](#bt_drv_rf_set_reg_c7c_bits13_14) | 0x0C03E034 | Write a 2-bit value into field [14:13] of RF register 0xD0220C7C under the register-access guard |
 | [`bt_drv_rf_tx_power_trim_apply`](#bt_drv_rf_tx_power_trim_apply) | 0x0C03BA38 | Apply the signed TX power trim from calibration record 7 to power and gain registers |
+| [`bt_drv_rfcal_timer_run`](#bt_drv_rfcal_timer_run) | 0x0C03BE8C | Create the rfcal timer on first use, then start it or run one RF calibration cycle |
 | [`bt_drv_rom_patch_apply_table`](#bt_drv_rom_patch_apply_table) | 0x0C03CEC8 | Install a BT-controller ROM patch table: copy data into BT RAM, then program 64 hardware patch slots |
 | [`bt_drv_rom_patch_init`](#bt_drv_rom_patch_init) | 0x0C03CFC0 | Select the ROM patch table by controller metal id, apply it and enable the patch unit (bit 31 of 0xA01FFE00) |
 | [`bt_drv_vendor_ctrl_init_cmds`](#bt_drv_vendor_ctrl_init_cmds) | 0x0C03CD58 | Send the BES vendor controller-init commands 0xFC71, the 0xFCxx record table and 0xFCC3 |
@@ -106,6 +115,38 @@
 | [`bt_rfcal_search_i_fmt14`](#bt_rfcal_search_i_fmt14) | 0x0C03EFC0 | Refine the I code on register 0xD0350250 with fmt14 residual probes, Q fixed |
 | [`bt_rfcal_search_i_fmt16`](#bt_rfcal_search_i_fmt16) | 0x0C03EE44 | Refine the I code of a band calibration point using fmt16 residual probes |
 | [`bt_rfcal_search_q_fmt14`](#bt_rfcal_search_q_fmt14) | 0x0C03F0DC | Refine the Q code on register 0xD0350250 with fmt14 residual probes, I fixed |
+
+## ble_ctrl_dump_region
+
+**Hex-dump a memory region to the log in 100-byte lines, labelled by region id**
+
+Prints a banner for the region (controller, mcu, em_area1 or em_area2), then the bytes as lines of up to 100 bytes. Each line starts with dump_line=N and is produced by the byte formatter at 0x0C033150 (format %02x, element size 1). The routine waits 100 units before the first line and 50 units after each line, using the paired RAM-patch thunks. An unknown region id with a zero length prints nothing, and with a non-zero length it prints only the lines. Called from bt_ctrl_crash_dump.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | start address of the region |
+| `param_2` | `u32` | length in bytes |
+| `param_3` | `u32` | region id: 0 controller RAM, 1 MCU, 2 em_area1, 3 em_area2 |
+
+**Notes:** The byte formatter at 0x0C033150 is not described in this packet.
+
+- Addresses by version: 219: 0x0C03A8F4
+- Called by: `bt_ctrl_crash_dump`
+- Calls: `ble_uart_print_values_thunk`, `trace_printf`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Confidence: high
+
+## ble_ctrl_sysreg_pulse_bit19
+
+**Assert and release bit 19 of the sysreg pair around the controller state word**
+
+Calls ble_219_0c03bb70 (not described here), then reads the controller state word DAT_2000BD58. When that word is zero it asserts bit 19 of 0x40080004 through bes_sysreg_write_04_bit19, stores state code 0x14 through the pointer in DAT_2000BDA0 when that pointer is set, and if the state word is still zero afterwards it releases bit 19 of 0x40080008 through bes_sysreg_write_08_bit19. When the state word is non-zero it only stores 0x14 through DAT_2000BDA0 and returns.
+
+**Notes:** The bit-19 set and clear pair is described from the callee summaries. The meaning of DAT_2000BD58, the pointer DAT_2000BDA0 and state code 0x14 are not established.
+
+- Addresses by version: 219: 0x0C04554C
+- Called by: `ble_host_controller_init`
+- Calls: `bt_drv_rf_bringup`, `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
+- Confidence: low
 
 ## ble_flash_patch_thunk_a000e528
 
@@ -288,7 +329,7 @@ Thunk that calls the fixed SRAM address 0x2000110d (0x2000110c with the Thumb bi
 **Notes:** Target function identity unknown.
 
 - Addresses by version: 219: 0x0C045AC0
-- Called by: `ble_219_0c02cca8`, `ble_219_0c0459fc`
+- Called by: `ble_factory_test_dispatch_query`, `ble_boot_notice_log`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000220
@@ -304,7 +345,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073B50
-- Called by: `ble_219_0c037d08`, `ble_219_0c03a2a0`, `ble_219_0c03bb70`, `bt_drv_vendor_ctrl_init_cmds`, `bt_drv_rom_patch_init`, `bt_drv_reg_op_addr_table_init`, `ble_219_0c03d69c`, `ble_219_0c03df24`, `bt_drv_analog_init_20f2_variant`, `bt_drv_rf_analog_bringup`
+- Called by: `ble_rf_analog_init`, `ble_rf_radio_init`, `bt_drv_rf_bringup`, `bt_drv_vendor_ctrl_init_cmds`, `bt_drv_rom_patch_init`, `bt_drv_reg_op_addr_table_init`, `bt_ctrl_crash_dump`, `bt_drv_digital_assert_check`, `bt_drv_analog_init_20f2_variant`, `bt_drv_rf_analog_bringup`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_2000022c
@@ -352,7 +393,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073C40
-- Called by: `bes_iomux_reg0c_set_level`, `hal_pinmux_apply_table`, `bes_iomux_init_level2`, `ble_219_0c0456c0`
+- Called by: `bes_iomux_reg0c_set_level`, `hal_pinmux_apply_table`, `bes_iomux_init_level2`, `ble_pin_config_record_apply`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_2000025c
@@ -368,7 +409,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073BA0
-- Called by: `bes_iomux_reg0c_set_level`, `hal_pinmux_apply_table`, `bes_iomux_init_level2`, `ble_219_0c0456c0`
+- Called by: `bes_iomux_reg0c_set_level`, `hal_pinmux_apply_table`, `bes_iomux_init_level2`, `ble_pin_config_record_apply`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_200002cc
@@ -400,7 +441,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073B30
-- Called by: `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `ble_219_0c033328`, `bt_drv_reg_op_write_6byte_param`, `bt_drv_reg_op_set_timing_params`, `bt_rfcal_dc_iq_sweep_all_bands`, `hal_cmu_pll_enable`
+- Called by: `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `hsm_trng_read_bytes`, `bt_drv_reg_op_write_6byte_param`, `bt_drv_reg_op_set_timing_params`, `bt_rfcal_dc_iq_sweep_all_bands`, `hal_cmu_pll_enable`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000328
@@ -432,7 +473,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073CC0
-- Called by: `hal_gpdma_stop`, `hal_block_40008000_set_run`, `ble_analog_cal_0x4059_trigger`, `ble_rf_synth_load_ratio48`, `ble_219_0c039488`, `ble_219_0c039820`, `ble_analog_chip_init`, `ble_219_0c03a8f4`, `bt_drv_hci_cmd_send_wait`, `bt_drv_rf_gain_ratio_rescale`, `ble_219_0c03bb70`, `bt_drv_hci_evt_conn_state_hook` ...
+- Called by: `hal_gpdma_stop`, `hal_block_40008000_set_run`, `ble_analog_cal_0x4059_trigger`, `ble_rf_synth_load_ratio48`, `ble_rf_mode_switch`, `ble_rf_front_end_start`, `ble_analog_chip_init`, `ble_ctrl_dump_region`, `bt_drv_hci_cmd_send_wait`, `bt_drv_rf_gain_ratio_rescale`, `bt_drv_rf_bringup`, `bt_drv_hci_evt_conn_state_hook` ...
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000348
@@ -448,7 +489,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073AE0
-- Called by: `hal_gpdma_stop`, `ble_219_0c02fb54`, `ble_analog_cal_0x4059_ramp`, `ble_rf_power_ramp_step`, `ble_219_0c039488`, `ble_219_0c039820`, `ble_rf_block4_enable`, `hal_cmu_pll_enable`
+- Called by: `hal_gpdma_stop`, `hal_analogif_chan_start`, `ble_analog_cal_0x4059_ramp`, `ble_rf_power_ramp_step`, `ble_rf_mode_switch`, `ble_rf_front_end_start`, `ble_rf_block4_enable`, `hal_cmu_pll_enable`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000534
@@ -464,7 +505,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073C90
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000554
@@ -496,7 +537,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073CB0
-- Called by: `hal_gpdma_stop`, `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `hal_block_40008000_set_run`, `hal_block_40008000_open`, `ble_219_0c033328`, `hal_wdt_set_reload_slot`, `ble_analog_cal_0x4059_trigger`, `ble_219_0c039488`, `ble_219_0c039820`, `ble_219_0c03a8f4`, `bt_drv_hci_cmd_send_wait` ...
+- Called by: `hal_gpdma_stop`, `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`, `hal_block_40008000_set_run`, `hal_block_40008000_open`, `hsm_trng_read_bytes`, `hal_wdt_set_reload_slot`, `ble_analog_cal_0x4059_trigger`, `ble_rf_mode_switch`, `ble_rf_front_end_start`, `ble_ctrl_dump_region`, `bt_drv_hci_cmd_send_wait` ...
 - Confidence: medium
 
 ## ble_ram_patch_thunk_200005a8
@@ -544,7 +585,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073C00
-- Called by: `ble_219_0c03a2a0`
+- Called by: `ble_rf_radio_init`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_2000065c
@@ -576,7 +617,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073C80
-- Called by: `ble_219_0c038250`, `bes_otp_load_variant`, `ble_analog_chip_init`, `bes_calib_get_trim_pair`, `ble_219_0c03a2a0`, `bt_drv_rf_tx_power_trim_apply`, `bt_drv_rf_0x2018_from_cfg_mode`, `bt_drv_rf_0x208f_field_from_cfg`
+- Called by: `ble_rf_irq_setup`, `bes_otp_load_variant`, `ble_analog_chip_init`, `bes_calib_get_trim_pair`, `ble_rf_radio_init`, `bt_drv_rf_tx_power_trim_apply`, `bt_drv_rf_0x2018_from_cfg_mode`, `bt_drv_rf_0x208f_field_from_cfg`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000738
@@ -624,7 +665,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073AF0
-- Called by: `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
+- Called by: `hal_spi_bus1_transfer`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_2000081c
@@ -640,7 +681,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073BB0
-- Called by: `hal_spi_dma_cancel_all`, `ble_219_0c031ea4`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
+- Called by: `hal_spi_dma_cancel_all`, `hal_spi_close_user`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `hal_spi_bus1_transfer`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000934
@@ -688,7 +729,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073B90
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_200010a0
@@ -704,7 +745,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073CA0
-- Called by: `ble_219_0c03ab80`
+- Called by: `ble_soc_bringup_sequence`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20001c10
@@ -768,6 +809,36 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 - Addresses by version: 219: 0x0C073C10
 - Confidence: medium
 
+## bt_ctrl_crash_dump
+
+**Log the BT controller crash record: ROM and patch versions, fault and stack registers, BT errors**
+
+Prints the BT controller crash report. When the nesting counter DAT_2000BD58 is zero it holds the BT core with bes_sysreg_write_04_bit19. It prints the ROM metal id and patch version from DAT_2000BDF4, then the commit id and patch date for metal id 0, 1 or other (three fixed string records). It prints the saved registers R0-R8, SL, FP, IP, SP and the SP+0 to SP+64 words, then PSP, MSP and the Cortex-M fault registers CFSR, BFAR, HFSR, ICSR, AIRCR, SCR, CCR, SHCSR, AFSR and MMFAR. The snapshot is read from words at 0xC0004050 to 0xC00040FC, with a different offset layout for chip variant 0 and 1 than for 2 and up. It then prints the BT error registers 0xD0220460, 0xD0220860 and 0xD0220428, 0xD0330050, 0xD0330054, 0xD03300A0, 0xD03300A4, 0x400000A0, 0x400000A4 and the controller RAM base. With a non-zero argument it dumps controller RAM and the 0xD0210000 block through ble_ctrl_dump_region. It ends with 'BT crash dump complete!', decrements DAT_2000BD58 and releases the hold with bes_sysreg_write_08_bit19 when the counter reaches zero.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | non-zero also dumps controller RAM (DAT_2000BD88, 0x10000 bytes) and the block at 0xD0210000 (0x10000 bytes) |
+
+**Notes:** The choice of layout by the variant thunk 0x0C073B50 is inferred from the comparisons; the two layouts are not documented here.
+
+- Addresses by version: 219: 0x0C03D69C
+- Peripheral registers: `0x40000000` (A), `0x400000a0` (R), `0x400000a4` (R)
+- Called by: `bt_ctrl_crash_dump_irq_safe`, `ble_bts_task_periodic_check`
+- Calls: `hal_wdt_stop`, `trace_printf`, `ble_ctrl_dump_region`, `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`, `ble_ram_patch_thunk_20000220`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Confidence: high
+
+## bt_ctrl_crash_dump_irq_safe
+
+**Run the BT crash dump with IRQs masked and memory barriers around it**
+
+Wrapper that masks interrupts with disableIRQinterrupts, runs DSB and ISB, calls bt_ctrl_crash_dump, and then re-enables interrupts with DSB and ISB. No caller is visible in this image, so it is probably reached from a fault or assert hook through a pointer.
+
+**Notes:** It calls bt_ctrl_crash_dump with no argument. The RAM-dump flag therefore comes from whatever value is in r0 at entry, so the RAM dump may not run here.
+
+- Addresses by version: 219: 0x0C03DD80
+- Calls: `bt_ctrl_crash_dump`
+- Confidence: high
+
 ## bt_drv_analog_init_20f2_variant
 
 **On the variant path, clear analog 0x20F2 and 0x20F3 and set 0x20F4 to 0x7C**
@@ -777,7 +848,7 @@ Calls the RAM routine at 0x20000220 as a flag test. When the result is nonzero i
 **Notes:** The flag at 0x20000220 is also tested by bt_drv_vendor_ctrl_init_cmds and bt_drv_rf_analog_bringup, so it is a chip or variant selector. Its exact meaning is not established.
 
 - Addresses by version: 219: 0x0C03E49C
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000220`
 - Confidence: medium
 
@@ -788,9 +859,24 @@ Calls the RAM routine at 0x20000220 as a flag test. When the result is nonzero i
 Writes the constant 1 to analog register 0x200F through hal_analogif_reg_write. That is also the first register in the list that bt_drv_rf_dc_iq_cal_run saves and programs. It is called from 0x0C03C070, which is outside this packet.
 
 - Addresses by version: 219: 0x0C03E490
-- Called by: `ble_219_0c03c070`
+- Called by: `bt_drv_rf_2168_cal_search`
 - Calls: `hal_analogif_reg_write`
 - Confidence: high
+
+## bt_drv_ctrl_bringup
+
+**BT controller bring-up sequence A: link init, callback, RF regset, vendor FC77 and FC81**
+
+Controller bring-up, always returns 0. It runs bt_drv_intersys_link_init_once, stores the Thumb callback address 0x0C0468B5 with bt_drv_set_global_2000bd1c, calls thunk_FUN_0c03dd9c and bt_drv_reg_op_env_bde4_set_byte18(0), then bt_drv_hci_cmd_post_settle, bt_drv_rf_regset_mode0_select, bt_drv_vendor_fc77_set_value(0) and bt_drv_vendor_fc81_cmd. It ends with an empty stub. Its caller ble_219_0c0592a4 is the controller state machine, which is not described here.
+
+**Returns** `u32`: always 0
+
+**Notes:** The same opening sequence is shared with bt_drv_ctrl_bringup_rf_test. The target of thunk_FUN_0c03dd9c is not named in the call graph.
+
+- Addresses by version: 219: 0x0C04696C
+- Called by: `ble_host_start`
+- Calls: `stub_empty_0c03aa3c`, `bt_drv_set_global_2000bd1c`, `bt_drv_intersys_link_init_once`, `bt_drv_rf_regset_mode0_select`, `bt_drv_hci_cmd_post_settle`, `bt_drv_vendor_fc77_set_value`, `bt_drv_vendor_fc81_cmd`, `bt_drv_reg_op_env_bde4_clear_flags_thunk`, `bt_drv_reg_op_env_bde4_set_byte18`
+- Confidence: medium
 
 ## bt_drv_ctrl_param_load_all
 
@@ -801,8 +887,23 @@ Loads the controller parameter set in a fixed order. If DAT_2000BDB4 is nonzero 
 **Notes:** The order follows the decompile. The configuration meaning of the 0xD0220C7C field is not known.
 
 - Addresses by version: 219: 0x0C03E314
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bes_rf_set_mode_bits`, `bt_drv_reg_op_write_6byte_param`, `bt_drv_reg_op_set_timing_params`, `bt_drv_reg_op_set_rssi_monitor_params`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b`, `bt_drv_reg_op_load_rssi_table_c`, `bt_drv_reg_op_load_table8_bdd4`, `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
+- Confidence: medium
+
+## bt_drv_digital_assert_check
+
+**Check BT digital error status and the crash-record word; log and return 1 on assert**
+
+Reads IP_ERRORTYPESTAT at 0xD0220460 and ignores bit 6. If any other bit is set it logs 'BT_DRV:digital assert,error code=0x%x' and returns 1. Otherwise it reads the crash-record word at 0xC0004050 or 0xC0004060 (selected by chip variant) and reports an assert when that word is non-zero and not 0x42. It keeps the same nesting counter DAT_2000BD58 as bt_ctrl_crash_dump and uses the same bes_sysreg_write_04_bit19 and bes_sysreg_write_08_bit19 hold-and-release pair.
+
+**Returns** `s32`: 0 when no digital assert is latched, 1 when one is reported
+
+**Notes:** The 0x42 expected value and the variant selection are read from the comparisons only.
+
+- Addresses by version: 219: 0x0C03DF24
+- Called by: `ble_bts_task_periodic_check`
+- Calls: `trace_printf`, `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`, `ble_ram_patch_thunk_20000220`
 - Confidence: medium
 
 ## bt_drv_hci_cmd_complete_info_rx
@@ -821,7 +922,7 @@ Runs with the IPC RX interrupt for channel 0 disabled (0x0C031848(0) before the 
 **Notes:** Reached indirectly as a callback, so there are no direct callers. The meaning of the 16-byte response is not known.
 
 - Addresses by version: 219: 0x0C03BFBC
-- Calls: `ble_219_0c031808`, `hal_sysipc_rx_irq_disable`, `ble_mem_copy`
+- Calls: `hal_isr_chan_disable`, `hal_sysipc_rx_irq_disable`, `ble_mem_copy`
 - Confidence: medium
 
 ## bt_drv_hci_cmd_post_settle
@@ -833,7 +934,7 @@ Sends the four-byte packet stored at ROM 0x0C076914 through bt_drv_hci_cmd_send_
 **Notes:** The packet contents are not visible in this packet, so the opcode is not identified.
 
 - Addresses by version: 219: 0x0C03BD70
-- Called by: `bt_drv_pending_action_poll`, `ble_219_0c04696c`, `ble_219_0c0469a0`, `ble_vendor_fc87_send_keyed`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `ble_219_0c046c7c`
+- Called by: `bt_drv_pending_action_poll`, `bt_drv_ctrl_bringup`, `app_testmode_bt_nonsig_tx`, `ble_vendor_fc87_send_keyed`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bt_drv_hci_cmd_send_wait`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -851,7 +952,7 @@ Sends the HCI packet at param_1 (param_2 bytes) to the BT controller core and is
 **Notes:** Who sets DAT_20003EA4 is outside this packet. The 201-iteration bound is the literal 0xC9 in the decompile.
 
 - Addresses by version: 219: 0x0C03AC98
-- Called by: `bt_drv_hci_evt_conn_state_hook`, `bt_drv_hci_cmd_post_settle`, `bt_drv_hci_vendor_cmd_send`, `ble_219_0c03be8c`, `ble_219_0c0469a0`, `ble_vendor_fc87_send_keyed`, `ble_vendor_fc87_send_test_pattern`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `ble_hci_le_test_end_cmd` ...
+- Called by: `bt_drv_hci_evt_conn_state_hook`, `bt_drv_hci_cmd_post_settle`, `bt_drv_hci_vendor_cmd_send`, `bt_drv_rfcal_timer_run`, `app_testmode_bt_nonsig_tx`, `ble_vendor_fc87_send_keyed`, `ble_vendor_fc87_send_test_pattern`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `ble_hci_le_test_end_cmd` ...
 - Calls: `hal_sysipc_send`, `bt_drv_intersys_send_saved_iface`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -897,8 +998,8 @@ Runs its body only once: while DAT_2000BD06 is zero it sets the flag to 1 and re
 **Notes:** 0x0C0315D8 and 0x0C031808 are not described yet. The meaning of the two callbacks is open.
 
 - Addresses by version: 219: 0x0C03ACF0
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
-- Calls: `ble_219_0c0315d8`, `ble_219_0c031808`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
+- Calls: `hal_isr_chan_register`, `hal_isr_chan_disable`
 - Confidence: medium
 
 ## bt_drv_intersys_send_saved_iface
@@ -928,7 +1029,7 @@ Periodic poll for two pending actions. If DAT_2000BD32 is set it runs bt_drv_hci
 **Notes:** 0x0C044D90 is not described yet, so the action behind DAT_2000BD34 is open.
 
 - Addresses by version: 219: 0x0C03C034
-- Called by: `ble_219_0c03c070`
+- Called by: `bt_drv_rf_2168_cal_search`
 - Calls: `bt_drv_hci_cmd_post_settle`, `xTimerGenericCommand`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -941,7 +1042,7 @@ Sets DAT_2000bd88 = 0xC0000000 (controller RAM base as seen by the MCU) and, dep
 **Notes:** Individual structure identities (ld_acl_env, lm_env, rwip_env ...) are inferred only from how the accessors use them.
 
 - Addresses by version: 219: 0x0C03D088
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `ble_ram_patch_thunk_20000220`
 - Confidence: high
 
@@ -967,7 +1068,7 @@ Single branch to 0x0c03dd9c; the decompiler inlines the target: under the contro
 **Notes:** Identity of the structure at DAT_2000bde4 unknown (some controller environment, flags cleared when entering test mode).
 
 - Addresses by version: 219: 0x0C03D028
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bt_drv_reg_op_env_bde4_clear_flags`
 - Confidence: medium
 
@@ -984,7 +1085,7 @@ If DAT_2000bd58 == 0 enables controller register access (bes_sysreg_write_04_bit
 **Notes:** Field meaning unknown; probably disables some controller feature for test mode.
 
 - Addresses by version: 219: 0x0C03DE58
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
 - Confidence: medium
 
@@ -1069,7 +1170,7 @@ Under the register-access guard looks up the per-link environment pointer array 
 **Notes:** No bounds check on the link id. Equivalent of BES bt_drv_reg_op_read_rssi_in_dbm; the field offset 0x152 inside ld_acl_env is not verified.
 
 - Addresses by version: 219: 0x0C03E264
-- Called by: `ble_219_0c02cca8`, `ble_219_0c05a06c`
+- Called by: `ble_factory_test_dispatch_query`, `ble_rssi_sample_poll`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
 - Confidence: medium
 
@@ -1088,7 +1189,7 @@ Under the register-access guard reads the table pointed to by DAT_2000bdb8 (only
 **Notes:** Table identity (12-byte entries) inferred; equivalent of BES bt_drv_reg_op_read_ble_rssi_in_dbm.
 
 - Addresses by version: 219: 0x0C03E2C0
-- Called by: `ble_219_0c05a06c`
+- Called by: `ble_rssi_sample_poll`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
 - Confidence: medium
 
@@ -1105,7 +1206,7 @@ Under the register-access guard stores param_1 to *DAT_2000be00 when that pointe
 **Notes:** Which patch feature the flag enables is unknown.
 
 - Addresses by version: 219: 0x0C03E1F0
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`
 - Confidence: medium
 
@@ -1189,6 +1290,24 @@ Reads calibration record 0x0C through the RAM routine at 0x2000067C. If bits 11:
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_2000067c`
 - Confidence: medium
 
+## bt_drv_rf_2168_cal_search
+
+**Closed-loop search that tunes the 9-bit field of analog 0x2168 until the RF cal error is zero**
+
+Drives the RF calibration search. It clears the sample history at 0x2000BD2C (6 bytes), sets analog 0x200F to 1 (bt_drv_analog_reg200f_set_1), starts one run with bt_drv_rfcal_timer_run(1), and waits up to 17 times 500 units for DAT_2000BD33 to flag a finished sample. Each sample gives a signed error in DAT_2000BD3E, and the current 9-bit field is read back through lm_get_state_9bit. The first trial step is 2 units; later steps are sized from the slope of the last two samples (scaled by 500). Each trial is written with bt_drv_rf_2168_field9_set. A small error (under about 3 units) reached a second time ends the search, which returns 0 when fewer than five trials were used and -1 otherwise. Timeouts, sample timeouts and a budget of about ten steps return -1. Every exit calls bt_drv_pending_action_poll and stores the final value through param_1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | receives the final 16-bit field value on every exit |
+
+**Returns** `s32`: 0 when the error converges within the step budget, -1 on timeout or budget exhaustion
+
+**Notes:** The sample flags and error values are produced by the RF calibration event path, which is outside this packet. Calling the search a bisection or secant method is an inference from the step logic.
+
+- Addresses by version: 219: 0x0C03C070
+- Calls: `ble_mem_fill`, `bt_drv_rfcal_timer_run`, `bt_drv_pending_action_poll`, `bt_drv_rf_2168_field9_set`, `lm_get_state_9bit`, `bt_drv_analog_reg200f_set_1`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Confidence: medium
+
 ## bt_drv_rf_2168_field9_set
 
 **Set the 9-bit field of analog register 0x2168 and refresh its shadow**
@@ -1200,7 +1319,7 @@ Replaces bits 8:0 of the cached word DAT_20003EC0 with param_1 & 0x1FF and keeps
 | `param_1` | `u16` | new value; bits 8:0 used |
 
 - Addresses by version: 219: 0x0C03E454
-- Called by: `ble_219_0c02c49c`, `ble_219_0c03c070`
+- Called by: `ble_factory_test_dispatch_set`, `bt_drv_rf_2168_cal_search`
 - Calls: `hal_analogif_reg_write`
 - Confidence: high
 
@@ -1228,7 +1347,7 @@ Full analog bring-up of the BT radio and the head of the RF group. It reads the 
 **Notes:** The contents of the two ROM lists are not visible here. The variant flag decides the 0x208F value and the extra step.
 
 - Addresses by version: 219: 0x0C03E9FC
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `lm_env_defaults_init`, `bt_drv_rf_apply_cfg_record`, `bt_drv_rf_2168_update_from_src`, `bt_drv_rf_0x2058_fields_remap`, `bt_drv_rf_regset_capture`, `bt_drv_rf_regset_select`, `bt_drv_rf_0x2018_from_cfg_mode`, `bt_drv_rf_0x208f_field_from_cfg`, `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000220`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1262,6 +1381,19 @@ Applies a packed RF configuration structure to the undocumented BT transceiver b
 - Calls: `bes_analog_clock_mode_config`, `bes_rf_synth_config_by_mode`, `bes_analog_set_c10_field`
 - Confidence: medium
 
+## bt_drv_rf_bringup
+
+**BT RF bring-up: clock level 4, RF init and calibration chain, ISR channel and IPC setup**
+
+Runs the BT RF bring-up with system clock user 4 held at level 4 and released at the end. It calls the RF chain bt_drv_reg_op_addr_table_init, ble_rf_block4_enable(1), bt_drv_rf_init, bt_drv_rf_analog_bringup, bt_drv_rf_tx_power_trim_apply, bt_drv_rf_dc_iq_cal_run, bt_drv_rf_gain_ratio_rescale and bes_periph_d033_config, with a 10-unit wait after the early setup. On its first call it registers an ISR channel with hal_isr_chan_register(0, 0, handler, handler, 0), using handlers at 0x0C03BD44 and 0x0C03ABB0, and disables it with hal_isr_chan_disable when registration succeeds. It then loads the vendor controller init commands and parameter records. If the chip variant (thunk 0x0C073B50) is below 2 it sets the patch variable (bt_drv_reg_op_set_patch_var_be00), allocates two pool nodes with rtos_pool_node_alloc_init and enables IPC channel 1 (hal_sysipc_rx_irq_setup). If this call registered the ISR channel it closes it with hal_sysipc_close(0).
+
+**Notes:** The handlers at 0x0C03BD44, 0x0C03ABB0, 0x0C03ABBC, 0x0C03AC45 and 0x0C03ABC4 are not described in this packet.
+
+- Addresses by version: 219: 0x0C03BB70
+- Called by: `ble_ctrl_sysreg_pulse_bit19`, `ble_host_start`
+- Calls: `hal_isr_chan_register`, `hal_sysipc_close`, `hal_isr_chan_disable`, `hal_sysipc_rx_irq_setup`, `bes_cmu_request_sysclk`, `ble_rf_block4_enable`, `stub_empty_0c03aa60`, `hal_ext_ctrl_write_d0702000`, `bt_drv_rf_gain_ratio_rescale`, `bt_drv_rf_dc_iq_cal_run`, `bt_drv_rf_tx_power_trim_apply`, `bes_periph_d033_config`, `bt_drv_vendor_ctrl_init_cmds`, `bt_drv_rf_init`, `bt_drv_rom_patch_init`, `bt_drv_reg_op_addr_table_init` ...
+- Confidence: medium
+
 ## bt_drv_rf_dc_iq_cal_run
 
 **Run the RF DC/IQ calibration sweep inside a save and restore of RF and analog state**
@@ -1271,7 +1403,7 @@ Saves 11 analog registers (address list in ROM at 0x0C0768F8, first entry 0x200F
 **Notes:** The purpose of the individual register writes is inferred from the calibration context. Bit 31 of 0xD0350250 is cleared here and set again by the sweep itself.
 
 - Addresses by version: 219: 0x0C03B8D4
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bt_rfcal_dc_iq_sweep_all_bands`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
 - Confidence: medium
 
@@ -1284,7 +1416,7 @@ Saves analog registers 0x20B8 and 0x2172 and RF word 0xD0220C00, then puts the r
 **Notes:** The 8257.0 scale, the field layout and the meaning of the 0x2144 word are not confirmed, so the purpose is a guess from the code shape. The final write to 0x213C overwrites the ratio variable but nothing reads it afterwards. If bit 15 of the word is clear, no field is changed.
 
 - Addresses by version: 219: 0x0C03AD44
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: low
 
@@ -1297,7 +1429,7 @@ Calls bt_drv_rf_pre_init, bes_periph_d035_init_main and bes_analog_init_defaults
 **Notes:** Equivalent of BES btdrv_rf_init; register semantics undocumented.
 
 - Addresses by version: 219: 0x0C03CDFC
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bt_drv_rf_apply_config`, `bes_analog_init_defaults`, `bt_drv_rf_pre_init`, `bes_periph_d035_init_main`
 - Confidence: medium
 
@@ -1371,7 +1503,7 @@ Wrapper that calls bt_drv_rf_regset_select with a single argument of 0 (the deco
 **Notes:** The set index is the second argument of bt_drv_rf_regset_select, which the decompile does not show here, so the set actually selected is not confirmed.
 
 - Addresses by version: 219: 0x0C03BC74
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bt_drv_rf_regset_select`
 - Confidence: medium
 
@@ -1419,8 +1551,25 @@ Reads calibration record 7 through the RAM routine at 0x2000067C into a 16-bit v
 **Notes:** The meaning of calibration record 7 and the names of the power registers are not known. The sign convention comes from the bit tests: a clear sign bit negates the field.
 
 - Addresses by version: 219: 0x0C03BA38
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`, `ble_ram_patch_thunk_2000067c`
+- Confidence: medium
+
+## bt_drv_rfcal_timer_run
+
+**Create the rfcal timer on first use, then start it or run one RF calibration cycle**
+
+Creates the 'rfcal_timer' FreeRTOS software timer on first use (period 0x5DC ticks, no auto-reload, callback = this function). The start path, taken when param_1 is 0 and DAT_2000BD48 is clear, sets DAT_2000BD48 and sends a 32-byte vendor HCI command (packet bytes 01 87 FC 1C, opcode 0xFC87) through bt_drv_hci_cmd_send_wait, changes the timer period to 300 ticks and starts it at the current tick. The calibration path clears DAT_2000BD48, sends an HCI Reset (bytes 01 03 0C 00) and the same vendor command with different parameters, ORs 0x55 into the low byte of register 0xD0210100 and clears its upper 24 bits, and sets the period to 0x5DC and restarts the timer.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | 0 starts the timer when no run is pending; non-zero runs one calibration cycle (this function is also the timer callback) |
+
+**Notes:** The opcodes are read from the packet bytes and are consistent with HCI Reset (0x0C03) and a BES vendor command (0xFC87). The timer callback argument is inferred.
+
+- Addresses by version: 219: 0x0C03BE8C
+- Called by: `bt_drv_rf_2168_cal_search`
+- Calls: `trace_printf`, `bt_drv_hci_cmd_send_wait`, `xTaskGetTickCount`, `xTimerCreate`, `xTimerGenericCommand`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
 ## bt_drv_rom_patch_apply_table
@@ -1450,7 +1599,7 @@ param_1 points to a patch table (selected per metal id by bt_drv_rom_patch_init)
 Reads the BT controller metal id through ble_ram_patch_thunk_20000220 (the same call steers bt_drv_reg_op_addr_table_init) and calls bt_drv_rom_patch_apply_table with table 0x0c078270 (0x3810 bytes) for id 0, 0x0c07ba80 (0x2634 bytes) for id 1, or 0x0c07e0b4 (0xFAC bytes) for any other id. Afterwards it sets bit 31 of 0xA01FFE00, the global enable of the hardware ROM patch unit. Called from the controller start-up sequence 0x0c03bb70 after a 10-unit delay (string 'BT rom: 1306: metal id=%d,patch version=%08x' elsewhere confirms the metal-id scheme).
 
 - Addresses by version: 219: 0x0C03CFC0
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bt_drv_rom_patch_apply_table`, `ble_ram_patch_thunk_20000220`
 - Confidence: high
 
@@ -1463,7 +1612,7 @@ Controller init step made of vendor commands. It builds a 16-byte 0xFC71 block f
 **Notes:** As decompiled, the table loop exits after the first record because its end test compares the pointer with the start address, so only one record may be sent. That is possibly a decompiler artefact. The 4000 constant and the fields of the 0xFC71 block are not identified.
 
 - Addresses by version: 219: 0x0C03CD58
-- Called by: `ble_219_0c03bb70`
+- Called by: `bt_drv_rf_bringup`
 - Calls: `bt_drv_hci_vendor_cmd_send`, `bes_hw_get_const_4000`, `ble_ram_patch_thunk_20000220`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1480,7 +1629,7 @@ Stores param_1 in DAT_20003EB4, sends vendor opcode 0xFC77 with an 8-byte parame
 **Notes:** The parameter block is not visible in the decompile, so it is whatever the caller left in the third argument register. Callers are 0x0C04696C and 0x0C046C7C.
 
 - Addresses by version: 219: 0x0C03CE14
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bt_drv_hci_vendor_cmd_send`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1493,7 +1642,7 @@ Sends vendor opcode 0xFC81 with an 8-byte parameter block through bt_drv_hci_ven
 **Notes:** The parameter block pointer is not visible in the decompile. Callers are 0x0C04696C and 0x0C046C7C.
 
 - Addresses by version: 219: 0x0C03CE38
-- Called by: `ble_219_0c04696c`, `ble_219_0c046c7c`
+- Called by: `bt_drv_ctrl_bringup`, `bt_drv_ctrl_bringup_rf_test`
 - Calls: `bt_drv_hci_vendor_cmd_send`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 

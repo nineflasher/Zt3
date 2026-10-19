@@ -1,15 +1,19 @@
 # BMS - `clock` functions
 
-8 functions.
+12 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`HAL_RCC_EnableCSS`](#hal_rcc_enablecss) | 0x08002334 | Sets RCC.CR.CSSON to enable the clock security system for HSE failure detection |
+| [`HAL_RCC_GetSysClockFreq`](#hal_rcc_getsysclockfreq) | 0x080034B4 | Computes SYSCLK from RCC CFGR SWS: the PLL output, or HSI16 divided by HSIDIV |
 | [`LL_APB1_GRP1_EnableClock`](#ll_apb1_grp1_enableclock) | 0x08002AF0 | Sets bits in RCC APBENR1 to enable APB1 group 1 peripheral clocks |
 | [`LL_IOP_GRP1_EnableClock`](#ll_iop_grp1_enableclock) | 0x08002CF0 | Sets bits in RCC IOPENR to enable GPIO port clocks |
 | [`bms_css_enable_sram_parity_lock`](#bms_css_enable_sram_parity_lock) | 0x0800A23C | Enable the clock security system and set the SRAM parity lock in SYSCFG_CFGR2 |
+| [`bms_rcc_get_clock_freqs`](#bms_rcc_get_clock_freqs) | 0x08002D0C | Fills a three-word record with SYSCLK, HCLK and PCLK frequencies in Hz |
+| [`bms_rcc_periph_clk_get`](#bms_rcc_periph_clk_get) | 0x08002D24 | Returns a peripheral's kernel clock selected from a CCIPR field: SYSCLK, HSI16, LSE or PCLK |
 | [`bms_sysclk_hse_pll_bringup`](#bms_sysclk_hse_pll_bringup) | 0x0800A130 | Start HSE and PLL as SYSCLK with HSI16 fallback, record 16 MHz, reset on failure |
 | [`bms_sysclk_hsi16_switch`](#bms_sysclk_hsi16_switch) | 0x0800A2E0 | Switch SYSCLK to HSI16 with APB prescaler cleared, record 16 MHz, reset on failure |
+| [`bms_system_clock_setup`](#bms_system_clock_setup) | 0x080086D4 | Set the vector table, bring up SYSCLK from HSE/PLL, enable CSS and set the SysTick base |
 | [`rcc_hclk_divide`](#rcc_hclk_divide) | 0x08003474 | Divide a clock frequency by the AHB (HCLK) prescaler read from RCC_CFGR |
 | [`rcc_pclk_divide`](#rcc_pclk_divide) | 0x08003494 | Divide a clock frequency by the APB (PCLK) prescaler read from RCC_CFGR |
 
@@ -21,7 +25,23 @@ Read-modify-write that sets RCC CR bit 19 (CSSON, clock security system enable) 
 
 - Addresses by version: 4130: 0x08002334, 4139: 0x08002334, 4148: 0x08002334, 4168: 0x08002334
 - Peripheral registers: `RCC.CR` (ARW)
-- Called by: `bms_4168_08003440`, `bms_css_enable_sram_parity_lock`
+- Called by: `RCC_CRS_IRQHandler`, `bms_css_enable_sram_parity_lock`
+- Confidence: high
+
+## HAL_RCC_GetSysClockFreq
+
+**Computes SYSCLK from RCC CFGR SWS: the PLL output, or HSI16 divided by HSIDIV**
+
+Reads CFGR SWS (bits 3-5). For SWS 2 (PLL) it computes source * PLLN / (PLLM * PLLR), where the source is HSI16 at 16 MHz unless PLLCFGR source bits are 3 (HSE, assumed 8 MHz), PLLM = PLLCFGR bits 6-4 plus 1, PLLN = PLLCFGR bits 14-8, and PLLR = PLLCFGR bits 31-29 plus 1. For HSI16 (SWS 0 and other values) it returns 16 MHz divided by 2^HSIDIV, where HSIDIV is CR bits 13-11. For SWS 1 (HSE) the decompile shows no value being produced, so the result is undefined.
+
+**Returns** `u32`: SYSCLK in Hz
+
+**Notes:** The HSE branch is missing from the decompile, so callers get whatever is in r0 when SWS is 1. HSE is not read anywhere in this packet. The PLL bit positions are as they appear in the decompile and were not checked against the reference manual.
+
+- Addresses by version: 4130: 0x080034B4, 4139: 0x080034B4, 4148: 0x080034B4, 4168: 0x080034B4
+- Peripheral registers: `RCC.CR` (AR), `RCC.CFGR` (R), `RCC.PLLCFGR` (R)
+- Called by: `bms_rcc_get_clock_freqs`, `bms_rcc_periph_clk_get`
+- Calls: `bms_udiv32`
 - Confidence: high
 
 ## LL_APB1_GRP1_EnableClock
@@ -64,8 +84,43 @@ Calls HAL_RCC_EnableCSS (FUN_08002334), which sets RCC.CR.CSSON so that a failed
 
 - Addresses by version: 4130: 0x080091DC, 4139: 0x080096DC, 4148: 0x08009F28, 4168: 0x0800A23C
 - Peripheral registers: `SYSCFG.CFGR1` (A), `SYSCFG.CFGR2` (RW)
-- Called by: `bms_4168_080082f0`, `bms_4168_080086d4`
+- Called by: `bms_4168_080082f0`, `bms_system_clock_setup`
 - Calls: `HAL_RCC_EnableCSS`
+- Confidence: medium
+
+## bms_rcc_get_clock_freqs
+
+**Fills a three-word record with SYSCLK, HCLK and PCLK frequencies in Hz**
+
+Stores HAL_RCC_GetSysClockFreq (bms_4168_080034b4) in word 0, applies the AHB prescaler (rcc_hclk_divide, bms_4168_08003474) for HCLK in word 1, and applies the APB prescaler (rcc_pclk_divide, bms_4168_08003494) for PCLK in word 2. It has no side effects beyond the output record. Its caller bms_4168_08003140 is outside this packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `out` | `ptr` | param_1, three-word output record: SYSCLK, HCLK, PCLK in Hz |
+
+- Addresses by version: 4130: 0x08002D0C, 4139: 0x08002D0C, 4148: 0x08002D0C, 4168: 0x08002D0C
+- Called by: `bms_usart_init_from_config`
+- Calls: `rcc_hclk_divide`, `rcc_pclk_divide`, `HAL_RCC_GetSysClockFreq`
+- Confidence: high
+
+## bms_rcc_periph_clk_get
+
+**Returns a peripheral's kernel clock selected from a CCIPR field: SYSCLK, HSI16, LSE or PCLK**
+
+Selects one RCC_CCIPR field from the argument: 3 uses bits 1-0, 0xC uses bits 3-2 and 0x30 uses bits 5-4. A field value of 1 gives SYSCLK (bms_4168_080034b4), 2 gives HSI16 at 16 MHz when CR HSIRDY is set (0 otherwise), and 3 gives LSE at 32768 Hz when BDCR LSERDY is set (0 otherwise). Field value 0 or any other value gives the APB clock (bms_4168_08003494). Any argument other than 3, 0xC or 0x30 returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `selector` | `u32` | param_1, peripheral selector: 3, 0xC or 0x30 choose a CCIPR field |
+
+**Returns** `u32`: clock frequency in Hz, 0 if the source is not ready or the selector is unknown
+
+**Notes:** The mapping from selector values to peripherals is not identified in this packet.
+
+- Addresses by version: 4130: 0x08002D24, 4139: 0x08002D24, 4148: 0x08002D24, 4168: 0x08002D24
+- Peripheral registers: `RCC.CR` (R), `RCC.APBENR2` (A), `RCC.CCIPR` (R), `RCC.BDCR` (R)
+- Called by: `bms_usart_init_from_config`
+- Calls: `rcc_hclk_divide`, `rcc_pclk_divide`, `HAL_RCC_GetSysClockFreq`
 - Confidence: medium
 
 ## bms_sysclk_hse_pll_bringup
@@ -78,8 +133,8 @@ Brings up the system clock. It sets RCC.CR HSEON and polls HSERDY for at most 30
 
 - Addresses by version: 4130: 0x080090D0, 4139: 0x080095D0, 4148: 0x08009E1C, 4168: 0x0800A130
 - Peripheral registers: `RCC.CR` (RW), `RCC.CFGR` (RW), `RCC.PLLCFGR` (RW), `RCC.APBENR2` (A), `RCC.CCIPR2` (RW)
-- Called by: `bms_4168_08003440`, `bms_4168_080082f0`, `bms_4168_080086d4`
-- Calls: `NVIC_SystemReset`, `bms_4168_080021ec`, `bms_set_state_word`, `bms_rtc_clock_bringup`
+- Called by: `RCC_CRS_IRQHandler`, `bms_4168_080082f0`, `bms_system_clock_setup`
+- Calls: `NVIC_SystemReset`, `bms_systick_1khz_start`, `bms_set_state_word`, `bms_rtc_clock_bringup`
 - Confidence: medium
 
 ## bms_sysclk_hsi16_switch
@@ -93,8 +148,19 @@ Falls back to the 16 MHz HSI oscillator as SYSCLK. It sets RCC.CR HSION, waits f
 - Addresses by version: 4130: 0x08009280, 4139: 0x08009780, 4148: 0x08009FCC, 4168: 0x0800A2E0
 - Peripheral registers: `RCC.CR` (RW), `RCC.CFGR` (RW), `RCC.CCIPR2` (RW)
 - Called by: `bms_4168_08003290`
-- Calls: `NVIC_SystemReset`, `bms_4168_080021ec`, `bms_set_state_word`
+- Calls: `NVIC_SystemReset`, `bms_systick_1khz_start`, `bms_set_state_word`
 - Confidence: medium
+
+## bms_system_clock_setup
+
+**Set the vector table, bring up SYSCLK from HSE/PLL, enable CSS and set the SysTick base**
+
+Startup clock sequence. It calls bms_4168_0800A260 (VTOR and reset-cause latch), bms_sysclk_hse_pll_bringup (HSE and PLL as SYSCLK with HSI16 fallback, recorded as 16 MHz), bms_css_enable_sram_parity_lock (clock security system and SRAM parity lock in SYSCFG_CFGR2) and bms_systick_base_set with 16, which stores the SysTick base count used by the busy-wait helpers.
+
+- Addresses by version: 4130: 0x08007688, 4139: 0x08007B88, 4148: 0x080083D4, 4168: 0x080086D4
+- Called by: `bms_4168_08010558`
+- Calls: `bms_systick_base_set`, `bms_sysclk_hse_pll_bringup`, `bms_css_enable_sram_parity_lock`, `bms_vtor_reset_cause_latch`
+- Confidence: high
 
 ## rcc_hclk_divide
 
@@ -112,7 +178,7 @@ Reads RCC.CFGR (0x40021008) and takes the HPRE field (bits 7:4) as a 4-byte-stri
 
 - Addresses by version: 4130: 0x08003474, 4139: 0x08003474, 4148: 0x08003474, 4168: 0x08003474
 - Peripheral registers: `RCC.CFGR` (R)
-- Called by: `bms_4168_08002d0c`, `bms_4168_08002d24`
+- Called by: `bms_rcc_get_clock_freqs`, `bms_rcc_periph_clk_get`
 - Confidence: medium
 
 ## rcc_pclk_divide
@@ -131,5 +197,5 @@ Reads RCC.CFGR (0x40021008), masks it to 15 bits and takes bits 14:12 as the ind
 
 - Addresses by version: 4130: 0x08003494, 4139: 0x08003494, 4148: 0x08003494, 4168: 0x08003494
 - Peripheral registers: `RCC.CFGR` (R)
-- Called by: `bms_4168_08002d0c`, `bms_4168_08002d24`
+- Called by: `bms_rcc_get_clock_freqs`, `bms_rcc_periph_clk_get`
 - Confidence: medium

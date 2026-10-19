@@ -20,7 +20,7 @@ Same operation as mcu_lpf_q30_step_alt (mcu_0160_08007078): state = (a*x + (2^30
 | `param_3` | `u32` | coefficient a in Q30 |
 
 - Addresses by version: 12b: 0x0800735C, 143: 0x08007242, 152: 0x08007272, 0160: 0x0800721A
-- Called by: `mcu_0160_08004e78`, `mcu_0160_08005090`, `mcu_0160_08005b3c`, `mcu_0160_08006c9c`, `mcu_0160_080070ac`, `mcu_0160_0800772c`, `mcu_0160_0800a320`, `mcu_0160_0800a644`
+- Called by: `mcu_0160_08004e78`, `mcu_fb_lpf_select_update`, `mcu_fault_monitor_update`, `mcu_dynamic_bound_clamp_update`, `mcu_lpf_or_step_tracker_update`, `mcu_foc_control_tick`, `mcu_0160_0800a320`, `mcu_pos_tracker_filter_pair_step`
 - Confidence: high
 
 ## mcu_lpf_q30_step_alt
@@ -36,5 +36,5 @@ Reads the input sample through param_1 and the state through param_2, with the c
 | `param_3` | `u32` | coefficient a in Q30 |
 
 - Addresses by version: 12b: 0x080071CC, 143: 0x080070A0, 152: 0x080070D0, 0160: 0x08007078
-- Called by: `mcu_0160_08002e9c`, `mcu_0160_08007160`
+- Called by: `mcu_position_observer_update`, `mcu_lpf_asym_update`
 - Confidence: high

@@ -324,7 +324,7 @@ Encodes the preemption and sub-priority values into one 4-bit priority with the 
 
 - Addresses by version: 148: 0x0800CEA0, 14a: 0x0800D2F4, 14b: 0x0800D780, 14e: 0x0800D820, 14f: 0x0800D96C, 152: 0x0800DBFC, 153: 0x0800DCF0, 0159: 0x0800DE48
 - Peripheral registers: `NVIC+0x0` (A), `NVIC.None` (A), `SCB+0xc` (R), `SCB+0x14` (A)
-- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_0159_080024ec`, `vcu_0159_0800261c`, `vcu_exint3_pa3_init`, `vcu_can1_init`
+- Called by: `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_ertc_wakeup_exint_init`, `vcu_tmr5_1khz_tick_init`, `vcu_exint3_pa3_init`, `vcu_can1_init`
 - Confidence: high
 
 ## nvic_priority_group_config
@@ -339,5 +339,5 @@ Reads SCB.AIRCR, replaces PRIGROUP (bits 10..8) with the low three bits of the a
 
 - Addresses by version: 148: 0x0800CF18, 14a: 0x0800D36C, 14b: 0x0800D7F8, 14e: 0x0800D898, 14f: 0x0800D9E4, 152: 0x0800DC74, 153: 0x0800DD68, 0159: 0x0800DEC0
 - Peripheral registers: `SCB+0xc` (RW)
-- Called by: `vcu_0159_08002060`
+- Called by: `vcu_peripheral_init_sequence`
 - Confidence: high

@@ -112,7 +112,7 @@ Writes CRM.BPDC (0x40021020) bit16 (BPDRST) with bit0 of param_1. The BPD reset 
 
 - Addresses by version: 148: 0x0800A4C8, 14a: 0x0800A8C0, 14b: 0x0800AD48, 14e: 0x0800ADDC, 14f: 0x0800AF18, 152: 0x0800B1A4, 153: 0x0800B298, 0159: 0x0800B3E8
 - Peripheral registers: `CRM.BPDC` (RW)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Confidence: high
 
 ## crm_clock_source_enable
@@ -128,7 +128,7 @@ Switch on the crm_clock_source_type: 0 HICK -> CRM.CTRL bit0 (HICKEN), 1 HEXT ->
 
 - Addresses by version: 148: 0x0800A4D8, 14a: 0x0800A8D0, 14b: 0x0800AD58, 14e: 0x0800ADEC, 14f: 0x0800AF28, 152: 0x0800B1B4, 153: 0x0800B2A8, 0159: 0x0800B3F8
 - Peripheral registers: `CRM.CTRL` (RW), `CRM.BPDC` (RW), `CRM.CTRLSTS` (RW)
-- Called by: `vcu_hext_enable_and_wait`, `vcu_0159_0800c960`, `system_clock_config`, `vcu_sysclk_switch_to_pll`
+- Called by: `vcu_hext_enable_and_wait`, `vcu_ertc_default_datetime_init`, `system_clock_config`, `vcu_sysclk_switch_to_pll`
 - Confidence: high
 
 ## crm_clocks_freq_get
@@ -145,7 +145,7 @@ Matches the Artery SDK crm_clocks_freq_get: the output words are sclk, ahb, apb2
 
 - Addresses by version: 148: 0x0800A520, 14a: 0x0800A918, 14b: 0x0800ADA0, 14e: 0x0800AE34, 14f: 0x0800AF70, 152: 0x0800B1FC, 153: 0x0800B2F0, 0159: 0x0800B440
 - Peripheral registers: `CRM.CFG` (R), `CRM.PLL` (R), `CRM.MISC1` (R), `CRM.MISC2` (R)
-- Called by: `vcu_0159_08001bca`, `vcu_0159_0800261c`, `vcu_0159_0800efd8`
+- Called by: `vcu_tmr2_ch1_pwm_init`, `vcu_tmr5_1khz_tick_init`, `vcu_usart_baud_frame_config`
 - Calls: `vcu_udiv64_shift_subtract`, `crm_sysclk_switch_status_get`
 - Confidence: high
 
@@ -161,7 +161,7 @@ Writes CRM.BPDC (0x40021020) bit15 (ERTCEN) from bit0 of param_1. Called from th
 
 - Addresses by version: 148: 0x0800A638, 14a: 0x0800AA30, 14b: 0x0800AEB8, 14e: 0x0800AF4C, 14f: 0x0800B088, 152: 0x0800B314, 153: 0x0800B408, 0159: 0x0800B558
 - Peripheral registers: `CRM.BPDC` (RW)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Confidence: high
 
 ## crm_ertc_clock_select
@@ -176,7 +176,7 @@ Writes CRM.BPDC (0x40021020) bits 9:8 (ERTCSEL) from the low two bits of param_1
 
 - Addresses by version: 148: 0x0800A648, 14a: 0x0800AA40, 14b: 0x0800AEC8, 14e: 0x0800AF5C, 14f: 0x0800B098, 152: 0x0800B324, 153: 0x0800B418, 0159: 0x0800B568
 - Peripheral registers: `CRM.BPDC` (RW)
-- Called by: `vcu_0159_0800c960`
+- Called by: `vcu_ertc_default_datetime_init`
 - Confidence: high
 
 ## crm_flag_get
@@ -193,7 +193,7 @@ The flag code packs the register byte offset in bits 31:16 and the bit number in
 
 - Addresses by version: 148: 0x0800A658, 14a: 0x0800AA50, 14b: 0x0800AED8, 14e: 0x0800AF6C, 14f: 0x0800B0A8, 152: 0x0800B334, 153: 0x0800B428, 0159: 0x0800B578
 - Peripheral registers: `CRM.CTRL` (A)
-- Called by: `vcu_hext_enable_and_wait`, `vcu_0159_0800c960`, `system_clock_config`, `vcu_sysclk_switch_to_pll`
+- Called by: `vcu_hext_enable_and_wait`, `vcu_ertc_default_datetime_init`, `system_clock_config`, `vcu_sysclk_switch_to_pll`
 - Confidence: high
 
 ## crm_periph_clock_enable
@@ -209,7 +209,7 @@ param_1 packs the CRM register offset (bits 31:16: 0x14 AHBEN, 0x18 APB2EN, 0x1c
 
 - Addresses by version: 148: 0x0800A6AC, 14a: 0x0800AAA4, 14b: 0x0800AF2C, 14e: 0x0800AFC0, 14f: 0x0800B0FC, 152: 0x0800B388, 153: 0x0800B47C, 0159: 0x0800B5CC
 - Peripheral registers: `CRM.CTRL` (A)
-- Called by: `vcu_0159_08001bca`, `vcu_adc_dma_ring_init`, `vcu_adc_analog_pins_init`, `vcu_adc1_scan_init`, `vcu_gpio_pa0_init`, `vcu_usart2_pins_init`, `vcu_0159_08001ee8`, `vcu_usart2_rx_dma_init`, `vcu_usart2_tx_dma_init`, `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_can1_clock_disable` ...
+- Called by: `vcu_tmr2_ch1_pwm_init`, `vcu_adc_dma_ring_init`, `vcu_adc_analog_pins_init`, `vcu_adc1_scan_init`, `vcu_gpio_pa0_init`, `vcu_usart2_pins_init`, `vcu_usart2_init`, `vcu_usart2_rx_dma_init`, `vcu_usart2_tx_dma_init`, `vcu_exint14_pb14_init`, `vcu_exint_pb12_pb14_init`, `vcu_can1_clock_disable` ...
 - Confidence: high
 
 ## crm_periph_reset
@@ -321,6 +321,6 @@ Polls the HEXT stable flag (crm_flag_get with CRM_HEXT_STABLE_FLAG, which is 0x1
 Short clock switch used when the PLL is already configured. It enables HEXT and waits for it with vcu_0159_0800b598, enables the PLL and waits for its stable flag, turns on auto-step mode, selects PLL with crm_sysclk_switch(2), polls crm_sysclk_switch_status_get until PLL is active and then turns auto-step off. It writes no dividers, flash wait states or PLL multiplier and has no timeouts, so it spins forever if a clock never stabilises. Called from vcu_0159_0800688c (not described in this packet).
 
 - Addresses by version: 148: 0x0800D930, 14a: 0x0800DDCC, 14b: 0x0800E258, 14e: 0x0800E2F8, 14f: 0x0800E444, 152: 0x0800E6EC, 153: 0x0800E7E0, 0159: 0x0800E950
-- Called by: `vcu_0159_0800688c`
+- Called by: `vcu_deep_sleep_enter_and_restore`
 - Calls: `crm_auto_step_mode_enable`, `crm_clock_source_enable`, `crm_flag_get`, `vcu_hext_enable_and_wait`, `crm_sysclk_switch`, `crm_sysclk_switch_status_get`
 - Confidence: high

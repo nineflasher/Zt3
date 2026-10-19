@@ -1,6 +1,6 @@
 # BLE - `libc` functions
 
-93 functions.
+106 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -51,22 +51,35 @@
 | [`_printf_i`](#_printf_i) | 0x0C072F3C | newlib-nano _printf_i: format one integer/char/string/%n conversion and emit it |
 | [`_read`](#_read) | 0x0C048420 | newlib _read syscall: stdin from the console device, fds 3..48 via the /dev driver table |
 | [`_read_r`](#_read_r) | 0x0C0734E0 | newlib _read_r: call _read and copy a non-zero errno into the reent on failure |
+| [`_sbrk`](#_sbrk) | 0x0C046E04 | Newlib _sbrk for the BLE heap: move the break within 0x2007EF00, else ENOMEM with heap dump |
 | [`_scanf_chars`](#_scanf_chars) | 0x0C073188 | newlib-nano _scanf_chars: scanf %c / %s / %[ conversion |
 | [`_scanf_i`](#_scanf_i) | 0x0C07323C | newlib-nano _scanf_i: read an integer field for vfscanf and convert it with _strtol_r/_strtoul_r |
 | [`_setenv_r`](#_setenv_r) | 0x0C07247C | Reentrant setenv front end: look up NAME in environ and pass the result on |
 | [`_strtoul_r`](#_strtoul_r) | 0x0C071A48 | newlib _strtoul_r: reentrant string-to-unsigned-long with base 0/8/10/16 autodetect and ERANGE |
 | [`_write`](#_write) | 0x0C04846C | newlib _write syscall: stdout/stderr to the console with CRLF translation, fds 3..48 via driver table |
 | [`atol`](#atol) | 0x0C0701E0 | Parse a base-10 integer from a string, saturating and setting ERANGE on overflow |
+| [`ble_fd_close_all`](#ble_fd_close_all) | 0x0C0360C0 | Close every open descriptor from fd 3 upward using the fd control entry with command 0 |
 | [`ble_fd_find_next_open`](#ble_fd_find_next_open) | 0x0C0484F0 | Find the next open descriptor above param_1 (numbers 3..48), or return -1 |
 | [`ble_fd_select`](#ble_fd_select) | 0x0C04885C | POSIX-style select() over descriptors 3..maxfd, waiting on the BLE event group |
+| [`ble_heap_stats_dump`](#ble_heap_stats_dump) | 0x0C046D50 | Log heap usage: free, mmap and malloc bytes, SBRK counters, and the mallinfo fields |
+| [`ble_thunk_free`](#ble_thunk_free) | 0x0C046EE4 | Thunk to free: releases a heap block through _free_r with the global reent pointer |
+| [`ble_thunk_malloc`](#ble_thunk_malloc) | 0x0C046EE0 | Thunk to malloc: allocates a heap block through _malloc_r with the global reent pointer |
+| [`ble_thunk_sbrk`](#ble_thunk_sbrk) | 0x0C046E84 | Thunk to the newlib _sbrk heap-growth routine at 0x0C046E04 |
 | [`clock_gettime`](#clock_gettime) | 0x0C03FEAC | POSIX clock_gettime built on the FreeRTOS tick: CLOCK_MONOTONIC (4) raw, CLOCK_REALTIME (1) plus epoch offset |
 | [`clock_settime`](#clock_settime) | 0x0C03FF68 | POSIX clock_settime: accept CLOCK_REALTIME only and store the epoch offset |
 | [`console_getc`](#console_getc) | 0x0C035CB8 | Blocking read of one console byte; retries on zero-length reads, -1 on error |
+| [`console_init`](#console_init) | 0x0C035D30 | Initialise the trace console: recursive mutex, open /dev/uart0 at 115200 baud |
 | [`console_isatty_fd`](#console_isatty_fd) | 0x0C035FF8 | Report whether fd 0..2 is the console; otherwise set errno EBADF and return 0 |
 | [`console_putc`](#console_putc) | 0x0C035CE8 | Write one raw byte to the console device without newline translation |
 | [`console_write_crlf`](#console_write_crlf) | 0x0C035528 | Write a buffer to the console converting each LF to CRLF; return bytes consumed |
 | [`crt_eh_get_entry_offset`](#crt_eh_get_entry_offset) | 0x0C0739F4 | C++/EH runtime helper: resolve an offset word stored before an address |
 | [`div`](#div) | 0x0C072058 | newlib div: signed division returning quotient and remainder |
+| [`fd_alloc_slot`](#fd_alloc_slot) | 0x0C048138 | Reserve a free file-descriptor slot under the fd mutex and allocate its open-file object |
+| [`fd_close`](#fd_close) | 0x0C0482E4 | close(fd): drop a dup reference, or run the driver close hook and free the slot |
+| [`fd_driver_open_finalize`](#fd_driver_open_finalize) | 0x0C048204 | Run the driver open hook for a new fd; on failure free the object and release its slot |
+| [`fd_dump_open_files`](#fd_dump_open_files) | 0x0C048040 | Print the open-file table: slot index, /dev name, flags O_NONBLOCK and O_POLL |
+| [`fd_lseek`](#fd_lseek) | 0x0C048380 | lseek on an fd: SET or CUR on the object or its driver hook; whence -1 queries the position |
+| [`fd_open_device`](#fd_open_device) | 0x0C04855C | open('/dev/<class><unit>'): match the device class, reuse or allocate an fd, run the open hook |
 | [`gettimeofday`](#gettimeofday) | 0x0C0400CC | POSIX gettimeofday from the FreeRTOS tick plus the real-time epoch offset |
 | [`libc_is_minus_or_plus_sign`](#libc_is_minus_or_plus_sign) | 0x0C070250 | Test whether a string is NULL, starts with '-', or (if allowed) starts with '+' |
 | [`libc_reverse_u32_array`](#libc_reverse_u32_array) | 0x0C07022C | Reverse the order of n 32-bit words in an array in place |
@@ -131,7 +144,7 @@ Soft-float narrowing conversion. Detects Inf/NaN (returns 0x7fc00000 quiet NaN o
 **Returns** `u32`: IEEE-754 single bit pattern
 
 - Addresses by version: 219: 0x0C06FD80
-- Called by: `ble_219_0c035900`, `ble_rssi_filter_update`
+- Called by: `trace_vprintf_core`, `ble_rssi_filter_update`
 - Confidence: high
 
 ## __aeabi_d2iz
@@ -384,7 +397,7 @@ Returns the 32-bit value stored in the RAM pointer cell DAT_200049a8, which hold
 **Notes:** Name chosen from usage (errno pointer used by strtoul); in newlib the symbol is __errno().
 
 - Addresses by version: 219: 0x0C0701F8
-- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_fd_select`, `sqrt`, `w_sqrtf` ...
+- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `_sbrk`, `fd_close`, `fd_lseek`, `_read`, `_write`, `_close`, `ble_fd_select`, `sqrt`, `w_sqrtf` ...
 - Confidence: medium
 
 ## __get_current_locale
@@ -632,7 +645,7 @@ Divides the unsigned (param_1, param_2) by (param_3, param_4). A zero divisor re
 **Notes:** The decompile shows the __udivmoddi4 call without its remainder pointer argument.
 
 - Addresses by version: 219: 0x0C06FEC0
-- Called by: `bes_clk_measure_hz`, `ble_rf_synth_retune`, `ble_rf_synth_set_freq_ratio`, `ble_analog_chip_init`, `ble_219_0c044b14`, `hal_time_ms`, `ble_219_0c062fe4`, `__divdi3`
+- Called by: `bes_clk_measure_hz`, `ble_rf_synth_retune`, `ble_rf_synth_set_freq_ratio`, `ble_analog_chip_init`, `rtos_runtime_stats_print_row`, `hal_time_ms`, `fp_div`, `__divdi3`
 - Calls: `__udivmoddi4`
 - Confidence: high
 
@@ -688,7 +701,7 @@ Returns 0 immediately for fd < 3. For fd 3..48 it fetches DAT_2000f6d8[fd-3] (op
 **Returns** `s32`: 0, driver close result, or -1 with errno EBADF
 
 - Addresses by version: 219: 0x0C0484B4
-- Called by: `ble_219_0c02c49c`, `ble_219_0c02d4f8`, `app_gpio_dev_ioctl`, `ble_219_0c02d604`, `nvdata_ioctl_cmd_0x200`, `nvdata_ioctl_get_buf_0x102`, `nvdata_ioctl_cmd_0x104`, `nvdata_ioctl_unlock_0x103`, `nvdata_ioctl_lock_0x106`, `ble_219_0c02d870`, `ble_219_0c02dc50`, `ble_219_0c02dea8` ...
+- Called by: `ble_factory_test_dispatch_set`, `ble_uart1_open`, `app_gpio_dev_ioctl`, `ble_nvdata_open_all`, `nvdata_ioctl_cmd_0x200`, `nvdata_ioctl_get_buf_0x102`, `nvdata_ioctl_cmd_0x104`, `nvdata_ioctl_unlock_0x103`, `nvdata_ioctl_lock_0x106`, `ble_nvdata_sector_header_write`, `ble_nvdata_write_task`, `nvdata_device_init` ...
 - Calls: `__errno`
 - Confidence: high
 
@@ -773,7 +786,7 @@ Newlib _gettimeofday_r style wrapper. It clears the errno scratch word at 0x2001
 | `param_2` | `ptr` | struct timezone, or NULL |
 
 - Addresses by version: 219: 0x0C071A70
-- Called by: `prvSwitchTimerLists`, `ble_219_0c044ee8`, `ble_219_0c058980`
+- Called by: `prvSwitchTimerLists`, `rtos_timer_daemon_task`, `ble_host_report_clock_0d`
 - Calls: `gettimeofday`
 - Confidence: medium
 
@@ -900,6 +913,25 @@ newlib reent/readr.c. Clears the global errno DAT_20019540, calls the platform _
 - Calls: `_read`
 - Confidence: high
 
+## _sbrk
+
+**Newlib _sbrk for the BLE heap: move the break within 0x2007EF00, else ENOMEM with heap dump**
+
+Newlib _sbrk for the BLE heap. Under the scheduler lock (vTaskSuspendAll and xTaskResumeAll) it advances the program break DAT_20003F94 by param_1 when the new end, DAT_2000F4C4 plus break plus increment, stays at or below 0x2007EF00. It then reduces the remaining-byte counter DAT_20003F98, grows the total-provided counter DAT_2000F4C8, and returns the previous break. Otherwise it sets errno to ENOMEM (12) through __errno, logs 'sbrk failed' and 'sbrk incr:%d', calls ble_heap_stats_dump, waits 1000 ticks with vTaskDelay, and returns -1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | increment in bytes |
+
+**Returns** `s32`: previous program break, or -1 on failure
+
+**Notes:** The heap limit 0x2007EF00 is the top of the allowed range, and DAT_2000F4C4 is a base offset whose meaning is inferred.
+
+- Addresses by version: 219: 0x0C046E04
+- Called by: `ble_thunk_sbrk`
+- Calls: `trace_printf`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskDelay`, `ble_heap_stats_dump`, `__errno`
+- Confidence: high
+
 ## _scanf_chars
 
 **newlib-nano _scanf_chars: scanf %c / %s / %[ conversion**
@@ -1014,8 +1046,20 @@ Skips leading whitespace (ctype bit 0x08 at 0x0C0862A9), accepts one optional '+
 **Notes:** Single-argument form, so atol or atoi; both are the same on this target. Callers 0c04855c, 0c055634, 0c05569c, 0c055b90.
 
 - Addresses by version: 219: 0x0C0701E0
-- Called by: `ble_219_0c04855c`, `ble_219_0c055634`, `ble_219_0c05569c`, `ble_219_0c055b90`
+- Called by: `fd_open_device`, `ble_parse_csv_u8x4`, `ble_parse_u8x3_bdaddr`, `ble_fmna_debug_cmd_dispatch`
 - Calls: `__errno`
+- Confidence: high
+
+## ble_fd_close_all
+
+**Close every open descriptor from fd 3 upward using the fd control entry with command 0**
+
+Repeatedly finds the next open descriptor above the previous one with ble_fd_find_next_open, starting at 2 so fds 0..2 are never touched, and closes it by calling the fd control entry as (fd, 0, 0), until none is left. Descriptor numbers run 3..48. It is a shutdown helper for the device layer.
+
+**Notes:** The fd control entry ble_219_0c0484b4 is named _close in wave2_batch06. Here it takes command 0 as close, and other calls in this packet use it as a device control (command 0x100 for baud, 0x110 for erase). It may be better named as an ioctl-style entry.
+
+- Addresses by version: 219: 0x0C0360C0
+- Calls: `_close`, `ble_fd_find_next_open`, `ble_219_0c071a94`
 - Confidence: high
 
 ## ble_fd_find_next_open
@@ -1031,7 +1075,7 @@ Scans the descriptor table at 0x2000F6D8 (one pointer per descriptor, 46 entries
 **Returns** `s32`: next open descriptor number, or -1
 
 - Addresses by version: 219: 0x0C0484F0
-- Called by: `ble_219_0c0360c0`
+- Called by: `ble_fd_close_all`
 - Calls: `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`
 - Confidence: medium
 
@@ -1054,8 +1098,76 @@ Implements select(maxfd, readfds, writefds, exceptfds, timeout) for descriptors 
 **Notes:** Caller is ble_219_0c02eb60. The readiness method is called without visible arguments because the decompiler drops them. FUN_0C042858, FUN_0C0441A8 and FUN_0C0701F8 (__errno) are referenced; the first two are not yet described.
 
 - Addresses by version: 219: 0x0C04885C
-- Called by: `ble_219_0c02eb60`
+- Called by: `uart_disp_rx_task`
 - Calls: `xEventGroupWaitBits`, `vTaskDelay`, `__errno`
+- Confidence: medium
+
+## ble_heap_stats_dump
+
+**Log heap usage: free, mmap and malloc bytes, SBRK counters, and the mallinfo fields**
+
+Prints heap statistics. It calls mallinfo (ble_219_0c070f00 in the call graph) and logs free memory (the mallinfo fordblks value plus heapBytesRemaining at DAT_20003F98), mmap usage (DAT_2000F4C4), and malloc usage (the heap span 0x659BC minus free bytes). It also logs the SBRK counters, heapBytesRemaining and totalBytesProvidedBySBRK (DAT_2000F4C8), and the mallinfo fields arena, ordblks, smblks, hblks, hblkhd, usmblks, fsmblks, uordblks, fordblks and keepcost. It is called on the failure path of _sbrk.
+
+**Notes:** The field names match newlib struct mallinfo. The heap span constant 0x659BC is taken from the decompile.
+
+- Addresses by version: 219: 0x0C046D50
+- Called by: `_sbrk`
+- Calls: `trace_printf`, `ble_219_0c070f00`
+- Confidence: high
+
+## ble_thunk_free
+
+**Thunk to free: releases a heap block through _free_r with the global reent pointer**
+
+Single-instruction branch to 0x0C07098C (Ghidra thunk_FUN_0c07098c); the packet body is that target. It calls FUN_0c070F40 (newlib _free_r) with DAT_200049A8 and the block pointer. It pairs with ble_thunk_malloc: nb_upgrade_image_parse releases the previous block buffer DAT_2000F650 through it, and fd_driver_open_finalize and fd_close release their open-file objects through it. A NULL pointer is harmless in newlib free.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | block returned by ble_thunk_malloc, or NULL |
+
+**Notes:** Same identity caveat as ble_thunk_malloc.
+
+- Addresses by version: 219: 0x0C046EE4
+- Called by: `vQueueDelete`, `xTaskCreate`, `vTaskDelete`, `rtos_timer_daemon_task`
+- Calls: `ble_219_0c07098c`
+- Confidence: medium
+
+## ble_thunk_malloc
+
+**Thunk to malloc: allocates a heap block through _malloc_r with the global reent pointer**
+
+Single-instruction branch to 0x0C07097C (Ghidra thunk_FUN_0c07097c); the packet body is that target. The target calls FUN_0c071080 (newlib _malloc_r) with DAT_200049A8 as the reentrancy structure and the requested byte count. nb_upgrade_image_parse uses it for each block buffer (DAT_2000F650) and frees the previous one through ble_thunk_free.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | requested size in bytes |
+
+**Returns** `ptr`: allocated block, or NULL when the heap is exhausted
+
+**Notes:** The malloc identity is inferred from the pairing with 0x0C07098C (free) and the byte-count arguments; no library symbol confirms it. The decompiled thunk is typed void, so the return type comes from the target's use.
+
+- Addresses by version: 219: 0x0C046EE0
+- Called by: `xEventGroupCreate`, `xQueueGenericCreate`, `xQueueCreateMutex`, `xStreamBufferGenericCreate`, `xTaskCreate`, `xTimerCreate`
+- Calls: `ble_219_0c07097c`
+- Confidence: medium
+
+## ble_thunk_sbrk
+
+**Thunk to the newlib _sbrk heap-growth routine at 0x0C046E04**
+
+Single-instruction branch to 0x0C046E04 (Ghidra shows the target as thunk_FUN_0c046e04); the decompiled body in the packet is that target. The target grows the heap break DAT_20003F94 by param_1 bytes, provided the new break plus DAT_2000F4C4 stays below the stack limit 0x2007EF01, and updates DAT_20003F98 (remaining heap) and DAT_2000F4C8 (total bytes taken). The update runs between vTaskSuspendAll and xTaskResumeAll. When the heap is exhausted it sets errno to ENOMEM, logs 'sbrk failed' with the increment, calls 0x0C046D50, waits 1000 ms with vTaskDelay and returns -1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | bytes to add to the heap break |
+
+**Returns** `ptr`: previous heap break on success, -1 when the heap is exhausted
+
+**Notes:** The entry is a single branch, so the logic lives at 0x0C046E04. The _sbrk name depends on that target being named consistently in its own packet.
+
+- Addresses by version: 219: 0x0C046E84
+- Called by: `ble_219_0c071550`
+- Calls: `_sbrk`
 - Confidence: medium
 
 ## clock_gettime
@@ -1074,7 +1186,7 @@ Fills a struct timespec with 64-bit tv_sec (param_2[0] low, param_2[1] high) and
 **Notes:** The overflow test uses '>' rather than '>=' 1e9. 0x0c03f790 is assumed to return the elapsed nanoseconds within the current tick.
 
 - Addresses by version: 219: 0x0C03FEAC
-- Called by: `ble_219_0c03ff38`, `clock_settime`, `ble_clock_realtime_offset_update`, `ble_event_window_expire`, `ble_219_0c058520`, `ble_link_param_monitor_step`, `ble_219_0c05a224`
+- Called by: `ble_debug_timestamp_print`, `clock_settime`, `ble_clock_realtime_offset_update`, `ble_event_window_expire`, `ble_event_stats_report_11`, `ble_link_param_monitor_step`, `ble_link_event_tick`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `rtos_systick_sub_tick_ns`, `xTaskGetTickCount`
 - Confidence: high
 
@@ -1108,6 +1220,21 @@ Reads one byte from console device DAT_2000B520 through the read routine 0x0C071
 - Addresses by version: 219: 0x0C035CB8
 - Calls: `read`
 - Confidence: high
+
+## console_init
+
+**Initialise the trace console: recursive mutex, open /dev/uart0 at 115200 baud**
+
+Creates the recursive mutex of the trace object at 0x20003E30 (prvInitialiseMutex type 4). It opens /dev/uart0 with flags 0 and stores the fd in DAT_2000B520, which console_putc and console_write_crlf use as the console device. It sets 115200 baud through the fd control entry (command 0x100, argument 0x1C200), sends command 0x14 with argument 100, and prints 'console initialzed at /dev/uart0'. Returns 0 regardless of the open and control results.
+
+**Returns** `u32`: always 0
+
+**Notes:** The open result is not checked. The meaning of fd control command 0x14 (argument 100) is not established. ble_219_0c0484b4 is named _close in wave2_batch06 but is called here with a command and argument; see the note on ble_219_0c0355c8.
+
+- Addresses by version: 219: 0x0C035D30
+- Called by: `app_system_init`
+- Calls: `trace_printf`, `prvInitialiseMutex`, `_close`, `ble_219_0c071a94`
+- Confidence: medium
 
 ## console_isatty_fd
 
@@ -1196,6 +1323,125 @@ Computes quot = num / den and rem = num - den*quot, then normalises the C89 trun
 - Addresses by version: 219: 0x0C072058
 - Called by: `libc_tm_normalize`
 - Confidence: high
+
+## fd_alloc_slot
+
+**Reserve a free file-descriptor slot under the fd mutex and allocate its open-file object**
+
+Takes the fd mutex DAT_2000F680 (created on first use with prvInitialiseMutex, 100-tick timeout) and searches the open-file table. Normal opens (param_3 zero) search slots 14..45, which are fds 17..48, and poll opens (param_3 nonzero) search slots 0..13, which are fds 3..16. For the first free slot it writes the fd to *param_1, allocates an object of param_2 + 0x14 bytes with FUN_0C0701E8(1, size), stores it in the table, writes the slot index into obj+8 and points obj+0x10 just past its 0x14-byte header. The mutex is released in every path. When no slot or allocation is available it logs 'file_descript%s full' with '(poll)' for poll opens and returns NULL.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | receives the new fd |
+| `param_2` | `u32` | payload size requested for the open-file object |
+| `param_3` | `u32` | poll flag: nonzero selects slots 0..13 |
+| `param_4` | `u32` | passed to mutex creation on first use |
+
+**Returns** `ptr`: new open-file object, or NULL when no slot or allocation is available
+
+**Notes:** The object layout (ops at +0, wait object at +4, slot index at +8, reference byte at +9, flags at +0xA, offset at +0xC) is taken from the callers in this packet.
+
+- Addresses by version: 219: 0x0C048138
+- Called by: `fd_open_device`
+- Calls: `trace_printf`, `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`, `ble_219_0c0701e8`
+- Confidence: high
+
+## fd_close
+
+**close(fd): drop a dup reference, or run the driver close hook and free the slot**
+
+A descriptor below 3 returns 0 with no action. Otherwise slot fd-3 must be below 46 and occupied, or the call sets errno to EBADF and returns -1. A nonzero reference byte at object+9 is decremented and the call returns 0, which handles dup'd descriptors. Otherwise the driver close hook at ops+0x18 is called with the object, and the wait object at +4 is signalled or destroyed through 0x0C043358 when present. A nonzero hook result returns 0 and leaves the slot allocated. A zero result frees the object through ble_thunk_free, clears the slot under the fd mutex and returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | file descriptor |
+| `param_2` | `u32` | unused |
+| `param_3` | `u32` | unused |
+| `param_4` | `u32` | passed to the mutex release |
+
+**Returns** `s32`: 0 on success, or -1 with errno EBADF for a bad descriptor
+
+**Notes:** A nonzero hook result returns 0 without freeing the slot. That path looks like a deferred close, and it is not confirmed which driver returns nonzero.
+
+- Addresses by version: 219: 0x0C0482E4
+- Called by: `ble_219_0c071a60`
+- Calls: `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`, `vQueueDelete`, `__errno`, `ble_219_0c07098c`
+- Confidence: high
+
+## fd_driver_open_finalize
+
+**Run the driver open hook for a new fd; on failure free the object and release its slot**
+
+If the driver open hook param_1 is non-NULL it is called with the open-file object param_2. A result of zero or more keeps the open and returns the fd in param_3. A negative result frees the object through ble_thunk_free, takes the fd mutex DAT_2000F680, clears table slot param_3-3, releases the mutex and returns the driver's negative error. With a NULL hook the function returns param_3 directly.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | driver open hook, called as hook(obj), or NULL |
+| `param_2` | `ptr` | open-file object |
+| `param_3` | `s32` | fd being opened |
+| `param_4` | `u32` | passed to the mutex release |
+
+**Returns** `s32`: fd on success, or the driver's negative open error
+
+- Addresses by version: 219: 0x0C048204
+- Called by: `fd_open_device`
+- Calls: `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`, `ble_219_0c07098c`
+- Confidence: high
+
+## fd_dump_open_files
+
+**Print the open-file table: slot index, /dev name, flags O_NONBLOCK and O_POLL**
+
+Signals command completion through app_cmd_complete_signal (0x0C0354CC), then prints 'opened file information:' and walks the 46-slot open-file table from DAT_2000F6D8 (slot i corresponds to fd i+3). For each occupied slot it prints the slot index as %.2d, then the device name as '/dev/%s%d' using the class table at DAT_0C073E40 and DAT_0C073E78, or '<noname>' when no class matches. It appends ' O_NONBLOCK' when bit 14 of the flags is set and ' O_POLL' when bit 2 is set, then ends the line. It takes no locks, so the listing can disagree with concurrent opens or closes.
+
+**Returns** `u32`: always 0
+
+**Notes:** Bit 2 is labelled O_POLL in this libc; that label comes from the string and is not checked against a header. The table layout follows fd_open_device.
+
+- Addresses by version: 219: 0x0C048040
+- Calls: `app_cmd_complete_signal`, `trace_printf`
+- Confidence: medium
+
+## fd_lseek
+
+**lseek on an fd: SET or CUR on the object or its driver hook; whence -1 queries the position**
+
+fd 0..2 return 0. Otherwise the slot is validated as in fd_close (EBADF on failure), and the object's recursive lock at +4 is taken with xQueueTakeMutexRecursive (created with 0x0C042E44 on first use, indefinite wait). If the driver seek hook at ops+0x14 is present it is called as hook(obj, offset, whence) and its result is returned. Without a hook, whence 0 (SEEK_SET) sets the position at +0xC to the offset, whence 1 (SEEK_CUR) adds it, and both return the new position. whence -1 returns the current position at +0xC and gives the lock back with rtos_mutex_give_checked (0x0C042E20).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | file descriptor |
+| `param_2` | `s32` | offset |
+| `param_3` | `s32` | whence: 0 SET, 1 CUR, -1 query current position |
+
+**Returns** `s32`: new position, the driver hook result, 0 for fd 0..2, or -1 with errno EBADF
+
+**Notes:** Possible lock leak. On the no-hook SET and CUR paths, and on the no-hook fallback, the code returns after taking the recursive lock without a matching give. Check whether the lock is released elsewhere before relying on this path.
+
+- Addresses by version: 219: 0x0C048380
+- Called by: `ble_219_0c0724c4`
+- Calls: `rtos_mutex_give_checked`, `xQueueCreateMutex`, `xQueueTakeMutexRecursive`, `__errno`
+- Confidence: medium
+
+## fd_open_device
+
+**open('/dev/<class><unit>'): match the device class, reuse or allocate an fd, run the open hook**
+
+The path must begin with '/dev/', otherwise the call logs 'Open: %s unrealized' and returns -2. It splits the rest into a class name and a decimal unit, matches the class against the device tables at DAT_0C073E78 and DAT_0C073E40 with strncmp, and converts the unit with atol (0x0C0701E0). If an open object for the same class and unit already exists, it checks that the flags match (otherwise logs 'Unsupport: /dev/%s%d reopen with different flags'), increments its reference byte at +9 and returns that fd. Otherwise it allocates a slot with fd_alloc_slot (poll flag from bit 2 of param_2), records the class, unit and flags, and runs the driver open hook through fd_driver_open_finalize. Failure logs 'Can't open %s' and returns -1 or the hook's error.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | device path beginning with /dev/ |
+| `param_2` | `u32` | open flags: bit 2 selects poll slots, bit 14 is O_NONBLOCK, stored at object+0xA |
+
+**Returns** `s32`: fd (3 or more) on success, -2 for a path without /dev/, or -1 or the hook error on failure
+
+**Notes:** The two-table class lookup and the unit handling were traced only partly. The duplicated code for the two tables is not fully resolved, so the exact class-table fields are inferred.
+
+- Addresses by version: 219: 0x0C04855C
+- Called by: `ble_219_0c07342c`
+- Calls: `trace_printf`, `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`, `fd_alloc_slot`, `fd_driver_open_finalize`, `atol`, `strncmp`
+- Confidence: medium
 
 ## gettimeofday
 
@@ -1338,7 +1584,7 @@ Byte-wise unsigned comparison of param_3 bytes at param_1 and param_2. Returns 0
 **Returns** `s32`: 0 if equal, else difference of first differing bytes
 
 - Addresses by version: 219: 0x0C07099C
-- Called by: `ble_219_0c029414`, `ble_219_0c029df8`, `app_sn_prefix_whitelist_match`, `ble_219_0c02b480`, `ble_219_0c02d358`, `bthost_link_key_db_tlv_delete_link_key`, `bthost_link_key_db_tlv_get_link_key`, `bthost_link_key_db_tlv_put_link_key`, `att_iterator_match_uuid16`, `att_iterator_match_uuid`, `att_server_handle_request`, `le_device_db_tlv_add` ...
+- Called by: `bt_app_set_name_and_advdata`, `ble_rx_data_handler`, `app_sn_prefix_whitelist_match`, `ble_vcu_cmd_handle`, `ble_uart_process_task`, `bthost_link_key_db_tlv_delete_link_key`, `bthost_link_key_db_tlv_get_link_key`, `bthost_link_key_db_tlv_put_link_key`, `att_iterator_match_uuid16`, `att_iterator_match_uuid`, `att_server_handle_request`, `le_device_db_tlv_add` ...
 - Confidence: high
 
 ## memcpy
@@ -1356,7 +1602,7 @@ Copies param_3 bytes one at a time from param_2 (src) to param_1 (dest) in ascen
 **Notes:** Param order in decompiler is dst, src, n.
 
 - Addresses by version: 219: 0x0C0709BC
-- Called by: `ble_219_0c028570`, `ble_219_0c0285ec`, `ble_219_0c029200`, `app_adv_id_block_copy`, `ble_219_0c02973c`, `ble_219_0c0297b0`, `ble_219_0c02a8f8`, `ble_219_0c02b158`, `ble_219_0c02b264`, `ble_219_0c02b480`, `ble_219_0c02c338`, `ble_219_0c02e5a4` ...
+- Called by: `Reset_Handler`, `nb_upgrade_process_cmd`, `ble_payload_copy_and_schedule`, `app_adv_id_block_copy`, `ble_app_init_callbacks_nv`, `ble_app_main_init`, `ble_fmna_cmd_handler`, `ble_device_info_init`, `ble_token_chunk_rx_7e`, `ble_vcu_cmd_handle`, `ble_uart_frame_enqueue`, `uart_disp_send_frame` ...
 - Confidence: high
 
 ## memcpy_newlib_aligned_16
@@ -1406,7 +1652,7 @@ Writes the low byte param_2 to each of param_3 bytes starting at param_1, ascend
 | `param_3` | `u32` | byte count |
 
 - Addresses by version: 219: 0x0C070A0A
-- Called by: `ble_219_0c028570`, `ble_219_0c028c94`, `ble_219_0c02a484`, `ble_219_0c02b264`, `ble_219_0c02c124`, `crc32_compute_poly`, `ble_219_0c02d358`, `ble_219_0c03457c`, `ble_219_0c0367b4`, `ble_219_0c0369d8`, `ble_219_0c037798`, `ble_mem_fill` ...
+- Called by: `Reset_Handler`, `ble_app_poll_tick`, `bt_vcu_cmd_wr_process`, `ble_token_chunk_rx_7e`, `uart_bridge_send_frame`, `crc32_compute_poly`, `ble_uart_process_task`, `nb_upgrade_verify_device_image`, `nb_upgrade_packet_info_erase`, `nb_upgrade_session_begin`, `nb_upgrade_resume_load`, `ble_mem_fill` ...
 - Confidence: high
 
 ## raise
@@ -1443,7 +1689,7 @@ Non-reentrant POSIX read wrapper from newlib's syscalls/sysread.c: forwards (fd,
 **Notes:** Identification as read (rather than write) rests on _read_r being the routine that __sread (0x0c071670, installed by std()) also calls.
 
 - Addresses by version: 219: 0x0C071ABC
-- Called by: `ble_219_0c0285ec`, `ble_219_0c02d358`, `ble_219_0c02d784`, `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c02e7d8`, `ble_219_0c03457c`, `console_getc`, `ble_219_0c0367b4`, `ble_219_0c036868`, `ble_219_0c037798`, `ble_219_0c041d50` ...
+- Called by: `nb_upgrade_process_cmd`, `ble_uart_process_task`, `ble_nvdata_read_record`, `ble_nvdata_write_task`, `nvdata_device_init`, `uart_disp_rx_process`, `nb_upgrade_verify_device_image`, `console_getc`, `nb_upgrade_packet_info_erase`, `nb_upgrade_verify_app_image`, `nb_upgrade_resume_load`, `ble_nvdata0_dev_read_record` ...
 - Calls: `_read_r`
 - Confidence: medium
 
@@ -1549,7 +1795,7 @@ Scans param_1 to its NUL terminator, then copies param_2 including its terminati
 | `param_2` | `ptr` | source string |
 
 - Addresses by version: 219: 0x0C0716FA
-- Called by: `ble_219_0c0558ec`
+- Called by: `ble_host_status_dump_text`
 - Confidence: high
 
 ## strchr
@@ -1583,7 +1829,7 @@ Compares byte by byte until the first mismatch or until the first string ends (a
 **Returns** `s32`: <0, 0, >0 ordering
 
 - Addresses by version: 219: 0x0C071732
-- Called by: `ble_219_0c0474b0`, `ble_219_0c0702f8`, `ble_219_0c071c50`
+- Called by: `nb_upgrade_begin`, `ble_219_0c0702f8`, `ble_219_0c071c50`
 - Confidence: high
 
 ## strcpy
@@ -1614,7 +1860,7 @@ Advances through the string until a NUL byte and returns the pointer difference,
 **Returns** `u32`: string length in bytes
 
 - Addresses by version: 219: 0x0C071756
-- Called by: `util_find_str_in_buf`, `ble_219_0c0474b0`, `hid_create_sdp_record`, `ble_219_0c054534`, `ble_219_0c055b90`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `ble_219_0c067248`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `sscanf` ...
+- Called by: `util_find_str_in_buf`, `nb_upgrade_begin`, `hid_create_sdp_record`, `ble_fmna_found_url_update`, `ble_fmna_debug_cmd_dispatch`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `hci_run_general_gap_bredr`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `sscanf` ...
 - Confidence: high
 
 ## strncmp
@@ -1632,7 +1878,7 @@ Returns 0 if n == 0. Otherwise compares bytes pairwise, stopping at the first mi
 **Returns** `s32`: <0, 0, >0 ordering
 
 - Addresses by version: 219: 0x0C071766
-- Called by: `util_find_str_in_buf`, `ble_219_0c0365a4`, `ble_219_0c04855c`, `ble_gatt_read_char_value`, `_findenv_r`
+- Called by: `util_find_str_in_buf`, `nb_upgrade_check_image_header`, `fd_open_device`, `ble_gatt_read_char_value`, `_findenv_r`
 - Confidence: high
 
 ## strtoul
@@ -1652,7 +1898,7 @@ Skips leading whitespace using the ctype table at 0x0c0862a9 (bit 0x08 = space),
 **Notes:** Also called from 0x0c071a48 wrapper (an _r/locale-less entry point).
 
 - Addresses by version: 219: 0x0C071A4C
-- Called by: `ble_219_0c0360d4`, `bt_bdaddr_from_string`, `ble_util_hex_string_to_bytes`, `_strtoul_r`, `ble_219_0c071c50`
+- Called by: `wdt_task_monitor_cli`, `bt_bdaddr_from_string`, `ble_util_hex_string_to_bytes`, `_strtoul_r`, `ble_219_0c071c50`
 - Confidence: high
 
 ## trace_fmt_signed
@@ -1672,7 +1918,7 @@ Formats signed decimal param_2. The digit count of the magnitude, raised to the 
 **Returns** `u32`: characters written, or a negative error
 
 - Addresses by version: 219: 0x0C0357B8
-- Called by: `ble_219_0c035900`
+- Called by: `trace_vprintf_core`
 - Calls: `hal_trace_buf_putc`, `trace_fmt_unsigned`
 - Confidence: medium
 
@@ -1694,7 +1940,7 @@ Emits unsigned param_2 in base param_3 through hal_trace_buf_putc (0x0C035684). 
 **Returns** `s32`: characters emitted, or the sink's negative error
 
 - Addresses by version: 219: 0x0C0356DC
-- Called by: `trace_fmt_signed`, `ble_219_0c035900`
+- Called by: `trace_fmt_signed`, `trace_vprintf_core`
 - Calls: `hal_trace_buf_putc`
 - Confidence: medium
 
@@ -1732,6 +1978,6 @@ POSIX write wrapper: clears the global errno DAT_20019540, calls the low-level _
 **Notes:** Could be another 3-argument syscall wrapper (open/lseek); write is the most consistent sibling of read. FUN_0c04846c is the BES _write syscall.
 
 - Addresses by version: 219: 0x0C071AD0
-- Called by: `ble_219_0c0285ec`, `ble_219_0c02d358`, `ble_219_0c02d870`, `ble_219_0c02db00`, `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c02e5a4`, `ble_219_0c02e758`, `console_write_crlf`, `console_putc`, `ble_219_0c0366e4`, `ble_219_0c041dc0` ...
+- Called by: `nb_upgrade_process_cmd`, `ble_uart_process_task`, `ble_nvdata_sector_header_write`, `ble_nvdata_slot_mark_used`, `ble_nvdata_write_task`, `nvdata_device_init`, `uart_disp_send_frame`, `uart_bridge_write_channel0`, `console_write_crlf`, `console_putc`, `nb_upgrade_packet_info_rebuild`, `ble_nvdata0_dev_write_record` ...
 - Calls: `_write`
 - Confidence: medium

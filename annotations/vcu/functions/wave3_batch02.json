@@ -1,0 +1,332 @@
+{
+  "vcu_0159_0800673c": {
+    "name": "vcu_code_nibble_entry_tick",
+    "summary": "Pack button presses into a nibble code and compare it with the stored code after idle",
+    "description": "Periodic tick of a button-code entry. It first runs vcu_input_sm_c_tick, vcu_input_sm_b_tick, vcu_input_sm_e_tick and vcu_input_sm_d_tick, then consumes the press flags DAT_200021c1 (code 1), DAT_200021b5 (code 2), DAT_200021be (code 3) and DAT_200021bb (code 4) into the pending code DAT_20002044 and the last-code register DAT_20002047. While the entry count DAT_2000202d is below the required length DAT_20002046, a pending code is shifted into the low nibble of the 32-bit word DAT_20002030 (word = word << 4 | code), the count is incremented, DAT_20001fac is reloaded with 3000, the redraw flag DAT_20001fbc is set and app_set_state(3) is called; the idle counter DAT_20001356 is held at 0. Once the count reaches the length, the idle counter runs past about 60 ticks, then DAT_20002030 is compared with the stored code DAT_20002034: a match calls app_set_state(4) and returns 1, a mismatch calls app_set_state(1), increments the failure counter DAT_20002048 and calls vcu_nibble_count_snapshot. The entry word and the count are not cleared on mismatch.",
+    "category": "input",
+    "params": [],
+    "returns": {"type": "bool", "description": "1 when the entered code equals DAT_20002034 (state 4 entered), else 0"},
+    "confidence": "medium",
+    "notes": "The meaning of the four input codes and of the stored code DAT_20002034 is not shown by this function; the labels follow the state values it sets."
+  },
+  "vcu_0159_0800683c": {
+    "name": "vcu_input_b_event_frame_send",
+    "summary": "Queue Ninebot command 0x61 with a 3-byte payload when the input-B event flag is set",
+    "description": "If the one-shot event flag DAT_200021b5 is 1, it calls vcu_ninebot_tx_queue_push with kind 0x16, arguments 4 and 2, length 3, command 0x61 and the 32-bit word 0x00000020 as payload (bytes 0x20 0x00 0x00), then returns the pair (3, 0x61). When the flag is clear it does nothing and returns its two arguments unchanged. The flag is not cleared here, and a full TX ring drops the frame inside vcu_ninebot_tx_queue_push.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "returned unchanged when no frame is queued"},
+      {"name": "param_2", "type": "u32", "description": "returned unchanged when no frame is queued"}
+    ],
+    "returns": {"type": "u64", "description": "r0:r1 = (3, 0x61) when a frame was queued, otherwise param_1:param_2"},
+    "confidence": "medium",
+    "notes": "DAT_200021b5 is treated as the input-B press event, following the vcu_input_sm_b_tick naming. Command 0x61 is not documented elsewhere in this packet."
+  },
+  "vcu_0159_0800688c": {
+    "name": "vcu_deep_sleep_enter_and_restore",
+    "summary": "Enter WFI deep sleep with EXINT inputs armed, then restore clocks on wake",
+    "description": "Power-down sequence. Before sleep it configures EXINT line 3 (vcu_exint3_pa3_init) and PB12/PB14 (vcu_exint_pb12_pb14_init), sets the outputs to their start levels (vcu_gpio_outputs_set_levels), pulses the CAN1 reset (vcu_can1_reset_pulse), gates the CAN1 clock off (vcu_can1_clock_disable) and saves CRM.CFG (DAT_40021004) and CRM.CTRL into DAT_20001fe0 and DAT_20001fe4. It then suspends SysTick, sets the voltage regulator to low-power mode (pwc_voltage_regulate_set with PWC_REGULATOR_LOW_POWER) and enters deep sleep with WFI (pwc_deep_sleep_mode_enter with PWC_DEEP_SLEEP_ENTER_WFI). After wake it resumes SysTick, disables the EXINT3 and EXINT12 interrupts, waits 120 us (delay_us(0x78)), switches SYSCLK back to the PLL (vcu_sysclk_switch_to_pll) and rewrites CRM.CFG and CRM.CTRL from the saved words where they differ. DAT_20001fb7, DAT_20001fb8 and DAT_20001fc4 are cleared before sleep.",
+    "category": "power",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The power-saving purpose is inferred from the PWC calls. Which EXINT line actually wakes the MCU is not decided by this function."
+  },
+  "vcu_0159_080069b4": {
+    "name": "vcu_code_digit_entry_tick",
+    "summary": "Advance the 4-digit code entry: cycle digits, move the cursor, compare on commit",
+    "description": "Digit-wise code entry. It runs the five input debouncers (vcu_input_sm_a_tick to vcu_input_sm_e_tick), then input DAT_200021c1 decrements and input DAT_200021b5 increments the digit at the cursor DAT_2000202d in the byte array DAT_2000204c (wrapping 0 and 9), each change calling app_set_state(3) and mirroring the digit in DAT_20002044. DAT_200021be moves the cursor left and DAT_200021bb moves it right, up to the high-water mark DAT_20002050. A rising edge of DAT_20001f4f, or DAT_200021b8 set, commits the digit: at the high-water mark both DAT_20002050 and the cursor advance, otherwise the cursor jumps to the high-water mark. Once the cursor is past digit 3, vcu_digits4_to_int converts the four digits and compares the result with the stored code DAT_20001b76: a match calls app_set_state(4) and returns 1, a mismatch calls app_set_state(1), increments DAT_20002048 and calls vcu_nibble_count_snapshot.",
+    "category": "input",
+    "params": [],
+    "returns": {"type": "bool", "description": "1 when the four digits match DAT_20001b76 (state 4 entered), else 0"},
+    "confidence": "medium",
+    "notes": "The stored code DAT_20001b76 is written elsewhere. The button roles are inferred from the state transitions only."
+  },
+  "vcu_0159_08006b24": {
+    "name": "vcu_ninebot_rx_cmd_handle",
+    "summary": "Dispatch one inbound Ninebot-style command frame and queue its reply",
+    "description": "Dispatches on command byte frame[3]. Byte frame[1] is the requester address used as the reply target, and frame[4] and frame[5] are the arguments. Command 1 queues four bytes from DAT_20001ab4 + frame[4] and clears DAT_2000102e. Command 2 calls app_set_state(4) when frame[4] is 0x7E and frame[5] is 1, then acknowledges. Command 3 with frame[4] 0x86 starts TMR2 channel 1 PWM at 0xAAA (vcu_tmr2_ch1_pwm_start, DAT_20001fe8 = 10) when frame[5] is 1 or stops it (tmr2_pwm_output_disable, DAT_20001fe8 = 11) when frame[5] is 0. Command 4 stores a 16-bit value into DAT_20001cfe when frame[4] is ':' and into DAT_20001d00 when frame[4] is ' ', and that path replies with a value 3 or 2 chosen from it. Commands 7 and 10 set DAT_20001f47 and DAT_20001f58 to (1, 1) and (1, 0). Command 0x7A stores frame[4] (0 or 1) in DAT_20001fd0 and replies, and command 0x7B stores frame[4] (0..4) in DAT_20001d10, manages DAT_20001fb5 and DAT_20001fbc, and replies. Replies go through vcu_ninebot_tx_queue_push with kind 0x16.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "received frame: byte 1 requester address, byte 3 command, bytes 4 and 5 arguments"},
+      {"name": "param_2", "type": "u32", "description": "not used by the handler"}
+    ],
+    "returns": {"type": "u64", "description": "last command and argument pair passed to the reply builder; not used by the caller"},
+    "confidence": "medium",
+    "notes": "Frame byte layout and command meanings are inferred from the RAM each branch updates. The reply argument order is copied from the calls as decompiled."
+  },
+  "vcu_0159_08007d88": {
+    "name": "vcu_flash_record_pingpong_save",
+    "summary": "Save the 512-byte record to alternating flash half-pages at 0x0801F000 and 0x0801F400",
+    "description": "Saves the 512-byte RAM record at DAT_20001ab4 to flash in two alternating slots. It increments the generation counter DAT_20001022, copies it to DAT_20001cb2, and stores a checksum of the record (vcu_sum_s16_minus_trailer over 256 s16 words, which also subtracts the words at index 250 and 251) in DAT_20001ca8 and DAT_20001caa. With interrupts disabled, an even generation writes to 0x0801F000 and an odd generation to 0x0801F400: each write first calls vcu_0159_08005b40 on the 512-byte target and, only if that succeeds, vcu_0159_08005d58 with the record. The matching generation word DAT_20001024 (even) or DAT_20001026 (odd) is updated only when both calls succeed.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "vcu_0159_08005b40 and vcu_0159_08005d58 are not yet described; they are taken to be a flash pre-check and a flash program step from their arguments. The checksum is stored but not written into the record here."
+  },
+  "vcu_0159_08007e0c": {
+    "name": "vcu_status_update_if_enabled",
+    "summary": "Run the level hold timer and input edge actions unless the inhibit flag is set",
+    "description": "If DAT_20001f48 is not 1, it calls vcu_level_hold_timer_update (vcu_0159_080088f4) and then vcu_input_edge_actions (vcu_0159_08008614). When DAT_20001f48 is 1 it does nothing, so both steps are skipped while the flag is set. The same flag makes vcu_can_periodic_telemetry_tick reset its counters.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Reading DAT_20001f48 as an inhibit flag is inferred from its use in vcu_can_periodic_telemetry_tick."
+  },
+  "vcu_0159_08007ecc": {
+    "name": "vcu_sensor_threshold_pulse_count",
+    "summary": "Count sustained high readings of two sensor words and send a burst-count message",
+    "description": "Takes the larger of app_get_u16_2000329e and app_get_u16_200032a0 after dividing each by 16. While DAT_20001cf6 is 0, DAT_20001b62 is below 60 and DAT_20001fd6 is 0, a value of 100 or more increments the debounce counter DAT_200014c9 (saturating at 100), and when it reaches 10 with DAT_200021c4 clear, DAT_200021c4 is set and the burst counter DAT_200021c5 increments modulo 10. A value below 50 clears DAT_200014c9 and DAT_200021c4. A nonzero burst counter opens a 300-tick window (DAT_200014d8); while vcu_pb12_input_active_low() is true, burst 3 sends command 0x3A with payload 1, burst 5 sends 0x1F with payload 0, calls app_set_state(4) and sets DAT_20001f6f, burst 8 sends 0x3B with payload 1 and burst 9 sends 0x20 with a 1-byte payload of 2, and the burst counter then resets. When DAT_20001f6f clears while DAT_2000101a is 0, DAT_20001fb4 is set. When the gate fails, the counters are cleared and DAT_200021c4 is set to 1.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of the two sensor words and of the message commands is not established. The burst-to-message mapping is copied from the code."
+  },
+  "vcu_0159_08008614": {
+    "name": "vcu_input_edge_actions",
+    "summary": "Apply input edge events: PA6 toggle, mode bits, item flags and the press state machine",
+    "description": "Edge processor. Each event flag is compared with its shadow copy and any change sets the redraw flag DAT_20001fbc. Input-B press (DAT_200021b5 against DAT_200021b4): unless the sub-mode DAT_20001fa4 is 4, it toggles PA6 through vcu_pa6_output_set and flips DAT_20001cfa and DAT_20001f53, and if DAT_2000123e is 3, 7 or 8 it queues command 0x61 with a 3-byte payload. Events DAT_200021be and DAT_200021bb toggle the mode bits DAT_20002020 to DAT_20002026 on press 1 and step DAT_20002024 through 0, 1, 2 on press 3. Event DAT_200021b8 on press sets one of DAT_20001f70 to DAT_20001f75 or DAT_20001f4a according to the item in DAT_20001b48, with item 6 setting DAT_20001f73 unless both DAT_20001af2 bit 4 and DAT_20001e6a bit 3 are set; on release all of them are cleared. The DAT_200021c1 press runs a four-state machine in DAT_20001fa4 (1 idle, 2 to 4) using bits of DAT_20001af0, DAT_20001aee, DAT_20001aec and DAT_20001f78, and the threshold DAT_20001b62 below 50.",
+    "category": "input",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "not used; returned unchanged in the pair"},
+      {"name": "param_2", "type": "u32", "description": "not used; returned unchanged in the pair"}
+    ],
+    "returns": {"type": "u64", "description": "param_2:param_1 unchanged"},
+    "confidence": "medium",
+    "notes": "The item and mode names are not defined in this packet; they are described by the flags they set. The four-state machine's state names are inferred from the transitions."
+  },
+  "vcu_0159_080088f4": {
+    "name": "vcu_level_hold_timer_update",
+    "summary": "Count ticks while the scaled level stays at or above 60, and flag 3 at 250 ticks",
+    "description": "Runs the five input debouncers (vcu_input_sm_a_tick to vcu_input_sm_e_tick), then computes the level as the larger of app_get_u16_2000329e and app_get_u16_200032a0 divided by 16. A level below 60 clears the counter DAT_200014da and DAT_200021c4. A level of 60 or more with the counter at most 299 increments the counter, and when it reaches 250 the counter is reset and DAT_200021c4 is set to 3. A level of 60 or more with the counter above 299 changes nothing.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 250-tick threshold and the value 3 written to DAT_200021c4 are as coded. The consumers of DAT_200021c4 are not in this packet."
+  },
+  "vcu_0159_080089b8": {
+    "name": "vcu_level_hold_timer_thunk",
+    "summary": "Tail-call thunk that jumps to vcu_level_hold_timer_update",
+    "description": "A single branch to vcu_0159_080088f4 (vcu_level_hold_timer_update), so calling this address runs that function with no extra work. Its only caller in the packet is vcu_0159_08005938. The decompile repeats the target body because Ghidra follows the thunk.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08008fe0": {
+    "name": "vcu_ninebot_send_cmd51_u16",
+    "summary": "Store a 16-bit value in DAT_20001d02 and queue Ninebot command 0x51 with it",
+    "description": "Stores its 16-bit argument in DAT_20001d02, then calls vcu_ninebot_tx_queue_push with kind 0x16, arguments 4 and 2, length 3 and command 0x51, with DAT_20001d02 as the payload pointer. The payload is three bytes starting at DAT_20001d02, so it is the 16-bit value followed by one more byte. A full TX ring drops the frame.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "value to report"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of command 0x51 is not documented in the packet. The third payload byte is whatever follows DAT_20001d02 in RAM."
+  },
+  "vcu_0159_08009fa4": {
+    "name": "vcu_pb14_timed_edge_sequence",
+    "summary": "Run the PB14 timed edge-count sequence: 200 and 700 tick windows, 4 edges, timeout to 6",
+    "description": "Periodic state machine on GPIOB pin 14 (0x4000), read through vcu_gpio_pins_all_high into DAT_20001fb8. Each call sets DAT_20001fa8 = 1, then runs vcu_input_sm_c_tick, vcu_fault_warning_evaluate(6), vcu_periodic_100_tick_check and vcu_alert_tone_sequencer. The state is DAT_20001fd1 and the tick counter DAT_200013c2 restarts at each state change. State 0 samples for about 200 ticks, setting bits 2 and 3 of DAT_20001f92 when DAT_20001aee bit 2 is set and DAT_20001f78 bit 0 is clear, then goes to state 1. States 1, 3 and 5 count pin level changes: four changes advance (1 to 2, 3 to 4, 5 to 4) and 300 ticks without that many changes go to state 6. States 2 and 4 hold for about 200 and 700 ticks while sampling the pin, and state 4 ends in state 5. State 6 sets DAT_20001fb4, returns to state 0 and clears DAT_20001fb8.",
+    "category": "input",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The purpose of this PB14 handshake or pulse-train check is not established. The states, windows and edge counts are as coded."
+  },
+  "vcu_0159_08009fcc": {
+    "name": "vcu_slot_193c_alert_tick",
+    "summary": "Set the slot flag DAT_20001fa8, then run vcu_0159_0800193c and the alert tone sequencer",
+    "description": "Sets the slot-active flag DAT_20001fa8 to 1, calls vcu_0159_0800193c (not yet described) and then vcu_alert_tone_sequencer. It is a short slot handler called from vcu_0159_080047ac and follows the same flag convention as the other slot handlers in this packet.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The purpose of vcu_0159_0800193c is not known from this packet."
+  },
+  "vcu_148_0800a138": {
+    "name": "vcu_level_gauge_update_v148",
+    "summary": "Update the VCU_148 level gauge: bar, 2-digit number and LED frame commit",
+    "description": "VCU_148-only variant of the 0..100 level display. It clamps the level to 100, zeroes the 16-byte frame DAT_200021ce and maps the level to a divider DAT_20001482 (0..10) with util_map_range_clamp_high. Unless the rate gate returns early, it updates the display once every divider+1 calls and sets bit 0 of DAT_20001488 when group A (DAT_20001c0c, 0e, 10, 12) is nonzero and bit 5 when group B (DAT_20001c14, 16, 18) is nonzero. With group A zero and either group B zero or DAT_200022de zero, it shows the level as two digits; with only group B set it sets the LCD bit 3 and cycles a per-item table at offset 0x12 every 301 calls, and with group A set it sets the LCD bit 3 and cycles a table at offset 0x72. The displayed level DAT_2000144f is drawn with vcu_level_bar_draw and may step up by at most 5 per update toward the target (never above the target or 109) when DAT_20001a20 bit 2 is set. Unless the rate gate returned early, the frame is committed with vcu_0159_0800ed4c(frame, 0x87).",
+    "category": "display",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "display level 0..100 (clamped to 100)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The table base pointers come from a register that the decompile does not show, so the table contents are not known. Item names are not defined in this packet."
+  },
+  "vcu_0159_0800a264": {
+    "name": "vcu_state2_periodic_tick",
+    "summary": "Run the state-2 periodic tick: sensors, faults, code entries, alarms and a 3-pulse latch",
+    "description": "Periodic handler for the state-2 slot in the VCU_0159 image. It sets DAT_20001fa8 = 1 and runs vcu_sensor_limit_derate_eval(2), vcu_fault_warning_evaluate(2), vcu_pa6_output_status_update, vcu_c14_c15_blink_step, vcu_fault_0f_update(2), the not-yet-described vcu_0159_080042f8, vcu_0159_08006668 and vcu_0159_08002f30, vcu_alert_tone_sequencer and vcu_event_countdown_a(3000). Bit 7 of DAT_20001aee selects vcu_code_digit_entry_tick and otherwise bit 8 selects vcu_code_nibble_entry_tick, and a successful entry sets DAT_2000202c; a rising edge of bit 7 calls vcu_nibble_count_snapshot. A nonzero DAT_20001fb8 is cleared and counted toward three; the third count latches DAT_20001fc4, reloads DAT_20001fac to 3000 and sets bits 2 and 3 of DAT_20001f92. Bits 2 and 3 of DAT_20001f92 are also cleared or set through DAT_2000135b according to DAT_20001f78 bit 0 and DAT_20001b62 below 30.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The state number is the argument passed to vcu_sensor_limit_derate_eval, so the label is inferred. Three calls in the body are not yet described."
+  },
+  "vcu_153_0800a424": {
+    "name": "vcu_state0_periodic_tick_v148_153",
+    "summary": "Run the VCU_148 to VCU_153 state-0 periodic tick: derate, debounce, alarms and LED outputs",
+    "description": "Periodic state-0 handler for builds 148 to 153, the counterpart of vcu_state0_periodic_tick_v0159. It sets DAT_20001f98 = 1 (the mode code used by vcu_pa6_output_status_update) and clears bit 2 of DAT_20001f82, then calls the same set of routines as the VCU_0159 version in the same order: vcu_sensor_limit_derate_eval(0), vcu_level_hold_timer_update, vcu_input_b_event_frame_send, vcu_alarm_edge_trigger, vcu_event_countdown_b(1000), vcu_threshold_alarm_latch, vcu_debounce_condition_a, vcu_pa6_output_status_update, vcu_alert_tone_sequencer, vcu_0159_08003c5c (not yet described), vcu_pair_pulse_pattern_step, vcu_c14_c15_blink_step and vcu_condition_b_latch_flags. It does not set DAT_20001fa8 and has no warning-code step.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The routines are taken from the callee list of this family; the order is that of the decompiled calls, which the list follows. The state number 0 is the argument of vcu_sensor_limit_derate_eval, so the label is inferred."
+  },
+  "vcu_0159_0800a4e8": {
+    "name": "vcu_condition_b_slot_tick",
+    "summary": "Run the condition-B latch and alert tone sequencer, then set slot flag DAT_20001fa8",
+    "description": "Calls vcu_condition_b_latch_flags, then vcu_alert_tone_sequencer, and finally sets the slot flag DAT_20001fa8 to 1. It is a minimal slot handler with the same flag convention as vcu_state2_periodic_tick.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_0800a500": {
+    "name": "vcu_state0_periodic_tick_v0159",
+    "summary": "Run the VCU_0159 state-0 periodic tick: derate, debounce, alarms, PA6 and warning code 0x1E",
+    "description": "VCU_0159 version of the state-0 periodic handler. It sets DAT_20001fa8 = 1 and clears bit 2 of DAT_20001f92, then runs vcu_sensor_limit_derate_eval(0), vcu_level_hold_timer_update, vcu_input_b_event_frame_send, vcu_alarm_edge_trigger, vcu_event_countdown_b(1000), vcu_debounce_condition_a, vcu_condition_b_latch_flags, vcu_pa6_output_status_update, vcu_alert_tone_sequencer, vcu_0159_08003c5c (not yet described), vcu_pair_pulse_pattern_step, vcu_c14_c15_blink_step and vcu_threshold_alarm_latch. It then calls vcu_warning_code_set(0x1E) when bit 3 of DAT_20001e6a and bit 12 of DAT_20001e68 are both set, and vcu_warning_code_clear(0x1E) otherwise. Finally it copies DAT_2000123d into DAT_20001b64.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The state number 0 is the argument of vcu_sensor_limit_derate_eval, so the label is inferred. Its only direct caller is vcu_0159_080047ac."
+  },
+  "vcu_153_0800afe4": {
+    "name": "vcu_level_gauge_update_v14a_153",
+    "summary": "Update the level gauge for VCU_14A to VCU_153: 2-digit number, bar and LED frame commit",
+    "description": "Level display for builds 14a to 153, the same design as vcu_level_gauge_update_v148 but without the group logic. It clamps the level to 100, zeroes the 16-byte frame DAT_200021b6 and maps the level to a divider DAT_2000152a with util_map_range_clamp_high. It returns early, without committing the frame, until DAT_200014f7 has counted past the divider; on an update it shows the level as two digits when it is below 100 (0 otherwise), then sets DAT_200014f6 to the level, stepping up by at most 5 toward the target (never above the target or 109) when DAT_20001adc bit 2 is set, and draws the bar with vcu_level_bar_draw. The frame is committed with vcu_0159_0800ed4c(frame, DAT_200022cd) on every call that does not return early.",
+    "category": "display",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "display level 0..100 (clamped to 100)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The divider rate-gate and the target step are as coded. The variant is present in six builds, so the RAM addresses differ from VCU_148 and VCU_0159."
+  },
+  "vcu_0159_0800b0c4": {
+    "name": "vcu_level_gauge_update_v0159",
+    "summary": "Update the VCU_0159 level gauge, switching to a cycling status table when a group is active",
+    "description": "VCU_0159 variant of the level gauge. It clamps the level to 100 and zeroes the 16-byte frame DAT_200021c6. While DAT_20001fd4 is clear, it takes one of two paths. If the four words DAT_20001cd8, DAT_20001cda, DAT_20001cdc and DAT_20001cde are all zero, it computes a divider DAT_20001538 with util_map_range_clamp_high and returns early (skipping the frame commit) until DAT_20001504 has counted past it; otherwise it shows the level as two digits (0 at 100 and above) with vcu_level_bar_draw, and steps the displayed level DAT_20001502 by at most +5 toward the target when DAT_20001aec bit 3 is set. If any of the four words is nonzero, it sets the LCD bit 3 and shows the next entry of the table DAT_20002248 (count DAT_200021e6) two digits at a time, each for 301 calls. Unless it returned early, the frame is committed with vcu_0159_0800ed4c(frame, DAT_200022dd) on every call.",
+    "category": "display",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "display level 0..100 (clamped to 100)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of the four group words and of the table DAT_20002248 is not defined in this packet."
+  },
+  "vcu_0159_0800bfd0": {
+    "name": "vcu_led_pattern_anim_step",
+    "summary": "Advance the three-phase LED row animation one step, drawing and clearing rows from tables",
+    "description": "One step of a LED pattern animation that acts every third call (DAT_200021d8 modulo 3). Two tables of 10-byte rows are passed in: each row starts with a count followed by frame-position and bit-mask pairs, and the second table supplies the masks. Phase 0 (DAT_200021da == 0) ORs in rows 17 down to 9, one row per step, committing the frame after each, until DAT_200021d6 reaches 9 and phase 1 starts. Phase 1 clears the row above and draws the current row while counting DAT_200021d6 down, then phase 2 starts at 9. Phase 2 clears the rows one by one; at 0 it clears the whole 16-byte frame, sets DAT_20001fbf = 1 and returns to phase 0. Frame commits use vcu_0159_0800ed4c with DAT_200022dd.",
+    "category": "display",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "first table: 10-byte rows, count then frame positions"},
+      {"name": "param_2", "type": "ptr", "description": "second table: 10-byte rows of bit masks, same layout"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The phase names are inferred from the transitions. The tables are not shown in this packet."
+  },
+  "vcu_0159_0800c960": {
+    "name": "vcu_ertc_default_datetime_init",
+    "summary": "Start the ERTC on LICK, set 21-05-01 00:00:00 and wait for calendar sync",
+    "description": "Brings up the real-time clock. It enables the PWC clock (crm_periph_clock_enable with CRM_PWC_PERIPH_CLOCK), enables backup-domain access (pwc_battery_powered_domain_access) and pulses the backup-domain reset (crm_battery_powered_domain_reset). It enables the low-speed internal clock with crm_clock_source_enable and waits on CRM_LICK_STABLE_FLAG, selects LICK as the ERTC clock with crm_ertc_clock_select and enables it with crm_ertc_clock_enable. It then resets the ERTC, sets the prescalers with ertc_divider_set(99, 399), sets 24-hour mode, writes the date from year argument 0x15, month 5, day 1 (ertc_date_set) and builds the time 00:00:00 in BCD with ertc_num_to_bcd. With write protection off and init mode entered, it writes ERTC.TIME directly and exits init mode; if ERTC.CTRL bit 5 is clear it waits for the calendar update, and it re-enables write protection. If init mode cannot be entered, it returns 0 and leaves write protection disabled.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "u32", "description": "1 when ERTC.TIME was written, 0 when init mode could not be entered"},
+    "confidence": "medium",
+    "notes": "The 1 Hz result assumes a nominal 40 kHz LICK, so 99 and 399 divide to 1 Hz. The date call passes only three arguments in the decompile, so the weekday is not set here."
+  },
+  "vcu_0159_0800d018": {
+    "name": "vcu_can_ef00_message_send",
+    "summary": "Send a PGN 0xEF00 message as one CAN frame or as a J1939 TP session",
+    "description": "Sends a proprietary-A (PGN 0xEF00) message. When param_3 (the byte count) is below 6, it builds one 29-bit CAN frame with vcu_can_ef00_frame_build (fixed arguments 6 and 1, with param_1, param_2, param_4, param_5 and param_6 as the data bytes and param_3 as the length) and queues it with vcu_record_send_short, masking the identifier to 29 bits. For 6 or more bytes it calls proto_session_send on the session buffer at DAT_20002970 with argument 7 and 1, so the transport-protocol state machine sends the message as several frames.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "data byte 0 (r0)"},
+      {"name": "param_2", "type": "u32", "description": "data byte 1 (r1)"},
+      {"name": "param_3", "type": "u32", "description": "payload byte count; below 6 sends one frame"},
+      {"name": "param_4", "type": "u32", "description": "data byte 2 (r3)"},
+      {"name": "param_5", "type": "u32", "description": "data byte 3 (stack)"},
+      {"name": "param_6", "type": "u32", "description": "data byte 4 (stack)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The decompile passes the data as 32-bit register values, so the truncation to bytes is assumed to happen in vcu_can_ef00_frame_build. The meaning of the fixed arguments 6, 1, 7 and 1 is not shown."
+  },
+  "vcu_0159_0800d25e": {
+    "name": "vcu_can_tp_session_table_tick",
+    "summary": "Advance every J1939 TP sender session in the table once per timer tick",
+    "description": "Iterates over a session table described by a base pointer at offset 0, a 16-bit session count at offset 4 and a timer argument at offset 8 (the table at DAT_20002970). For each 0x24-byte session it calls vcu_can_tp_sender_tick with the timer argument, so each TP sender state machine advances once per tick. It has no direct caller in the packet.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "session table descriptor: base, u16 count, timer argument"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_0800eac4": {
+    "name": "vcu_can_periodic_telemetry_tick",
+    "summary": "Run the periodic CAN telemetry scheduler: 2, 10, 20 and 100-tick frame groups",
+    "description": "Periodic CAN scheduler called once per tick. When DAT_20001f48 is 1 it resets DAT_2000102c, DAT_20001030 and DAT_2000102e. Otherwise, while DAT_2000185e is nonzero it only counts it down and returns; then it updates the countdowns DAT_20001868 and DAT_2000186a, which set bits 1 and 2 of DAT_2000186e when they expire, and increments the tick counter DAT_20001848. Each value is supplied by the callback at DAT_20001864 (called with the ID) and sent with vcu_record_send_chunked: ID 0x100 (8 bytes) on even ticks, IDs 0x203, 0x204, 0x205, 0x209, 0x20A, 0x20B and 0x20C (8 bytes) every 10 ticks, IDs 0x301, 0x302 (2 bytes) and 0x485 every 20 ticks, and IDs 0x480 to 0x484 (8 bytes) every 100 ticks. When DAT_2000185b is set, DAT_2000184a counts to 50, then the flag is cleared, DAT_20001854 is incremented and vcu_0159_08002980 is called.",
+    "category": "can",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The callback at DAT_20001864 takes an ID and returns a data pointer, as the calls show. vcu_0159_08002980 is not yet described. The meaning of the countdown flags is inferred from their use."
+  },
+  "vcu_0159_0800ed4c": {
+    "name": "vcu_led_tm1640_frame_commit",
+    "summary": "Write the 16-byte LED frame to the TM1640-style driver on PB6, PB7 and PA9",
+    "description": "Sends a 16-byte display frame over a bit-banged serial bus to a TM1640-style LED driver: data on PB7 and clock on PB6 (led_driver_shift_out_byte), strobe on PA9 (vcu_gpio_pa9_set and vcu_gpio_pa9_reset). It sends command 0x40 (auto-increment data write), then command 0xC0 (start address 0) followed by the 16 frame bytes, then the display control byte param_2 | 0x88, with the strobe asserted around each command.",
+    "category": "display",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16-byte frame buffer"},
+      {"name": "param_2", "type": "u32", "description": "brightness code, low 3 bits; OR-ed with 0x88 to turn the display on"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The TM1640 identification is inferred from the command bytes 0x40, 0xC0 and 0x88 plus brightness, and from the bus pins. The code does not name the chip."
+  },
+  "vcu_0159_0800ef5a": {
+    "name": "vcu_can_msg_obj_send",
+    "summary": "Send one queued CAN message object: 29-bit ID, length byte and payload",
+    "description": "Reads a message object at param_2: the first word masked with 0x1FFFFFFF is the CAN identifier, the byte at offset 4 is the length and the bytes from offset 5 are the payload. It hands these to vcu_record_send_short and always returns 1. It has no direct caller in the packet, so it is reached through a pointer.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "not used"},
+      {"name": "param_2", "type": "ptr", "description": "message object: u32 identifier, u8 length at +4, payload from +5"}
+    ],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_0800efd8": {
+    "name": "vcu_usart_baud_frame_config",
+    "summary": "Set a USART's BAUDR, 9-bit word length and stop bits from the peripheral clock",
+    "description": "Computes the integer baud divisor round(pclk / baud) from the clock frequencies that crm_clocks_freq_get fills in, then writes it into the low 16 bits of BAUDR. It sets CTRL1 bit 12 from bit 0 of param_3 (9-bit word length) and CTRL2 bits 13:12 from bits 1:0 of param_4 (stop-bit code). Rounding is to nearest: the remainder of the division in tenths is compared with 5. The peripheral clock is read from a stack slot only for USART1, because the decompile assigns that slot only when the instance is &USART1.",
+    "category": "uart",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "USART peripheral (USART1 or another instance)"},
+      {"name": "param_2", "type": "u32", "description": "baud rate in bit/s"},
+      {"name": "param_3", "type": "u32", "description": "word-length flag, bit 0 (1 for 9-bit words)"},
+      {"name": "param_4", "type": "u32", "description": "stop-bit code, bits 1:0"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "For USART instances other than USART1 the decompile leaves the clock variable unassigned, so the clock used for them is not determined here and must be checked in the disassembly. Field positions follow the masks in the code."
+  }
+}

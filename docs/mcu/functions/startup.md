@@ -1,6 +1,6 @@
 # MCU - `startup` functions
 
-5 functions.
+6 functions.
 
 | Function | Address (MCU_0160) | Summary |
 |---|---|---|
@@ -9,6 +9,7 @@
 | [`__scatterload_decompress`](#__scatterload_decompress) | 0x08001ABC | Decompress a packed section (literals, zero runs, back-references) into RAM |
 | [`app_main_thunk`](#app_main_thunk) | 0x08001178 | Tail-call thunk that jumps to the application main entry FUN_0800d548 |
 | [`mcu_read_device_identity`](#mcu_read_device_identity) | 0x08008EA4 | Copy the 96-bit UID to RAM, check DBGMCU IDCODE against 0x700301C5 and store a UID checksum |
+| [`mcu_startup_init_table_main`](#mcu_startup_init_table_main) | 0x08001A98 | Startup: runs the two-entry init table at 0x0800F634, then tail-calls the app main |
 
 ## Reset_Handler
 
@@ -59,7 +60,7 @@ ARM/Keil scatter-load decompressor, reached through the load-region table by fun
 Two-instruction veneer that branches to FUN_0800d548, the application main routine that is also the third call in Reset_Handler. It is called from the C-runtime scatter-load routine (mcu_0160_08001a98, the __main equivalent) once RAM sections are initialised. Same role as the VCU image's app_main_thunk.
 
 - Addresses by version: 12b: 0x08001178, 143: 0x08001178, 152: 0x08001178, 0160: 0x08001178
-- Called by: `mcu_0160_08001a98`
+- Called by: `mcu_startup_init_table_main`
 - Confidence: high
 
 ## mcu_read_device_identity
@@ -74,3 +75,15 @@ Copies the three UID words at 0x1FFFF7E8, 0x1FFFF7EC and 0x1FFFF7F0 to 0x20001FB
 - Peripheral registers: `DEBUG.DEBUG_IDCODE` (R)
 - Called by: `mcu_0160_0800b324`
 - Confidence: high
+
+## mcu_startup_init_table_main
+
+**Startup: runs the two-entry init table at 0x0800F634, then tail-calls the app main**
+
+Walks a table of 16-byte records in flash from 0x0800F634 up to 0x0800F654 (two records). Each record holds three 32-bit arguments and a function pointer, and the loop calls the pointer with the three arguments, in the style of a scatter-load (typically copy-initialised data and zero-initialised BSS; the table targets are not decoded in this batch). After the loop it calls thunk_FUN_0800D548 (app_main_thunk, mcu_0160_08001178) and then halt_baddata, so the routine does not return in normal operation. It runs after the reset path's clock and vector setup.
+
+**Notes:** The decompiler flags bad instruction data after the app-main call, and the function ends in halt_baddata, so the code after the call is probably a trap. The copy and zero targets are inferred from the record layout and the wave-1 Reset_Handler notes.
+
+- Addresses by version: 12b: 0x08001A7C, 143: 0x08001A7C, 152: 0x08001A7C, 0160: 0x08001A98
+- Calls: `app_main_thunk`
+- Confidence: medium
