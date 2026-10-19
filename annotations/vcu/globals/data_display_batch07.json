@@ -242,7 +242,7 @@
   "description": "Index into the active warning list (0x20002248) shown by display state 0x0B. It advances about every 300 ticks (display_state0b_timer, 0x20001516) and wraps when it reaches the warning count 0x200021e6."
  },
  "vcu_g_0159_200014fb": {
-  "name": "display_state1_phase30",
+  "name": "display_state3_phase30",
   "type": "u8",
   "size": 1,
   "anchor": [
@@ -250,7 +250,7 @@
    "0x200014fb"
   ],
   "category": "display",
-  "description": "30-tick phase counter of display state 1 in vcu_display_frame_render_tick. It wraps at 0x1e; at each wrap the alert pulse (display_pulse_count, display_alert_request) advances, or the pulse state is reset and the state-1 digit is redrawn."
+  "description": "30-tick phase counter of display state 3 in vcu_display_frame_render_tick. It wraps at 0x1e; at each wrap, while display_alert_request (0x20001f65) is set the alert pulse counter display_pulse_count advances, otherwise the pulse state is reset and the state-3 digit is redrawn."
  },
  "vcu_g_0159_200014fc": {
   "name": "display_seq_idx",
@@ -283,7 +283,7 @@
    "0x200014fe"
   ],
   "category": "display",
-  "description": "0..3 pulse sub-phase counter of the alert pulse in display state 1 (counts up and saturates at 3 once it reaches 2). Steps 0 and 1 drive the first flash and 2 and 3 the second."
+  "description": "0..3 pulse sub-phase counter of the alert pulse in display state 3 (counts up and saturates at 3 once it reaches 2). Steps 0 and 1 drive the first flash and 2 and 3 the second."
  },
  "vcu_g_0159_200014ff": {
   "name": "display_pulse_count",
@@ -294,7 +294,7 @@
    "0x200014ff"
   ],
   "category": "display",
-  "description": "0..1 counter of the two-step alert pulse requested by display_alert_request (0x20001f65): it advances on each 30-tick wrap of display_state1_phase30; after the second step the request is cleared and FUN_08001b64(4) is called (probably an indicator or beep)."
+  "description": "0..1 counter of the two-step alert pulse requested by display_alert_request (0x20001f65): it advances on each 30-tick wrap of display_state3_phase30; after the second step the request is cleared and FUN_08001b64(4) is called (probably an indicator or beep). Advanced by display_state3_phase30 (state 3 of the renderer)."
  },
  "vcu_g_0159_20001500": {
   "name": "display_state8_seq_idx",
@@ -624,7 +624,7 @@
    "0x20001530"
   ],
   "category": "display",
-  "description": "Tick counter of the state-2 blink sequence while display_blink_active (0x20001fc4) is set: 0..29 on, 30..59 off, 60..89 on, 90..119 off, 120..149 on and then the sequence ends and clears the flag. Probably the alarm/blink pattern of the state-2 display."
+  "description": "Second tick counter of the state-2 blink while display_blink_active (0x20001fc4) is set: 0..29 segments on, 30..59 off, 60..89 on, 90..119 off, and at 120..149 the counter is reset to 0 and the flag cleared (the sequence ends). Probably the alarm pattern of the state-2 display."
  },
  "vcu_g_0159_20001532": {
   "name": "display_state9_ticks",
@@ -646,7 +646,7 @@
    "0x20001534"
   ],
   "category": "display",
-  "description": "Tick counter of the state-2 flash: 0..19 on (FUN_0800c81c(1) and FUN_08001b64(3)), 20..39 off, then it resets to 0 and clears display_blink_active when the blink is in its last phase."
+  "description": "First tick counter of the state-2 blink while display_blink_active is set: 0..19 on (FUN_0800c81c(1) and FUN_08001b64(3)), 20..39 off, and at 40 it resets to 0 and clears display_blink_active (the sequence ends)."
  },
  "vcu_g_0159_20001536": {
   "name": "display_state2_period",
