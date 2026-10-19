@@ -1,0 +1,386 @@
+{
+  "bms_4168_0800343c": {
+    "name": "PendSV_Handler",
+    "summary": "PendSV exception handler: returns immediately, does no work",
+    "description": "Vector-table entry for the PendSV system exception (exception number -2). The body is a bare return, so this build does no deferred work and no context switch in PendSV. Its priority, when configured, is written by NVIC_SetPriority into the SCB SHPR3 byte.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08003474": {
+    "name": "rcc_hclk_divide",
+    "summary": "Divide a clock frequency by the AHB (HCLK) prescaler read from RCC_CFGR",
+    "description": "Reads RCC.CFGR (0x40021008) and takes the HPRE field (bits 7:4) as a 4-byte-stride index into a 16-entry table in flash at 0x08010a54. Each table entry is the right-shift count for one AHB prescaler setting (0 for undivided, 1 for /2, 2 for /4, ... 9 for /512). The function returns its argument shifted right by that count, which is the input divided by the AHB prescaler. Used in clock-tree arithmetic to derive HCLK from SYSCLK; no writes and no side effects.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "input frequency to divide, e.g. SYSCLK in Hz"}
+    ],
+    "returns": {"type": "u32", "description": "param_1 divided by the AHB prescaler"},
+    "confidence": "medium",
+    "notes": "Table contents are inferred from the STM32 HAL AHBPrescTable layout, not read from the image. The table is read at a 4-byte stride as decompiled; the element width is unverified."
+  },
+  "bms_4168_08003494": {
+    "name": "rcc_pclk_divide",
+    "summary": "Divide a clock frequency by the APB (PCLK) prescaler read from RCC_CFGR",
+    "description": "Reads RCC.CFGR (0x40021008), masks it to 15 bits and takes bits 14:12 as the index of a 8-entry shift-count table at 0x08010a94 (4-byte stride), i.e. the APB prescaler selection. The function returns its argument shifted right by the selected count, which is the input divided by the APB prescaler. No writes and no side effects. Companion of rcc_hclk_divide.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "input frequency to divide, e.g. HCLK in Hz"}
+    ],
+    "returns": {"type": "u32", "description": "param_1 divided by the APB prescaler"},
+    "confidence": "medium",
+    "notes": "The index uses CFGR bits 14:12. In the STM32G0 reference manual the APB prescaler PPRE field is at bits 10:8, so either the field position or the decompiled shift needs checking against the RM before the exact divider is trusted. Table location and element width are inferred the same way as in rcc_hclk_divide."
+  },
+  "bms_4168_08003514": {
+    "name": "bms_u8_to_bcd",
+    "summary": "Convert an 8-bit binary value to packed BCD",
+    "description": "Converts a byte to packed BCD by repeatedly subtracting 10 and counting the tens (the subtraction is kept to 8 bits). The result is the ones digit in the low nibble and the tens count in the high nibble. Correct for inputs 0..159; above 159 the tens count exceeds 15 and is masked to 4 bits, so the result wraps. No globals, registers or memory are touched. Callers bms_4168_08002704 and bms_4168_080027a4 likely format a value for a byte-oriented protocol field.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "binary value, valid range 0..159"}
+    ],
+    "returns": {"type": "u8", "description": "packed BCD: tens in bits 7:4, ones in bits 3:0"},
+    "confidence": "high"
+  },
+  "bms_4168_08003624": {
+    "name": "SVC_Handler",
+    "summary": "SVCall exception handler: returns immediately, does no work",
+    "description": "Vector-table entry for the SVCall system exception (exception number -5). The body is a bare return, so supervisor calls perform no work in this build. Its priority, when configured, is written by NVIC_SetPriority into the SCB SHPR2 byte (bits 31:30 of the word).",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08003626": {
+    "name": "crc8_msb_compute",
+    "summary": "CRC-8 over a byte buffer, MSB-first, init 0, polynomial supplied by the caller",
+    "description": "Computes an 8-bit CRC over len bytes starting at data, with the polynomial passed in poly and an initial value of 0. Bytes are processed MSB first with no reflection and no final XOR. For each bit the CRC is shifted left and XORed with poly when the old bit 7 was set, then XORed with poly again when the data bit is set; this is the standard step crc = (crc << 1) ^ (((crc7 ^ data_bit) != 0) ? poly : 0). Common polynomials for this form are 0x07 (CRC-8/SMBus) and 0x31 (Dallas/Maxim); the caller's choice is not visible in this packet. Only general-purpose registers are used.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "data buffer (byte array)"},
+      {"name": "param_2", "type": "u8", "description": "number of bytes; 0 means none"},
+      {"name": "param_3", "type": "u8", "description": "CRC polynomial, normal (non-reflected) form"}
+    ],
+    "returns": {"type": "u8", "description": "CRC-8 of the buffer"},
+    "confidence": "medium",
+    "notes": "The decompiler shows a void return, but the CRC accumulator is the only live value at exit, so the result is presumably returned in r0; this is unverified. The only caller in the packet is bms_4168_0800b7bc, which would confirm it."
+  },
+  "bms_4168_0800366a": {
+    "name": "bms_empty_callback",
+    "summary": "Empty no-op callback (bare return)",
+    "description": "The body is a bare return and nothing is read or written. It has no direct callers, so it is reached only through a function pointer or a table that this packet does not resolve. It is most likely a no-op placeholder used as a default or unused hook in a handler or event table.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "What the code does is certain; which table or event it is registered in is unknown."
+  },
+  "bms_4168_08003700": {
+    "name": "bms_copy_bytes8",
+    "summary": "Copy exactly 8 bytes from source to destination, unrolled",
+    "description": "Copies 8 bytes from src to dst one byte at a time, fully unrolled, with no loop, no length argument and no overlap handling. The fixed size of 8 matches a classic CAN payload or a small 8-byte record; the data it moves is not identified in this packet. Several callers in the 4139 and 4168 builds use it, so it is a shared helper for small fixed-size copies.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination, 8 bytes"},
+      {"name": "param_2", "type": "ptr", "description": "source, 8 bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 8-byte size is certain; the payload type is a guess."
+  },
+  "bms_4168_08003724": {
+    "name": "NVIC_SetPriority",
+    "summary": "CMSIS NVIC_SetPriority: set the 2-bit priority of an IRQ or system exception",
+    "description": "CMSIS-style NVIC_SetPriority for the Cortex-M0+. The priority in param_2 is masked to 2 bits and placed in bits 7:6 of its byte lane (STM32G0 implements __NVIC_PRIO_BITS = 2). For a negative IRQn, meaning a system exception (SVCall -5, PendSV -2, SysTick -1), the byte is written into the SCB SHPR2/SHPR3 word at 0xE000ED1C through a read-modify-write that keeps the other three byte lanes. For IRQn >= 0 the byte goes into the NVIC IPR array at 0xE000E400 with the same read-modify-write. Caller bms_4168_0800a3e8 sets interrupt priorities.",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "IRQn: negative for system exceptions, otherwise device IRQ number"},
+      {"name": "param_2", "type": "u32", "description": "priority; only bits 1:0 are used"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_080038c8": {
+    "name": "bms_window_latch_narrow",
+    "summary": "Debounced latch for the narrow window (+8 < 40, +10 > 5); counts whole units while latched",
+    "description": "Per-sample update of a time-debounced hysteresis latch. param_1 is a sample record: byte +0 is the time step added per call, byte +1 is an enable (0 clears all state and returns param_2 unchanged), and signed 16-bit readings at +8 and +10 are tested against the window, which is in-window when +8 < 40 and +10 > 5. Inside the window with the latch clear, or outside the 3-unit hysteresis band (+8 > 37 or +10 < 8), the timer DAT_20000608 is reset. Otherwise the timer accumulates the step, and at 30 the latch DAT_20000601 is cleared; outside the window the timer accumulates to 30 and then sets the latch and clamps the timer to 30. While the latch is set, the sub-accumulator DAT_2000060a adds the step and each time it exceeds 9 it subtracts 10 and increments param_2, so the return value counts whole tens of step units spent latched.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "sample record: +0 u8 step, +1 u8 enable, +8 s16 reading A (upper limit 40), +10 s16 reading B (lower limit 5)"},
+      {"name": "param_2", "type": "s32", "description": "running count in units of 10 step units, returned incremented"}
+    ],
+    "returns": {"type": "s32", "description": "param_2 plus whole tens of latched time accumulated in this call"},
+    "confidence": "medium",
+    "notes": "Readings A and B are probably max and min pack temperatures in degrees C, since 5..40 is a typical charge window; this is inferred from the thresholds only. The latch semantics are read from the control flow and are high confidence; the physical meaning is medium. Sibling of bms_window_latch_wide with the same algorithm and a different window."
+  },
+  "bms_4168_08003954": {
+    "name": "bms_window_latch_wide",
+    "summary": "Debounced latch for the wide window (+8 < 55, +10 > -15); counts whole units while latched",
+    "description": "Same algorithm as bms_window_latch_narrow with its own state: byte +0 is the time step, byte +1 the enable, and signed readings at +8 and +10 are tested against a wider window (in-window when +8 < 55 and +10 > -15). Hysteresis exits at +8 > 52 or +10 < -12, the latch threshold is 30 step units, and the state is held in DAT_20000600 (latch), DAT_20000604 (timer) and DAT_20000606 (sub-accumulator, carry at 10). Returns param_2 with whole tens of latched time added.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "sample record: +0 u8 step, +1 u8 enable, +8 s16 reading A (upper limit 55), +10 s16 reading B (lower limit -15)"},
+      {"name": "param_2", "type": "s32", "description": "running count in units of 10 step units, returned incremented"}
+    ],
+    "returns": {"type": "s32", "description": "param_2 plus whole tens of latched time accumulated in this call"},
+    "confidence": "medium",
+    "notes": "The window limits suggest a discharge-type window (-15..55 C) while the narrow one suggests charge (5..40 C); the readings are inferred as temperatures from the limits only."
+  },
+  "bms_4168_08004da4": {
+    "name": "crc16_usb_compute",
+    "summary": "Bitwise CRC-16, reflected poly 0x8005, init 0xFFFF, final complement",
+    "description": "Bitwise CRC-16 over len bytes starting at data. The register starts at 0xFFFF, each byte is XORed into its low half, and then 8 steps shift right and XOR 0xA001 (reflected 0x8005) whenever the LSB is set. The result is complemented (~crc & 0xFFFF). These parameters match CRC-16/USB. CRC-16/MODBUS uses the same polynomial and initial value without the final complement, so the caller's expected form must be checked before reusing it for Modbus frames. No globals, peripherals or memory writes.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "data buffer"},
+      {"name": "param_2", "type": "u8", "description": "byte count; 0 means none"}
+    ],
+    "returns": {"type": "u16", "description": "CRC-16 of the buffer, complemented"},
+    "confidence": "high",
+    "notes": "Callers in the packet: bms_4139_08007108, bms_4168_08005128, bms_4168_08007c10, bms_4168_080106c8. Whether the CRC is CRC-16/USB or a custom variant is inferred from the constants; the frame it protects is not identified here."
+  },
+  "bms_4168_08005ee4": {
+    "name": "bms_slot_table_find",
+    "summary": "Find or allocate a 36-byte slot keyed by an 8-bit pair",
+    "description": "Searches a table of 36-byte (0x24) records. param_1 points to a header whose pointer at +0 is the record array and whose u16 at +4 is the record count. Each record has key byte 0, key byte 1, and a state byte at +2 where 1 marks a free slot. With param_4 == 0 (strict mode) the function first returns 0 if the reversed pair (param_3, param_2) is in use, then returns the record keyed (param_2, param_3) if one exists, and otherwise the first free slot. With param_4 != 0 it skips the reversed check and returns the record keyed (param_2, param_3) or the first free slot. It returns a record pointer, or 0 when nothing matches and no slot is free.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "table header: +0 record array pointer, +4 u16 record count"},
+      {"name": "param_2", "type": "u8", "description": "key byte A"},
+      {"name": "param_3", "type": "u8", "description": "key byte B"},
+      {"name": "param_4", "type": "u32", "description": "mode: 0 = strict (reject reversed pair), nonzero = lenient"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the matching or newly free record, or 0"},
+    "confidence": "medium",
+    "notes": "The table most likely maps a link between two 8-bit IDs to a slot; what the IDs are is not in this packet. The state value 1 = free is read from the loops and should be checked against the writers. The record stride 0x24 and the header layout are certain from the code."
+  },
+  "bms_4168_080072ec": {
+    "name": "bms_tracking_filter_step",
+    "summary": "One step of a dead-band tracking filter that slews an estimate toward a measurement",
+    "description": "Moves the estimate DAT_20000eec one count toward the measurement DAT_20000ee8 with a dead-band accumulator. When the two differ, the step is the absolute difference masked to 20 bits and shifted right by 4, with a minimum of 5, signed toward the measurement, and it is added to the 16-bit accumulator DAT_200001f6. When the accumulator reaches 129 or more, the estimate is incremented and 128 is subtracted from the accumulator; when it reaches -129 or less, the estimate is decremented (clamped at 0) and 128 is added. Between those limits the estimate and accumulator are left alone, which is the dead band. No peripherals are touched.",
+    "category": "soc",
+    "params": [],
+    "returns": {"type": "void", "description": "none; the state is in RAM globals"},
+    "confidence": "medium",
+    "notes": "Globals: DAT_20000ee8 read-only measurement, DAT_20000eec estimate (read/write), DAT_200001f6 accumulator (16-bit signed). The 20-bit mask and >>4 suggest a high-resolution ADC or AFE reading, but the quantity (SOC, current, voltage) is a guess."
+  },
+  "bms_4139_08007360": {
+    "name": "bms_app_state_reset_legacy",
+    "summary": "Clear the application state block (4130/4139 RAM layout) and set its defaults",
+    "description": "Zeroes 22 byte-sized RAM variables, 20 of them in the 0x2000095D..0x20000A69 range and two at 0x20000113 and 0x20000114, then sets 0x20000112 to 2 and 0x20000818 to 0x5a (90). It is the 4130/4139 RAM-layout counterpart of bms_app_state_reset in the 4148/4168 builds: the same pattern and the same default values, at different addresses. The meaning of the individual variables is not established. Caller bms_4139_080072e0.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Probably the same logical function as bms_app_state_reset. Address correspondence inferred from matching writes: 0x20000112 to 0x200001aa, 0x20000113 to 0x200001ab, 0x20000114 to 0x200001ac, 0x20000818 to 0x20000904. The legacy build has no equivalents of 0x20000a53 and 0x20000b57, which the newer layout clears. Kept as a separate family because the address layouts differ."
+  },
+  "bms_4168_08007d94": {
+    "name": "bms_app_flag_b57_get",
+    "summary": "Return 1 when the byte flag at 0x20000B57 is nonzero",
+    "description": "Returns true when the byte at 0x20000B57 is nonzero and false otherwise, with no side effects. bms_app_state_reset clears this byte, so it belongs to the application state block. The code that sets it is outside this packet. Callers bms_4168_08004774, bms_4168_0800c96c and bms_4168_0800fb94 use it as a yes or no gate; the flag's meaning is not established.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when the flag is set"},
+    "confidence": "high"
+  },
+  "bms_4168_08007ea0": {
+    "name": "bms_app_state_reset",
+    "summary": "Clear 24 app state bytes and set defaults (0x200001AA = 2, 0x20000904 = 0x5A)",
+    "description": "Zeroes 24 byte-sized RAM variables, 22 of them in the 0x20000A49..0x20000B57 range (including the flag at 0x20000B57 that bms_app_flag_b57_get reads) and two at 0x200001AB and 0x200001AC. It then writes 2 to 0x200001AA and 0x5A (90) to 0x20000904, which are the default values written at reset. The pattern is the same as the legacy layout in bms_app_state_reset_legacy, so this is probably the power-on or fault-recovery reset of the application state block, with 2 as an initial state-machine value. The individual meanings are not confirmed. Callers bms_4168_08007da4 and bms_4168_08010558.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 2 and 0x5A defaults and the list of cleared variables are certain from the code. Their roles are inferred from the reset pattern and the other families. Shared by the 4148 and 4168 builds."
+  },
+  "bms_4168_080086ec": {
+    "name": "bms_app_flag_1d_get",
+    "summary": "Return the byte status flag at 0x20000001D",
+    "description": "Returns the byte at 0x2000001D without modifying it. It is read by the main-loop poll bms_4168_08010558 together with bms_app_event_1c_take and bms_app_value_28_get, and the three neighbouring RAM words at 0x1C, 0x1D and 0x28 look like one status block. The flag's meaning is not established.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u8", "description": "current flag value"},
+    "confidence": "medium"
+  },
+  "bms_4168_080086f8": {
+    "name": "bms_app_event_1c_take",
+    "summary": "Test and clear the one-shot event byte at 0x20000001C",
+    "description": "If the byte at 0x2000001C is nonzero it is cleared and the function returns 1; otherwise it returns 0. This is a fetch-and-clear, so the byte works as a one-shot request flag: whatever sets it (not in this packet) raises the event, and the poll in bms_4168_08010558 consumes it here. The meaning of the event is not established.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when the event was pending; the flag is cleared by this call"},
+    "confidence": "medium"
+  },
+  "bms_4168_08008710": {
+    "name": "bms_app_value_28_get",
+    "summary": "Return the 16-bit value stored at 0x20000028",
+    "description": "Returns the halfword at 0x20000028 without modifying it. It is read in the main-loop poll bms_4168_08010558 alongside the flags at 0x2000001C and 0x2000001D. The stored quantity is not established in this packet.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "current stored value"},
+    "confidence": "medium"
+  },
+  "bms_4168_08008be0": {
+    "name": "bms_app_value_684_set",
+    "summary": "Store a 32-bit value at RAM word 0x20000684",
+    "description": "Writes param_1 to the 32-bit RAM word at 0x20000684 and returns nothing. The only caller in the packet is bms_4168_0800b904. What the value means is not established.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value to store"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08008c8c": {
+    "name": "fdcan2_is_bus_off",
+    "summary": "Return 1 when FDCAN2 is bus-off (FDCAN_PSR.BO set)",
+    "description": "Reads FDCAN2.FDCAN_PSR (0x40006844, offset 0x44 from the FDCAN2 block at 0x40006800) and returns 1 when bit 7, the BO (bus-off) status flag, is set, otherwise 0. It is read-only and has no side effects. The only caller in the packet is bms_4168_080082f0.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when the FDCAN2 protocol status reports bus-off"},
+    "confidence": "high",
+    "notes": "The PSR bit layout is from the standard FDCAN register map; the FDCAN2 base is inferred from the address."
+  },
+  "bms_4168_08008d4c": {
+    "name": "bms_systick_base_set",
+    "summary": "Store the SysTick base count used by the busy-wait helpers",
+    "description": "Writes param_1 to the RAM word at 0x20000688. That word is the base count multiplied by the busy-wait helpers bms_systick_wait_repeat and bms_systick_wait_scaled, which poll SysTick until the requested number of counts has elapsed. Callers bms_4168_080082f0 and bms_4168_080086d4 set it before they wait. No peripheral access.",
+    "category": "timer",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "base SysTick count"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "bms_4168_08008d58": {
+    "name": "bms_systick_wait_repeat",
+    "summary": "Busy-wait param_1 times, each for DAT_20000688 * 1000 SysTick counts",
+    "description": "Runs param_1 repetitions of a busy-wait. Each repetition polls SysTick->VAL (0xE000E018) until the elapsed count reaches DAT_20000688 * 1000. Elapsed counts come from successive VAL reads: the down-counter difference is added directly, and when VAL has wrapped past the reload value SysTick->LOAD (0xE000E014) the reload is added first, so the wait works across reloads. The loop has no interrupts, sleep or timeout, so it blocks the CPU for the whole duration. The 1000 factor means DAT_20000688 is in thousands of SysTick counts.",
+    "category": "timer",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "number of repetitions; 0 does nothing"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Callers in the packet: bms_4168_080082bc, bms_4168_080082f0, bms_4168_0800aa5c, bms_4168_0800aae8, bms_4168_0800b314, bms_4168_0800b406, bms_4168_0800b57e. Real time per count depends on the SysTick clock source, which is not in this packet."
+  },
+  "bms_4168_08008da0": {
+    "name": "bms_systick_wait_scaled",
+    "summary": "Busy-wait for param_1 * DAT_20000688 SysTick counts",
+    "description": "A single busy-wait with the same SysTick VAL/LOAD elapsed-count method as bms_systick_wait_repeat, but the target is DAT_20000688 * param_1 counts with no fixed factor. It is the main delay primitive for the timing-sensitive routines in this build; seven callers in the packet use it. The use is probably bit-timed serial signalling or AFE sequencing, which is a guess.",
+    "category": "timer",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "delay multiplier in DAT_20000688 units"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Callers in the packet: bms_4168_08009428, bms_4168_08009664, bms_4168_08009740, bms_4168_0800982c, bms_4168_080098f0, bms_4168_0800997c, bms_4168_08009a0c. The loop compares the 32-bit target with a 32-bit accumulator, so very large multipliers wrap."
+  },
+  "bms_4168_08008ee8": {
+    "name": "gpio_pb2_read",
+    "summary": "Read the input level of GPIOB pin 2 (1 when high)",
+    "description": "Reads the GPIO input data register at 0x50000410 and returns bit 2 as a bool, true when the pin is high. The address is GPIOB.IDR on the STM32G0 port layout, where port B is at 0x50000400. It is read-only with no side effects. Callers bms_4139_0800e4f8 and bms_4168_0800fd7c use it as a status input; what the pin carries is not in this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when PB2 is high"},
+    "confidence": "medium",
+    "notes": "The port identification (GPIOB at 0x50000400) is inferred from the G0 layout and the offset 0x10 (IDR)."
+  },
+  "bms_4168_08008f00": {
+    "name": "gpio_pb8_reset",
+    "summary": "Drive GPIOB pin 8 low through BRR",
+    "description": "Writes 0x100 to GPIOB.BRR (0x50000428), which resets PB8 atomically and leaves the other port-B pins alone. The reset and set routines for PB8 and PA15 are paired, and the caller bms_4168_0800c96c calls all four, so they probably drive a set of output control pins. Callers bms_4139_0800be74 and bms_4168_0800c96c. The function of the pin is not established.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Port B at 0x50000400 is inferred from the G0 layout; BRR is offset 0x28."
+  },
+  "bms_4168_08008f10": {
+    "name": "gpio_pb8_set",
+    "summary": "Drive GPIOB pin 8 high through BSRR",
+    "description": "Writes 0x100 to GPIOB.BSRR (0x50000418), which sets PB8 atomically without touching the other port-B pins. It is the set half of gpio_pb8_reset. Callers bms_4139_0800be74 and bms_4168_0800c96c.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Port B at 0x50000400 is inferred from the G0 layout; BSRR is offset 0x18."
+  },
+  "bms_4168_08008f20": {
+    "name": "gpio_pa15_reset",
+    "summary": "Drive GPIOA pin 15 low through BRR",
+    "description": "Writes 0x8000 to GPIOA.BRR (0x50000028), which resets PA15 atomically and leaves the other port-A pins alone. It is the reset half of gpio_pa15_set. Callers bms_4139_0800be74, bms_4168_08003fcc and bms_4168_0800c96c. The function of the pin is not established.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08008f2c": {
+    "name": "gpio_pa15_set",
+    "summary": "Drive GPIOA pin 15 high through BSRR",
+    "description": "Writes 0x8000 to GPIOA.BSRR (0x50000018), which sets PA15 atomically without touching the other port-A pins. It is the set half of gpio_pa15_reset. Callers bms_4139_0800be74 and bms_4168_0800c96c.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08008f38": {
+    "name": "gpio_pb1_read",
+    "summary": "Read the input level of GPIOB pin 1 (1 when high)",
+    "description": "Reads the GPIO input data register at 0x50000410 and returns bit 1 as a bool, true when the pin is high. It is the same read as gpio_pb2_read for a different bit, and it is read-only. Callers bms_4139_0800e4f8 and bms_4168_0800fd7c. What the pin carries is not in this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when PB1 is high"},
+    "confidence": "medium",
+    "notes": "Port B at 0x50000400 is inferred from the G0 layout, as in gpio_pb2_read."
+  },
+  "bms_4168_080091e0": {
+    "name": "gpio_pd0_reset",
+    "summary": "Drive pin 0 of the port at 0x50000C00 low through BRR",
+    "description": "Writes 1 to the BRR register at 0x50000C28 of the port based at 0x50000C00, which resets bit 0 atomically. It is the reset half of gpio_pd0_set. The only caller in the packet is bms_4168_0800e820. The pin's function is not established.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Port identification (0x50000C00 as GPIOD) is inferred from the G0 layout; the pin's function is unknown."
+  },
+  "bms_4168_080091ec": {
+    "name": "gpio_pd0_set",
+    "summary": "Drive pin 0 of the port at 0x50000C00 high through BSRR",
+    "description": "Writes 1 to the BSRR register at 0x50000C18 of the port based at 0x50000C00, which sets bit 0 atomically. It is the set half of gpio_pd0_reset. Callers bms_4168_080082f0 and bms_4168_0800e820.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Port identification (0x50000C00 as GPIOD) is inferred from the G0 layout, as in gpio_pd0_reset."
+  },
+  "bms_4168_080093f0": {
+    "name": "exti_disable_lines_2_8_12",
+    "summary": "Clear EXTI interrupt mask bits for lines 12, 8 and 2",
+    "description": "Clears bits 12, 8 and 2 of EXTI.IMR1 (0x40021880, base 0x40021800 plus offset 0x80), disabling the interrupt for EXTI lines 12, 8 and 2. Each bit is cleared with a separate read-modify-write, so the other mask bits are kept but each step is not atomic. This is equivalent to three LL_EXTI_DisableIT calls. Caller bms_4168_080082f0 uses it to mask the external interrupts before reconfiguring them.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The mask-register offset and bit numbers are certain from the code; the reason for masking is inferred from the single caller."
+  },
+  "bms_4168_08009414": {
+    "name": "gpio_pa5_reset",
+    "summary": "Drive GPIOA pin 5 low through BRR",
+    "description": "Writes 0x20 to GPIOA.BRR (0x50000028), which resets PA5 atomically. It is the reset half of gpio_pa5_set. The only caller in the packet is bms_4168_0800b8ac. The pin's function is not established.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_0800941e": {
+    "name": "gpio_pa5_set",
+    "summary": "Drive GPIOA pin 5 high through BSRR",
+    "description": "Writes 0x20 to GPIOA.BSRR (0x50000018), which sets PA5 atomically. It is the set half of gpio_pa5_reset. The only caller in the packet is bms_4168_0800b8ac.",
+    "category": "gpio",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  }
+}
