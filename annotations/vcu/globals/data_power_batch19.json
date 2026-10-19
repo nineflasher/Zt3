@@ -1,0 +1,38 @@
+{
+  "vcu_g_0159_2000134e": {
+    "name": "power_reset_count",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000134e"
+    ],
+    "category": "power",
+    "description": "Counter of calls of vcu_deferred_system_reset made while power_reset_request is 1. It only increments on those calls and nothing clears it in this packet, so it counts up across the life of the RAM copy. When it exceeds 0x13 (19) the function starts the Cortex-M system reset (the 20th counted call). Probably zeroed by the startup code (not verified)."
+  },
+  "vcu_g_0159_20001f52": {
+    "name": "power_reset_request",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f52"
+    ],
+    "category": "power",
+    "description": "Reset request flag, 1 = a reset has been requested. vcu_deferred_system_reset reads it every call and counts towards the reset while it is 1. The writer is code outside this packet (not located), so the request source is unknown."
+  },
+  "vcu_g_0159_20001fe0": {
+    "name": "power_crm_saved",
+    "type": "u32",
+    "count": 2,
+    "size": 8,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fe0"
+    ],
+    "category": "power",
+    "description": "Two words saved by vcu_deep_sleep_enter_and_restore right before WFI: element 0 (0x20001FE0) is a copy of CRM.CFG at 0x40021004, element 1 (0x20001FE4) a copy of CRM.CTRL. After wake the function restores the clock setup from them only when both are nonzero and the live registers differ."
+  }
+}
