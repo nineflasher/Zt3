@@ -1,0 +1,68 @@
+{
+  "bms_g_4168_200005c1": {
+    "name": "charge_window_flags",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c1"
+    ],
+    "category": "charge",
+    "description": "Flag byte of the charge setpoint window comparator (bms_setpoint_window_sample) and of the request handshake. Bit 0 (0x01) is the in-window result: the comparator stores 1 when the measurement is inside the window and 0 when it is outside, and its restore path sets bit 0. bms_get_200005c1_bit0 returns this bit to other modules (probably the charge permission). Bit 1 (0x02) is set by bms_ctrl_request_handshake when a pending control request is consumed. Bit 3 of DAT_200005c0 is a separate byte owned by another packet."
+  },
+  "bms_g_4168_200005c2": {
+    "name": "charge_window_last_side",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c2"
+    ],
+    "category": "charge",
+    "description": "Hysteresis state of the charge window comparator: which side of the window the measurement last crossed. It is set to 1 when the measurement falls below the lower limit built from DAT_200005ca and DAT_200005c8, and cleared to 0 when the measurement is back at the setpoint or above the other limit (probably 1 = below the window). Only bms_setpoint_window_sample uses it."
+  },
+  "bms_g_4168_200005c4": {
+    "name": "charge_req_bit5_latch",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c4"
+    ],
+    "category": "charge",
+    "description": "Latch used by bms_setpoint_window_sample for a request bit. It is set to 1 while bit 5 (0x20) of the BMS state word at +0x194 is high. When that bit drops again, or when the value at +0x11E is below 5, the latch is cleared and the setpoint shadows are written back to the state block at +0x10E and +0x110, and bit 0 of DAT_200005c1 is set. Probably a request pulse seen by the comparator."
+  },
+  "bms_g_4168_200005c6": {
+    "name": "charge_window_timer",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c6"
+    ],
+    "category": "charge",
+    "description": "16-bit 30000-tick sampling timer of the charge window comparator. Each call adds the tick step passed to bms_setpoint_window_sample. When the sum would reach 30000 the timer is reset to 0 and a fresh 32-bit measurement is taken through bms_4168_08009d84. It is also reset to 0 on the early-return paths where the window is not evaluated."
+  },
+  "bms_g_4168_200005c8": {
+    "name": "charge_setpoint_word",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c8"
+    ],
+    "category": "charge",
+    "description": "Shadow of the 16-bit BMS state word at +0x10E (control and setpoint word). Bits 0 to 10 form the upper setpoint of the window comparison. Bits 11 to 15 form the top of the second limit together with bits 0 to 5 of DAT_200005ca. bms_setpoint_window_sample reloads it from +0x10E on every call and writes it back on the restore path, and bms_ctrl_request_handshake writes it back when a request is applied. The high byte DAT_200005c9 is part of this word."
+  },
+  "bms_g_4168_200005ca": {
+    "name": "charge_second_limit_word",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005ca"
+    ],
+    "category": "charge",
+    "description": "Shadow of the 16-bit BMS state word at +0x110. Bits 0 to 5 form the low part of the second comparison limit (with bits 11 to 15 of DAT_200005c8). Bit 6 (0x40) is cleared on the restore path. Bit 7 (0x80) marks a pending request: when it is set and bit 6 of the state word at +0x194 falls, bms_ctrl_request_handshake sets bit 1 of DAT_200005c1 and bit 3 of DAT_200005c0. Bit 8 (0x100) is cleared and the shadows are written back when that request is applied. The high byte DAT_200005cb is part of this word."
+  }
+}

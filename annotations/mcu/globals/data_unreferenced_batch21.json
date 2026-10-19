@@ -1,0 +1,389 @@
+{
+  "mcu_g_0160_2000015c": {
+    "name": "ratio_pi_error_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000015c"],
+    "category": "motor",
+    "description": "Error term of the PI-style ratio tracker in mcu_0160_08005240. It is the ratio sample at 0x20000160 minus the tracked value at 0x20000158 plus the Q30 integrator product. The tracker then adds 0x6CCC (about 0.85 in Q15) times this error to 0x20000158. Q15, written every drive cycle and read only inside the tracker."
+  },
+  "mcu_g_0160_20000160": {
+    "name": "ratio_pi_sample_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000160"],
+    "category": "motor",
+    "description": "Gain ratio sample read by mcu_0160_08005240 from the drive context through FUN_08004a60 (mcu_ctx108_gain_q15), which scales the context word at +0x108. It is the measurement that the tracker follows. It is only used when the sample is at least 1 (the tracker holds the old value otherwise). Q15, updated every drive cycle."
+  },
+  "mcu_g_0160_20000178": {
+    "name": "speed_lowpass_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000178"],
+    "category": "motor",
+    "description": "Low-passed speed. Its state is updated by mcu_lpf_q30_step from the speed at 0x20000F30 with the Q30 coefficient 0x51EB85 (about 0.02), so it follows the speed with a time constant of about 50 steps. The derate and drive reference code in mcu_0160_08004e78 use it, and it is passed by address. Q15 speed scale."
+  },
+  "mcu_g_0160_2000017c": {
+    "name": "drive_derate_target_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000017c"],
+    "category": "motor",
+    "description": "Derating target computed by mcu_target_derate_calc (FUN_0800480C) in the drive reference refresh, and copied to 0x20000F20 by mcu_0160_080054fc. It is the limit the drive is pulled toward when derating applies. Q15, written every drive cycle."
+  },
+  "mcu_g_0160_20000180": {
+    "name": "drive_c40_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000180"],
+    "category": "motor",
+    "description": "Copy of the word at 0x20000C40 made by mcu_0160_08003f2c during the drive cycle update. The source is another control word that is not in this packet, so the copy is kept for use in the cycle (probably a limit or reference value). Its unit is the same as the source word."
+  },
+  "mcu_g_0160_20000184": {
+    "name": "drive_gain_threshold_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000184"],
+    "category": "motor",
+    "description": "Threshold word returned by mcu_gain_threshold_select_q15 (mcu_0160_08004944) during the drive cycle update. It is a saturated limit: when the feedback word is small it is 0x7FFFFFFF (no limit), otherwise it is the feedback word plus 0.1 of the scaled value at 0x200003DE. Q15, written every drive cycle."
+  },
+  "mcu_g_0160_20000188": {
+    "name": "drive_speed_f30_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000188"],
+    "category": "motor",
+    "description": "Copy of the speed value at 0x20000F30 made during the drive cycle update in mcu_0160_08003f2c. It gives the cycle a fixed view of the speed while the other steps run. Q15 speed scale, written every drive cycle."
+  },
+  "mcu_g_0160_2000018c": {
+    "name": "drive_ctx_word0_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000018c"],
+    "category": "motor",
+    "description": "Copy of the first word of the drive record passed to mcu_0160_08003f2c (the record pointer parameter, offset 0). The drive cycle uses it for the comparisons that follow, so it is a snapshot taken at the start of each cycle. Written every drive cycle; the record layout is not in this packet."
+  },
+  "mcu_g_0160_20000190": {
+    "name": "drive_pi_product_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000190"],
+    "category": "motor",
+    "description": "Q15 product of two drive terms (a 64-bit multiply shifted right by 15) computed in mcu_0160_08003f2c. It is copied to 0x2000019C, which is the third word of the controller input block. Written every drive cycle."
+  },
+  "mcu_g_0160_20000194": {
+    "name": "drive_pi_io_words",
+    "type": "s32",
+    "count": 4,
+    "size": 16,
+    "anchor": ["MCU_0160", "0x20000194"],
+    "category": "motor",
+    "description": "Four 32-bit words that form the input and output block of a PID controller. Word 0 (0x20000194) takes the value at 0x20000864 (the filtered speed), word 1 (0x20000198) is the controller limit that is passed by reference, word 2 (0x2000019C) is the product from 0x20000190, and word 3 (0x200001A0) copies word 1. mcu_0160_080078f0 passes all of them to mcu_pid_block_configure, which stores the limits and gains. The output is probably read back from these words by the drive cycle (probably)."
+  },
+  "mcu_g_0160_200001a4": {
+    "name": "drive_gain_words_f32",
+    "type": "f32",
+    "count": 6,
+    "size": 24,
+    "anchor": ["MCU_0160", "0x200001a4"],
+    "category": "motor",
+    "description": "Six float gain words derived by mcu_vec_mag_smoothed_gain (mcu_0160_08005830) from the vector magnitude. Its first output word is 0.2 by default and the others are products of the integer magnitude (98.0 times the magnitude) and the ratios of the words. The drive cycle compares word 5 (0x200001B8) with 5.01 (0x40A051EC) to set the speed window flag at 0x20000110. Units are unit-less gains (probably)."
+  },
+  "mcu_g_0160_20000208": {
+    "name": "drive_cmd_sum_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000208"],
+    "category": "motor",
+    "description": "Command sum computed in mcu_0160_0800b10c. It is the speed-derived base term plus the larger of two candidate values (one of them the scaled 0x20000418 gain term). The routine runs for each drive sample and the result is used as the command, probably the position or speed margin used by the timer compare logic. Q15, the exact target is not confirmed in this packet."
+  },
+  "mcu_g_0160_20000220": {
+    "name": "speed_ref_base_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000220"],
+    "category": "motor",
+    "description": "Base value of the speed reference record, copied into the record at word 1 by mcu_0160_08003d2c. It is the starting point of the reference window before the tracker rate or the ramp toward F30 is applied. Q15 speed scale, written by another routine (not in this packet)."
+  },
+  "mcu_g_0160_20000224": {
+    "name": "speed_ref_cap_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000224"],
+    "category": "motor",
+    "description": "Cap of the speed reference. mcu_0160_08003d2c limits its output to this word, and writes the record's word 4 when the value is lower. mcu_0160_0800b10c sets it each sample from the scaled command, so the cap follows the timing-derived command. Q15 speed scale."
+  },
+  "mcu_g_0160_20000228": {
+    "name": "speed_ref_upper_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000228"],
+    "category": "motor",
+    "description": "Upper value copied into word 5 of the speed reference record by mcu_0160_08003d2c. It is another bound of the reference window, written by a routine outside this packet. Q15 speed scale."
+  },
+  "mcu_g_0160_2000030e": {
+    "name": "can_recovery_counter",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x2000030e"],
+    "category": "can",
+    "description": "Counter of the CAN recovery sequence in mcu_0160_0800dc08. It is incremented on each call during the recovery, and at 51 the routine re-initialises CAN1, sends six frames and sets the CAN filter and mask words. It is zeroed when recovery is not active. Units: calls of the CAN task (one per main cycle), so the recovery waits about 51 calls before it re-initialises (probably)."
+  },
+  "mcu_g_0160_20000328": {
+    "name": "can_signal_getter_fn",
+    "type": "ptr",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000328"],
+    "category": "can",
+    "description": "Function pointer to the signal getter used by the CAN task mcu_0160_0800dc08. It is called with a signal id (0x211, 0x212, 0x341 to 0x344, 0x401, and 0x343) and returns the value that the task sends in a CAN frame. The target is set up outside this packet, so the function it points to is not known here."
+  },
+  "mcu_g_0160_20000330": {
+    "name": "shutdown_request_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000330"],
+    "category": "protection",
+    "description": "Request flag set to 1 by mcu_0160_08007df4 when the countdown at 0x2000032E ends. The routine then acts on it once when 0x20001DEA is zero, by latching 0x20001DEA to 1, calling the output shutdown routine and setting 0x20001FCB to 1. It is only in the 0160 build."
+  },
+  "mcu_g_0160_20000336": {
+    "name": "can_error_debounce_count",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000336"],
+    "category": "can",
+    "description": "Debounce counter for a CAN error condition in mcu_0160_0800dc08. It increments while both status bits at 0x2000033C are set and the bit mask at 0x20000320 is clear. When it passes 5 the routine sets the error flag at 0x2000031F and resets this counter to 1. Count units: CAN task calls."
+  },
+  "mcu_g_0160_200003a4": {
+    "name": "energy_budget_ref_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003a4"],
+    "category": "motor",
+    "description": "Reference word of the energy budget limiter, written by mcu_0160_08003c78. It takes the drive value at 0x20000A50, or the floor at 0x200000C4, or the value at 0x200000C0, depending on the branch. The routine also passes its address to the limiter object, so it is read back there. Q15 drive scale."
+  },
+  "mcu_g_0160_200003a8": {
+    "name": "energy_budget_out_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003a8"],
+    "category": "motor",
+    "description": "Copy of the limiter output word computed in mcu_0160_08003c78 (the clamped bound). It is written each step so that other code can read the result without going through the limiter object. Its exact source value is not visible here, so it is probably the selected bound. Q15."
+  },
+  "mcu_g_0160_200003ad": {
+    "name": "startup_clear_3ad",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003ad"],
+    "category": "startup",
+    "description": "Byte cleared to 0 by the configuration and init routine mcu_0160_0800b324 at startup. The routine loads the record and sets the variant byte at 0x200003F8. This byte is not read in this packet, so its use is not visible here."
+  },
+  "mcu_g_0160_200003ae": {
+    "name": "startup_clear_3ae",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003ae"],
+    "category": "startup",
+    "description": "Byte cleared to 0 by the configuration and init routine mcu_0160_0800b324 at startup, together with 0x200003AD. Not read in this packet. The routine that clears it is the one that also loads the stored record, so the byte is probably a state flag for that load."
+  },
+  "mcu_g_0160_200003b4": {
+    "name": "startup_clear_3b4",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003b4"],
+    "category": "startup",
+    "description": "Byte cleared to 0 by mcu_0160_0800b324 at startup, in the same block as the other cleared flags. Not read in this packet, so its meaning is not visible here."
+  },
+  "mcu_g_0160_200003c0": {
+    "name": "pos_scale_cfg",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003c0"],
+    "category": "motor",
+    "description": "Integer scale of the position and speed conversion. It is loaded at startup by the parameter record loader mcu_param_record_load (mcu_0160_0800A0F8) from the stored record at 0x0801FC00. The position to rpm conversion (mcu_0160_08003178) and the electrical speed scale (mcu_0160_08004700 and mcu_0160_08004768) all multiply by it, so it is probably a pole-pair count or gear ratio. The loader also computes a related value at 0x200003CC. Not confirmed here."
+  },
+  "mcu_g_0160_200003c4": {
+    "name": "fscale_src_a_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003c4"],
+    "category": "motor",
+    "description": "First float input of a ratio scale. mcu_0160_0800729c copies it to 0x20000764 and treats it as valid only when its exponent is not zero (the check ANDs with 0x7F800000). It is used with 0x200003C8 to form the scale of the gain triples. Units are unit-less."
+  },
+  "mcu_g_0160_200003c8": {
+    "name": "fscale_src_b_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003c8"],
+    "category": "motor",
+    "description": "Second float input of the ratio scale with 0x200003C4. mcu_0160_0800729c copies it to 0x20000760 after the same exponent check, and both values are invalid if either has a zero exponent. Unit-less float."
+  },
+  "mcu_g_0160_200003d0": {
+    "name": "fscale_limit_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003d0"],
+    "category": "motor",
+    "description": "Float limit of the ratio scale. mcu_0160_0800729c converts it to Q15 with a shift of 15 and stores the result at 0x20000768. It is a configured value (probably loaded by the parameter record loader). Unit-less."
+  },
+  "mcu_g_0160_200003d4": {
+    "name": "pos_angle_offset_deg",
+    "type": "s16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x200003d4"],
+    "category": "foc",
+    "description": "Position offset as a signed integer, probably in degrees. mcu_0160_08008f34 converts it to float and multiplies by pi/180 to get the radian value at 0x20000048. It is a configured value, and its writer is not in this packet."
+  },
+  "mcu_g_0160_200003e0": {
+    "name": "sq_scale_n_3e0",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003e0"],
+    "category": "motor",
+    "description": "Argument n passed to mcu_sq_scale_block_init in mcu_0160_080078f0. The block stores (n*n)/64 in Q15, and the function accepts only n from 0 to 2000. The value is a configured number. Its width is not visible here, so s32 is a guess."
+  },
+  "mcu_g_0160_200003ec": {
+    "name": "fault_monitor_thr_hi",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x200003ec"],
+    "category": "protection",
+    "description": "Threshold of a fault monitor. mcu_0160_08005c0c passes it, shifted left by 15 into Q15, to the threshold monitor initialiser mcu_threshold_monitor_init_std (mcu_0160_080084dc) with the lower threshold at 0x200003EA, and reload counts of 100. It is an unsigned 16-bit configured value, probably the upper limit of the monitored signal."
+  },
+  "mcu_g_0160_200003f8": {
+    "name": "board_variant_code",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003f8"],
+    "category": "startup",
+    "description": "Variant code of the board or firmware, set by the config routine mcu_0160_0800b324 to 0x8A or 0x99 from a lookup of the stored record. The value 0x8A selects one of the two TMR1 output settings in mcu_0160_0800a6b8 and is read there. Only these two values are used in this packet."
+  },
+  "mcu_g_0160_200003fc": {
+    "name": "band_gain_speed_table",
+    "type": "u16",
+    "count": 4,
+    "size": 8,
+    "anchor": ["MCU_0160", "0x200003fc"],
+    "category": "motor",
+    "description": "Four 16-bit words for the speed-band gain selection in mcu_0160_08004db8. Word 0 (0x200003FC) is the gain used in the middle band, converted to float. Word 1 (0x200003FE) is the upper speed threshold, compared after a shift of 15. Word 2 (0x20000400) is the gain used above the high threshold. Word 3 (0x20000402) is the high threshold, also in Q15. Below the lowest threshold the code uses the float 20.0 instead. Integer gains and Q15 thresholds, configured values."
+  },
+  "mcu_g_0160_20000410": {
+    "name": "drive_limit_410_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000410"],
+    "category": "motor",
+    "description": "Float limit used in the control block setup of mcu_0160_080078f0. It is converted to Q15 with a shift of 15 (mcu_0160_080013cc) and then to an integer before it is stored as a limit. Configured value, unit-less float."
+  },
+  "mcu_g_0160_20000414": {
+    "name": "drive_limit_414_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000414"],
+    "category": "motor",
+    "description": "Second float limit of the same setup in mcu_0160_080078f0, next to 0x20000410. It is converted to Q15 and used as a bound of the controller block. Configured value, unit-less float."
+  },
+  "mcu_g_0160_20000418": {
+    "name": "gain_floor_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000418"],
+    "category": "motor",
+    "description": "Float gain floor of the timing command in mcu_0160_0800b10c. The routine raises it to 1.0 (0x3F800000) when it is below 1.0, and then uses it to compute a scale. It keeps the scale from going below one. Unit-less float."
+  },
+  "mcu_g_0160_2000041c": {
+    "name": "speed_comp_hi_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000041c"],
+    "category": "motor",
+    "description": "Float compensation value for the upper case of the command in mcu_0160_0800b10c. It is converted to Q15 with a shift of 15 and compared with the scaled command, and the larger of the two is used. Configured value, unit-less float."
+  },
+  "mcu_g_0160_20000420": {
+    "name": "speed_comp_lo_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000420"],
+    "category": "motor",
+    "description": "Float compensation value for the lower case of the command in mcu_0160_0800b10c. It is converted to Q15 and used when the scaled command is at or below the first value, giving a second candidate for the command sum at 0x20000208. Configured value, unit-less float."
+  },
+  "mcu_g_0160_20000428": {
+    "name": "cfg_image_block_0160",
+    "type": "u8",
+    "count": 512,
+    "size": 512,
+    "anchor": ["MCU_0160", "0x20000428"],
+    "category": "flash",
+    "description": "512-byte configuration image of the 0160 build. Routine mcu_0160_0800b324 copies it with a 512-byte forward copy into the RAM block at 0x20001D90 when the first word differs, then saves the RAM block to flash page 0x0801F000 (the saver is outside this packet). The block also holds the ASCII identification fields at offsets 0x20 to 0x30 (a product code string beginning with a Z02 prefix and zeros, and related fields). The 0x20000448 to 0x20000458 headings are inside it. No secret or key material is in the text here."
+  },
+  "mcu_g_12b_20000420": {
+    "name": "cfg_image_block_12b",
+    "type": "u8",
+    "count": 512,
+    "size": 512,
+    "anchor": ["MCU_12b", "0x20000420"],
+    "category": "flash",
+    "description": "512-byte configuration image of the 12b build. Routine mcu_12b_0800b0a4 compares its first word with the RAM copy at 0x20001D4C and copies the whole block there with a 512-byte copy when they differ. It holds the same kind of identification fields as the 0160 image (for example at 0x20000440 to 0x20000450). Layout details are probably the same as in the 0160 build but are not confirmed here."
+  },
+  "mcu_g_12b_20000629": {
+    "name": "slow_task_flag_12b",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_12b", "0x20000629"],
+    "category": "motor",
+    "description": "Byte read by the slow task (mcu_0160_0800a480 as mapped to the 12b build). The family map links it to the slow task and it is read there. Its writer is not in this packet. Probably a status flag of the 12b slow task."
+  },
+  "mcu_g_12b_2000062c": {
+    "name": "slow_task_counter_12b",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_12b", "0x2000062c"],
+    "category": "motor",
+    "description": "Counter read and written by the slow task (mcu_0160_0800a480 as mapped to the 12b build). The task adds one per call while the speed is low and holds it at a fixed value otherwise, so it is probably a debounce counter for a speed-related state. Units: slow task calls (every tenth TMR4 event). Exact limits are not visible in this packet."
+  },
+  "mcu_g_12b_20000638": {
+    "name": "cfg_block_ref_12b",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_12b", "0x20000638"],
+    "category": "startup",
+    "description": "Start of a RAM block whose address is passed through a pointer to the 12b init routine mcu_12b_0800b0a4. Only the first word is in this packet, so the size of 4 is a minimum; the block continues and its layout is not visible here. The routine reaches it by address, not by a fixed global name."
+  }
+}

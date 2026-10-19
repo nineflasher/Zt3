@@ -1,0 +1,117 @@
+{
+  "bms_g_4168_20001345": {
+    "name": "extflash_journal_flag5",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20001345"
+    ],
+    "category": "flash",
+    "description": "One of the six bytes 0x20001340 to 0x20001345 that bms_extflash_journal_init clears to 0 at startup (the other five belong to other packets). Its use is not visible in this packet. Probably a state or flag byte of the external-flash journal, which keeps its two 12-byte RAM header copies at 0x20001348 and 0x20001354."
+  },
+  "bms_g_4168_20001364": {
+    "name": "snapshot_record",
+    "type": "BmsSnapshot",
+    "size": 50,
+    "anchor": [
+      "BMS_4168",
+      "0x20001364"
+    ],
+    "category": "app",
+    "description": "Body of the snapshot record that bms_snapshot_logger_tick captures every 5000 units and registers in the record pool with tag 6 through bms_slot_pool_register. The record begins at 0x20001360 with the RTC date-time from bms_rtc_datetime_pack; that 4-byte word is not part of this object. This object covers the 50 bytes from 0x20001364 to 0x20001395 that follow it."
+  },
+  "bms_g_4168_200013a0": {
+    "name": "extflash_slots",
+    "type": "ExtflashSlot",
+    "count": 10,
+    "size": 200,
+    "anchor": [
+      "BMS_4168",
+      "0x200013a0"
+    ],
+    "category": "flash",
+    "description": "Ten 20-byte slot records of the external-flash journal. bms_extflash_journal_init resets every slot: byte 0 is set to 1, byte 1 to 0, and the u32 words at +4, +8, +0xC and +0x10 to 0. This object also covers the fields at 0x200013a0 and 0x200013b4 onwards that data_util_batch38 lists; those are the same array, so that packet should leave them alone. Their later meaning is not visible in this packet."
+  },
+  "bms_g_4168_20001e30": {
+    "name": "chan_objects",
+    "type": "u8",
+    "count": 180,
+    "size": 180,
+    "anchor": [
+      "BMS_4168",
+      "0x20001e30"
+    ],
+    "category": "app",
+    "description": "Five 36-byte channel objects at stride 0x24. bms_chan_pool_init configures each one with bms_chan_configure and a 300-byte buffer, then binds the array to the object at 0x200024C0 with bms_chan_bind. The byte layout inside one channel object is not visible in this packet, so the area is described as raw bytes. Channel object 1 starts at 0x20001E54."
+  },
+  "bms_g_4168_20001ee4": {
+    "name": "chan_buffers",
+    "type": "u8",
+    "count": 1500,
+    "size": 1500,
+    "anchor": [
+      "BMS_4168",
+      "0x20001ee4"
+    ],
+    "category": "app",
+    "description": "Five 300-byte data buffers, one per channel object: buffer i starts at 0x20001EE4 + 300 * i for i = 0..4. bms_chan_pool_init passes each one to bms_chan_configure with length 300. The area ends at 0x200024BF, just before the channel binding object at 0x200024C0. Buffer 1 starts at 0x20002010."
+  },
+  "bms_g_4168_200024cc": {
+    "name": "sample_window_block",
+    "type": "SampleWindowBlock",
+    "size": 24,
+    "anchor": [
+      "BMS_4168",
+      "0x200024cc"
+    ],
+    "category": "afe",
+    "description": "Six-word result block that bms_sample_window_process returns a pointer to. bms_record_set_or_clear zeroes all six words when called with 0xFFFF and otherwise stores the caller's values into the window latch, accumulator and counter words. This object covers 0x200024CC to 0x200024E3, including the high half at 0x200024CE that data_afe_batch02 lists. It is one variable, so that packet should leave 0x200024CE alone."
+  },
+  "bms_g_4168_20002bf0": {
+    "name": "comm_tx_payload",
+    "type": "u16",
+    "count": 7,
+    "size": 14,
+    "anchor": [
+      "BMS_4168",
+      "0x20002bf0"
+    ],
+    "category": "protocol",
+    "description": "Payload of the 14-byte message that bms_comm_service_step enqueues with bms_txq_enqueue, after the 4-byte header 0xB5 0x07 0x06 0x00, once more than 999 ticks have passed since the last send. bms_block_store_u16x7 fills the seven 16-bit words from a source array, with element i at 0x20002BF0 + 2 * i. Present in builds 4148 and 4168 only."
+  },
+  "bms_g_4168_20002c18": {
+    "name": "rx_record_queue",
+    "type": "RxQueueSlot",
+    "count": 256,
+    "size": 6144,
+    "anchor": [
+      "BMS_4168",
+      "0x20002c18"
+    ],
+    "category": "protocol",
+    "description": "Ring of 256 24-byte records. bms_record_queue_pop returns the oldest one, the slot at the read index 0x2000441A, and clears its six words. The queue is empty when the read and write indexes (0x20004418) are equal. The producer is not in this packet. The record layout matches what bms_rx_frame_7f0_7f1 reads back, so the queue probably holds received frames."
+  },
+  "bms_g_4168_20004418": {
+    "name": "rx_queue_write_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20004418"
+    ],
+    "category": "protocol",
+    "description": "Write index of the 256-slot record queue at 0x20002C18, the next free slot (probably u8). The producer that advances it is not in this packet. bms_record_queue_flush copies it into the read index to discard every queued record."
+  },
+  "bms_g_4168_2000441a": {
+    "name": "rx_queue_read_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000441a"
+    ],
+    "category": "protocol",
+    "description": "Read index of the record queue at 0x20002C18: the slot the next bms_record_queue_pop returns. It advances by one per pop and wraps to 0 after 255, so it is an 8-bit index (probably u8). bms_record_queue_flush sets it equal to the write index at 0x20004418."
+  }
+}
