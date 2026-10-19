@@ -1,0 +1,53 @@
+{
+ "structs": {
+  "SoftTimer": {
+   "size": 16,
+   "description": "One software timer slot used by soft_timer_start and soft_timer_poll. Five slots form an array with a 16-byte stride (slot index i at base + 16*i). Layout is the same in every build; only the base address differs per build (VCU_0159 0x20002054, VCU_148 0x20002070, VCU_14a 0x2000208c, VCU_14b/14e/14f 0x20001f98).",
+   "fields": [
+    {
+     "name": "period",
+     "offset": 0,
+     "type": "u32",
+     "description": "Period in ticks of the time base util_soft_timer_tick. soft_timer_poll fires the callback once tick minus start is at least period."
+    },
+    {
+     "name": "start",
+     "offset": 4,
+     "type": "u32",
+     "description": "Tick reference. soft_timer_start writes 0; a periodic timer then rewrites it with the current tick each time it fires. Elapsed time is tick minus start."
+    },
+    {
+     "name": "oneshot",
+     "offset": 8,
+     "type": "bool",
+     "description": "1 = one-shot timer: soft_timer_poll clears armed after firing. 0 = periodic: start is advanced to the current tick at each firing."
+    },
+    {
+     "name": "armed",
+     "offset": 9,
+     "type": "bool",
+     "description": "1 while the slot is armed. soft_timer_start clears then sets it; soft_timer_poll ignores unarmed slots and clears it after a one-shot fires."
+    },
+    {
+     "name": "callback",
+     "offset": 12,
+     "type": "ptr",
+     "description": "Function pointer called with no arguments when the timer fires. 0 means no callback (the fire still happens, the call is skipped)."
+    }
+   ]
+  },
+  "RecordSlot": {
+   "size": 20,
+   "description": "One 20-byte entry of a 32-entry record queue. Entries are zeroed by vcu_record_queues_init at boot. The field layout is not decoded in this packet.",
+   "fields": [
+    {
+     "name": "raw",
+     "offset": 0,
+     "type": "u8",
+     "count": 20,
+     "description": "Raw record bytes. Byte meaning is not decoded here; see the writers of the queue before relying on it."
+    }
+   ]
+  }
+ }
+}
