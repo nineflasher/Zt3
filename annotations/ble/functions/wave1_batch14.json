@@ -1,0 +1,674 @@
+{
+ "ble_219_0c073b50": {
+  "name": "ble_ram_patch_thunk_20000220",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000220",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000221 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 10 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b60": {
+  "name": "ble_ram_patch_thunk_20000238",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000238",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000239 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 2 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b70": {
+  "name": "ble_ram_patch_thunk_20000328",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000328",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000329 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b80": {
+  "name": "ble_ram_patch_thunk_20000738",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000738",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000739 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 2 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b90": {
+  "name": "ble_ram_patch_thunk_2000106c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000106C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000106D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073ba0": {
+  "name": "ble_ram_patch_thunk_2000025c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000025C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000025D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 4 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073bb0": {
+  "name": "ble_ram_patch_thunk_2000081c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000081C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000081D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 7 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073bc0": {
+  "name": "ble_ram_patch_thunk_20000554",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000554",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000555 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 3 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073bd0": {
+  "name": "ble_ram_patch_thunk_20001d38",
+  "summary": "Thunk forwarding param_1 to the code at 0x20001D38",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20001D39 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073be0": {
+  "name": "ble_ram_patch_thunk_200002cc",
+  "summary": "Thunk forwarding param_1 to the code at 0x200002CC",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200002CD (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073bf0": {
+  "name": "ble_ram_patch_thunk_20000f34",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000F34",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000F35 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c00": {
+  "name": "ble_ram_patch_thunk_20000650",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000650",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000651 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c10": {
+  "name": "ble_ram_patch_thunk_20001d7c",
+  "summary": "Thunk forwarding param_1 to the code at 0x20001D7C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20001D7D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; no direct callers (likely invoked through a function pointer/table).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c20": {
+  "name": "ble_ram_patch_thunk_200005a8",
+  "summary": "Thunk forwarding param_1 to the code at 0x200005A8",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200005A9 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 8 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c40": {
+  "name": "ble_ram_patch_thunk_20000244",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000244",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000245 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 4 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c50": {
+  "name": "ble_ram_patch_thunk_2000022c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000022C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000022D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 8 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c70": {
+  "name": "ble_ram_patch_thunk_200007a8",
+  "summary": "Thunk forwarding param_1 to the code at 0x200007A8",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200007A9 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c80": {
+  "name": "ble_ram_patch_thunk_2000067c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000067C",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000067D (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 8 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073c90": {
+  "name": "ble_ram_patch_thunk_20000534",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000534",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000535 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073ca0": {
+  "name": "ble_ram_patch_thunk_200010a0",
+  "summary": "Thunk forwarding param_1 to the code at 0x200010A0",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200010A1 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; 1 direct caller.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073cb0": {
+  "name": "ble_ram_patch_thunk_20000570",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000570",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000571 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; at least 12 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073cc0": {
+  "name": "ble_ram_patch_thunk_20000334",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000334",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000335 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early .data/RAM-code area, i.e. a function copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection table), so this stub lets flash code call RAM-resident routines through fixed entry points. The actual behaviour is defined by the RAM target, which is not part of this stub; at least 12 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07d840": {
+  "name": "ble_flash_patch_thunk_a0083c2c",
+  "summary": "Thunk forwarding param_1 to the code at 0xA0083C2C",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA0083C2D (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07d860": {
+  "name": "ble_flash_patch_thunk_a007fbac",
+  "summary": "Thunk forwarding param_1 to the code at 0xA007FBAC",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA007FBAD (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07d9f0": {
+  "name": "ble_flash_patch_thunk_a0022c48",
+  "summary": "Thunk forwarding param_1 to the code at 0xA0022C48",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA0022C49 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07da60": {
+  "name": "ble_flash_patch_thunk_a007cd24",
+  "summary": "Thunk forwarding param_1 to the code at 0xA007CD24",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA007CD25 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07dad0": {
+  "name": "ble_flash_patch_thunk_a000e528",
+  "summary": "Thunk forwarding param_1 to the code at 0xA000E528",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA000E529 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07dae0": {
+  "name": "ble_flash_patch_thunk_a007d4b0",
+  "summary": "Thunk forwarding param_1 to the code at 0xA007D4B0",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA007D4B1 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07ddd0": {
+  "name": "ble_flash_patch_thunk_a003460c",
+  "summary": "Thunk forwarding param_1 to the code at 0xA003460C",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA003460D (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07de00": {
+  "name": "ble_flash_patch_thunk_a007fc0c",
+  "summary": "Thunk forwarding param_1 to the code at 0xA007FC0C",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA007FC0D (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07de10": {
+  "name": "ble_flash_patch_thunk_a0033f74",
+  "summary": "Thunk forwarding param_1 to the code at 0xA0033F74",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA0033F75 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c07de30": {
+  "name": "ble_flash_patch_thunk_a0074c98",
+  "summary": "Thunk forwarding param_1 to the code at 0xA0074C98",
+  "description": "Single-instruction-sequence trampoline (5 insns: load literal, BLX/BX, return). It forwards its one argument (param_1, passed through in r0) to the function at 0xA0074C99 (0xA0000000-based alias of the flash/ROM image, Thumb bit set) via an indirect call and returns whatever that routine does (decompiler shows void). The target is a hard-coded constant in the 0xA0000000 window, so this is a link-time/ROM-patch jump stub into the Bestechnic code region rather than ordinary application logic. The purpose of the target is not recoverable from this stub alone; it is called from the BT controller code region near 0x0c07c000-0x0c07d700 (1 direct caller).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value, if any, is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c086648": {
+  "name": "ble_hw_ctrl_reg_bit1_set",
+  "summary": "If param_1 == 0, set bit 1 of the register at 0x07FFA000; return 0",
+  "description": "Reads the 32-bit word at 0x07FFA000, ORs in 0x2 and writes it back, but only when param_1 is zero; otherwise does nothing. Always returns 0. The address is in an undocumented BES region (outside the usual 0x4000xxxx peripheral window); together with its sibling that clears the same bit, it looks like an enable/disable ops-table callback invoked from ble_219_0c08866c. The meaning of bit 1 is unknown.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "selector/channel; bit is touched only when 0"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Read-modify-write, not atomic."
+ },
+ "ble_219_0c08665c": {
+  "name": "ble_hw_ctrl_reg_bit1_clear",
+  "summary": "If param_1 == 0, clear bit 1 of the register at 0x07FFA000; return 0",
+  "description": "Reads the 32-bit word at 0x07FFA000, ANDs it with 0xFFFFFFFD (clearing bit 1) and writes it back, only when param_1 is zero. Always returns 0. It is the inverse of ble_hw_ctrl_reg_bit1_set and is called from the same function (ble_219_0c08866c), suggesting an enable/disable pair in an ops table. The meaning of bit 1 is unknown.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "selector/channel; bit is touched only when 0"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Read-modify-write, not atomic."
+ },
+ "ble_219_0c0866c0": {
+  "name": "ble_get_ram_var_20003540_div4",
+  "summary": "Return the global word at 0x20003540 shifted right by 2",
+  "description": "Loads the 32-bit RAM variable at 0x20003540 and returns it logically shifted right by two bits (divide by 4, e.g. a byte count converted to words or a tick prescale). No side effects. Called only from ble_219_0c0867d0. The semantics of the variable are not determinable from this function alone.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "DAT_20003540 >> 2"
+  },
+  "confidence": "low",
+  "notes": "Variable role unknown; name is descriptive."
+ },
+ "ble_219_0c0866f8": {
+  "name": "ble_scb_irq_pending",
+  "summary": "True if the Cortex-M SCB ICSR VECTPENDING field is non-zero",
+  "description": "Reads SCB->ICSR (0xE000ED04) and returns whether bits [20:12] (mask 0x1FF000, VECTPENDING) are non-zero, i.e. whether any exception/interrupt is pending to be taken. Read-only, no side effects. Called from ble_219_0c0883f0, probably an idle/sleep or critical-section path that checks for pending interrupts before entering low power.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true if an exception is pending"
+  },
+  "confidence": "high",
+  "notes": "Caller context (low-power check) is inferred."
+ }
+}
