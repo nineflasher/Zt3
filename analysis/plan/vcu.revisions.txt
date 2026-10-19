@@ -1,3 +1,5 @@
 vcu: app_set_state writes the buzzer pattern index read by vcu_alert_tone_sequencer -> revisit wave-1 'application state' wording (wave2_batch02)
 vcu: vcu_can_tx_pump gated on wave-1 'uart_rx_ring1_count' - that wave-1 name/role looks wrong (wave2_batch02)
 vcu: 0800ce0c attributed to TMR2 in packet but is CCTRL; 0800dc64 is XTEA not TEA (wave2_batch04); 08008bb0 short-record path has latent 9-byte overflow (wave2_batch03)
+vcu: command 0x16 with payload 05 01 10 01 enters an infinite loop in the dispatcher (wave4_batch01) - verify in disassembly
+vcu: 4-arg call to 0800b294 from vcu_deferred_reconfig_tick does not match the name vcu_runtime_defaults_init used elsewhere (wave4_batch01)

@@ -1,0 +1,181 @@
+{
+  "vcu_0159_080031f4": {
+    "name": "vcu_deferred_reconfig_tick",
+    "summary": "Count 500 ticks after an accepted 0x18 serial update, then clear the gate and reload identity",
+    "description": "Per-tick timer called from vcu_ready_mode_tick and vcu_state0_idle_tick. While DAT_20001FED is 0 it clears the 16-bit counter DAT_20001898. While DAT_20001FED is 1 (set by the 0x18 serial-write path in vcu_ninebot_frame_dispatch after a successful update) it increments the counter each tick; once the previous value exceeds 500 it clears DAT_20001F68 and DAT_20001FED, queues a short reply to peer 4 with vcu_ninebot_tx_queue_push (kind 0x16, subtype 2, no payload), calls vcu_identity_config_reload, and then calls the 0800B294 helper with command 0x51 and the DAT_20001896 buffer. The new serial and identity therefore take effect about 500 ticks after the write is accepted.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 4-argument call to 0800B294 (value, 3, 0x51, buffer) does not match the vcu_runtime_defaults_init summary used by other functions; in this function it looks like a frame-send helper with command 0x51, so the callee name may be wrong. The value passed as the first argument is the return of vcu_identity_config_reload, which is declared void, so the decompiler's data flow here is unreliable. The 500-tick threshold and the clears of DAT_20001F68 and DAT_20001FED are read directly from the code."
+  },
+  "vcu_0159_080047ac": {
+    "name": "vcu_app_state_machine_tick",
+    "summary": "Main application state machine: reset per-state counters on a state change, then dispatch the state handler",
+    "description": "Runs every 10 ticks from the soft timer slot 0 started in vcu_main; it has no direct callers. When the working copy DAT_2000135E differs from the live state byte DAT_2000123E, it shifts the old copy into DAT_2000135F, latches the new state and clears about 30 counters and flags (DAT_20001FB4, FAC, FA8, FB8, FB9, FBC, FC6, FD4, FD6, FCE, 101E, 101F, 1376, 1378, 137A, 1362, 13A2, 187E, 202C, 2024, 21DC, the bits 2..3 of DAT_20001F92) and reloads the timeout DAT_20001FD2 with 1000. It then runs four drive and telemetry services (vcu_pa11_pulse_step, vcu_drive_command_update, vcu_speed_mode_snapshot_update, vcu_wheel_odometer_limit_update) and switches on DAT_2000123E to one handler per state; transitions are written inline in those handlers. An unknown state value resets the state byte to 0.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "State to handler map: 0 vcu_state0_idle_tick, 1 vcu_double_pulse_indicator_step, 2 vcu_state2_periodic_tick, 3 vcu_ready_mode_tick, 4 vcu_state4_hold_timeline_tick, 5 vcu_standby_wake_debounce, 6 vcu_pb14_timed_edge_sequence, 7 vcu_state0_periodic_tick_v0159, 8 vcu_run_housekeeping_tick, 9 vcu_slot_193c_alert_tick, 10 vcu_condition_b_slot_tick, 11 vcu_state11_maintenance_tick, 12 vcu_panel_key_report_telemetry_tick (returns early). The meaning of each state number is not documented in this packet; the names above describe the handlers, not confirmed state names. The conditions for leaving state 0 (500-tick counter DAT_20001FC6, link flags, DAT_20001F69, DAT_200021B5) are only partly traced. When the state is 1 at the end of the tick, DAT_20001FC0 is set."
+  },
+  "vcu_0159_080054ec": {
+    "name": "vcu_ninebot_frame_dispatch",
+    "summary": "Dispatch one complete Ninebot-style frame by command byte and queue or send its reply",
+    "description": "Handles one complete inbound frame from either transport: the Ninebot byte parser (vcu_ninebot_rx_byte_parse, reply mode ring, param_2 not 1) or the CAN PGN 0xEF00 adapter (vcu_ninebot_from_ef00_frame, reply mode CAN, param_2 = 1). Frame layout used here: byte 0 payload length, byte 1 sender, byte 2 destination (0x16 is this controller), byte 3 command, byte 4 argument, bytes 5 onward payload. Requests to this controller are answered with vcu_ninebot_tx_queue_push or vcu_can_ef00_message_send, and the handler writes the record at DAT_20001AB4 (512 bytes), the identity at DAT_20001AF4, the serial at DAT_20001AD4, the 0x46 feature words DAT_20001B40/B44 and several runtime flags, sometimes saving the record to flash through vcu_flash_record_pingpong_save. Commands 0x07 to 0x0A go to vcu_fw_update_frame_handler when the update gate DAT_20001F78 bit 0 is clear and otherwise get error 9.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "frame buffer: [0] payload length, [1] sender, [2] destination, [3] command, [4] argument, [5..] payload"},
+      {"name": "param_2", "type": "u32", "description": "reply mode: 1 replies over CAN (vcu_can_ef00_message_send), otherwise over the Ninebot TX ring"},
+      {"name": "param_3", "type": "u32", "description": "passed through to the relay helper on some paths; otherwise unused"},
+      {"name": "param_4", "type": "u32", "description": "unused on the paths traced"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Command summary as traced. 0x01: write payload to DAT_20001AB4 plus argument, reply; bit 12 of DAT_20001AEC is set around the write when the argument is 0x1C. 0x02 and 0x03: range-checked writes into the record; 0x4B and 0x4C store a u16 to DAT_20001890 and DAT_20001892 and set DAT_20001874; 0x71 starts a 16-byte session copy into DAT_20002040 and sets DAT_20002049 when the state is 0, 3, 7 or 8, otherwise it replies with status 2. 0x46 checks a CRC-32 (crc32_ieee_calc) over 18 payload bytes against bytes 6..9 and, when it matches, sets DAT_20001B40 (and DAT_20001B44 when the argument byte is 0) from the variant byte DAT_20001FA7. 0x18 with an 18-byte payload, argument 0x10 and payload bytes 31 4B 31 (ASCII 1K1) carries a new 14-byte serial; it is accepted when a chained hash over the stored serial and the new bytes (acc = (old[i] + acc) * new[i], then acc = DAT_20001C70 * 17 + acc, mod 1000000) equals the 32-bit word at payload offset 14. On acceptance the serial is stored, DAT_20001C68..6C..70 are loaded from DAT_20002004..0C, the record is saved to flash twice, and DAT_20001FED is set. 0x19 (42-byte payload) does the same check for the 16-byte identity at DAT_20001AF4 and sets DAT_20001C7C/C80. 0x41 reads a block selected by argument 0x20 (DAT_20001AF4), 0x17 (DAT_20001AE2), 0xDA (DAT_20001C68) or 0x10 (DAT_20001AD4). 0x56 sets state 12 with DAT_20001FDA for argument 0, or state 5 for argument 0x14. 0x58 and 0x80 call vcu_runtime_defaults_init (0800B294) and reset runtime words. 0x5F and 0x79 set DAT_20001B78 and the request flags DAT_20001FC0, FCC. A command 0x16 whose payload bytes 5..8 are 05 01 10 01 enters an intentional infinite loop (the decompiler warns about it); a remote sender can therefore hang the controller. The sender byte selects other sub-paths (classes 2, 4, 6, 7, 0x3D to 0x3F, 0xF1) that are only partly traced here, and the CRC and hash checks are read from the decompile without a test vector."
+  },
+  "vcu_0159_08007ad4": {
+    "name": "vcu_rx_ring0_service_one",
+    "summary": "Pop one record from UART receive ring 0 and send it to the frame or CAN decoder",
+    "description": "Called once per pass of the vcu_main loop. If uart_rx_ring0_count reports at least one queued entry, vcu_rx_ring0_pop_record copies one 20-byte record into DAT_20002990; that record goes to vcu_rx_frame_dispatch when DAT_20002998 is zero, otherwise to vcu_0159_0800cfac (CAN record path). Only one record is handled per call. The function returns the number of entries still queued after the pop, or 0 when the ring was empty.",
+    "category": "uart",
+    "params": [],
+    "returns": {"type": "u32", "description": "entries still queued after this pop; 0 when none was queued"},
+    "confidence": "high",
+    "notes": "DAT_20002998 is read as a mode selector (0 = UART frame path, nonzero = CAN path); its writer is not in this packet."
+  },
+  "vcu_0159_08008a44": {
+    "name": "vcu_rx_dma_pump",
+    "summary": "Drain the DMA receive ring into the Ninebot byte parser, guarded against re-entry",
+    "description": "Called once per pass of the vcu_main loop with the context block at 0x20000008, the DMA1 channel 6 base 0x4002006C (the UART receive channel) and 0. It returns at once when the flag at context offset 3 or the busy flag at offset 5 is set. Otherwise it sets the busy flag, calls vcu_dma_ring_drain repeatedly to copy the bytes received since the last call into a 252-byte stack buffer, passes each byte to vcu_ninebot_rx_byte_parse, and loops until a drain returns zero bytes. It then clears the busy flag, so a frame handler that re-enters the pump cannot parse bytes out of order.",
+    "category": "uart",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "receive context block; offset 3 is a skip flag and offset 5 the busy flag"},
+      {"name": "param_2", "type": "ptr", "description": "DMA channel base address whose remaining-count register is read by vcu_dma_ring_drain"},
+      {"name": "param_3", "type": "u32", "description": "passed through to vcu_dma_ring_drain and the byte parser"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of the flag at offset 3 is not established; it is only tested here. The DMA channel 6 identification relies on 0x4002006C being the C6 base address in the SVD and on the packet's DMA1.C6CTRL reference."
+  },
+  "vcu_0159_08008aec": {
+    "name": "vcu_ninebot_rx_byte_parse",
+    "summary": "Byte-at-a-time Ninebot frame parser: 0x5A 0xA5 sync, length byte, 16-bit checksum, then dispatch",
+    "description": "Consumes one received byte per call. It hunts for the sync pair 0x5A 0xA5 using DAT_20000000 (saw 0x5A) and DAT_20000001 (in frame). The first byte after sync is the payload length; it sets the end index DAT_20000003 to length + 7 and is rejected when the length exceeds 0xEC. The following bytes are stored in the 256-byte buffer at 0x200018C0 with the length byte at index 0, and DAT_20000006 holds a running 16-bit sum. When the index reaches the end index, the checksum formed from the sum and the two trailing bytes (low byte first) is checked and a valid frame is passed to vcu_ninebot_frame_dispatch at 0x200018C0; any other byte or a checksum mismatch resets the parser.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "one received byte from the UART ring"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The exact checksum arithmetic (the decompiler writes it as a complement of the running sum minus one byte, compared with the two trailing bytes) is not fully confirmed; it should be checked against a captured frame. The sync bytes 0x5A 0xA5 match the frame header hinted in the VCU brief. Frame bytes after the length are: sender, destination, command, argument, payload."
+  },
+  "vcu_0159_08009da8": {
+    "name": "vcu_identity_config_reload",
+    "summary": "Load the serial, identity and config slot, clear runtime words and apply the variant options",
+    "description": "Runs at boot from vcu_main, after each standby wake (vcu_standby_wake_debounce) and after a deferred reconfig (vcu_deferred_reconfig_tick). It builds the serial string 1K1E0000000001 and the identity string Z03X000000000001 from literals, loads the newer valid 512-byte config copy through vcu_config_ab_slot_load, copies a 16-byte key from flash 0x08001440 into DAT_20002010, and clears the blocks DAT_20001F44 (50 bytes) and DAT_20001CB4 (144 bytes). If the RAM record differs from the loaded copy, it copies the record, identity and serial into RAM and flash-saves them. It sets the firmware version word DAT_20001AE2 to 0x159, sanitises the mode byte (vcu_sanitize_mode_1_to_4), parses the variant letter from the serial (vcu_serial_parse_variant_code), resets the runtime words and the default limits DAT_20001FF0..FF6, sets the variant option words DAT_20001FF8..FFE (one set for variant 0 or 3, another for the rest), and ends with vcu_apply_variant_config.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The version constant 0x159 matches the firmware build 0159 in the brief. Variant 'E' in the serial prefix 1K1E selects the variant byte DAT_20001FA7 in this build. The option-word values are literals in the decompile; their meaning is not documented here. The 0x08001440 key source and its use in the 0x71 and 0x46 paths of vcu_ninebot_frame_dispatch are inferred from the copy target."
+  },
+  "vcu_0159_0800a120": {
+    "name": "vcu_standby_wake_debounce",
+    "summary": "Standby state: enter deep sleep, reload identity on wake, and debounce PB12 low into request 2",
+    "description": "Runs each tick in state 5. It sets DAT_20001FA8, clears DAT_20001FBF, calls vcu_deep_sleep_enter_and_restore (WFI deep sleep with the EXINT inputs armed; the clocks are restored on wake), then calls vcu_identity_config_reload. After the wake it samples vcu_pb12_input_active_low. When PB12 is high, the debounce counter DAT_20001370 is cleared. When PB12 is low, the counter counts up to five passes; on the sixth it sets DAT_20001FB7 to 2 and clears the counter. Because the sleep happens inside the tick, the state effectively waits in WFI until an EXINT wake.",
+    "category": "power",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "DAT_20001FB7 = 2 is read in the state-5 path of vcu_app_state_machine_tick; the state it leads to is not traced further in this packet."
+  },
+  "vcu_0159_0800a15c": {
+    "name": "vcu_run_housekeeping_tick",
+    "summary": "Run-state housekeeping: fault codes, alarms, LED sequences and timers in a fixed order",
+    "description": "Called every tick in state 8. It sets DAT_20001FA8 and runs the fault and warning services with argument 3 (vcu_fault_0f_update, vcu_sensor_limit_derate_eval, vcu_fault_warning_evaluate), then about 20 services in order: status update, special-mode toggle, cycle-mode request, threshold and edge alarms, the C14/C15 pulse and blink sequences, debounce A and the condition-B latch, the timed schedule window, PA6 output status, the countdown on DAT_20001FB0, the pending settings commit, the link heartbeat, fault codes 4 and 5, warning list rebuild, flag bitmap expansion, the alert tone sequencer and the revolution stage tracker. The function keeps no state of its own; the order matters because the alarm and warning services read the flags written by the evaluators that run before them.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The statement that the order is required is inferred from the data flow of the callees and not verified against a run."
+  },
+  "vcu_0159_0800a1d0": {
+    "name": "vcu_ready_mode_tick",
+    "summary": "State-3 tick: ready and arm sequence, alerts, link keep-alive and deferred reconfig",
+    "description": "Per-tick handler for state 3, called from vcu_app_state_machine_tick. It sets DAT_20001FA8 and runs the fault and warning services with argument 3, the ready and arm sequence (vcu_ready_sequence_step_v14b_0159), the standby entry timer, the special-mode gate, the countdown start handshake, the deferred system reset, the fault alert repeat, the sensor threshold pulse count, the startup announce burst and the 0x51 link keep-alive. It also runs vcu_deferred_reconfig_tick, the debounce, condition-B, link heartbeat and countdown services, and the same C14/C15 and schedule services as the housekeeping tick.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The packet's callee list does not show every call; the list above is taken from the decompile. The handler is the state-3 counterpart of vcu_run_housekeeping_tick and shares most of its services."
+  },
+  "vcu_0159_0800a39c": {
+    "name": "vcu_state4_hold_timeline_tick",
+    "summary": "State-4 PB12 hold timeline: PA12 pulses during a long press, back to state 0 at 1200 ticks",
+    "description": "Per-tick handler for state 4. It runs the fault and alert services, clears bit 2 of DAT_20001F92, and on the first pass clears DAT_2000135D's latch: it calls vcu_status_flags_mask_low, vcu_error_state_reset, vcu_warning_state_reset, vcu_clear_flag_bits_9_11 and vcu_aux_flags_reset, then sets DAT_20001F54 so that vcu_pending_settings_commit runs. It counts DAT_2000136E while PB12 is low. A release before 1000 ticks resets the count; after 1000 ticks a release drives PA12 high and enters state 1 when the release lands within 100 ticks. While the button stays down, 1000 to 1099 drives PA12 low, 1100 to 1199 drives PA12 high and calls state 1 at exactly 1100, and 1200 to 1399 resets the handler, disables the TMR2 output, enters state 0 and sets DAT_20001FB9.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The PA12 meaning (power latch or indicator) is not established. The 1000-tick threshold and the 100-tick windows are read from the constants 1000, 0x44C (1100) and 0x4B0 (1200). The decompile shows the call to gpio_bits_reset without its arguments; the pin is taken to be PA12 (mask 0x1000 on GPIOA) by analogy with the other calls in the function, which is not confirmed. The second, unconditional branch clears bit 14 of DAT_20001F98 and sets bit 4 of DAT_20001F92 on every tick."
+  },
+  "vcu_0159_0800a55c": {
+    "name": "vcu_state11_maintenance_tick",
+    "summary": "State-11 maintenance tick: input C, debounce, fault, link and timer services; sets DAT_20001FA8 from DAT_20001F6D",
+    "description": "Per-tick handler for state 11, called from vcu_app_state_machine_tick. It runs vcu_input_sm_c_tick, the sensor-limit and fault-warning evaluators with argument 0, clears bit 2 of DAT_20001F92, and then runs the debounce A, alert tone, pending settings commit, link heartbeat, periodic 100-tick check, pair pulse pattern, C14/C15 blink, timed schedule window, the countdown on DAT_20001FB0 and the startup announce burst. It finishes by setting DAT_20001FA8 to 1 when DAT_20001F6D equals 1 and to 0 otherwise.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The role of state 11 is not named in this packet. DAT_20001F6D is read only here; its writer is not in this packet."
+  },
+  "vcu_0159_0800a5c8": {
+    "name": "vcu_state0_idle_tick",
+    "summary": "State-0 idle tick: input debounce A and C, fault services and deferred reconfig; releases DAT_20001FA8 after about 300 ticks",
+    "description": "Per-tick handler for state 0, called from vcu_app_state_machine_tick. It runs input state machines A and C (vcu_input_sm_a_tick, vcu_input_sm_c_tick), the fault and warning services with argument 0, debounce A, the condition-B latch, the pending settings commit, the alert tone, the link heartbeat, the periodic 100-tick check, the pair pulse, the C14/C15 blink, the timed schedule window, the startup announce burst and vcu_deferred_reconfig_tick. It clears DAT_20001FB4 and counts DAT_20001360; when the count passes 300, or immediately when DAT_20001F69 is set, it sets DAT_20001FA8 to 1 and clears the count, and it also clears DAT_20001FB7 when DAT_20001F69 is set.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 300-tick threshold is read from the comparison 300 < DAT_20001360 in the decompile, which runs the body at count 301. DAT_20001F69 is the debounced input flag written by vcu_debounce_condition_a."
+  },
+  "vcu_0159_0800cfac": {
+    "name": "vcu_can_rx_route_by_pgn",
+    "summary": "Route a received CAN frame: PGN 0xEF00 messages to the Ninebot adapter, others to the J1939 TP dispatcher",
+    "description": "Takes a CAN receive record: the 29-bit identifier at offset 4, the data length at offset 10 and the data from offset 11. It copies the data into a local buffer and tests the PDU format byte, identifier bits 16..23. When it equals 0xEF (PGN 0xEF00, proprietary A) it calls vcu_ninebot_from_ef00_frame with the source address (identifier bits 0..7) and the destination (bits 8..15). Any other PDU format goes to vcu_can_tp_rx_dispatch with the identifier, which handles J1939 TP.CM and TP.DT frames in the session table at 0x20002970. The function always returns 0.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN receive record: identifier at offset 4, data length at 10, data from 11"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high",
+    "notes": "The record layout is inferred from the decompile (identifier word at +4, length at +10, data at +11). The routing is the standard J1939 PDU1 rule (PF below 240 carries the destination in PS)."
+  },
+  "vcu_0159_0800d858": {
+    "name": "vcu_main",
+    "summary": "Firmware main after reset: clock and peripheral bring-up, soft timers, then the forever service loop",
+    "description": "Entry point with no direct callers, reached from the reset path. It sets the SCB vector table offset DAT_E000ED08 to 0x1000 (the application starts at 0x08001000), then runs system_clock_config, vcu_identity_config_reload, vcu_latch_event_flags_b, vcu_crypto_identity_record_init, vcu_flash_usd_reset_if_unprotected, vcu_peripheral_init_sequence, proto_sessions_init and vcu_record_queues_init. It starts five soft timers; slot 0 runs vcu_app_state_machine_tick every 10 ticks, the others run callbacks at 0x08001768, 0x0800EAC4, 0x0800D00C and 0x080057AC. It then enables one debug peripheral mode and loops forever: soft_timer_poll, vcu_can_tx_pump, vcu_rx_ring0_service_one, vcu_dma_tx_queue_service and vcu_rx_dma_pump on the DMA channel 6 base. When DAT_20001FEA is set it clears it and reloads the watchdog with wdt_counter_reload, so the watchdog is fed once per DAT_20001FEA event.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high",
+    "notes": "The soft-timer callbacks at 0x08001768, 0x0800EAC4, 0x0800D00C and 0x080057AC are not described in this packet; only slot 0 is traced to vcu_app_state_machine_tick. The argument to debug_periph_mode_set (2, 1) is passed as-is. The watchdog reload only happens when DAT_20001FEA is set, which is written by code outside this packet."
+  },
+  "vcu_0159_0800ef14": {
+    "name": "vcu_ninebot_from_ef00_frame",
+    "summary": "Adapt a CAN PGN 0xEF00 message into a Ninebot-style frame and dispatch it with CAN reply mode",
+    "description": "Called from vcu_can_rx_route_by_pgn with the CAN source address, the destination address, the data pointer and the data length. It zeroes a 252-byte frame buffer and fills it so that byte 0 is the data length minus 3, byte 1 the CAN source, byte 2 the CAN destination, byte 3 data byte 1 (the command), byte 4 data byte 2 (the argument), and bytes 5 onward the data from offset 3. It then calls vcu_ninebot_frame_dispatch with reply mode 1, so the reply is sent back as a PGN 0xEF00 CAN message. Because the frame layout matches vcu_ninebot_rx_byte_parse, one command handler serves both the UART and the CAN path.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "unused"},
+      {"name": "param_2", "type": "u8", "description": "CAN source address, placed in frame byte 1"},
+      {"name": "param_3", "type": "u8", "description": "CAN destination address, placed in frame byte 2"},
+      {"name": "param_4", "type": "ptr", "description": "CAN data, byte 0 is skipped by the caller"},
+      {"name": "param_5", "type": "u32", "description": "CAN data length; the frame length byte is this value minus 3"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The frame byte order is inferred from the stack offsets in the decompile (local_110 length, local_10F source, local_10E destination, local_10D and local_10C data bytes 1 and 2, then the payload). Data bytes 1 and 2 landing in the command and argument positions is consistent with the layout used by vcu_ninebot_frame_dispatch, but has not been checked against a captured CAN frame."
+  }
+}
