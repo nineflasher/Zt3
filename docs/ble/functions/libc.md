@@ -1,6 +1,6 @@
 # BLE - `libc` functions
 
-85 functions.
+91 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -21,6 +21,7 @@
 | [`__env_unlock`](#__env_unlock) | 0x0C073780 | newlib __env_unlock: release the recursive lock protecting environ |
 | [`__errno`](#__errno) | 0x0C0701F8 | newlib __errno: return pointer to the errno variable |
 | [`__get_current_locale`](#__get_current_locale) | 0x0C0724B0 | Return pointer to the default locale object in flash |
+| [`__ieee754_sqrt`](#__ieee754_sqrt) | 0x0C06F2CC | Bit-by-bit software double square root (fdlibm __ieee754_sqrt) |
 | [`__locale_charset`](#__locale_charset) | 0x0C071C38 | newlib __locale_charset: pointer to the current locale charset string |
 | [`__locale_msgcharset`](#__locale_msgcharset) | 0x0C071C44 | newlib __locale_msgcharset: pointer to the message charset string |
 | [`__retarget_lock_acquire_recursive`](#__retarget_lock_acquire_recursive) | 0x0C0724BC | newlib lock acquire stub (no-op) |
@@ -42,6 +43,7 @@
 | [`_fstat`](#_fstat) | 0x0C035FE8 | newlib stub fstat reporting every descriptor as a character device |
 | [`_fstat_r`](#_fstat_r) | 0x0C073A8C | newlib _fstat_r: call _fstat and copy a non-zero errno into the reent on failure |
 | [`_getpid_r`](#_getpid_r) | 0x0C073A88 | newlib _getpid_r thunk: branch to the stub at 0x0c035ff4 that always returns pid 1 |
+| [`_gettimeofday_r`](#_gettimeofday_r) | 0x0C071A70 | Reentrant gettimeofday wrapper that copies a failure errno into the reent |
 | [`_isatty`](#_isatty) | 0x0C035FF4 | newlib stub isatty that always reports a terminal |
 | [`_isatty_r`](#_isatty_r) | 0x0C073AB0 | newlib _isatty_r: call _isatty and copy a non-zero errno into the reent on failure |
 | [`_kill`](#_kill) | 0x0C036010 | newlib _kill stub: set errno to EINVAL and return -1 |
@@ -51,6 +53,7 @@
 | [`_read_r`](#_read_r) | 0x0C0734E0 | newlib _read_r: call _read and copy a non-zero errno into the reent on failure |
 | [`_scanf_chars`](#_scanf_chars) | 0x0C073188 | newlib-nano _scanf_chars: scanf %c / %s / %[ conversion |
 | [`_scanf_i`](#_scanf_i) | 0x0C07323C | newlib-nano _scanf_i: read an integer field for vfscanf and convert it with _strtol_r/_strtoul_r |
+| [`_setenv_r`](#_setenv_r) | 0x0C07247C | Reentrant setenv front end: look up NAME in environ and pass the result on |
 | [`_strtoul_r`](#_strtoul_r) | 0x0C071A48 | newlib _strtoul_r: reentrant string-to-unsigned-long with base 0/8/10/16 autodetect and ERANGE |
 | [`_write`](#_write) | 0x0C04846C | newlib _write syscall: stdout/stderr to the console with CRLF translation, fds 3..48 via driver table |
 | [`atol`](#atol) | 0x0C0701E0 | Parse a base-10 integer from a string, saturating and setting ERANGE on overflow |
@@ -76,7 +79,10 @@
 | [`memset`](#memset) | 0x0C070A0A | newlib memset: fill n bytes with a byte value |
 | [`raise`](#raise) | 0x0C073A54 | newlib raise(sig) with _raise_r inlined: run the installed handler or fall back to _kill |
 | [`read`](#read) | 0x0C071ABC | newlib read(fd, buf, cnt): call _read_r with the global reentrancy structure |
+| [`setenv`](#setenv) | 0x0C0723EC | Front end for setenv: look up NAME in environ with the impure reent |
+| [`sqrt`](#sqrt) | 0x0C06F220 | Double square root with domain check: returns NaN and sets EDOM for negative input |
 | [`sqrtf`](#sqrtf) | 0x0C06F450 | Single-precision square root (VSQRT.F32) |
+| [`sscanf`](#sscanf) | 0x0C071618 | Parse values from a NUL-terminated string with a scanf format |
 | [`std`](#std) | 0x0C072080 | newlib findfp.c std(): initialise a FILE as stdin/stdout/stderr with the __s* cookie functions |
 | [`strcat`](#strcat) | 0x0C0716FA | newlib strcat: append a string to another |
 | [`strchr`](#strchr) | 0x0C071718 | newlib strchr: find a character in a string |
@@ -159,7 +165,7 @@ ARM runtime (libgcc/RVCT style) double add working on register pairs. Handles Na
 **Returns** `u64`: a + b as IEEE-754 double
 
 - Addresses by version: 219: 0x0C06F464
-- Called by: `ble_rssi_filter_update`, `ble_219_0c06f2cc`, `__aeabi_f2d`
+- Called by: `ble_rssi_filter_update`, `__ieee754_sqrt`, `__aeabi_f2d`
 - Confidence: high
 
 ## __aeabi_dcmplt
@@ -173,7 +179,7 @@ Calls the flag-setting compare helper (0x0C06FC90) and returns the inverted carr
 **Notes:** Operands are in r0..r3 (the decompiler shows none). The result depends on the carry set by 0x0C06FC90, which the decompile does not show.
 
 - Addresses by version: 219: 0x0C06FCB4
-- Called by: `ble_219_0c06f220`
+- Called by: `sqrt`
 - Calls: `__aeabi_cdcmple`
 - Confidence: low
 
@@ -195,7 +201,7 @@ Divides the double (param_1, param_2) by (param_3, param_4). Zero, infinity, NaN
 **Notes:** The packet's callee list includes __aeabi_dmul (0x0C06F7D0), but no call to it appears in this body; the call list may be imprecise.
 
 - Addresses by version: 219: 0x0C06FA24
-- Called by: `ble_219_0c06f220`, `ble_219_0c06f2cc`
+- Called by: `sqrt`, `__ieee754_sqrt`
 - Calls: `__aeabi_dmul`, `__aeabi_ddiv_special_case`
 - Confidence: high
 
@@ -239,7 +245,7 @@ Multiplies two doubles given as (lo, hi) argument words. Zero, infinity, NaN and
 **Notes:** Callers include the division special-case and dispatch paths (not all in this packet).
 
 - Addresses by version: 219: 0x0C06F7D0
-- Called by: `ble_rssi_filter_update`, `ble_219_0c06f2cc`, `__aeabi_ddiv`
+- Called by: `ble_rssi_filter_update`, `__ieee754_sqrt`, `__aeabi_ddiv`
 - Calls: `__aeabi_dmul_special_case`
 - Confidence: high
 
@@ -280,7 +286,7 @@ Single instruction that flips the sign bit of the high word of the second operan
 **Returns** `u64`: a - b as IEEE-754 double (low word in r0, high in r1)
 
 - Addresses by version: 219: 0x0C06F460
-- Called by: `ble_219_0c06f2cc`
+- Called by: `__ieee754_sqrt`
 - Confidence: high
 
 ## __aeabi_f2d
@@ -376,7 +382,7 @@ Returns the 32-bit value stored in the RAM pointer cell DAT_200049a8, which hold
 **Notes:** Name chosen from usage (errno pointer used by strtoul); in newlib the symbol is __errno().
 
 - Addresses by version: 219: 0x0C0701F8
-- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_219_0c04885c`, `ble_219_0c06f220`, `w_sqrtf` ...
+- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_219_0c04885c`, `sqrt`, `w_sqrtf` ...
 - Confidence: medium
 
 ## __get_current_locale
@@ -392,6 +398,21 @@ Returns the constant address 0x0c073ce0, the read-only default (C) locale struct
 - Addresses by version: 219: 0x0C0724B0
 - Called by: `ble_219_0c070bcc`, `__tzcalc_limits`, `ble_219_0c071c50`
 - Confidence: low
+
+## __ieee754_sqrt
+
+**Bit-by-bit software double square root (fdlibm __ieee754_sqrt)**
+
+Soft-float IEEE double square root in the fdlibm style. Inf and NaN return x*x + x (__aeabi_dmul then __aeabi_dadd). Negative finite input returns (x - x) / (x - x) (__aeabi_dsub then __aeabi_ddiv), which is NaN. Otherwise it normalises the mantissa and computes the root one bit at a time, with a 22-step loop for the high digits and a 32-step loop for the low digits, keeping the restoring remainder in a register pair, then rounds the last bit.
+
+**Returns** `f64`: square root in d0; the decompiler shows only the low word
+
+**Notes:** The argument arrives in d0, which the decompiler shows as an implicit input. The result is correct for the branches that the callees identify.
+
+- Addresses by version: 219: 0x0C06F2CC
+- Called by: `sqrt`
+- Calls: `__aeabi_dsub`, `__aeabi_dadd`, `__aeabi_dmul`, `__aeabi_ddiv`
+- Confidence: medium
 
 ## __locale_charset
 
@@ -548,7 +569,7 @@ The nano vfscanf.c engine built with STRING_ONLY and INTEGER_ONLY, used by sscan
 **Returns** `s32`: number of assigned conversions, or -1 (EOF) on input failure before any assignment
 
 - Addresses by version: 219: 0x0C0728B0
-- Called by: `ble_219_0c071618`
+- Called by: `sscanf`
 - Calls: `_scanf_chars`, `_scanf_i`, `__sccl`, `memchr`
 - Confidence: high
 
@@ -649,7 +670,7 @@ Checks whether the exponent (bits 62..52 after sign removal) of either operand i
 **Returns** `u32`: 1 if unordered, else 0
 
 - Addresses by version: 219: 0x0C06FD04
-- Called by: `ble_219_0c06f220`
+- Called by: `sqrt`
 - Confidence: high
 
 ## _close
@@ -684,7 +705,7 @@ newlib getenv_r.c. Takes the environment lock (__env_lock, ble_219_0c073774), th
 **Returns** `ptr`: pointer to the value string after '=' or NULL
 
 - Addresses by version: 219: 0x0C072404
-- Called by: `ble_219_0c0723ec`, `ble_219_0c07247c`
+- Called by: `setenv`, `_setenv_r`
 - Calls: `strncmp`, `__env_lock`, `__env_unlock`
 - Confidence: high
 
@@ -736,6 +757,22 @@ Single-instruction tail-call to FUN_0c035ff4, a 'return 1' stub shared (by ident
 - Addresses by version: 219: 0x0C073A88
 - Called by: `raise`
 - Calls: `_isatty`
+- Confidence: medium
+
+## _gettimeofday_r
+
+**Reentrant gettimeofday wrapper that copies a failure errno into the reent**
+
+Newlib _gettimeofday_r style wrapper. It clears the errno scratch word at 0x20019540, calls gettimeofday (0x0C0400CC, the FreeRTOS tick plus the epoch offset), and if that returns -1 with a non-zero scratch errno it stores the scratch value into the first word of the impure reent (DAT_200049A8), which is _errno.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | struct timeval output |
+| `param_2` | `ptr` | struct timezone, or NULL |
+
+- Addresses by version: 219: 0x0C071A70
+- Called by: `prvSwitchTimerLists`, `ble_219_0c044ee8`, `ble_219_0c058980`
+- Calls: `gettimeofday`
 - Confidence: medium
 
 ## _isatty
@@ -899,6 +936,26 @@ nano-vfscanf_i.c. Chooses the conversion function: _strtol_r (0x0c07194c) when p
 - Called by: `__ssvfiscanf_r`
 - Calls: `__sccl`, `memchr`
 - Confidence: high
+
+## _setenv_r
+
+**Reentrant setenv front end: look up NAME in environ and pass the result on**
+
+Same shape as setenv (0x0C0723EC) but takes the reent pointer as its first argument. It calls the environ lookup _findenv_r (0x0C072404) with (reent, name, a stack slot holding the value, param_4, reent) and returns nothing in the decompile.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | reent structure |
+| `param_2` | `ptr` | variable name |
+| `param_3` | `u32` | value, as lifted |
+| `param_4` | `u32` | overwrite flag, as lifted |
+
+**Notes:** Low confidence for the same reason as setenv: the four-argument call is lifted with five words, so the mapping of the arguments is inferred.
+
+- Addresses by version: 219: 0x0C07247C
+- Called by: `ble_219_0c071c50`
+- Calls: `_findenv_r`
+- Confidence: low
 
 ## _strtoul_r
 
@@ -1116,7 +1173,7 @@ Returns -1 when the timeval pointer is NULL. Otherwise, inside the critical sect
 **Notes:** Carry test uses '>' 1000000 rather than '>='.
 
 - Addresses by version: 219: 0x0C0400CC
-- Called by: `ble_219_0c071a70`
+- Called by: `_gettimeofday_r`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `rtos_systick_sub_tick_ns`, `xTaskGetTickCount`
 - Confidence: high
 
@@ -1348,6 +1405,43 @@ Non-reentrant POSIX read wrapper from newlib's syscalls/sysread.c: forwards (fd,
 - Calls: `_read_r`
 - Confidence: medium
 
+## setenv
+
+**Front end for setenv: look up NAME in environ with the impure reent**
+
+Newlib-style setenv(name, value, overwrite) front end. It keeps value and overwrite in stack slots and calls the environ lookup _findenv_r (0x0C072404) with the impure reent (DAT_200049A8), the name and the stack slots by address. The decompiled call has five arguments, so the lifted argument list is unreliable and this is only the best reading of the setenv entry point.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | variable name |
+| `param_2` | `u32` | value pointer, as lifted |
+| `param_3` | `u32` | overwrite flag, as lifted |
+
+**Notes:** Low confidence: the wrapper body does not show the full setenv logic and the argument mapping is inconsistent. It may be getenv-related.
+
+- Addresses by version: 219: 0x0C0723EC
+- Called by: `ble_219_0c0702f8`
+- Calls: `_findenv_r`
+- Confidence: low
+
+## sqrt
+
+**Double square root with domain check: returns NaN and sets EDOM for negative input**
+
+newlib sqrt wrapper (w_sqrt). It computes __ieee754_sqrt (0x0C06F2CC) on the argument. If the argument is not NaN (__unorddf2) and is less than zero (__aeabi_dcmplt against 0.0) it sets errno to 0x21 (EDOM) through __errno and returns NaN, computed as 0/0 with __aeabi_ddiv. Otherwise it returns the __ieee754_sqrt result.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | low word of the double argument |
+| `param_2` | `u32` | high word of the double argument |
+
+**Returns** `f64`: IEEE double square root in r0:r1, or NaN for negative input
+
+- Addresses by version: 219: 0x0C06F220
+- Called by: `ble_rssi_filter_update`
+- Calls: `__ieee754_sqrt`, `__aeabi_ddiv`, `__aeabi_dcmplt`, `__unorddf2`, `__errno`
+- Confidence: high
+
 ## sqrtf
 
 **Single-precision square root (VSQRT.F32)**
@@ -1363,6 +1457,26 @@ Two-instruction wrapper that executes the Cortex-M33 FPU vsqrt.f32 instruction o
 - Addresses by version: 219: 0x0C06F450
 - Called by: `w_sqrtf`
 - Confidence: high
+
+## sscanf
+
+**Parse values from a NUL-terminated string with a scanf format**
+
+Newlib sscanf. It builds a string-backed FILE on the stack with read flags 0x204, _file set to -1, the buffer set to the string, the size set to strlen of the string (0x0C071756), and the end-of-file read stub at 0x0C071692. It then calls __ssvfiscanf_r (0x0C0728B0) on the impure reent (DAT_200049A8) with the format and the variadic argument list.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | input string |
+| `param_2` | `ptr` | format string |
+| `param_3` | `u32` | first variadic argument |
+| `param_4` | `u32` | second variadic argument |
+
+**Returns** `s32`: number of assigned fields from __ssvfiscanf_r, which the decompile does not capture
+
+- Addresses by version: 219: 0x0C071618
+- Called by: `ble_219_0c071c50`
+- Calls: `strlen`, `__ssvfiscanf_r`
+- Confidence: medium
 
 ## std
 
@@ -1458,7 +1572,7 @@ Advances through the string until a NUL byte and returns the pointer difference,
 **Returns** `u32`: string length in bytes
 
 - Addresses by version: 219: 0x0C071756
-- Called by: `util_find_str_in_buf`, `ble_219_0c0474b0`, `ble_219_0c04b788`, `ble_219_0c054534`, `ble_219_0c055b90`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `ble_219_0c067248`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `ble_219_0c071618` ...
+- Called by: `util_find_str_in_buf`, `ble_219_0c0474b0`, `ble_219_0c04b788`, `ble_219_0c054534`, `ble_219_0c055b90`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `ble_219_0c067248`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `sscanf` ...
 - Confidence: high
 
 ## strncmp

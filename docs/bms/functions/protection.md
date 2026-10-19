@@ -145,7 +145,7 @@ Picks one of nine sets from the profile id at DAT_20000026: ids 4 and 12 share a
 
 **Write the 4130 table of 12-byte limit records and set the thresholds for profile id 0x20000014**
 
-Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fifteen of them (1, 2, 3, 5, 7, 9, 10, 0x0C, 0x0F, 0x16, 0x18, 0x1D, 0x1F, 0x21 and 0x0A pair layouts) are fixed u16 pairs with u32 words of 4000 or 10000, while records 0x11, 0x2B and 0x30 are derived from the status block. The profile id at DAT_20000014 selects threshold values stored in the status block: +0x52 and +0x86/+0x88 for id 5 or other ids, and +0x6C/+0x70/+0x76 for groups (4-5), (3), (2), (0) and other. Record 0x11 copies +0x86 and +0x88, record 0x2B takes +0x6C and +0x6C-2, and record 0x30 takes -(+0x70) and 2-(+0x70). The routine only writes.
+Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fourteen of them (1, 2, 3, 5, 7, 9, 10, 0x0C, 0x0F, 0x16, 0x18, 0x1D, 0x1F and 0x21) are fixed u16 pairs with u32 words of 4000 or 10000, while records 0x11, 0x2B and 0x30 are derived from the status block. The profile id at DAT_20000014 selects threshold values stored in the status block: +0x52 and +0x86/+0x88 for id 5 or other ids, and +0x6C/+0x70/+0x76 for groups (4-5), (3), (2), (0) and other. Record 0x11 copies +0x86 and +0x88, record 0x2B takes +0x6C and +0x6C-2, and record 0x30 takes -(+0x70) and 2-(+0x70). The routine only writes.
 
 **Notes:** The purpose of individual records is not stated in the packet. The 4000 and 10000 words are probably limits or durations, which is an inference. The 4139 counterpart is bms_profile_table_fill_4139, which writes its threshold to +0x192 rather than +0x52.
 
@@ -158,7 +158,7 @@ Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fifteen of them (1, 2
 
 **Fill the 4139 record table and threshold bytes for profile id 0x20000014**
 
-Fills 18 records through bms_record12_addr for the 4139 build (its accessor is FUN_0800C0B0). Records 2 and 3 take 4000 as the second word for ids 6, 7 and 8 and 0x1004 otherwise; record 0x12 copies +0x86 and +0x88; records 0x2C and 0x31 are derived from the status block; the rest are fixed pairs with u32 words of 4000 or 10000. The profile id at DAT_20000014 sets +0x86 and +0x88 and the threshold at +0x192 (0x17C for id 5, 400 otherwise), and sets +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. Records 0x2C and 0x31 take +0x6C and -(+0x70) as in the 4130 table.
+Fills 18 records through bms_record12_addr for the 4139 build (its accessor is FUN_0800C0B0). Records 2 and 3 take 4000 as the second word for ids 6, 7 and 8 and 0x1004 otherwise; record 0x12 copies +0x86 and +0x88; records 0x2C and 0x31 are derived from the status block; the rest are fixed pairs with u32 words of 4000 or 10000. The profile id at DAT_20000014 sets +0x86 and +0x88 (0x35 and 0x30 for ids 5 to 8, 0x3A and 0x35 otherwise) and the threshold at +0x192 (0x17C for id 5, 400 otherwise), and sets +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. Records 0x2C and 0x31 take +0x6C and -(+0x70) as in the 4130 table.
 
 **Notes:** Same structure as bms_profile_table_fill_4130 with different ids, record numbers and offsets. The purpose of individual records is not stated in the packet.
 
@@ -171,7 +171,7 @@ Fills 18 records through bms_record12_addr for the 4139 build (its accessor is F
 
 **Fill the 4168 record table and threshold bytes for profile id 0x20000024**
 
-Fills 18 records through bms_record12_addr for the 4168 build (accessor FUN_0800CE3C). The record at index 1 takes 0x35 for id 5 and 0x2D otherwise, and record 2 takes 0xFD2 for id 5 and 0x1036 otherwise; record 0x12 copies +0x86 and +0x88, records 0x2B and 0x31 are derived from the status block, and records 6, 7, 8, 0x0B, 0x0D and 0x10 are fixed pairs. The profile id at DAT_20000024 sets +0x86, +0x88 and +0x192 (0x17C for id 5, 400 for other ids) and +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. The routine only writes records and status fields.
+Fills 20 records through bms_record12_addr for the 4168 build (accessor FUN_0800CE3C). The record at index 1 takes 0x35 for id 5 and 0x2D otherwise, and record 2 takes 0xFD2 for id 5 and 0x1036 otherwise; record 0x12 copies +0x86 and +0x88, records 0x2C, 0x2B and 0x31 are derived from the status block (0x2C from +0x6C, 0x2B and 0x31 from +0x70), and the rest are fixed pairs. The profile id at DAT_20000024 sets +0x86 and +0x88 (0x35 and 0x30 for ids 6 to 8, 0x3A and 0x35 otherwise) and +0x192 (0x17C for id 5, 400 otherwise), and +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. The routine only writes records and status fields.
 
 **Notes:** Sibling of bms_profile_table_fill_4139 and bms_profile_table_fill_4130 with a different id mapping and record set. The purpose of each record is not stated in the packet.
 

@@ -1,11 +1,13 @@
 # BLE - `rtos` functions
 
-95 functions.
+97 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`app_noop_hook_0c0427f0`](#app_noop_hook_0c0427f0) | 0x0C0427F0 | Empty function (single return), never called directly |
 | [`ble_bt_stack_task_create`](#ble_bt_stack_task_create) | 0x0C05B6CC | Create the 'bt stack' RTOS task with entry 0x0C05B678 and a 1 KiB stack |
+| [`ble_sched_check_and_pend_pendsv`](#ble_sched_check_and_pend_pendsv) | 0x0C05D0C4 | Request a PendSV exception when the scheduler object reports pending work |
+| [`ble_sched_signal_event`](#ble_sched_signal_event) | 0x0C05D494 | Signal event 1 on the BLE scheduler object at 0x20017184 |
 | [`ble_signal_worker_event`](#ble_signal_worker_event) | 0x0C059938 | Signal the BLE worker event handle held in the global at 0x20014564 |
 | [`pcTaskGetName`](#pctaskgetname) | 0x0C043F34 | FreeRTOS: return pointer to a task's name string |
 | [`posix_event_2000f65c_init`](#posix_event_2000f65c_init) | 0x0C047F70 | Static constructor: initialise the RTOS event object at 0x2000F660 and store its handle in 0x2000F65C |
@@ -120,6 +122,30 @@ Creates the task named 'bt stack' with entry point 0x0C05B678, stack size 0x400 
 - Addresses by version: 219: 0x0C05B6CC
 - Called by: `ble_219_0c0592a4`
 - Calls: `xTaskCreateStatic`
+- Confidence: medium
+
+## ble_sched_check_and_pend_pendsv
+
+**Request a PendSV exception when the scheduler object reports pending work**
+
+Calls the status query at 0x0C042988 on the scheduler object at DAT_20017184 with flag 1 and a local out-word. If the out-word comes back non-zero it writes 0x10000000 to SCB->ICSR (0xE000ED04), the PENDSVSET bit, so the RTOS context switch runs once no higher-priority exception is active. It has no effect when the out-word is zero and does not clear any pending state itself. It has no direct callers in the packet, so it is reached through an indirect call or a table.
+
+**Notes:** The status routine 0x0C042988 and the object type of DAT_20017184 are not described yet, so the meaning of the out-word is inferred from the PendSV write.
+
+- Addresses by version: 219: 0x0C05D0C4
+- Peripheral registers: `0xe000ed04` (W)
+- Calls: `rtos_timer_pend_fixed_callback_from_isr`
+- Confidence: medium
+
+## ble_sched_signal_event
+
+**Signal event 1 on the BLE scheduler object at 0x20017184**
+
+Thin wrapper that calls the event-set primitive at 0x0C04291C with the object pointer DAT_20017184 and event number 1. It is the same signal that ble_xfer_pump_chunk_and_notify issues after moving a chunk, so it is used to wake the BLE task when work becomes ready. Its caller 0x0C05AE14 is not described yet.
+
+- Addresses by version: 219: 0x0C05D494
+- Called by: `ble_msg_enqueue`
+- Calls: `xEventGroupSetBits`
 - Confidence: medium
 
 ## ble_signal_worker_event
@@ -404,7 +430,7 @@ Used when the tick count wraps (upstream prvSwitchTimerLists). While the current
 
 - Addresses by version: 219: 0x0C044DE8
 - Called by: `ble_219_0c044ee8`
-- Calls: `vListInsert`, `uxListRemove`, `xTimerGenericCommand`, `ble_219_0c071a70`
+- Calls: `vListInsert`, `uxListRemove`, `xTimerGenericCommand`, `_gettimeofday_r`
 - Confidence: medium
 
 ## prvUnlockQueue
@@ -616,14 +642,14 @@ Builds a 16-byte timer-daemon message on the stack: command id -2 (tmrCOMMAND_EX
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | first callback argument (pvParameter1) |
-| `param_2` | `u32` | second callback argument (ulParameter2) |
-| `param_3` | `ptr` | pxHigherPriorityTaskWoken, may be NULL |
+| `pvParameter1` | `ptr` | first callback argument (pvParameter1) |
+| `ulParameter2` | `u32` | second callback argument (ulParameter2) |
+| `pxHigherPriorityTaskWoken` | `ptr` | pxHigherPriorityTaskWoken, may be NULL |
 
 **Notes:** The code at 0x0C042984 that serves as the callback is not described here, so the callee's purpose is unknown.
 
 - Addresses by version: 219: 0x0C042988
-- Called by: `ble_219_0c0482b8`, `ble_219_0c05d0c4`
+- Called by: `ble_219_0c0482b8`, `ble_sched_check_and_pend_pendsv`
 - Calls: `xQueueGenericSendFromISR`
 - Confidence: medium
 
@@ -1114,7 +1140,7 @@ Under vTaskSuspendAll it ORs the new bits into the stored word, then walks the w
 **Notes:** Flag layout as in xEventGroupWaitBits.
 
 - Addresses by version: 219: 0x0C04291C
-- Called by: `ble_219_0c048278`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_219_0c05d260`, `ble_219_0c05d2f4`, `ble_219_0c05d494`
+- Called by: `ble_219_0c048278`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_219_0c05d260`, `ble_xfer_pump_chunk_and_notify`, `ble_sched_signal_event`
 - Calls: `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskRemoveFromUnorderedEventList`
 - Confidence: high
 
@@ -1229,7 +1255,7 @@ Checks that the caller (xTaskGetCurrentTaskHandle) is the mutex holder stored at
 **Returns** `s32`: 1 when the caller held the mutex and released one level, 0 otherwise
 
 - Addresses by version: 219: 0x0C042DF4
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046ec0`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_219_0c05d2f4`, `ble_219_0c05d358`
+- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046ec0`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
 - Calls: `xQueueGenericSend`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 
@@ -1305,7 +1331,7 @@ If the caller (xTaskGetCurrentTaskHandle) already holds the mutex at +4, only th
 **Notes:** The decompiled function returns nothing, so the upstream pdPASS / pdFAIL result is not visible in this packet.
 
 - Addresses by version: 219: 0x0C0431F8
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046e88`, `ble_219_0c048380`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_219_0c05d2f4`, `ble_219_0c05d358`
+- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046e88`, `ble_219_0c048380`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
 - Calls: `xQueueSemaphoreTake`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 

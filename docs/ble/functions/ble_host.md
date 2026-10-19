@@ -1,6 +1,6 @@
 # BLE - `ble_host` functions
 
-191 functions.
+195 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -37,6 +37,7 @@
 | [`ble_host_ctx_clear_2608`](#ble_host_ctx_clear_2608) | 0x0C05481C | Zero the 0x574-byte host state block at 0x20012608 |
 | [`ble_host_ctx_reset_b88`](#ble_host_ctx_reset_b88) | 0x0C055570 | Clear the state byte at 0x20012B88 and the 0x80-byte block at 0x20012B8C |
 | [`ble_host_env_read_1d8`](#ble_host_env_read_1d8) | 0x0C052DD4 | Return the u32 at +0x1D8 of the BLE host environment, or 0xFFFFFFFF if absent |
+| [`ble_host_hci_init_once`](#ble_host_hci_init_once) | 0x0C065148 | One-time setup of the HCI event state that registers the packet handler |
 | [`ble_host_load_arg_pair`](#ble_host_load_arg_pair) | 0x0C065B0C | Read back the two values saved by ble_host_store_arg_pair |
 | [`ble_host_op_allowed`](#ble_host_op_allowed) | 0x0C052E28 | Report whether the BLE host state gate allows starting a new operation |
 | [`ble_host_store_arg_pair`](#ble_host_store_arg_pair) | 0x0C065AF8 | Save two values into globals 0x200190b8/0x200190b4 |
@@ -153,6 +154,8 @@
 | [`hci_remove_event_handler`](#hci_remove_event_handler) | 0x0C066DCC | Unregister a packet handler from the event-handler list at env+0x20 |
 | [`hci_reserve_packet_buffer`](#hci_reserve_packet_buffer) | 0x0C066BE8 | Reserve the single outgoing packet buffer by setting env+0x170 |
 | [`hci_reserve_packet_buffer_thunk`](#hci_reserve_packet_buffer_thunk) | 0x0C06D5D4 | Thunk: jump to the HCI packet-buffer reserve routine at 0x0C066BE8 |
+| [`hci_send_cmd`](#hci_send_cmd) | 0x0C067178 | Reserve the HCI packet buffer and send one command, or report that it is busy |
+| [`hci_send_cmd_no_status`](#hci_send_cmd_no_status) | 0x0C06722C | Send an HCI command through hci_send_cmd and discard its status |
 | [`hci_stream_buffer_is_empty`](#hci_stream_buffer_is_empty) | 0x0C045534 | Return true when the 5 KB HCI stream buffer holds no bytes |
 | [`hci_stream_buffer_receive_nowait`](#hci_stream_buffer_receive_nowait) | 0x0C045518 | Non-blocking read of up to N bytes from the global HCI stream buffer DAT_2000F2B0 |
 | [`hci_transport_h4_rx_advance`](#hci_transport_h4_rx_advance) | 0x0C06C2E0 | Advance the H4 UART receive state machine by the bytes just received |
@@ -160,6 +163,7 @@
 | [`hid_report_size_valid_body`](#hid_report_size_valid_body) | 0x0C04AF5A | BTstack hid_report_size_valid body (entered after the size!=0 check at 0x0C04AF54) |
 | [`l2cap_channel_emit_event_70`](#l2cap_channel_emit_event_70) | 0x0C06C5AC | Emit vendor event 0x70 (26 bytes) describing an L2CAP channel with a sub-code |
 | [`l2cap_channel_get_u16_34_by_cid`](#l2cap_channel_get_u16_34_by_cid) | 0x0C06EC54 | Return the u16 at +0x34 of the L2CAP channel with a given local CID |
+| [`l2cap_channel_pool_init`](#l2cap_channel_pool_init) | 0x0C06D474 | Initialise the L2CAP channel pool header, CID counter and channel handlers |
 | [`l2cap_channel_set_context_by_cid`](#l2cap_channel_set_context_by_cid) | 0x0C06F03C | Store a context pointer in the L2CAP channel with a given CID (CIDs 0..0x3F) |
 | [`l2cap_channel_timer_teardown`](#l2cap_channel_timer_teardown) | 0x0C06C74C | Timer callback: tear down the L2CAP channel that owns the expired timer |
 | [`l2cap_channels_teardown_by_addr`](#l2cap_channels_teardown_by_addr) | 0x0C06C83C | Tear down all L2CAP channels to a peer address, emitting event 0x70 with a code |
@@ -340,7 +344,7 @@ Tail-forwards its arguments to the thunk at 0x0c066a4c (the packet lists the fin
 
 - Addresses by version: 219: 0x0C04DEF0
 - Called by: `ble_219_0c04e398`, `ble_219_0c04ebc0`
-- Calls: `ble_219_0c06d5c4`
+- Calls: `ll_env_can_send_acl_thunk`
 - Confidence: high
 
 ## att_is_persistent_ccc
@@ -754,6 +758,19 @@ Calls the environment accessor at 0x0c066554 (not yet named). If it returns a no
 - Calls: `ble_ctrl_conn_find_by_handle`
 - Confidence: medium
 
+## ble_host_hci_init_once
+
+**One-time setup of the HCI event state that registers the packet handler**
+
+Runs once: if the init byte at 0x20017385 is already non-zero it returns. Otherwise it sets that byte to 1, stores the handler address 0x0C064C6C (Thumb 0x0C064C6D) at 0x20017394, calls hci_add_event_handler (0x0C066DBC) to register it on the event-handler list at env+0x20, and clears the state words at 0x200172DC, 0x20017300, 0x2001738C and 0x20017388 to zero.
+
+**Notes:** The decompile drops the arguments of the hci_add_event_handler call. The registered handler is assumed to be the one stored at 0x20017394.
+
+- Addresses by version: 219: 0x0C065148
+- Called by: `sm_init`
+- Calls: `hci_add_event_handler`
+- Confidence: medium
+
 ## ble_host_load_arg_pair
 
 **Read back the two values saved by ble_host_store_arg_pair**
@@ -1042,7 +1059,7 @@ Appends a message to the outbound ring at 0x20015538 under the guard at 0x200154
 
 - Addresses by version: 219: 0x0C05AE14
 - Called by: `ble_219_0c028bf0`, `ble_219_0c029c18`, `ble_219_0c029d8c`, `ble_219_0c029df8`, `ble_219_0c02c338`
-- Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `ble_get_state_ptr_42f8`, `ble_219_0c05d494`, `btstack_ring_buffer_reset`, `btstack_ring_buffer_bytes_free`, `btstack_ring_buffer_write`
+- Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `ble_get_state_ptr_42f8`, `ble_sched_signal_event`, `btstack_ring_buffer_reset`, `btstack_ring_buffer_bytes_free`, `btstack_ring_buffer_write`
 - Confidence: medium
 
 ## ble_msg_queues_init
@@ -1480,7 +1497,7 @@ BTstack btstack_linked_list_add(). Walks the list from *param_1 following each i
 **Returns** `u32`: 1 if inserted, 0 if the item was already in the list
 
 - Addresses by version: 219: 0x0C0653EC
-- Called by: `sdp_register_service`, `ble_ctrl_conn_alloc_and_register`, `ble_219_0c06b5a0`, `ble_219_0c06d474`, `l2cap_register_service`
+- Called by: `sdp_register_service`, `ble_ctrl_conn_alloc_and_register`, `ble_219_0c06b5a0`, `l2cap_channel_pool_init`, `l2cap_register_service`
 - Confidence: high
 
 ## btstack_linked_list_add_tail
@@ -2392,7 +2409,7 @@ Appends the registration entry to the list at env+0x20 through btstack_linked_li
 | `registration` | `ptr` | packet handler registration; callback at +4 |
 
 - Addresses by version: 219: 0x0C066DBC
-- Called by: `att_server_init`, `sm_init`, `ble_219_0c059230`, `ble_219_0c0592a4`, `ble_219_0c065148`, `ble_219_0c06d474`
+- Called by: `att_server_init`, `sm_init`, `ble_219_0c059230`, `ble_219_0c0592a4`, `ble_host_hci_init_once`, `l2cap_channel_pool_init`
 - Calls: `btstack_linked_list_add_tail`
 - Confidence: high
 
@@ -2413,7 +2430,7 @@ Writes an HCI command into param_1: the u16 opcode from the descriptor at param_
 **Notes:** The HCI-command reading comes from the 3-byte header layout (opcode plus parameter length). The 'J'/'V' and '['..']' pairings are read from the decompile. The per-opcode format tables are not in this packet.
 
 - Addresses by version: 219: 0x0C06BC74
-- Called by: `ble_219_0c067178`
+- Called by: `hci_send_cmd`
 - Calls: `co_write16_le`, `co_reverse_copy_n`, `co_popcount32`, `memcpy`, `memset`, `strlen`
 - Confidence: medium
 
@@ -2429,7 +2446,7 @@ Walks the event-handler list at env+0x20 (entries added by hci_add_event_handler
 | `size` | `s32` | buffer length in bytes |
 
 - Addresses by version: 219: 0x0C066004
-- Called by: `ble_219_0c052de8`, `ble_ctrl_conn_set_pending_notify`, `ble_ctrl_conn_clear_pending_notify`, `ble_ctrl_conn_idle_timeout_check`, `hci_power_control_on`, `ble_ctrl_conn_key_size_check`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_219_0c06648c`, `ble_219_0c066c2c`, `ble_219_0c066f74`, `ble_219_0c067178` ...
+- Called by: `ble_219_0c052de8`, `ble_ctrl_conn_set_pending_notify`, `ble_ctrl_conn_clear_pending_notify`, `ble_ctrl_conn_idle_timeout_check`, `hci_power_control_on`, `ble_ctrl_conn_key_size_check`, `ble_ctrl_conn_free_and_report_disconnect`, `ble_ctrl_conn_teardown_and_count`, `ble_ctrl_disconnect_all_connections`, `ble_219_0c066c2c`, `ble_ctrl_hci_cmd_dispatch`, `hci_send_cmd` ...
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`
 - Confidence: high
 
@@ -2523,6 +2540,39 @@ A one-instruction tail jump to 0x0C066BE8 (hci_reserve_packet_buffer, named in w
 - Calls: `hci_reserve_packet_buffer`
 - Confidence: high
 
+## hci_send_cmd
+
+**Reserve the HCI packet buffer and send one command, or report that it is busy**
+
+BTstack hci_send_cmd. If the controller is not ready (ll_env_is_ready, 0x0C066978) it logs 'hci_send_cmd called but cannot send packet now' (hci.c line 0x1C6C) and returns 0x0C (Command Disallowed). Otherwise it stores the opcode in env+0x1AE. If the packet-buffer-reserved byte at env+0x170 is already set it logs 'hci_reserve_packet_buffer called but buffer already reserved' (line 0x2F5) and 'hci_host_num_completed_packets, hci packet buffer reserved' (line 0x1C76), then returns 0x0C. Otherwise it sets the reserved byte, packs the command with hci_cmd_pack_format (0x0C06BC74), and dispatches it through ble_ctrl_hci_cmd_dispatch (0x0C066F74). On success it returns 0. On failure it clears the reserved byte, emits a 2-byte internal event 0x6E through hci_emit_event and returns the error.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | command descriptor, u16 opcode at +0 |
+| `param_2` | `u32` | parameter word passed to hci_cmd_pack_format |
+
+**Returns** `s32`: 0 when the command was accepted, 0x0C when it cannot be sent now, or the dispatch error
+
+- Addresses by version: 219: 0x0C067178
+- Called by: `hci_send_cmd_no_status`
+- Calls: `hci_emit_event`, `ll_env_is_ready`, `ble_ctrl_hci_cmd_dispatch`, `hci_cmd_pack_format`, `ble_hook_invoke_indexed`
+- Confidence: high
+
+## hci_send_cmd_no_status
+
+**Send an HCI command through hci_send_cmd and discard its status**
+
+Calls hci_send_cmd (0x0C067178) with the same argument and ignores its return value. Callers are ble_219_0c051eb8, ble_219_0c06464c, ble_219_0c065038, ble_219_0c067248, ble_219_0c0674e8, ble_219_0c068cc8 and ble_219_0c06cdb8.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | command descriptor passed through to hci_send_cmd |
+
+- Addresses by version: 219: 0x0C06722C
+- Called by: `ble_219_0c051eb8`, `ble_219_0c06464c`, `ble_219_0c065038`, `ble_219_0c067248`, `ble_219_0c0674e8`, `ble_219_0c068cc8`, `ble_219_0c06cdb8`
+- Calls: `hci_send_cmd`
+- Confidence: high
+
 ## hci_stream_buffer_is_empty
 
 **Return true when the 5 KB HCI stream buffer holds no bytes**
@@ -2552,7 +2602,7 @@ Calls the stream buffer receive routine (0x0C0436F8, xStreamBufferReceive) on th
 **Notes:** The earlier note on hci_stream_buffer_is_empty (0x0C045534) says this routine fills the buffer through xStreamBufferSend. The decompiled call is to the receive side (prvReadBytesFromBuffer), so that earlier description should be checked.
 
 - Addresses by version: 219: 0x0C045518
-- Called by: `ble_219_0c05d2f4`
+- Called by: `ble_xfer_pump_chunk_and_notify`
 - Calls: `xStreamBufferReceive`
 - Confidence: high
 
@@ -2642,6 +2692,19 @@ Returns 0 for CIDs below 0x40 (the dynamic CID range starts there). Otherwise it
 
 - Addresses by version: 219: 0x0C06EC54
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`
+- Confidence: medium
+
+## l2cap_channel_pool_init
+
+**Initialise the L2CAP channel pool header, CID counter and channel handlers**
+
+Sets up the L2CAP state at 0x2001944C. It writes 0x40 to the local CID counter at 0x200194A4 (the first dynamic CID used by l2cap_create_channel_entry) and 0xFF to 0x200194B4. It writes four (u16, u16) pairs into the record: (1, 2) at +0x0C/+0x0E, (4, 7) at +0x1C/+0x1E, (3, 4) at +0x2C/+0x2E and (3, 6) at +0x3C/+0x3E, and links the record with btstack_linked_list_add (0x0C0653EC) each time. It stores 0x0C06E7D0 at 0x20019498 as a channel callback and 0x0C06DC50 at env+0x18 as the transport hook, then registers the packet handler with hci_add_event_handler (0x0C066DBC).
+
+**Notes:** Reading the pairs as fixed-channel or protocol IDs is inferred, not confirmed. The callback and hook targets are taken from the stored addresses.
+
+- Addresses by version: 219: 0x0C06D474
+- Called by: `ble_219_0c059230`
+- Calls: `btstack_linked_list_add`, `hci_add_event_handler`
 - Confidence: medium
 
 ## l2cap_channel_set_context_by_cid
@@ -3227,7 +3290,7 @@ Idempotent: returns at once when 0x2000feb0 is already set. Otherwise it fills t
 
 - Addresses by version: 219: 0x0C052B50
 - Called by: `ble_219_0c059230`
-- Calls: `le_device_db_tlv_check_init`, `ble_219_0c065148`, `btstack_run_loop_set_timer_handler`, `hci_add_event_handler`, `l2cap_channel_set_context_by_cid`
+- Calls: `le_device_db_tlv_check_init`, `ble_host_hci_init_once`, `btstack_run_loop_set_timer_handler`, `hci_add_event_handler`, `l2cap_channel_set_context_by_cid`
 - Confidence: medium
 
 ## sm_link_poll_state

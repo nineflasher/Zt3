@@ -362,7 +362,7 @@ Each record is:
 | Offset | Size | Field |
 |---|---|---|
 | 0 | u16 | Record size. Zero terminates the table. |
-| 2 | u16 | Flags. Bit `0x0200` means a 128-bit UUID. Bit `0x0100` marks a dynamic value, read through callbacks. Bit `0x0002` is read. Bit `0x0008` is write. Bit `0x0010` is notify. Bits 12..15 encode the security requirement, checked in `att_validate_security` (`0x0C04CBB4`). |
+| 2 | u16 | Flags. Bit `0x0200` means a 128-bit UUID. Bit `0x0100` marks a dynamic value, read through callbacks (M). Bit `0x0002` is read, `0x0008` write, `0x0010` notify, `0x0004` write-without-response (standard BTstack property bits, M). Bits 12..15 are used as the security requirement in `att_validate_security` (`0x0C04CBB4`) (M). |
 | 4 | u16 | Handle. |
 | 6 | 2 or 16 | UUID. |
 | 8 or 22 | rest | Value. |
@@ -449,9 +449,9 @@ Values seen: 1, 2, 3, 4. Each write site is listed below. The full state machine
 
 | Value | Set by | Meaning (inferred) | Key used for MIC |
 |---|---|---|---|
-| 1 | `FUN_0c02bdd0` (`ble_crypto_init`), `FUN_0c02a04c` path | Initial, SN-keyed | SN-derived block at `0x20009404` |
-| 2 | `FUN_0c029df8`, after trial success or counter | Post-trial session | SN-derived block `0x20009404` |
-| 3 | `FUN_0c02a02c` path, when no password is set | Default-password trial | Password block `0x20009450` |
+| 1 | `FUN_0c02bdd0` (`ble_crypto_init`) | Initial state after SN load | SN-derived block at `0x20009404` |
+| 2 | The `ble crypto set password` path near `0x0C02A014` when no password is recorded, and `FUN_0c029df8` when the trial counter is exhausted | No password recorded, or post-trial session (M) | SN-derived block `0x20009404` |
+| 3 | The `already set password, auth` path near `0x0C02A04C` when a password is recorded | Password recorded, awaiting trial authentication (M) | Password block `0x20009450` |
 | 4 | `cmd crypto set auth` (`0x0C0778…`, handler at `0x0C02A0C4`) | Authenticated session | Password block `0x20009450` |
 
 In `FUN_0c029df8`, state 3 calls `FUN_0c02be44` for each failure. A trial counter at `0x2000944C` counts down, and when it reaches zero the state moves to 2 and `FUN_0c02bf20` runs.

@@ -1020,11 +1020,11 @@ Reads the 32-bit word at 0x07FFA000, ORs in 0x2 and writes it back, but only whe
 
 **One-time setup of a binary semaphore and the IRQ 42 handler for a BLE block**
 
-If the 16-bit field at the start of the block referenced by +0x10 is zero, it stores the static semaphore handle DAT_2000DE28 at +2 of that block, creates a binary semaphore statically with xQueueGenericCreateStatic(1, 0, NULL, 0x2000DE34, type 3), and installs param_1 as the handler of IRQ 0x2A (42) via hal_irq_install_handler. It returns 0 on success, or -19 (0xFFFFFFED) when the block was already set up.
+If the 16-bit field at the start of the block referenced by +0x10 is zero, it stores the static semaphore handle DAT_2000DE28 at +2 of that block, creates a binary semaphore statically with xQueueGenericCreateStatic(1, 0, NULL, 0x2000DE34, type 3), and installs the device argument as the handler of IRQ 0x2A (42) via hal_irq_install_handler. It returns 0 on success, or -19 (0xFFFFFFED) when the block was already set up.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | device record; its +0x10 pointer names the setup block |
+| `device` | `ptr` | device record; its +0x10 pointer names the setup block |
 
 **Returns** `s32`: 0 on success, -19 when already initialised
 
@@ -2576,7 +2576,7 @@ Read-modify-write of 0x40009004: clears bits 10:7 (mask 0xfffff87f) and ORs in p
 
 **Apply a table of {pad, mode, arg, pull} records under the lock, reporting the first failure**
 
-For each 4-byte record {pad, mode, arg, pull} calls hal_pinmux_set_function(pad, mode); for pads 0x24 and 0x25 also calls 0x0C039C30(pad, arg); then hal_pinmux_set_pull(pad, pull). Before the first record it raises BASEPRI to 0x40 (when privileged) and spins on 0x0C073C40 until that returns non-zero; 0x0C073BA0 releases it. It records the caller's PC and LR in DAT_20003D70/DAT_20003D74 when not already at BASEPRI 0x40 and clears DAT_20003D70 on exit. On a bad pad, a bad mode or a set_function failure the record fails with code 1; a pull failure fails with code 3. Error code 2 is unreachable because the pad check happens earlier.
+For each 4-byte record (pad, mode, arg, pull) it calls hal_pinmux_set_function with pad and mode; for pads 0x24 and 0x25 it also calls 0x0C039C30 with pad and arg; then it calls hal_pinmux_set_pull with pad and pull. Before the first record it raises BASEPRI to 0x40 (when privileged) and spins on 0x0C073C40 until that returns non-zero; 0x0C073BA0 releases it. It records the caller's PC and LR in DAT_20003D70 and DAT_20003D74 when not already at BASEPRI 0x40 and clears DAT_20003D70 on exit. A bad pad, a bad mode or a set_function failure fails the record with code 1; a pull failure fails it with code 3. Error code 2 is unreachable because the pad check happens earlier.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -2596,12 +2596,12 @@ For each 4-byte record {pad, mode, arg, pull} calls hal_pinmux_set_function(pad,
 
 **Set the 4-bit function-select nibble of one pad in the pad mux registers**
 
-Writes the function-select nibble of pad param_1 (0x00..0x23): word 0x40086004 + 4*(pad>>3) for pads 0x00..0x1F and 0x4008607C for pads 0x20..0x23, nibble at bit (pad&7)*4. Mode 1 writes nibble 0 (default function). Any other mode is looked up in the 6-byte-per-pad table at 0x0C08355C; a mode that is not in the table returns 3, otherwise the nibble is the byte at 0x0C081B44 indexed by the match position. Pads 0x12 and 0x13 also drive bit 0 of 0x40086050: set for every mode except 0xB and 0xC, where both nibbles of the pair are cleared (mask 0xFF00) and the bit is cleared. Pads 0x24 and 0x25 accept only mode 1 (any other mode spins forever), call 0x0C039DC0 and clear bit 0 of 0x40086048; pads above 0x23 are ignored and return 0.
+Writes the function-select nibble of pad (0x00..0x23): word 0x40086004 + 4*(pad>>3) for pads 0x00..0x1F and 0x4008607C for pads 0x20..0x23, nibble at bit (pad&7)*4. Mode 1 writes nibble 0 (default function). Any other mode is looked up in the 6-byte-per-pad table at 0x0C08355C; a mode that is not in the table returns 3, otherwise the nibble is the byte at 0x0C081B44 indexed by the match position. Pads 0x12 and 0x13 also drive bit 0 of 0x40086050: set for every mode except 0xB and 0xC, where both nibbles of the pair are cleared (mask 0xFF00) and the bit is cleared. Pads 0x24 and 0x25 accept only mode 1 (any other mode spins forever), call 0x0C039DC0 and clear bit 0 of 0x40086048; pads above 0x23 are ignored and return 0.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `u32` | pad number 0x00..0x25 |
-| `param_2` | `u32` | mode / function code; 1 = default function |
+| `pad` | `u32` | pad number 0x00..0x25 |
+| `mode` | `u32` | mode / function code; 1 = default function |
 
 **Returns** `u32`: 0 on success, 3 when the mode is not allowed for this pad
 
@@ -2621,8 +2621,8 @@ Pads 0x00..0x1F use the register pair 0x4008602C (first) and 0x40086030 (second)
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `u32` | pad number |
-| `param_2` | `s32` | pull mode: 1 first register, 2 second register, other = none |
+| `pad` | `u32` | pad number |
+| `mode` | `s32` | pull mode: 1 first register, 2 second register, other = none |
 
 **Returns** `u32`: 0 on success, 1 for a pad above 0x25
 

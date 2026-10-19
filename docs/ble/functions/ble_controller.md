@@ -1,6 +1,6 @@
 # BLE - `ble_controller` functions
 
-193 functions.
+199 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -30,6 +30,7 @@
 | [`ble_ctrl_conn_find_by_addr`](#ble_ctrl_conn_find_by_addr) | 0x0C066588 | Find the connection record for a peer address and address type |
 | [`ble_ctrl_conn_find_by_handle`](#ble_ctrl_conn_find_by_handle) | 0x0C066554 | Find the connection record whose handle (u16 at +0x0A) equals the argument |
 | [`ble_ctrl_conn_free_and_report_disconnect`](#ble_ctrl_conn_free_and_report_disconnect) | 0x0C06637A | Unlink and free a connection, emitting event 0xD9/0x07 when bit 15 is set |
+| [`ble_ctrl_conn_free_guarded`](#ble_ctrl_conn_free_guarded) | 0x0C066370 | Free a connection record only when its state byte is 1 or 2 |
 | [`ble_ctrl_conn_get_flag_bit4`](#ble_ctrl_conn_get_flag_bit4) | 0x0C06B274 | Return bit 4 (0x10) of a connection's flags at +0x10, or 0 for an unknown handle |
 | [`ble_ctrl_conn_get_level_by_handle`](#ble_ctrl_conn_get_level_by_handle) | 0x0C06B2FC | Return the link security tier (0..4) of a connection looked up by handle |
 | [`ble_ctrl_conn_get_state_by_handle`](#ble_ctrl_conn_get_state_by_handle) | 0x0C06B984 | Return the state byte at +0x0D of a connection looked up by handle (0xFF if unknown) |
@@ -41,6 +42,7 @@
 | [`ble_ctrl_conn_teardown_and_count`](#ble_ctrl_conn_teardown_and_count) | 0x0C0663E8 | Stop a connection's timers, unlink and free it, then emit event 0x61 with the count |
 | [`ble_ctrl_conn_timer_update_state`](#ble_ctrl_conn_timer_update_state) | 0x0C066B74 | Timer callback: set the connection state byte +0x56 and flush the deferred event |
 | [`ble_ctrl_deferred_list_add`](#ble_ctrl_deferred_list_add) | 0x0C065A50 | Append an item to the global deferred list whose head is at 0x200190A4 |
+| [`ble_ctrl_disconnect_all_connections`](#ble_ctrl_disconnect_all_connections) | 0x0C06648C | Disconnect every connection with reason 0x16 and tear each one down |
 | [`ble_ctrl_env_get_addr_type_and_addr_a`](#ble_ctrl_env_get_addr_type_and_addr_a) | 0x0C066D34 | Get own address type and 6-byte device address (variant using type flag at env+0x1DC) |
 | [`ble_ctrl_env_get_addr_type_and_addr_b`](#ble_ctrl_env_get_addr_type_and_addr_b) | 0x0C066D5C | Get own address type and 6-byte device address (variant using type flag at env+0x218) |
 | [`ble_ctrl_env_get_flag_bit6_at_0x18e`](#ble_ctrl_env_get_flag_bit6_at_0x18e) | 0x0C066D20 | Return bit 6 of the flag byte at env+0x18E (0 or 1) |
@@ -64,6 +66,7 @@
 | [`ble_ctrl_get_flag_3fe8`](#ble_ctrl_get_flag_3fe8) | 0x0C053824 | Return byte global 0x20003fe8 |
 | [`ble_ctrl_get_max_data_len`](#ble_ctrl_get_max_data_len) | 0x0C06EE5C | Return the constant 251 (0xFB) |
 | [`ble_ctrl_get_sanitized_setting_20004344`](#ble_ctrl_get_sanitized_setting_20004344) | 0x0C0581F0 | Return the byte at 0x20004344, forcing it to 0x0e unless it is 0x0e or 0x10 |
+| [`ble_ctrl_hci_cmd_dispatch`](#ble_ctrl_hci_cmd_dispatch) | 0x0C066F74 | Apply a host HCI command to the controller state, then forward it to the transport hook |
 | [`ble_ctrl_iface_iterate_dispatch`](#ble_ctrl_iface_iterate_dispatch) | 0x0C06662C | Iterate the interface table's items and pass each one to its handler |
 | [`ble_ctrl_iface_probe_and_start`](#ble_ctrl_iface_probe_and_start) | 0x0C06C298 | Call ops[1]; if it returns 0, set start flags and call ops[8](buf, 1) |
 | [`ble_ctrl_noop_callback`](#ble_ctrl_noop_callback) | 0x0C06C1E4 | Empty function used as a no-op callback |
@@ -166,9 +169,12 @@
 | [`ble_thunk_call_0c0401b0`](#ble_thunk_call_0c0401b0) | 0x0C089468 | Thin wrapper that forwards its single argument to FUN_0c0401b0 |
 | [`ble_thunk_call_0c040290`](#ble_thunk_call_0c040290) | 0x0C0894A8 | Thin wrapper that forwards its single argument to FUN_0c040290 |
 | [`ble_unpack_version_nibbles`](#ble_unpack_version_nibbles) | 0x0C055610 | Split a 16-bit value into four nibble bytes at 0x20012cac..caf |
+| [`ble_xfer_pump_chunk_and_notify`](#ble_xfer_pump_chunk_and_notify) | 0x0C05D2F4 | Move one chunk of a pending transfer under a lock and signal the scheduler |
 | [`bt_bdaddr_reverse_inplace`](#bt_bdaddr_reverse_inplace) | 0x0C05A9E4 | Reverse the byte order of a 6-byte Bluetooth device address in place |
 | [`bt_drv_set_global_2000bd1c`](#bt_drv_set_global_2000bd1c) | 0x0C03AC8C | Store a 32-bit value into global DAT_2000bd1c |
 | [`ll_conn_params_in_range`](#ll_conn_params_in_range) | 0x0C066508 | Check requested connection parameters against allowed range |
+| [`ll_env_can_send_acl`](#ll_env_can_send_acl) | 0x0C066A4C | Report whether ACL data can be sent, unless the env busy byte at 0x170 is set |
+| [`ll_env_can_send_acl_thunk`](#ll_env_can_send_acl_thunk) | 0x0C06D5C4 | Branch-only alias of ll_env_can_send_acl |
 | [`ll_env_clear_flag_170`](#ll_env_clear_flag_170) | 0x0C066C1C | Clear byte at controller env offset 0x170 |
 | [`ll_env_get_flag_170`](#ll_env_get_flag_170) | 0x0C066BD8 | Return byte at controller env offset 0x170 |
 | [`ll_env_get_u16_196`](#ll_env_get_u16_196) | 0x0C066CF4 | Return u16 at controller env offset 0x196 |
@@ -419,7 +425,7 @@ Runs the readiness check at table+0x14 (argument 2), then searches the connectio
 **Returns** `bool`: true when that connection can take another packet
 
 - Addresses by version: 219: 0x0C0669D8
-- Called by: `ble_219_0c066a4c`, `ble_219_0c066c2c`, `ble_219_0c0674e8`, `ble_219_0c06d5dc`, `ble_219_0c06ed64`
+- Called by: `ll_env_can_send_acl`, `ble_219_0c066c2c`, `ble_219_0c0674e8`, `ble_219_0c06d5dc`, `ble_219_0c06ed64`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `hci_number_free_acl_slots`, `ble_hook_invoke_indexed`
 - Confidence: high
 
@@ -476,7 +482,7 @@ Takes a zeroed hci_connection block from btstack_memory_hci_connection_get (800-
 **Returns** `ptr`: new connection record, or NULL when the pool is exhausted
 
 - Addresses by version: 219: 0x0C066168
-- Called by: `ble_219_0c066f74`, `ble_219_0c068da8`, `ble_219_0c06b498`, `ble_219_0c06b4bc`
+- Called by: `ble_ctrl_hci_cmd_dispatch`, `ble_219_0c068da8`, `ble_219_0c06b498`, `ble_219_0c06b4bc`
 - Calls: `btstack_linked_list_add`, `btstack_memory_hci_connection_get`, `btstack_run_loop_set_timer_handler`, `btstack_run_loop_set_timer_context`, `btstack_run_loop_get_time_ms`, `bd_addr_copy`
 - Confidence: medium
 
@@ -548,7 +554,7 @@ Walks the connection list at env+0x14 and returns the first record whose address
 **Returns** `ptr`: matching connection record, or NULL
 
 - Addresses by version: 219: 0x0C066588
-- Called by: `ble_219_0c066f74`, `ble_219_0c068c98`, `ble_219_0c068da8`, `ble_219_0c06ee70`
+- Called by: `ble_ctrl_hci_cmd_dispatch`, `ble_219_0c068c98`, `ble_219_0c068da8`, `ble_219_0c06ee70`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `memcmp`
 - Confidence: high
 
@@ -585,8 +591,26 @@ Copies the peer address and handle, unlinks the record from the connection list 
 **Notes:** Reason 5 is treated as a special case by the code; its HCI meaning is not confirmed.
 
 - Addresses by version: 219: 0x0C06637A
-- Called by: `ble_219_0c066370`
+- Called by: `ble_ctrl_conn_free_guarded`
 - Calls: `btstack_linked_list_remove`, `btstack_memory_hci_connection_free`, `co_reverse_copy_6`, `hci_emit_event`
+- Confidence: medium
+
+## ble_ctrl_conn_free_guarded
+
+**Free a connection record only when its state byte is 1 or 2**
+
+Guard in front of the disconnect path. It returns at once unless the connection state byte at +0x0E is 1 or 2 (tested as (state - 1) > 1). Otherwise it runs the same sequence as ble_ctrl_conn_free_and_report_disconnect (0x0C06637A): unlink the record from the list at env+0x14 (btstack_linked_list_remove, 0x0C06542C), return it to the pool (btstack_memory_hci_connection_free, 0x0C0654E4), emit the 9-byte event 0xD9 0x07 with the reason byte and the reversed peer address when bit 15 of the flags word at +0x10 is set, and when the reason is 5 call the interface callback at env+0x10 offset +0x14 with the address.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | connection record |
+| `param_2` | `u8` | disconnect reason byte |
+
+**Notes:** The packet lists 0x0C06637A as the callee, but Ghidra shows the body inline here. The meaning of reason 5 is unconfirmed, as in 0x0C06637A.
+
+- Addresses by version: 219: 0x0C066370
+- Called by: `ble_219_0c068da8`
+- Calls: `ble_ctrl_conn_free_and_report_disconnect`
 - Confidence: medium
 
 ## ble_ctrl_conn_get_flag_bit4
@@ -733,7 +757,7 @@ Removes both the +0x58 and +0x6C timers from the run loop, unlinks the record fr
 **Notes:** 0xFC is treated as an LE connection type by the code; this packet does not name it.
 
 - Addresses by version: 219: 0x0C0663E8
-- Called by: `ble_219_0c06648c`, `ble_219_0c0674e8`, `ble_219_0c068da8`
+- Called by: `ble_ctrl_disconnect_all_connections`, `ble_219_0c0674e8`, `ble_219_0c068da8`
 - Calls: `btstack_linked_list_remove`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_memory_hci_connection_free`, `btstack_run_loop_remove_timer`, `hci_emit_event`
 - Confidence: medium
 
@@ -765,6 +789,17 @@ Thin thunk to the list append routine 0x0C065416 (btstack_linked_list_add_tail_i
 - Called by: `ble_deferred_list_post`
 - Calls: `btstack_linked_list_add_tail`
 - Confidence: medium
+
+## ble_ctrl_disconnect_all_connections
+
+**Disconnect every connection with reason 0x16 and tear each one down**
+
+Walks the connection list at env+0x14 with a removal-safe iterator. For each connection it builds a 6-byte HCI Disconnection Complete event (05 04 00 handle_lo handle_hi 16) with the handle from +0x0A and reason 0x16 (Connection Terminated By Local Host), emits it with hci_emit_event (0x0C066004, length 6), then calls ble_ctrl_conn_teardown_and_count (0x0C0663E8) to stop its timers, unlink and free it and emit the count event. Callers are ble_219_0c0674e8 and ble_219_0c06b154.
+
+- Addresses by version: 219: 0x0C06648C
+- Called by: `ble_219_0c0674e8`, `ble_219_0c06b154`
+- Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `co_write16_le`, `hci_emit_event`, `ble_ctrl_conn_teardown_and_count`
+- Confidence: high
 
 ## ble_ctrl_env_get_addr_type_and_addr_a
 
@@ -1081,6 +1116,26 @@ Reads the 8-bit global at 0x20004344. If its value is neither 0x0e nor 0x10 it i
 - Addresses by version: 219: 0x0C0581F0
 - Called by: `ble_219_0c056a50`
 - Confidence: low
+
+## ble_ctrl_hci_cmd_dispatch
+
+**Apply a host HCI command to the controller state, then forward it to the transport hook**
+
+Reads the opcode (u16 at offset 0) and dispatches on it. Opcode 0x0429 stores the u16 at offset 0x13 in env+0x1D2 and the 6-byte peer address at offset 3, reversed, in env+0x239, with address type 0xFC at env+0x23F. Opcode 0x0428 stores the u16 at offset 0x0F in env+0x1D2. Opcode 0x1802 stores the byte at offset 3 in env+0x75. Opcode 0x0405 is the create-connection path: the peer address is compared with the local address at env+0x0E (memcmp), a match emits a Connection Complete event (0x03, length 11) with status 0x0F, and otherwise a record of type 0xFD is found (ble_ctrl_conn_find_by_addr) or allocated (ble_ctrl_conn_alloc_and_register, status 0x56 on failure) and put in state 1. Every path decrements the pending-command counter at env+0x177, calls ble_hook_invoke4 (0x0C06C0C0) with hook id 1, then calls the transport hook at *env+0x18 with (1, command, length). The return value is 0 when the hook accepts and 3 otherwise.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | HCI command buffer, opcode u16 at +0, parameters from +3 |
+| `param_2` | `u32` | command buffer length |
+
+**Returns** `u8`: HCI status: 0 accepted, 3 transport hook refused, or an error status (0x0B, 0x0F, 0x56) from an opcode handler
+
+**Notes:** The meaning of the stored env fields at 0x1D2, 0x239, 0x23F and 0x75 is inferred from the writes. The status constants are taken from the Connection Complete and HCI status codes.
+
+- Addresses by version: 219: 0x0C066F74
+- Called by: `hci_send_cmd`, `ble_219_0c067248`, `ble_219_0c0674e8`
+- Calls: `co_read16_le`, `co_write16_le`, `co_reverse_copy_6`, `hci_emit_event`, `ble_ctrl_conn_alloc_and_register`, `ble_ctrl_conn_find_by_addr`, `ble_hook_invoke4`, `memcmp`
+- Confidence: medium
 
 ## ble_ctrl_iface_iterate_dispatch
 
@@ -1530,7 +1585,7 @@ Does nothing unless the hook table pointer DAT_20019314 is non-NULL, table[1] is
 **Notes:** Purpose (logging vs profiling) is a guess.
 
 - Addresses by version: 219: 0x0C06C0C0
-- Called by: `ble_evt_publish`, `ble_219_0c052de8`, `ble_ctrl_flush_deferred_event`, `ble_219_0c066f74`, `ble_219_0c0674e8`, `ble_219_0c068da8`, `ll_link_notify_event_72`, `ble_listener_broadcast_event`, `l2cap_channel_emit_event_70`, `ll_link_emit_event_code_handle`, `ll_link_emit_event_7d`, `ll_link_emit_event_79` ...
+- Called by: `ble_evt_publish`, `ble_219_0c052de8`, `ble_ctrl_flush_deferred_event`, `ble_ctrl_hci_cmd_dispatch`, `ble_219_0c0674e8`, `ble_219_0c068da8`, `ll_link_notify_event_72`, `ble_listener_broadcast_event`, `l2cap_channel_emit_event_70`, `ll_link_emit_event_code_handle`, `ll_link_emit_event_7d`, `ll_link_emit_event_79` ...
 - Confidence: medium
 
 ## ble_hook_invoke_indexed
@@ -2073,7 +2128,7 @@ Smooths a window of five signed 8-bit samples (RSSI-like) for one channel. When 
 
 - Addresses by version: 219: 0x0C059B60
 - Called by: `ble_219_0c059f64`
-- Calls: `ble_219_0c06f220`, `__aeabi_dadd`, `__aeabi_f2d`, `__aeabi_dmul`, `__aeabi_d2iz`, `__aeabi_d2f`
+- Calls: `sqrt`, `__aeabi_dadd`, `__aeabi_f2d`, `__aeabi_dmul`, `__aeabi_d2iz`, `__aeabi_d2f`
 - Confidence: medium
 
 ## ble_set_flag_12606
@@ -2202,7 +2257,7 @@ Looks up param_1 in the byte map at 0x20003908 to get a slot number, uses it to 
 **Notes:** Struct layout inferred only from field accessors (+8 u16, +0xa u16, +0x14 u32, +0x18 callback); owning subsystem unconfirmed.
 
 - Addresses by version: 219: 0x0C088520
-- Called by: `ble_219_0c087464`, `norflash_status_reg_op`
+- Called by: `norflash_erase_checked`, `norflash_status_reg_op`
 - Confidence: medium
 
 ## ble_slot_get_header_ptr
@@ -2271,7 +2326,7 @@ Resolves param_1 through the byte map at 0x20003908 and the pointer table at 0x2
 **Notes:** Event code 4 meaning unknown. The callback argument list is uncertain because of register-reuse artefacts.
 
 - Addresses by version: 219: 0x0C08915C
-- Called by: `ble_219_0c0873ec`
+- Called by: `norflash_slot_op_locked`
 - Confidence: medium
 
 ## ble_slot_mgr_check_flag5
@@ -2557,6 +2612,19 @@ Stores bits 15..12 of param_1 to DAT_20012cac, bits 11..8 to DAT_20012cad, bits 
 - Called by: `ble_219_0c0297b0`
 - Confidence: low
 
+## ble_xfer_pump_chunk_and_notify
+
+**Move one chunk of a pending transfer under a lock and signal the scheduler**
+
+Takes the lock object at 0x2001722C (0x0C0431F8 with timeout 0xFFFFFFFF, i.e. wait forever). If the u16 remaining count at 0x2001728C is non-zero it asks 0x0C045518 how many bytes it can take from the cursor word at 0x20017288, subtracts that from the remaining count, advances the cursor by the same amount and sets the flag word at 0x20017298 to 1. It then releases the lock (0x0C042DF4) and signals event 1 on the scheduler object at 0x20017184 through ble_sched_signal_event. When nothing is left it only releases the lock.
+
+**Notes:** The chunk routine 0x0C045518 and the buffer behind the cursor are not described yet. The lock semantics are inferred from the wait-forever timeout argument.
+
+- Addresses by version: 219: 0x0C05D2F4
+- Called by: `ble_219_0c05d358`, `ble_219_0c05d40e`
+- Calls: `xEventGroupSetBits`, `xQueueGiveMutexRecursive`, `xQueueTakeMutexRecursive`, `hci_stream_buffer_receive_nowait`
+- Confidence: medium
+
 ## bt_bdaddr_reverse_inplace
 
 **Reverse the byte order of a 6-byte Bluetooth device address in place**
@@ -2606,6 +2674,32 @@ param_1 points to six u16 limits: [0] and [1] bound the interval, [2],[3] bound 
 - Addresses by version: 219: 0x0C066508
 - Called by: `ble_219_0c06dc56`
 - Confidence: medium
+
+## ll_env_can_send_acl
+
+**Report whether ACL data can be sent, unless the env busy byte at 0x170 is set**
+
+If the busy byte at env+0x170 is non-zero (the byte ll_env_is_ready also tests) it returns 0. Otherwise it returns the result of ble_ctrl_can_send_to_handle (0x0C0669D8), which reports whether the connection has free ACL slots. The decompiled call shows no arguments, so the handle is the value the caller left in the argument registers.
+
+**Returns** `u32`: 0 while the busy byte is set, otherwise the free-ACL-slot result (non-zero when a slot is free)
+
+- Addresses by version: 219: 0x0C066A4C
+- Called by: `ble_219_0c06c7ac`, `ble_219_0c06ca80`, `ble_219_0c06cb3c`, `ble_219_0c06cdb8`, `ll_env_can_send_acl_thunk`, `ble_219_0c06d648`, `ble_219_0c06d698`, `ble_219_0c06ed64`
+- Calls: `ble_ctrl_can_send_to_handle`
+- Confidence: medium
+
+## ll_env_can_send_acl_thunk
+
+**Branch-only alias of ll_env_can_send_acl**
+
+One-instruction thunk that branches to 0x0C066A4C, with the same body. It is called from ble_219_0c04def0 and ble_219_0c051eb8.
+
+**Returns** `u32`: as ll_env_can_send_acl
+
+- Addresses by version: 219: 0x0C06D5C4
+- Called by: `att_event_forward_class4`, `ble_219_0c051eb8`
+- Calls: `ll_env_can_send_acl`
+- Confidence: high
 
 ## ll_env_clear_flag_170
 
@@ -2711,7 +2805,7 @@ With env = DAT_200190d0: returns false if byte env+0x170 is non-zero. Otherwise,
 **Notes:** Names of the flags at env+0x170 and +0x177 not known; the 0x170 byte is also cleared by ll_env_clear_flag_170.
 
 - Addresses by version: 219: 0x0C066978
-- Called by: `ble_219_0c051eb8`, `ble_219_0c065038`, `ble_219_0c067178`, `ble_219_0c0674e8`, `ble_219_0c06cdb8`
+- Called by: `ble_219_0c051eb8`, `ble_219_0c065038`, `hci_send_cmd`, `ble_219_0c0674e8`, `ble_219_0c06cdb8`
 - Confidence: low
 
 ## ll_env_reset_defaults

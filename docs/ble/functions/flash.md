@@ -1,15 +1,18 @@
 # BLE - `flash` functions
 
-25 functions.
+31 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`flash_region_0x18000_io_cb`](#flash_region_0x18000_io_cb) | 0x0C045CC0 | Stream callback: access up to 64 KB at flash offset 0x18000 through a RAM-patched flash routine |
 | [`norflash_apply_dummy_cycles`](#norflash_apply_dummy_cycles) | 0x0C0882A0 | Program the per-device dummy-cycle byte into flash-IP REG_014[23:16] if it is non-zero |
+| [`norflash_apply_protect_entry`](#norflash_apply_protect_entry) | 0x0C087CDC | Pick the largest protect-table entry clear of an address range and apply it |
 | [`norflash_build_protect_table`](#norflash_build_protect_table) | 0x0C087A34 | Build the table mapping SR block-protect bits to protected address ranges |
 | [`norflash_cache_invalidate_range`](#norflash_cache_invalidate_range) | 0x0C087D34 | Invalidate flash cache lines for an address range |
 | [`norflash_delay_us`](#norflash_delay_us) | 0x0C0867D0 | Busy-wait a number of microseconds on the down-counting system timer at 0x40003004 |
 | [`norflash_erase`](#norflash_erase) | 0x0C088F20 | Erase a 4 KiB, 32 KiB, 64 KiB or whole-chip region of a flash slot at an address |
+| [`norflash_erase_checked`](#norflash_erase_checked) | 0x0C087464 | Erase a flash slot range after checking that no erase is suspended |
+| [`norflash_erase_range`](#norflash_erase_range) | 0x0C086E08 | Erase a byte range of a flash slot with 4 KiB, 32 KiB or whole-chip erases |
 | [`norflash_get_id`](#norflash_get_id) | 0x0C087394 | Copy up to 3 bytes of the detected JEDEC ID of flash device 0/1 into a caller buffer |
 | [`norflash_memcpy_thunk`](#norflash_memcpy_thunk) | 0x0C089498 | Tail-call veneer to newlib memcpy used by the flash-id getter |
 | [`norflash_page_program`](#norflash_page_program) | 0x0C089064 | Program up to one 256-byte page of a flash slot, with dual or quad input opcodes when enabled |
@@ -17,6 +20,8 @@
 | [`norflash_post_operation_alt`](#norflash_post_operation_alt) | 0x0C088928 | Duplicate of norflash_post_operation: re-enter continuous read, clear command mode, restore read divider |
 | [`norflash_pre_operation`](#norflash_pre_operation) | 0x0C088858 | Prepare the NOR flash for a command: wait idle, apply the command clock divider, leave continuous-read mode |
 | [`norflash_pre_operation_alt`](#norflash_pre_operation_alt) | 0x0C088898 | Duplicate of norflash_pre_operation: wait idle, set command clock divider, exit continuous-read mode |
+| [`norflash_probe_protect_layout`](#norflash_probe_protect_layout) | 0x0C087D70 | Probe a flash slot's JEDEC ID and build its block-protect table |
+| [`norflash_program_range`](#norflash_program_range) | 0x0C086F38 | Program a byte range of a flash slot page by page, with suspend and resume state |
 | [`norflash_read_jedec_id`](#norflash_read_jedec_id) | 0x0C0889D8 | Read up to 3 bytes of the flash JEDEC ID (opcode 0x9F) for a slot into a caller buffer |
 | [`norflash_reset`](#norflash_reset) | 0x0C08856C | Wake, soft-reset (0x66/0x99) and re-initialise a NOR flash device and clear its driver state |
 | [`norflash_restore_read_config`](#norflash_restore_read_config) | 0x0C088350 | Re-arm continuous read (if the device supports it), release the controller and re-apply dummy cycles |
@@ -24,6 +29,7 @@
 | [`norflash_set_burst_wrap`](#norflash_set_burst_wrap) | 0x0C088474 | Write the flash burst-wrap command (0x77, payload 0x40 or 0x10) and update REG_038 for a slot |
 | [`norflash_set_continuous_read`](#norflash_set_continuous_read) | 0x0C0882CC | Enable or disable continuous (XIP mode-byte) read: program read opcode and reset the flash's mode bits |
 | [`norflash_set_read_mode`](#norflash_set_read_mode) | 0x0C08866C | Decode and apply a flash read-mode word: read opcode, lane width, continuous read, burst wrap |
+| [`norflash_slot_op_locked`](#norflash_slot_op_locked) | 0x0C0873EC | Run a flash slot callback with the flash bracketed and interrupts masked |
 | [`norflash_status_reg_op`](#norflash_status_reg_op) | 0x0C089190 | Chip status-register operation: raw write, quad-enable bit, security-register lock bits or block-protect bits |
 | [`norflash_status_s0_s7`](#norflash_status_s0_s7) | 0x0C0883A0 | Issue Read Status Register-1 (0x05) and return the status byte from the RX FIFO |
 | [`norflash_status_s8_s15`](#norflash_status_s8_s15) | 0x0C0883C8 | Issue Read Status Register-2 (0x35) and return the status byte from the RX FIFO |
@@ -68,6 +74,26 @@ Selects a per-flash-id byte: (&DAT_20003904)[id] when bit 0 of the device flag w
 - Calls: `norflaship_set_cfg14_byte2`
 - Confidence: low
 
+## norflash_apply_protect_entry
+
+**Pick the largest protect-table entry clear of an address range and apply it**
+
+Works on flash slot 0 only (any other id hangs). If the protect table has entries (count at 0x200038C0), it walks the 3-word entries at 0x200035C0 (SR code, range start, range end). It skips entries that overlap [addr, addr+len) and keeps the largest of the rest, then calls norflash_slot_op_locked (0x0C0873EC) with that entry's SR code. If the call fails it hangs. If no entry qualifies, the initial code 0x7C is left and the function hangs.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (must be 0) |
+| `param_2` | `u32` | start address |
+| `param_3` | `u32` | length in bytes |
+| `param_4` | `u32` | extra argument, passed through |
+
+**Notes:** The meaning of the SR code and of the entry ordering is inferred from the layout built by norflash_probe_protect_layout.
+
+- Addresses by version: 219: 0x0C087CDC
+- Called by: `ble_219_0c088128`
+- Calls: `norflash_slot_op_locked`
+- Confidence: medium
+
 ## norflash_build_protect_table
 
 **Build the table mapping SR block-protect bits to protected address ranges**
@@ -82,7 +108,7 @@ Generates, for a NOR flash of size param_2 bytes, an array of 12-byte entries {s
 **Notes:** Entry layout read from the stores; semantic interpretation (BP/TB/CMP) is inferred from the 4*n / 0x40 / 0x4000 patterns.
 
 - Addresses by version: 219: 0x0C087A34
-- Called by: `ble_219_0c087d70`
+- Called by: `norflash_probe_protect_layout`
 - Confidence: medium
 
 ## norflash_cache_invalidate_range
@@ -139,8 +165,51 @@ Maps the erase kind param_3 to an opcode: 1 = 0x20 (4 KiB sector), 2 = 0x52 (32 
 **Notes:** Opcodes are the standard JEDEC erase commands. The bit-19 mode exit/re-entry and the 0x85 delay gate are inferred from the code shape. 0x85 is the PUYA JEDEC code, unverified. For chip erase the address is still shifted in, which the chip-erase opcode presumably ignores.
 
 - Addresses by version: 219: 0x0C088F20
-- Called by: `ble_219_0c086e08`
+- Called by: `norflash_erase_range`
 - Calls: `norflash_delay_us`, `norflaship_send_cmd_byte`, `norflaship_ctrl_clear_bit0`, `norflaship_wait_idle`, `norflaship_set_cfg14_bit4`, `norflaship_set_reg30_top_byte`, `norflaship_set_reg20_byte2`, `norflash_wait_busy_or_suspend`
+- Confidence: medium
+
+## norflash_erase_checked
+
+**Erase a flash slot range after checking that no erase is suspended**
+
+Public erase entry. An id above 1, or an uninitialised slot, hangs in an infinite loop (a trap in the binary). If an erase is already suspended (state byte 0x200035B0[id] non-zero) it returns 10. Otherwise it calls ble_slot_get_field_0x14 (0x0C088520) for its side effect, then norflash_erase_range (0x0C086E08) with a zero extra argument and returns that result.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (0 or 1) |
+| `param_2` | `u32` | start address |
+| `param_3` | `u32` | length in bytes |
+
+**Returns** `s32`: result of norflash_erase_range, or 10 when an erase is suspended
+
+**Notes:** The result of ble_slot_get_field_0x14 is not used by this function in the decompile.
+
+- Addresses by version: 219: 0x0C087464
+- Called by: `ble_219_0c088128`
+- Calls: `norflash_erase_range`, `ble_slot_get_field_0x14`
+- Confidence: medium
+
+## norflash_erase_range
+
+**Erase a byte range of a flash slot with 4 KiB, 32 KiB or whole-chip erases**
+
+Checks the start address against the slot size at 0x20003568 + id*0x24 (returns 0x0B if the start is out of range, 0x0C if the length runs past the end) and rounds the start down and the end up to 4 KiB. It calls norflash_pre_operation (0x0C088858), then erases: if the range covers the whole chip it issues one whole-chip norflash_erase (kind 4, 0x0C088F20); otherwise it issues 4 KiB sector erases (kind 1) until the address is 32 KiB aligned, 32 KiB block erases (kind 2) while at least 0x8000 bytes remain, and 4 KiB erases for the tail. norflash_post_operation (0x0C0888D8) runs at the end. If an erase reports 1 (suspended), the progress is saved in 0x20003598[id] (address) and 0x200035A8[id] (remaining length), the state byte at 0x200035B0[id] is set to 2, and the function returns 1.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (0 or 1) |
+| `param_2` | `u32` | start address, low 26 bits used |
+| `param_3` | `u32` | length in bytes |
+| `param_4` | `ptr` | extra argument passed to the flash operations |
+
+**Returns** `s32`: 0 when complete, 1 when suspended with progress saved, 0x0B or 0x0C for a bad range, otherwise the error from the erase
+
+**Notes:** The erase kind mapping (1 = 4 KiB, 2 = 32 KiB, 4 = whole chip) comes from norflash_erase (0x0C088F20).
+
+- Addresses by version: 219: 0x0C086E08
+- Called by: `norflash_erase_checked`
+- Calls: `norflash_pre_operation`, `norflash_post_operation`, `norflash_erase`
 - Confidence: medium
 
 ## norflash_get_id
@@ -160,7 +229,7 @@ BES norflash_drv style accessor. Halts in an infinite loop (assert) if the flash
 **Notes:** Assumes FUN_0c089498 is memcpy(dst, src, n); if the argument order were reversed this would be a set-id function.
 
 - Addresses by version: 219: 0x0C087394
-- Called by: `ble_219_0c087d70`
+- Called by: `norflash_probe_protect_layout`
 - Calls: `norflash_memcpy_thunk`
 - Confidence: medium
 
@@ -198,7 +267,7 @@ Programs one page of a flash slot. Lengths above 256 bytes return 2 immediately.
 **Notes:** 0xA2 as dual input page program is inferred. It is not a JEDEC-standard opcode but several SPI NOR vendors use it. The 0x85 delay is a guess at PUYA parts, and its length check reads the post-loop variable, which is unclear in the decompile.
 
 - Addresses by version: 219: 0x0C089064
-- Called by: `ble_219_0c086f38`
+- Called by: `norflash_program_range`
 - Calls: `norflash_delay_us`, `norflaship_set_len_and_fill_txfifo`, `norflaship_fill_txfifo`, `norflaship_send_cmd_byte`, `norflaship_ctrl_clear_bit0`, `norflaship_wait_idle`, `norflaship_clear_txfifo`, `norflaship_set_reg30_top_byte`, `norflash_wait_busy_or_suspend`
 - Confidence: medium
 
@@ -217,7 +286,7 @@ BES norflash_drv 'post operation' hook run after erase (0c086e08) and program (0
 **Notes:** The record table at 0x2000306c is what earlier waves called the 'slot record' (ble_slot_get_* accessors); from this group it is the per-chip NOR flash config entry (3 JEDEC id bytes at +0, crm enable/disable mode bytes at +5/+6, 16-bit fields at +8/+0x0a, supported-mode mask at +0x14, callback at +0x18).
 
 - Addresses by version: 219: 0x0C0888D8
-- Called by: `ble_219_0c086e08`, `ble_219_0c086f38`
+- Called by: `norflash_erase_range`, `norflash_program_range`
 - Calls: `norflaship_set_ctrl_field_4_11`, `norflaship_ctrl_set_bit25`, `norflaship_ctrl_clear_bit0`, `norflaship_wait_idle`, `norflash_apply_dummy_cycles`
 - Confidence: medium
 
@@ -236,7 +305,7 @@ Byte-for-byte copy of norflash_post_operation (0c0888d8); only caller is 0c0873e
 **Notes:** Identical code to 0c0888d8 and 0c088350.
 
 - Addresses by version: 219: 0x0C088928
-- Called by: `ble_219_0c0873ec`
+- Called by: `norflash_slot_op_locked`
 - Calls: `norflaship_set_ctrl_field_4_11`, `norflaship_ctrl_set_bit25`, `norflaship_ctrl_clear_bit0`, `norflaship_wait_idle`, `norflash_apply_dummy_cycles`
 - Confidence: medium
 
@@ -255,7 +324,7 @@ BES hal_norflash/norflash_drv style 'pre operation' hook run before erase and pr
 **Notes:** The second argument of the norflaship_set_cfg14_byte2 call is dropped by the decompiler; from the load pattern it is the byte 0x200038fc[id]. Divider interpretation of REG_014[23:16] inferred from the three per-mode divider byte arrays (0x200038fc, 0x20003900, 0x20003904).
 
 - Addresses by version: 219: 0x0C088858
-- Called by: `ble_219_0c086e08`, `ble_219_0c086f38`
+- Called by: `norflash_erase_range`, `norflash_program_range`
 - Calls: `norflaship_wait_idle`, `norflaship_set_cfg14_byte2`, `norflash_set_continuous_read`
 - Confidence: medium
 
@@ -274,8 +343,45 @@ Byte-for-byte copy of norflash_pre_operation (0c088858), emitted separately (com
 **Notes:** Identical code to 0c088858; kept as a separate family because it is a distinct function in the image.
 
 - Addresses by version: 219: 0x0C088898
-- Called by: `ble_219_0c0873ec`
+- Called by: `norflash_slot_op_locked`
 - Calls: `norflaship_wait_idle`, `norflaship_set_cfg14_byte2`, `norflash_set_continuous_read`
+- Confidence: medium
+
+## norflash_probe_protect_layout
+
+**Probe a flash slot's JEDEC ID and build its block-protect table**
+
+Runs once per slot, while the flag at 0x200038C4[id] is clear. It reads the first three JEDEC ID bytes with norflash_get_id (0x0C087394) and selects a block-protect layout. Two manufacturer and type patterns are built inline (0xC8 with 0x40 and capacity code 0x12..0x13, and 0x0B with 0x60 and 0x14), writing 3-word entries (SR code, start, end) at 0x200035C0 and the entry count at 0x200038C0. For other IDs it calls the generic builder norflash_build_protect_table (0x0C087A34) when the capacity lies between 64 KiB and just under 32 MiB. The value that norflash_get_id sets at 0x200038C4 scales the block sizes. Unrecognised sizes return or hang.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (0 or 1) |
+| `param_2` | `u32` | flash capacity in bytes |
+
+**Notes:** The vendor patterns are matched by the decompiled comparisons only, with no datasheet check. The layout of the table entries is inferred.
+
+- Addresses by version: 219: 0x0C087D70
+- Calls: `norflash_get_id`, `norflash_build_protect_table`
+- Confidence: low
+
+## norflash_program_range
+
+**Program a byte range of a flash slot page by page, with suspend and resume state**
+
+Checks the start address against the slot size at 0x20003568 + id*0x24 (returns 0x0B) and that the length fits (returns 0x0C). It then programs in pieces that stop at page boundaries, each no larger than the page size at 0x2000356C + id*0x24, by calling norflash_page_program (0x0C089064) and advancing the flash address, the source buffer and the remaining length. norflash_pre_operation and norflash_post_operation bracket the loop. A suspended result (1) saves the address, buffer and remaining length in 0x20003598, 0x200035A0 and 0x200035A8 (indexed by id) and sets the state byte at 0x200035B0[id] to 4.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (0 or 1) |
+| `param_2` | `u32` | start address, low 26 bits used |
+| `param_3` | `ptr` | source buffer |
+| `param_4` | `u32` | length in bytes |
+| `param_5` | `u32` | extra argument passed to the page program |
+
+**Returns** `s32`: 0 when complete, 1 when suspended with progress saved, 0x0B or 0x0C for a bad range, otherwise the page-program error
+
+- Addresses by version: 219: 0x0C086F38
+- Calls: `norflash_pre_operation`, `norflash_post_operation`, `norflash_page_program`
 - Confidence: medium
 
 ## norflash_read_jedec_id
@@ -408,6 +514,26 @@ Masks the requested mode word param_2 with the device capability word at descrip
 
 - Addresses by version: 219: 0x0C08866C
 - Calls: `ble_hw_ctrl_reg_bit1_set`, `ble_hw_ctrl_reg_bit1_clear`, `norflaship_set_ctrl_field_4_11`, `norflaship_ctrl_set_bit25`, `norflaship_ctrl_clear_bit0`, `norflaship_wait_idle`, `norflaship_set_cfg14_bit5`, `norflaship_set_cfg14_bit4`, `norflaship_set_reg20_byte2`, `norflaship_set_reg108`, `norflash_apply_dummy_cycles`, `norflash_set_continuous_read`, `norflash_set_burst_wrap`
+- Confidence: medium
+
+## norflash_slot_op_locked
+
+**Run a flash slot callback with the flash bracketed and interrupts masked**
+
+Rejects an id above 1, or a slot whose initialised flag at 0x20003550[id*0x24] is clear, with 0x12. It brackets the slot callback with norflash_pre_operation_alt (0x0C088898) and norflash_post_operation_alt (0x0C088928), with ble_slot_invoke_callback_evt4 (0x0C08915C) in between. Interrupts are masked with disableIRQinterrupts unless the privileged-mode check reports them already masked. In the masked branch it first writes a debug marker, the return address 0x0C08742E and the link register, to 0x20003D78 and 0x20003D7C, clears the marker afterwards and re-enables interrupts. Returns 0 on success or 10 when the callback fails.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | flash slot id (0 or 1) |
+| `param_2` | `u32` | argument passed to the slot callback |
+
+**Returns** `u32`: 0 on success, 10 (0x0A) when the callback fails, 0x12 for a bad id or uninitialised slot
+
+**Notes:** The interpretation of the isIRQinterruptsEnabled result is taken from the branch sense in the code. The debug words suggest a crash-diagnostic marker, which is inferred.
+
+- Addresses by version: 219: 0x0C0873EC
+- Called by: `norflash_apply_protect_entry`, `ble_219_0c088128`
+- Calls: `norflash_pre_operation_alt`, `norflash_post_operation_alt`, `ble_slot_invoke_callback_evt4`
 - Confidence: medium
 
 ## norflash_status_reg_op

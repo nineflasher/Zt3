@@ -1,13 +1,15 @@
 # BLE - `crypto` functions
 
-85 functions.
+97 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`AES_GCM_encrypt_C`](#aes_gcm_encrypt_c) | 0x0C05DE8C | AES-GCM encrypt in CTR mode and produce the auth tag (wolfSSL software path, no arg checks) |
+| [`DecodeECC_DSA_Sig`](#decodeecc_dsa_sig) | 0x0C05E474 | Parse a DER ECDSA signature SEQUENCE into its r and s integers |
 | [`GHASH`](#ghash) | 0x0C05DC2C | GCM GHASH over AAD and ciphertext plus the 64-bit length block, output sSz bytes (wolfSSL) |
 | [`GMULT`](#gmult) | 0x0C05D828 | GF(2^128) multiply for GHASH: X = X * Y (bitwise, R = 0xE1) |
 | [`GetASNInt`](#getasnint) | 0x0C05E3B8 | Parse a DER INTEGER header and strip a leading 0x00 pad byte (wolfSSL GetASNInt) |
+| [`GetInt`](#getint) | 0x0C05E420 | Parse one ASN.1 DER INTEGER at an index and load it into a big integer |
 | [`GetLength_ex`](#getlength_ex) | 0x0C05E350 | Parse an ASN.1 DER length field (wolfSSL GetLength_ex) |
 | [`aes128_encrypt_block`](#aes128_encrypt_block) | 0x0C048FD4 | AES-128 ECB encrypt of one 16-byte block, in place, using an expanded key |
 | [`aes128_key_expansion`](#aes128_key_expansion) | 0x0C048F3C | AES-128 key schedule: expand a 16-byte key into 176 bytes of round keys |
@@ -18,24 +20,32 @@
 | [`crypto_tea_cbc_decrypt`](#crypto_tea_cbc_decrypt) | 0x0C036418 | TEA (32-round) decryption of a buffer in place with CBC-style chaining |
 | [`fp_add`](#fp_add) | 0x0C061FE8 | Signed big-integer add c = a + b (wolfSSL TFM fp_add) using s_fp_add / s_fp_sub |
 | [`fp_add_d`](#fp_add_d) | 0x0C06428C | Add a single 32-bit digit to a big integer magnitude: c = a + b |
+| [`fp_add_thunk`](#fp_add_thunk) | 0x0C064088 | Branch-only alias of fp_add (signed big-integer addition) |
 | [`fp_addmod_ct`](#fp_addmod_ct) | 0x0C062654 | Constant-time modular addition d = (a + b) mod c for a, b < c |
+| [`fp_addmod_ct_thunk`](#fp_addmod_ct_thunk) | 0x0C0640E8 | Branch-only alias of fp_addmod_ct (constant-time modular addition) |
 | [`fp_clear`](#fp_clear) | 0x0C063FEC | Zero a big integer in place (NULL-safe, no return value) |
 | [`fp_cmp`](#fp_cmp) | 0x0C0628B4 | Signed comparison of two big integers |
 | [`fp_cmp_mag_ct`](#fp_cmp_mag_ct) | 0x0C061E14 | Constant-time magnitude compare of two fp_int digit arrays |
 | [`fp_div_2`](#fp_div_2) | 0x0C0623CC | Halve a big integer b = a / 2 by a one-bit right shift from the top digit down (wolfSSL) |
 | [`fp_div_2_mod_ct`](#fp_div_2_mod_ct) | 0x0C062450 | Constant-time modular halving c = (a / 2) mod b for 0 <= a < b (wolfSSL fp_div_2_mod_ct) |
+| [`fp_div_2_mod_ct_thunk`](#fp_div_2_mod_ct_thunk) | 0x0C064498 | Branch-only alias of fp_div_2_mod_ct (constant-time halving modulo b) |
+| [`fp_div_2d`](#fp_div_2d) | 0x0C062F28 | Divide a big integer by 2^b giving quotient and optional remainder |
 | [`fp_lshd`](#fp_lshd) | 0x0C062D08 | Shift a big integer left by whole 32-bit digits |
 | [`fp_mod_2d`](#fp_mod_2d) | 0x0C0624E8 | Big integer modulo a power of two: c = a mod 2^b |
 | [`fp_montgomery_calc_normalization`](#fp_montgomery_calc_normalization) | 0x0C062940 | Compute a = R mod b (R = 2^(32*used)) for Montgomery normalisation |
+| [`fp_montgomery_calc_normalization_thunk`](#fp_montgomery_calc_normalization_thunk) | 0x0C064288 | Branch-only alias of fp_montgomery_calc_normalization (R mod b) |
 | [`fp_mul_2`](#fp_mul_2) | 0x0C0620DC | Double a big integer b = a * 2 by a one-bit left shift across the digits (wolfSSL fp_mul_2) |
 | [`fp_mul_2d`](#fp_mul_2d) | 0x0C062D84 | Multiply a big integer by 2^b: c = a << b |
 | [`fp_mul_d`](#fp_mul_d) | 0x0C062168 | Multiply a big integer by a single 32-bit digit: c = a * b |
 | [`fp_read_radix`](#fp_read_radix) | 0x0C0642F8 | Parse an ASCII number of radix 2..64 (fast path for hex) into a big integer |
 | [`fp_read_unsigned_bin`](#fp_read_unsigned_bin) | 0x0C062BAC | Load a big-endian byte string into a big integer |
 | [`fp_rshb`](#fp_rshb) | 0x0C062EA8 | Shift a big integer right by x bits in place |
+| [`fp_rshb_thunk`](#fp_rshb_thunk) | 0x0C064284 | Branch-only alias of fp_rshb (in-place right shift by bits) |
 | [`fp_rshd`](#fp_rshd) | 0x0C062E40 | Shift a big integer right by whole 32-bit digits |
 | [`fp_sub`](#fp_sub) | 0x0C062068 | Signed big-integer subtract c = a - b (wolfSSL TFM fp_sub) using s_fp_add / s_fp_sub |
+| [`fp_sub_thunk`](#fp_sub_thunk) | 0x0C06408C | Branch-only alias of fp_sub (signed big-integer subtraction) |
 | [`fp_submod_ct`](#fp_submod_ct) | 0x0C0625A0 | Constant-time modular subtraction d = (a - b) mod c for a, b < c |
+| [`fp_submod_ct_thunk`](#fp_submod_ct_thunk) | 0x0C0640E4 | Branch-only alias of fp_submod_ct (constant-time modular subtraction) |
 | [`fp_to_unsigned_bin_at_pos`](#fp_to_unsigned_bin_at_pos) | 0x0C062C20 | Append a big integer's bytes (least significant first) at an offset |
 | [`get_digit`](#get_digit) | 0x0C0644C8 | Read digit n of a big integer (0 when out of range) |
 | [`get_digit_count`](#get_digit_count) | 0x0C0644C0 | Number of used digits in a big integer (NULL-safe) |
@@ -72,6 +82,7 @@
 | [`wc_AesEncrypt`](#wc_aesencrypt) | 0x0C05D4AC | AES single-block encrypt using the 4 x 1 KB T-tables (wolfSSL wc_AesEncrypt) |
 | [`wc_AesFree`](#wc_aesfree) | 0x0C05E34C | Free an Aes context (empty in this build) |
 | [`wc_AesGcmDecrypt`](#wc_aesgcmdecrypt) | 0x0C05E2F0 | AES-GCM decrypt: verify the auth tag in constant time, then CTR-decrypt (wolfSSL) |
+| [`wc_AesGcmEncrypt`](#wc_aesgcmencrypt) | 0x0C05E2C0 | Validate AES-GCM encrypt arguments, then run the software GCM encrypt |
 | [`wc_AesGcmSetKey`](#wc_aesgcmsetkey) | 0x0C05DBE0 | Set a 16-byte AES-GCM key: expand the key and compute the GHASH key H = E_K(0^128) |
 | [`wc_AesInit`](#wc_aesinit) | 0x0C05E338 | Initialise an Aes context: store heap pointer (device id unused) |
 | [`wc_AesSetKeyLocal`](#wc_aessetkeylocal) | 0x0C05D8F8 | AES-128 key expansion into the Aes context (+ inverse key for decrypt) and IV set (wolfSSL) |
@@ -85,6 +96,7 @@
 | [`wc_Sha256Free`](#wc_sha256free) | 0x0C061E10 | Free a SHA-256 context (empty in this build) |
 | [`wc_ecc_copy_point`](#wc_ecc_copy_point) | 0x0C05F1D8 | Copy an ecc_point (x, y, z big integers) into another (wolfSSL wc_ecc_copy_point) |
 | [`wc_ecc_curve_free`](#wc_ecc_curve_free) | 0x0C05E4E8 | Clear the loaded curve parameters of an ecc_curve_spec according to its load_mask |
+| [`wc_ecc_curve_load`](#wc_ecc_curve_load) | 0x0C05E614 | Load selected fields of a standard ECC curve into an ecc_curve_spec |
 | [`wc_ecc_free`](#wc_ecc_free) | 0x0C0601D0 | Release an ecc_key: clear pubkey.x/y/z and force-zero the private scalar k (wolfSSL) |
 | [`wc_ecc_init`](#wc_ecc_init) | 0x0C060190 | Zero a 0x1bc-byte ecc_key and init its pubkey.x/y/z and private scalar k (wolfSSL wc_ecc_init) |
 | [`wc_ecc_set_curve`](#wc_ecc_set_curve) | 0x0C05E7FC | Select ECC curve parameters for a key by key size or curve id |
@@ -112,9 +124,31 @@ wolfSSL AES_GCM_encrypt_C(aes, out, in, sz, iv, ivSz, authTag, authTagSz, authIn
 **Returns** `s32`: always 0
 
 - Addresses by version: 219: 0x0C05DE8C
-- Called by: `ble_219_0c05e2c0`
+- Called by: `wc_AesGcmEncrypt`
 - Calls: `wc_AesEncrypt`, `GHASH`, `memcpy`
 - Confidence: high
+
+## DecodeECC_DSA_Sig
+
+**Parse a DER ECDSA signature SEQUENCE into its r and s integers**
+
+wolfSSL DecodeECC_DSA_Sig. It requires the first byte to be 0x30 (SEQUENCE tag), reads the SEQUENCE length with GetLength_ex (0x0C05E350) and checks that it fits the buffer. It then decodes two consecutive INTEGERs with GetInt (0x0C05E420), the first into r (param_3) and the second into s (param_4). If anything fails it clears r with fp_clear and returns -171 (0xFFFFFF55). Returns 0 when both integers parse.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | DER signature buffer |
+| `param_2` | `s32` | buffer length in bytes |
+| `param_3` | `ptr` | mp_int r output |
+| `param_4` | `ptr` | mp_int s output |
+
+**Returns** `s32`: 0 on success, -171 on malformed input
+
+**Notes:** The wolfSSL identification is inferred from the SEQUENCE plus two INTEGER structure and the argument order.
+
+- Addresses by version: 219: 0x0C05E474
+- Called by: `ble_219_0c060720`
+- Calls: `GetLength_ex`, `GetInt`, `fp_clear`
+- Confidence: medium
 
 ## GHASH
 
@@ -168,8 +202,27 @@ wolfSSL GetASNInt with GetASNHeader inlined. Requires input != NULL, idx+1 <= ma
 **Returns** `s32`: 0 or ASN_PARSE_E (-140)
 
 - Addresses by version: 219: 0x0C05E3B8
-- Called by: `ble_219_0c05e420`
+- Called by: `GetInt`
 - Calls: `GetLength_ex`
+- Confidence: high
+
+## GetInt
+
+**Parse one ASN.1 DER INTEGER at an index and load it into a big integer**
+
+wolfSSL asn.c GetInt. GetASNInt (0x0C05E3B8) reads the INTEGER header at input[*idx], skips a leading 0x00 pad byte and returns the content length. The destination is then mp_init()ed and the magnitude is loaded big-endian with mp_read_unsigned_bin (reached through a thunk at 0x0C062BAC). On success *idx is advanced by header plus content length and 0 is returned. If the load fails the integer is cleared with fp_clear; the error paths return -142 (ASN parse error) or -110 (mp_init failure). The value is always non-negative because the sign is not decoded.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | destination mp_int |
+| `param_2` | `ptr` | DER input buffer |
+| `param_3` | `ptr` | in/out byte index into the input |
+
+**Returns** `s32`: 0 on success, -110 on mp_init failure, -142 on parse or load failure
+
+- Addresses by version: 219: 0x0C05E420
+- Called by: `DecodeECC_DSA_Sig`
+- Calls: `GetASNInt`, `mp_init`, `fp_clear`, `mp_read_unsigned_bin`
 - Confidence: high
 
 ## GetLength_ex
@@ -189,7 +242,7 @@ Reads the length octet at input[*inOutIdx]. Short form (<0x80) is the length its
 **Returns** `s32`: decoded length (>= 0) or negative wolfSSL error (-132 BUFFER_E, -140 ASN_PARSE_E)
 
 - Addresses by version: 219: 0x0C05E350
-- Called by: `GetASNInt`, `ble_219_0c05e474`
+- Called by: `GetASNInt`, `DecodeECC_DSA_Sig`
 - Confidence: high
 
 ## aes128_encrypt_block
@@ -331,7 +384,7 @@ wolfSSL fp_add(a, b, c). If the signs are equal: c->sign = a->sign and return s_
 **Returns** `s32`: 0, or FP_VAL from s_fp_add
 
 - Addresses by version: 219: 0x0C061FE8
-- Called by: `ble_219_0c062fe4`, `ble_219_0c0634c4`, `ble_219_0c0635ac`, `ble_219_0c064088`
+- Called by: `ble_219_0c062fe4`, `ble_219_0c0634c4`, `ble_219_0c0635ac`, `fp_add_thunk`
 - Calls: `s_fp_add`, `s_fp_sub`
 - Confidence: high
 
@@ -357,6 +410,26 @@ Copies a to c when the pointers differ (used, sign, 0x60 digit bytes). If b is n
 - Calls: `memcpy`
 - Confidence: medium
 
+## fp_add_thunk
+
+**Branch-only alias of fp_add (signed big-integer addition)**
+
+Single-instruction thunk that branches to fp_add at 0x0C061FE8; the decompiled body shown is the target's. Called from ble_219_0c05f8c4 and ble_219_0c060828.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a |
+| `param_2` | `ptr` | fp_int b |
+| `param_3` | `ptr` | fp_int result c |
+| `param_4` | `u32` | extra argument passed through to the helper |
+
+**Returns** `s32`: 0 (as the target returns)
+
+- Addresses by version: 219: 0x0C064088
+- Called by: `ble_219_0c05f8c4`, `ble_219_0c060828`
+- Calls: `fp_add`
+- Confidence: high
+
 ## fp_addmod_ct
 
 **Constant-time modular addition d = (a + b) mod c for a, b < c**
@@ -373,8 +446,28 @@ wolfSSL TFM fp_addmod_ct(a, b, c, d). First calls s_fp_add(a, b, d) (0c061e70, u
 **Returns** `s32`: always 0 (FP_OKAY)
 
 - Addresses by version: 219: 0x0C062654
-- Called by: `ble_219_0c0640e8`
+- Called by: `fp_addmod_ct_thunk`
 - Calls: `fp_cmp_mag_ct`, `s_fp_add`
+- Confidence: high
+
+## fp_addmod_ct_thunk
+
+**Branch-only alias of fp_addmod_ct (constant-time modular addition)**
+
+Single-instruction thunk that branches to fp_addmod_ct at 0x0C062654; the decompiled body shown is the target's. It computes d = (a + b) mod c in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a |
+| `param_2` | `ptr` | modulus c, passed through to the helper |
+| `param_3` | `ptr` | fp_int b |
+| `param_4` | `ptr` | fp_int result d |
+
+**Returns** `s32`: 0 (as the target returns)
+
+- Addresses by version: 219: 0x0C0640E8
+- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Calls: `fp_addmod_ct`
 - Confidence: high
 
 ## fp_clear
@@ -390,7 +483,7 @@ If a is non-NULL: used = 0, sign = 0 and the 24-digit array (0x60 bytes) cleared
 **Notes:** Functionally this is wolfSSL's mp_clear; the name mp_clear was already assigned in wave 1 to the empty function 0c064000 (which is more likely mp_free/fp_free), so the inner routine's name fp_clear is used here.
 
 - Addresses by version: 219: 0x0C063FEC
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `ble_219_0c05e420`, `ble_219_0c05e474`, `wc_ecc_curve_free`, `ble_219_0c05e558`, `ble_219_0c05e868`, `ble_219_0c05eb00`, `ble_219_0c05efc0`, `ble_219_0c05f1b0`, `ble_219_0c05f71c` ...
+- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `GetInt`, `DecodeECC_DSA_Sig`, `wc_ecc_curve_free`, `ble_219_0c05e558`, `ble_219_0c05e868`, `ble_219_0c05eb00`, `ble_219_0c05efc0`, `ble_219_0c05f1b0`, `ble_219_0c05f71c` ...
 - Calls: `memset`
 - Confidence: medium
 
@@ -464,8 +557,45 @@ wolfSSL TFM fp_div_2_mod_ct(a, b, c). mask = -(a->dp[0] & 1): if a is odd the mo
 **Returns** `s32`: always 0 (FP_OKAY)
 
 - Addresses by version: 219: 0x0C062450
-- Called by: `ble_219_0c064498`
+- Called by: `fp_div_2_mod_ct_thunk`
 - Calls: `fp_div_2`
+- Confidence: high
+
+## fp_div_2_mod_ct_thunk
+
+**Branch-only alias of fp_div_2_mod_ct (constant-time halving modulo b)**
+
+Single-instruction thunk that branches to fp_div_2_mod_ct at 0x0C062450; the decompiled body shown is the target's. It computes c = (a / 2) mod b for 0 <= a < b: when a is odd it adds b first, then halves the result, in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a |
+| `param_2` | `ptr` | modulus b |
+| `param_3` | `ptr` | fp_int result c |
+
+**Returns** `s32`: 0 (as the target returns)
+
+- Addresses by version: 219: 0x0C064498
+- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Calls: `fp_div_2_mod_ct`
+- Confidence: high
+
+## fp_div_2d
+
+**Divide a big integer by 2^b giving quotient and optional remainder**
+
+wolfSSL TFM fp_div_2d: c = a >> b and, when d is non-NULL, d = a mod 2^b. For b <= 0 it copies a to c and clears d. Otherwise it copies a to c, computes the remainder with fp_mod_2d (0x0C0624E8) from the original a before shifting, shifts whole 32-bit digits with fp_rshd (0x0C062E40) when b >= 32, shifts the remaining bits with fp_rshb (0x0C062EA8), and trims leading zero digits from the result. Uses newlib memcpy and memset for the copies.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | input fp_int a |
+| `param_2` | `u32` | bit count b, signed |
+| `param_3` | `ptr` | quotient output c |
+| `param_4` | `ptr` | remainder output d, or NULL |
+
+- Addresses by version: 219: 0x0C062F28
+- Called by: `ble_219_0c062fe4`
+- Calls: `fp_mod_2d`, `fp_rshd`, `fp_rshb`, `memcpy`, `memset`
 - Confidence: high
 
 ## fp_lshd
@@ -501,7 +631,7 @@ wolfSSL TFM fp_mod_2d(a, b, c). If b <= 0 the result c is zeroed (used = 0, sign
 | `c` | `ptr` | destination fp_int (may equal a) |
 
 - Addresses by version: 219: 0x0C0624E8
-- Called by: `ble_219_0c062f28`
+- Called by: `fp_div_2d`
 - Calls: `memcpy`, `memset`
 - Confidence: high
 
@@ -521,8 +651,28 @@ wolfSSL TFM fp_montgomery_calc_normalization(a, b). bits = number of significant
 **Returns** `s32`: 0 (FP_OKAY) or the error returned by fp_mul_2
 
 - Addresses by version: 219: 0x0C062940
-- Called by: `ble_219_0c064288`
+- Called by: `fp_montgomery_calc_normalization_thunk`
 - Calls: `s_fp_sub`, `fp_mul_2`, `memset`
+- Confidence: high
+
+## fp_montgomery_calc_normalization_thunk
+
+**Branch-only alias of fp_montgomery_calc_normalization (R mod b)**
+
+Single-instruction thunk that branches to fp_montgomery_calc_normalization at 0x0C062940; the decompiled body shown is the target's. It computes a = R mod b, with R = 2^(32 * used digits of b), by repeated doubling and conditional subtraction, for Montgomery normalisation. Called from ble_219_0c05b724 and ble_219_0c05e558.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int result a |
+| `param_2` | `ptr` | modulus b |
+| `param_3` | `u32` | unused by the decompiled body |
+| `param_4` | `u32` | fallback word used when b is a single digit |
+
+**Returns** `s32`: 0 on success, or the error code from the doubling helper
+
+- Addresses by version: 219: 0x0C064288
+- Called by: `ble_219_0c05b724`, `ble_219_0c05e558`
+- Calls: `fp_montgomery_calc_normalization`
 - Confidence: high
 
 ## fp_mul_2
@@ -598,7 +748,7 @@ wolfSSL TFM fp_read_radix(a, str, radix). a is zeroed first. For radix 16 the in
 **Returns** `s32`: 0 (FP_OKAY), -1 (FP_VAL) for bad radix / bad hex digit / overflow, or an fp_mul_d/fp_add_d error
 
 - Addresses by version: 219: 0x0C0642F8
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bd30`, `ble_219_0c05e614`, `ble_219_0c060974`
+- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bd30`, `wc_ecc_curve_load`, `ble_219_0c060974`
 - Calls: `fp_mul_d`, `fp_add_d`, `memset`, `strlen`
 - Confidence: high
 
@@ -635,8 +785,24 @@ wolfSSL TFM fp_rshb(c, x). Negative x returns immediately. If x >= 32 it first c
 **Notes:** If x % 32 == 0 after the digit shift the bit loop still runs with a shift of 0, which is harmless.
 
 - Addresses by version: 219: 0x0C062EA8
-- Called by: `ble_219_0c062f28`, `ble_219_0c064284`
+- Called by: `fp_div_2d`, `fp_rshb_thunk`
 - Calls: `fp_rshd`
+- Confidence: high
+
+## fp_rshb_thunk
+
+**Branch-only alias of fp_rshb (in-place right shift by bits)**
+
+Single-instruction thunk that branches to fp_rshb at 0x0C062EA8; the decompiled body shown is the target's. It shifts the big integer right in place by the given number of bits, after whole-digit shifts for counts of 32 or more. Called from ble_219_0c0601fc.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a, shifted in place |
+| `param_2` | `u32` | bit count |
+
+- Addresses by version: 219: 0x0C064284
+- Called by: `ble_219_0c0601fc`
+- Calls: `fp_rshb`
 - Confidence: high
 
 ## fp_rshd
@@ -651,7 +817,7 @@ wolfSSL TFM fp_rshd(a, x). If x >= a->used the value becomes zero (used = 0, sig
 | `x` | `s32` | number of digits to shift right |
 
 - Addresses by version: 219: 0x0C062E40
-- Called by: `fp_rshb`, `ble_219_0c062f28`, `ble_219_0c062fe4`
+- Called by: `fp_rshb`, `fp_div_2d`, `ble_219_0c062fe4`
 - Calls: `memset`
 - Confidence: high
 
@@ -670,8 +836,27 @@ wolfSSL fp_sub(a, b, c). If the signs differ: c->sign = a->sign and return s_fp_
 **Returns** `s32`: 0, or FP_VAL from s_fp_add
 
 - Addresses by version: 219: 0x0C062068
-- Called by: `ble_219_0c062fe4`, `ble_219_0c0635ac`, `ble_219_0c063ce4`, `ble_219_0c06408c`
+- Called by: `ble_219_0c062fe4`, `ble_219_0c0635ac`, `ble_219_0c063ce4`, `fp_sub_thunk`
 - Calls: `s_fp_add`, `s_fp_sub`
+- Confidence: high
+
+## fp_sub_thunk
+
+**Branch-only alias of fp_sub (signed big-integer subtraction)**
+
+Single-instruction thunk that branches to fp_sub at 0x0C062068; the decompiled body shown is the target's. Called from ble_219_0c060828.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a |
+| `param_2` | `ptr` | fp_int b |
+| `param_3` | `ptr` | fp_int result c |
+
+**Returns** `s32`: 0 (as the target returns)
+
+- Addresses by version: 219: 0x0C06408C
+- Called by: `ble_219_0c060828`
+- Calls: `fp_sub`
 - Confidence: high
 
 ## fp_submod_ct
@@ -692,8 +877,28 @@ wolfSSL TFM fp_submod_ct(a, b, c, d). Computes mask = all-ones when fp_cmp_mag_c
 **Notes:** The loop also handles the impossible c->used < 0 case by emitting a single digit; the pointer walk starts at dp[0] via pre-increment from word index 1.
 
 - Addresses by version: 219: 0x0C0625A0
-- Called by: `ble_219_0c0640e4`
+- Called by: `fp_submod_ct_thunk`
 - Calls: `fp_cmp_mag_ct`, `s_fp_sub`
+- Confidence: high
+
+## fp_submod_ct_thunk
+
+**Branch-only alias of fp_submod_ct (constant-time modular subtraction)**
+
+Single-instruction thunk that branches to fp_submod_ct at 0x0C0625A0; the decompiled body shown is the target's. It computes d = (a - b) mod c in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | fp_int a |
+| `param_2` | `ptr` | modulus c, passed through to the helper |
+| `param_3` | `ptr` | fp_int b |
+| `param_4` | `ptr` | fp_int result d |
+
+**Returns** `s32`: 0 (as the target returns)
+
+- Addresses by version: 219: 0x0C0640E4
+- Called by: `ble_219_0c05e868`, `ble_219_0c05eb00`
+- Calls: `fp_submod_ct`
 - Confidence: high
 
 ## fp_to_unsigned_bin_at_pos
@@ -1018,7 +1223,7 @@ wolfSSL mp_init(a): if a is non-NULL it performs fp_init/fp_zero - used = 0, sig
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C063FB8
-- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `ble_219_0c05e420`, `ble_219_0c05e558`, `ble_219_0c05e614`, `ble_219_0c05f8c4`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `ble_219_0c05b724`, `ble_219_0c05b86c`, `ble_219_0c05bfa4`, `GetInt`, `ble_219_0c05e558`, `wc_ecc_curve_load`, `ble_219_0c05f8c4`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
 - Calls: `memset`
 - Confidence: high
 
@@ -1092,7 +1297,7 @@ Single branch instruction to fp_read_unsigned_bin (0c062bac): zeroes a, copies u
 **Returns** `s32`: always 0 (MP_OKAY)
 
 - Addresses by version: 219: 0x0C06422C
-- Called by: `ble_219_0c05b86c`, `ble_219_0c05e420`, `ble_219_0c05f218`, `ble_219_0c0601fc`, `ble_219_0c060ae4`
+- Called by: `ble_219_0c05b86c`, `GetInt`, `ble_219_0c05f218`, `ble_219_0c0601fc`, `ble_219_0c060ae4`
 - Calls: `fp_read_unsigned_bin`
 - Confidence: high
 
@@ -1331,6 +1536,25 @@ wolfSSL wc_AesGcmDecrypt(aes, out, in, sz, iv, ivSz, authTag, authTagSz, authIn,
 - Calls: `wc_AesEncrypt`, `GHASH`, `memcpy`
 - Confidence: high
 
+## wc_AesGcmEncrypt
+
+**Validate AES-GCM encrypt arguments, then run the software GCM encrypt**
+
+wolfSSL wc_AesGcmEncrypt argument check. It rejects a NULL context (first argument), a zero IV length (sixth argument) and an authentication tag size outside 12..16 (eighth argument, tested as (size - 12) < 5 unsigned), returning BAD_FUNC_ARG (-173, 0xFFFFFF53). Otherwise it tail-calls the software CTR plus GHASH implementation at 0x0C05DE8C (AES_GCM_encrypt_C), which produces the ciphertext and the authentication tag. The data and IV pointers are not checked here.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | wolfSSL Aes context, must be non-NULL |
+
+**Returns** `s32`: result of the software encrypt, or -173 (BAD_FUNC_ARG) for invalid arguments
+
+**Notes:** The 6th and 8th arguments are read from the stack at offsets 0x4 and 0xC, which the decompiler does not declare. The mapping follows the AAPCS stack layout.
+
+- Addresses by version: 219: 0x0C05E2C0
+- Called by: `ble_219_0c05c13c`
+- Calls: `AES_GCM_encrypt_C`
+- Confidence: medium
+
 ## wc_AesGcmSetKey
 
 **Set a 16-byte AES-GCM key: expand the key and compute the GHASH key H = E_K(0^128)**
@@ -1557,9 +1781,30 @@ wolfSSL wc_ecc_curve_free(curve) for a build without USE_ECC_B_PARAM: the struct
 **Notes:** 0x0c063fec is the real mp_clear (the empty 0c064000 named mp_clear in wave 1 is more likely mp_free).
 
 - Addresses by version: 219: 0x0C05E4E8
-- Called by: `ble_219_0c05e614`, `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Called by: `wc_ecc_curve_load`, `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
 - Calls: `fp_clear`
 - Confidence: high
+
+## wc_ecc_curve_load
+
+**Load selected fields of a standard ECC curve into an ecc_curve_spec**
+
+wolfSSL wc_ecc_curve_load. A NULL curve returns BAD_FUNC_ARG (-173). The spec stores the new curve pointer at +0x00, and if the same curve was already loaded it keeps the fields already present. For each requested field bit in load_mask it takes the next fp_int slot from the pool (slot size 0x68, pool base at +0x18, count at +0x1C, used count at +0x20), runs mp_init on it and parses the curve's hex constant with fp_read_radix(..., 16). The loaded-field mask is stored at +0x24. When the pool is exhausted it returns -170 or -340. Other failures free the spec with wc_ecc_curve_free (0x0C05E4E8) and return -111.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | static curve parameter table (ecc_set_type) |
+| `param_2` | `ptr` | out pointer to the ecc_curve_spec |
+| `param_3` | `u32` | load_mask, one bit per curve field (prime, A, B, order, Gx, Gy) |
+
+**Returns** `s32`: 0 on success, -173 for a NULL curve, -170 or -340 on pool exhaustion, -111 on load failure
+
+**Notes:** The bit-to-field mapping is inferred from the slot assignments. Bit 2 is not tested by the decompiled branches, so one field may be loaded through a path not seen here.
+
+- Addresses by version: 219: 0x0C05E614
+- Called by: `ble_219_0c05fb10`, `ble_219_0c05fd18`, `ble_219_0c05ff44`, `ble_219_0c0600c0`, `ble_219_0c0601fc`, `ble_219_0c060974`
+- Calls: `wc_ecc_curve_free`, `mp_init`, `fp_read_radix`
+- Confidence: medium
 
 ## wc_ecc_free
 
