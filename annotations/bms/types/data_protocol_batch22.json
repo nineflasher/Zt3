@@ -1,0 +1,73 @@
+{
+  "structs": {
+    "HostRxFrame": {
+      "size": 19,
+      "description": "Received host-link frame as rebuilt by bms_frame_parse_legacy_4168 (4148/4168). Offsets are relative to 0x20000929.",
+      "fields": [
+        {
+          "name": "magic",
+          "offset": 0,
+          "type": "u8",
+          "description": "Frame start byte, 0x5A or 0xA5, probably the magic of the last received frame. The parser stores the received byte here at one step of its state machine."
+        },
+        {
+          "name": "command",
+          "offset": 1,
+          "type": "u8",
+          "description": "Command byte of the frame. bms_comm_await_reply_cmd03 accepts 0x03 and bms_auth_verify_response accepts 0x1D."
+        },
+        {
+          "name": "type_count",
+          "offset": 2,
+          "type": "u8",
+          "description": "Second header byte, copied from the high byte of the parser's 16-bit header word at 0x200001BE. The high nibble is the reply type: 1 for a command 0x03 reply, 4 for a command 0x1D reply. The low nibble is probably the record count."
+        },
+        {
+          "name": "reply_words",
+          "offset": 3,
+          "type": "u32",
+          "count": 4,
+          "description": "Four 32-bit reply words, each rebuilt from four received bytes in reversed order. Word 0 is the first payload word, which bms_comm_await_reply_cmd03 copies into its context at +0x08. The auth check compares all four words with a 16-byte value derived from bms_auth_key_block."
+        }
+      ]
+    },
+    "BmsTelemRecord": {
+      "size": 16,
+      "description": "One 16-byte telemetry record of the 4130/4139 and 4148/4168 tables. Used by bms_telem11_records and bms_telem16_records.",
+      "fields": [
+        {
+          "name": "stamp",
+          "offset": 0,
+          "type": "u32",
+          "description": "Tick time (bms_tick_get) of the last refresh of this record, written by the block-fill routine."
+        },
+        {
+          "name": "can_id",
+          "offset": 4,
+          "type": "u16",
+          "description": "Standard CAN message ID of the frame, set by the scheduler init and read when the record is sent."
+        },
+        {
+          "name": "period",
+          "offset": 6,
+          "type": "u8",
+          "description": "Send period in units of 100 ms (5 = 500 ms, 20 = 2 s), set by the scheduler init. The scheduler sends the record when this period has elapsed."
+        },
+        {
+          "name": "payload",
+          "offset": 7,
+          "type": "u8",
+          "count": 8,
+          "description": "Eight data bytes of the CAN frame, packed from the state block for this record's ID by the block-fill routine."
+        },
+        {
+          "name": "spare",
+          "offset": 15,
+          "type": "u8",
+          "description": "Byte 15 of the record. No code in the batch 22 to 24 packets touches it."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

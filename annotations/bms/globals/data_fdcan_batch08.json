@@ -1,0 +1,18 @@
+{
+  "bms_g_4168_20000684": {
+    "name": "bms_fdcan_rx_callback",
+    "type": "ptr",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000684"],
+    "category": "fdcan",
+    "description": "Function pointer that bms_fdcan_rx_fifo0_service calls once for each frame it drains from RX FIFO0 (at most three per service call), passing a pointer to a stack-local frame record. Written by bms_app_value_684_set, probably the application registering its receive handler. The call is made without a NULL check, so the pointer must be set before the FIFO0 interrupt can deliver frames."
+  },
+  "bms_g_4168_20005c50": {
+    "name": "bms_fdcan_handle",
+    "type": "BmsFdcanHandle",
+    "size": 152,
+    "anchor": ["BMS_4168", "0x20005c50"],
+    "category": "fdcan",
+    "description": "FDCAN driver handle used by bms_fdcan_nominal_500k_setup, bms_fdcan_send_frame, bms_fdcan_rx_fifo0_service, bms_fdcan_tx_fifo_full and the FDCAN interrupt path. It holds the peripheral pointer, the init parameters (classic CAN, 500 kbit/s nominal timing, filter counts), the TX header buffer and the RX header buffer. In build 4148 the same handle sits at 0x20005B78 and in build 4130 at 0x20005370, with the same field offsets. Bytes 0x40 to 0x63 are not described in this packet."
+  }
+}

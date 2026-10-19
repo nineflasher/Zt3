@@ -1,0 +1,191 @@
+{
+  "structs": {
+    "McuPosSnapshot": {
+      "size": 20,
+      "description": "Snapshot of the position tracker values written by mcu_0160_08009160 each update. The offsets refer to the tracker block passed to that function.",
+      "fields": [
+        {
+          "name": "speed_est",
+          "offset": 0,
+          "type": "s32",
+          "description": "Speed or position-derivative estimate: the tracker field at +0x70, or a product of a 16-bit field at +0x38 and a step count (probably a speed estimate)."
+        },
+        {
+          "name": "filtered",
+          "offset": 4,
+          "type": "s32",
+          "description": "Six-sample moving average of the tracker field at +0x98 (mcu_moving_average6_update)."
+        },
+        {
+          "name": "raw",
+          "offset": 8,
+          "type": "s32",
+          "description": "Copy of the tracker field at +0x98, the input of the moving average."
+        },
+        {
+          "name": "prev_5c",
+          "offset": 12,
+          "type": "s32",
+          "description": "Value of the tracker field at +0x5C taken before this update (the previous sector value)."
+        },
+        {
+          "name": "prev_60",
+          "offset": 16,
+          "type": "s32",
+          "description": "Value of the tracker field at +0x60 taken before this update."
+        }
+      ]
+    },
+    "McuPiCtrl": {
+      "size": 64,
+      "description": "PI controller block of the drive loop (partly decoded). The gain fields are written by mcu_gain_triple_q15_from_float, the limits by mcu_pid_set_limits. Offsets from the decompiled accesses; the integrator and output fields are not decoded.",
+      "fields": [
+        {
+          "name": "q15_a",
+          "offset": 0,
+          "type": "s32",
+          "description": "First Q15 value of the gain triple (limit from the first float argument)."
+        },
+        {
+          "name": "q15_b",
+          "offset": 4,
+          "type": "s32",
+          "description": "Second Q15 value of the gain triple (second argument times the scale)."
+        },
+        {
+          "name": "q15_c",
+          "offset": 8,
+          "type": "s32",
+          "description": "Third Q15 value of the gain triple (third argument times the scale)."
+        },
+        {
+          "name": "q15_a_copy",
+          "offset": 12,
+          "type": "s32",
+          "description": "Copy of q15_a written at the same time, probably the value used by the loop."
+        },
+        {
+          "name": "q15_b_copy",
+          "offset": 16,
+          "type": "s32",
+          "description": "Copy of q15_b written at the same time."
+        },
+        {
+          "name": "q15_c_copy",
+          "offset": 20,
+          "type": "s32",
+          "description": "Copy of q15_c written at the same time."
+        },
+        {
+          "name": "out_ptr",
+          "offset": 28,
+          "type": "ptr",
+          "description": "Pointer to the 32-bit output word. mcu_pid_set_limits clamps the value stored there to the limits."
+        },
+        {
+          "name": "limit_lo",
+          "offset": 36,
+          "type": "s32",
+          "description": "Lower output limit, the first argument of mcu_pid_set_limits."
+        },
+        {
+          "name": "limit_hi",
+          "offset": 40,
+          "type": "s32",
+          "description": "Upper output limit, the second argument of mcu_pid_set_limits."
+        },
+        {
+          "name": "scale_f32",
+          "offset": 44,
+          "type": "f32",
+          "description": "Float scale read by mcu_gain_triple_q15_from_float (it is converted from float)."
+        },
+        {
+          "name": "flag_30",
+          "offset": 48,
+          "type": "u8",
+          "description": "Flag at 0x20000898 (offset 0x30). Cleared to 0 by the drive cycle and the drive state routine. Probably a reset request for the integrator."
+        },
+        {
+          "name": "enabled",
+          "offset": 62,
+          "type": "u8",
+          "description": "Enable byte (offset 0x3E) tested by mcu_pid_set_limits: when non-zero the limits are applied to the output word at once."
+        }
+      ]
+    },
+    "McuThreshDebounce12": {
+      "size": 24,
+      "description": "Build 12b threshold debounce object initialised by mcu_threshold_debounce_init_v12b. The field offsets come from the init routine; the meaning of the counters is probable.",
+      "fields": [
+        {
+          "name": "lo_q15",
+          "offset": 0,
+          "type": "s32",
+          "description": "Lower threshold in Q15, the first argument of the init (from DAT_200003E2 or DAT_200003E0)."
+        },
+        {
+          "name": "hi_q15",
+          "offset": 4,
+          "type": "s32",
+          "description": "Upper threshold in Q15, the second argument of the init (from DAT_200003E4 or DAT_200003E2)."
+        },
+        {
+          "name": "mode",
+          "offset": 8,
+          "type": "u8",
+          "description": "Sixth argument of the init (value 2 in every call here). Probably a sample count or mode."
+        },
+        {
+          "name": "cnt_a",
+          "offset": 10,
+          "type": "u16",
+          "description": "Debounce counter, cleared by the init."
+        },
+        {
+          "name": "cnt_b",
+          "offset": 12,
+          "type": "u16",
+          "description": "Second debounce counter, cleared by the init."
+        },
+        {
+          "name": "limit_a",
+          "offset": 14,
+          "type": "u16",
+          "description": "Debounce limit passed as the fourth argument (100 in every call here)."
+        },
+        {
+          "name": "limit_b",
+          "offset": 16,
+          "type": "u16",
+          "description": "Second debounce limit passed as the fifth argument (100 in every call here)."
+        },
+        {
+          "name": "state_a",
+          "offset": 18,
+          "type": "u8",
+          "description": "State byte, cleared by the init. Probably the current trip state."
+        },
+        {
+          "name": "flag_a",
+          "offset": 19,
+          "type": "u8",
+          "description": "Flag byte, cleared by the init."
+        },
+        {
+          "name": "state_b",
+          "offset": 20,
+          "type": "u8",
+          "description": "Second state byte, cleared by the init."
+        },
+        {
+          "name": "flag_b",
+          "offset": 21,
+          "type": "u8",
+          "description": "Second flag byte, cleared by the init."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

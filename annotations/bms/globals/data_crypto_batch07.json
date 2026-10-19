@@ -1,0 +1,11 @@
+{
+  "bms_g_4168_200005b8": {
+    "name": "bms_seed_key_work_words",
+    "type": "u16",
+    "count": 2,
+    "size": 4,
+    "anchor": ["BMS_4168", "0x200005b8"],
+    "category": "protocol",
+    "description": "Two 16-bit working words of bms_seed_key_transform, written on every call. Word 0 (0x200005b8) is a 16-bit checksum-style value (probably a CRC) of the 16-byte input block, and word 1 (0x200005ba) is that value XORed with the byte sum of the same block. The transform uses the same values to pick S-box rows and rotation amounts. They are derived working values, not key bytes, and nothing in this packet reads them back (probably kept for debugging)."
+  }
+}

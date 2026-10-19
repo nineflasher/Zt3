@@ -71,6 +71,16 @@ def overlaps(comp: str, notes: dict, fam_key: str, exclude_file_keys: set[str] |
     mine, _ = resolve(comp, notes, fam_key)
     theirs, _ = resolve(comp, others, fam_key)
     errs: list[str] = []
+    ids = sorted(mine)
+    for i, oid in enumerate(ids):                        # overlaps inside the same file
+        r = mine[oid]
+        for oid2 in ids[i + 1:]:
+            r2 = mine[oid2]
+            for img, start in r["starts"].items():
+                s2 = r2["starts"].get(img)
+                if s2 is not None and start < s2 + r2["size"] and s2 < start + r["size"]:
+                    errs.append(f"{oid} ({notes[oid]['name']}) overlaps {oid2} ({notes[oid2]['name']}) in {img} (same file)")
+                    break
     for oid, r in mine.items():
         for img, start in r["starts"].items():
             end = start + r["size"]

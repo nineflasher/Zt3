@@ -1,0 +1,518 @@
+{
+  "mcu_g_143_20000638": {
+    "name": "mcu_init_block_143",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_143",
+      "0x20000638"
+    ],
+    "category": "startup",
+    "description": "Build 143 only. Its address is taken (not read or written by value) in mcu_0160_0800b324, the start-up routine, so it is a block base passed to a helper. The block width and the meaning of its bytes are not visible in this packet; only the first byte is documented here."
+  },
+  "mcu_g_0160_2000063e": {
+    "name": "mcu_speed_hold_cnt",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x2000063e"
+    ],
+    "category": "motor",
+    "description": "Debounce counter for the low-speed or hold state, stepped once per slow tick in mcu_0160_0800a480. It counts up to 100 while the speed reference DAT_20000F30 is above 0x50000 and the window in DAT_20000A50 holds, and counts down (clamped at 10 first) while DAT_20000F30 is below 0x8000. When it reaches 0 in the slow-speed branch, DAT_20000F4A is cleared. Probably a hysteresis for standstill detection. Units: ticks."
+  },
+  "mcu_g_0160_20000640": {
+    "name": "mcu_post_start_tick_cnt",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x20000640"
+    ],
+    "category": "startup",
+    "description": "Tick counter that runs after start-up. mcu_0160_08007df4 resets it to 0 while DAT_200003B8 is still counting its 100-step pre-count, then increments it once per call up to 0x189C (6300). Every 100 counts after 300 it sets a 0x400 step in the status word DAT_20001FDA (probably a periodic status pattern). Declared u16 because of the 0x189C limit; the tick period is not visible here."
+  },
+  "mcu_g_0160_2000065b": {
+    "name": "mcu_init_mode_pair",
+    "type": "u8",
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x2000065b"
+    ],
+    "category": "startup",
+    "description": "Two bytes at 0x2000065B and 0x2000065C, both set to 2 by mcu_0160_0800b324 (start-up) in the 12b, 143, 152 and 0160 builds. Their readers are not in this packet. Probably two mode selectors of one subsystem, set to the same default at boot.",
+    "count": 2
+  },
+  "mcu_g_143_2000065d": {
+    "name": "mcu_b10c_state_143",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_143",
+      "0x2000065d"
+    ],
+    "category": "motor",
+    "description": "Build 143 and 12b only. A status or mode byte read and written by mcu_0160_0800b10c (the torque and current reference update). The bit meanings are not visible in this packet (probably flags of the reference path). The 0160 build keeps its copy in another family."
+  },
+  "mcu_g_143_20000668": {
+    "name": "mcu_b10c_aux_143",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_143",
+      "0x20000668"
+    ],
+    "category": "motor",
+    "description": "Build 12b and 143 only. A byte read and written through a base pointer in mcu_0160_0800b10c. Probably a state of the reference path; no other access is visible in this packet."
+  },
+  "mcu_g_152_20000669": {
+    "name": "mcu_b10c_aux_152",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_152",
+      "0x20000669"
+    ],
+    "category": "motor",
+    "description": "Build 152 only, the byte right after the 143 variant at 0x20000668. Read and written through a base pointer in mcu_0160_0800b10c. Probably the same role as the 143 byte, placed at another address in this build."
+  },
+  "mcu_g_0160_2000066e": {
+    "name": "mcu_ramp_step_idx",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x2000066e"
+    ],
+    "category": "motor",
+    "description": "Step index of the reference ramp in builds 12b, 143, 152 and 0160. mcu_0160_0800b10c sets it to the constant 10 on one path and to a helper result plus 4 on another. mcu_drive_cycle_update subtracts DAT_2000066F from it and scales the difference by 0x8000 (Q15) to get a ramp window. Probably a count of ramp steps."
+  },
+  "mcu_g_0160_20000675": {
+    "name": "mcu_b10c_once_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000675"
+    ],
+    "category": "motor",
+    "description": "Build 0160 only. A flag in mcu_0160_0800b10c that is cleared on one path and set to 1 on another. The path taken while it is 0 is the first-pass branch, so this is probably a one-shot latch for the first call."
+  },
+  "mcu_g_0160_20000676": {
+    "name": "mcu_last_check_result",
+    "type": "s8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000676"
+    ],
+    "category": "protection",
+    "description": "Signed copy of the result of the helper at 0x08006574 (called in mcu_0160_08008a14, a start-up timeout check). The value -1 is a not-yet-evaluated sentinel, which mcu_0160_08008a14 tests together with a zero result. Probably a last-result cache for that check."
+  },
+  "mcu_g_0160_20000677": {
+    "name": "mcu_profile_idx_copy",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000677"
+    ],
+    "category": "config",
+    "description": "Byte copy of DAT_2000065A, written by mcu_0160_0800adde. Mirrors a selector that mcu_0160_08004e78 uses as an index into a 4-byte table at 0x20000268 when it loads the drive configuration. Probably a profile or setting index."
+  },
+  "mcu_g_0160_2000067a": {
+    "name": "mcu_fault_repeat_cnt",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x2000067a"
+    ],
+    "category": "protection",
+    "description": "Counter of repeated events in mcu_0160_08005e28 (ADC tick). It increments while DAT_20001FCD is 1, is reset to 0 when DAT_20001FCC is set, and when it exceeds 2 it is set to 10 and the drive state reset mcu_0160_0800a7f8 is called. Probably counts repeated faults or stalls before the reset."
+  },
+  "mcu_g_0160_20000688": {
+    "name": "mcu_torque_limit_last",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000688"
+    ],
+    "category": "motor",
+    "description": "Signed 32-bit value stored each tick by mcu_0160_0800b10c: the current limit computed from the speed and temperature inputs (Q15-like scaling; the constant 0x78000 is used on one path). It is also copied to DAT_20000224. Values below 0x10 mean the value is not yet valid, which mcu_0160_0800b10c checks before using it. Probably the active current or torque cap."
+  },
+  "mcu_g_0160_2000068c": {
+    "name": "mcu_startup_timeout_cnt",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x2000068c"
+    ],
+    "category": "startup",
+    "description": "Timeout counter in mcu_0160_08008a14. It is cleared when mcu_0160_08004e64 returns non-zero and otherwise increments. At 120000 (0x1D4C0) it is clamped and the function returns 1 (timeout) unless DAT_20000320 bit 1 is set. The time unit is not visible here (probably 1 ms ticks)."
+  },
+  "mcu_g_0160_20000690": {
+    "name": "mcu_power_latch",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000690"
+    ],
+    "category": "power",
+    "description": "Word written to 0 by mcu_0160_08008aac in one branch of its power-enable logic (the branch where the GPIO outputs are driven). Probably a latch that tracks whether the power or contactor output was just driven."
+  },
+  "mcu_g_0160_20000694": {
+    "name": "mcu_power_delay_cnt",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000694"
+    ],
+    "category": "power",
+    "description": "Countdown set to 20 (0x14) in mcu_0160_08008aac and decremented on each call while non-zero. When it reaches 0 it sets DAT_20001FCB to 1. Probably a delay of 20 calls before the next power step is acknowledged."
+  },
+  "mcu_g_0160_200006d5": {
+    "name": "mcu_upgrade_xfer_byte",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x200006d5"
+    ],
+    "category": "upgrade",
+    "description": "Byte inside the upgrade and transfer state area (0x200006B8 to 0x200006E8) that mcu_0160_0800672c reads. Its writer is not in this packet. Probably a transfer status or a chunk-state flag."
+  },
+  "mcu_g_12b_200006e0": {
+    "name": "mcu_12b_cfg_once_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_12b",
+      "0x200006e0"
+    ],
+    "category": "config",
+    "description": "Build 12b only. One-shot flag in mcu_12b_0800bfd0: 0 on the first call, set to 1 when the call runs. Probably a latch for the first configuration record."
+  },
+  "mcu_g_12b_200006e1": {
+    "name": "mcu_12b_cfg_range_fail",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_12b",
+      "0x200006e1"
+    ],
+    "category": "config",
+    "description": "Build 12b only. Set to 1 in mcu_12b_0800bfd0 when a value returned by mcu_0800d6b0 falls outside the range [DAT_200006E4, DAT_200006E4 + DAT_200006E8]. Probably a range-check failure flag for the record."
+  },
+  "mcu_g_12b_200006e3": {
+    "name": "mcu_12b_cfg_aux_e3",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_12b",
+      "0x200006e3"
+    ],
+    "category": "config",
+    "description": "Build 12b only. Read in mcu_12b_0800bfd0 and not written in this packet. Meaning not visible here."
+  },
+  "mcu_g_0160_200006e4": {
+    "name": "mcu_fallback_rec_words",
+    "type": "u32",
+    "size": 12,
+    "anchor": [
+      "MCU_0160",
+      "0x200006e4"
+    ],
+    "category": "crypto",
+    "description": "Three 32-bit default words (0x200006E4, 0x200006E8, 0x200006EC). mcu_0160_0800665c uses them as the fallback copy of the 12-byte record that is loaded from flash page 0x0801F800 into 0x20002048. When the first word of the flash copy differs, the three words are copied to 0x20002048, 0x2000204C and 0x20002050 and the flash is rewritten (mcu_0160_08006b34). The values are not recorded here.",
+    "count": 3
+  },
+  "mcu_g_12b_200006e4": {
+    "name": "mcu_12b_cfg_word0",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "MCU_12b",
+      "0x200006e4"
+    ],
+    "category": "config",
+    "description": "Build 12b only. The first word of the configuration record. mcu_12b_0800bfd0 uses it as the lower bound of a range check on a value returned by mcu_0800d6b0 (see mcu_12b_cfg_range_fail)."
+  },
+  "mcu_g_12b_200006e8": {
+    "name": "mcu_12b_cfg_word1",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "MCU_12b",
+      "0x200006e8"
+    ],
+    "category": "config",
+    "description": "Build 12b only. Second word of the configuration record. mcu_12b_0800bfd0 uses it as the width of the range check: the upper bound is the first word plus this value."
+  },
+  "mcu_g_0160_20000700": {
+    "name": "mcu_pos_snapshot",
+    "type": "McuPosSnapshot",
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000700"
+    ],
+    "category": "tracker",
+    "description": "Snapshot block written each time mcu_0160_08009160 (the position or sector tracker) runs. It holds a speed or position estimate, a 6-sample moving average and raw value, and the previous values of two fields of the tracker block. See the struct McuPosSnapshot for the fields. Used by the drive code after the update."
+  },
+  "mcu_g_0160_20000744": {
+    "name": "mcu_adc_sample_ring5",
+    "type": "u32",
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000744"
+    ],
+    "category": "adc",
+    "description": "Ring buffer of five 32-bit samples. mcu_0160_0800a320 stores one new sample per control tick at index DAT_20000000 (wrapping at 5) and computes the average stored in DAT_20000860. The sample source is a call in the same routine that is not documented here (probably an ADC-derived value).",
+    "count": 5
+  },
+  "mcu_g_0160_20000760": {
+    "name": "mcu_fscale_in_f32",
+    "type": "f32",
+    "size": 8,
+    "anchor": [
+      "MCU_0160",
+      "0x20000760"
+    ],
+    "category": "util",
+    "description": "Two float32 inputs copied every tick by mcu_0160_0800729c from DAT_200003C8 and DAT_200003C4. They are checked for NaN and infinity with the exponent mask 0x7F800000 and then used by the fixed-point helpers mcu_fscale_mul_div_a and mcu_fscale_mul_div_b in mcu_0160_08004db8. Probably measured or computed scale values.",
+    "count": 2
+  },
+  "mcu_g_0160_20000768": {
+    "name": "mcu_aux_q15_ref",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000768"
+    ],
+    "category": "util",
+    "description": "Signed 32-bit value written by mcu_0160_0800729c: the float at DAT_200003D0 converted to an integer after scaling by 2^15 (Q15). Probably a reference derived from a float gain. No reader in this packet."
+  },
+  "mcu_g_0160_20000770": {
+    "name": "mcu_drive_limit_a",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000770"
+    ],
+    "category": "motor",
+    "description": "Signed 32-bit threshold read by mcu_0160_08003f2c (drive cycle update). The check against 0x308001 and the comparison with DAT_20000780 decide a limit window. The writer is not in this packet. Probably a Q15 bound on a voltage or speed quantity."
+  },
+  "mcu_g_0160_200007d4": {
+    "name": "mcu_gain_band_a",
+    "type": "s32",
+    "size": 12,
+    "anchor": [
+      "MCU_0160",
+      "0x200007d4"
+    ],
+    "category": "motor",
+    "description": "One triple of Q15 gains for the speed band. It is filled by mcu_gain_triple_q15_from_float called from mcu_0160_08004db8 (band gain select), which refreshes it only when the band changes. The three gains are not named in the source here (probably proportional, integral and an output limit).",
+    "count": 3
+  },
+  "mcu_g_0160_20000818": {
+    "name": "mcu_gain_band_b",
+    "type": "s32",
+    "size": 12,
+    "anchor": [
+      "MCU_0160",
+      "0x20000818"
+    ],
+    "category": "motor",
+    "description": "Second triple of Q15 gains, the same layout as mcu_gain_band_a at 0x200007D4. Filled by mcu_gain_triple_q15_from_float from mcu_0160_08004db8. Probably the gain set of the adjacent speed band.",
+    "count": 3
+  },
+  "mcu_g_0160_2000085c": {
+    "name": "mcu_fscale_factor",
+    "type": "f32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x2000085c"
+    ],
+    "category": "util",
+    "description": "Float32 scale factor passed as the second argument to mcu_fscale_mul_div_a and mcu_fscale_mul_div_b in mcu_0160_08004db8. Written outside this packet. Probably a ratio that maps the speed period to the reference."
+  },
+  "mcu_g_0160_20000860": {
+    "name": "mcu_avg5_lpf_in",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000860"
+    ],
+    "category": "adc",
+    "description": "Five-sample average of the ring at 0x20000744, computed in mcu_0160_0800a320 each tick. It is the input of the first-order low-pass step mcu_lpf_q30_step, whose output is DAT_20000864."
+  },
+  "mcu_g_0160_20000864": {
+    "name": "mcu_avg5_lpf_out",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000864"
+    ],
+    "category": "adc",
+    "description": "Output of the first-order low-pass filter (mcu_lpf_q30_step, Q30 coefficient 0xA268140) applied to the five-sample average in DAT_20000860. Read by mcu_drive_cycle_update and by the limit block update, and copied to DAT_20000194 and DAT_20000020."
+  },
+  "mcu_g_0160_20000868": {
+    "name": "mcu_pi_ctrl_a",
+    "type": "McuPiCtrl",
+    "size": 64,
+    "anchor": [
+      "MCU_0160",
+      "0x20000868"
+    ],
+    "category": "motor",
+    "description": "PI controller block used by the drive loop. Its address is passed to mcu_pid_enable_bumpless (start-up), mcu_pid_set_limits and mcu_pi_update_gain_sched (drive cycle). The 64-byte layout is partly known (see the struct McuPiCtrl). The byte at offset 0x30 is the flag at 0x20000898, which the drive cycle and the drive state routine clear to 0."
+  },
+  "mcu_g_0160_20000991": {
+    "name": "mcu_boot_run_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000991"
+    ],
+    "category": "startup",
+    "description": "Run-state byte set to 2 by mcu_0160_0800d548 (main) after the start-up chain and before the control loop starts. Probably the boot-finished state. Readers are not in this packet."
+  },
+  "mcu_g_0160_20000994": {
+    "name": "mcu_dyn_bound_clamp_blk",
+    "type": "u8",
+    "size": 64,
+    "anchor": [
+      "MCU_0160",
+      "0x20000994"
+    ],
+    "category": "motor",
+    "description": "64-byte state block of mcu_dynamic_bound_clamp_update (mcu_0160_08006c9c), which clamps the reference in DAT_20000014 between dynamic bounds. The size is inferred from the next block at 0x200009D4, so it is probable, not confirmed. The layout is not decoded here.",
+    "count": 64
+  },
+  "mcu_g_0160_200009d4": {
+    "name": "mcu_limit_block",
+    "type": "u8",
+    "size": 60,
+    "anchor": [
+      "MCU_0160",
+      "0x200009d4"
+    ],
+    "category": "motor",
+    "description": "60-byte state block of mcu_limit_block_update (mcu_0160_08006e18). It is updated from the filtered value in DAT_20000864 and the two limit inputs at 0x20000A10 and 0x20000A14. The size is inferred from the next input at 0x20000A10, so it is probable. The layout is not decoded here.",
+    "count": 60
+  },
+  "mcu_g_0160_20000a10": {
+    "name": "mcu_limit_inputs",
+    "type": "s32",
+    "size": 8,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a10"
+    ],
+    "category": "motor",
+    "description": "Two 32-bit limit inputs passed to mcu_limit_block_update as its fourth and fifth arguments. Probably an upper and a lower bound of the output limit. Written outside this packet.",
+    "count": 2
+  },
+  "mcu_g_0160_20000a20": {
+    "name": "mcu_ref_raw_a20",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a20"
+    ],
+    "category": "motor",
+    "description": "Signed 32-bit reference input in mcu_0160_0800a320. It is copied to DAT_2000001C and, unless DAT_20000E33 is set, multiplied by the gain DAT_20000140 in Q15 to form DAT_20000014. Probably a speed or current request from the command path. Writer not in this packet."
+  },
+  "mcu_g_0160_20000a24": {
+    "name": "mcu_bound_width_a24",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a24"
+    ],
+    "category": "motor",
+    "description": "Signed 32-bit width used by mcu_0160_0800a320. It is negated and passed to mcu_dynamic_bound_clamp_update as the bound width. Probably the half width of the dynamic clamp window."
+  },
+  "mcu_g_0160_20000a34": {
+    "name": "mcu_band_gain_cycles",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a34"
+    ],
+    "category": "timer",
+    "description": "Elapsed SysTick cycles of mcu_band_gain_select_timed, computed as the difference of two SysTick reads minus a fixed overhead of 10 cycles, with a wrap correction when the result is negative. Used as a timing diagnostic. Units: CPU cycles."
+  },
+  "mcu_g_0160_20000a3c": {
+    "name": "mcu_out_limit_code",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a3c"
+    ],
+    "category": "motor",
+    "description": "Seven-bit code (bits 0 to 6) used by mcu_drive_output_limit_select to choose the output limit band, and cleared to 0 by mcu_0160_0800a7f8 and in the main start-up sequence. Probably a band or mode index."
+  },
+  "mcu_g_0160_20000a3d": {
+    "name": "mcu_status_bit_a3d",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a3d"
+    ],
+    "category": "protocol",
+    "description": "Byte whose bit 0 is merged into the status word DAT_20001FEE by mcu_0160_0800e238. Writer not in this packet. Probably a state flag for the status report."
+  },
+  "mcu_g_0160_20000a3e": {
+    "name": "mcu_speed_valid_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a3e"
+    ],
+    "category": "hall",
+    "description": "Flag written by mcu_0160_0800729c: 1 when the speed capture (TMR1 path, through mcu_0160_08009eb8 and mcu_0160_080078f0) returned a valid result and both float inputs are finite, otherwise 0. Probably a validity flag for the speed measurement."
+  },
+  "mcu_g_0160_20000a7c": {
+    "name": "mcu_speed_period_state",
+    "type": "u8",
+    "size": 28,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a7c"
+    ],
+    "category": "hall",
+    "description": "28-byte block shared with mcu_speed_from_period_min (mcu_0160_0800209c). Its first byte is a valid flag: when it is 0 the adde path and the status word take a fallback value. The block size is inferred from the next family at 0x20000A98, so it is probable.",
+    "count": 28
+  },
+  "mcu_g_12b_20000a98": {
+    "name": "mcu_12b_thresh_a98",
+    "type": "McuThreshDebounce12",
+    "size": 24,
+    "anchor": [
+      "MCU_12b",
+      "0x20000a98"
+    ],
+    "category": "protection",
+    "description": "Build 12b threshold debounce object, set up by mcu_threshold_debounce_init_v12b (mcu_12b_0800829e) from mcu_12b_fault_monitors_init. Compared against the Q15 values of DAT_200003E2 and DAT_200003E4 and debounced with 100-count limits. See the struct McuThreshDebounce12 for the fields."
+  }
+}

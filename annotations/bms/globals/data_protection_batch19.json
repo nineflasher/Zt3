@@ -1,0 +1,10 @@
+{
+  "bms_g_4168_200010a8": {
+    "name": "bms_journal_record",
+    "type": "BmsJournalRecord",
+    "size": 660,
+    "anchor": ["BMS_4168", "0x200010a8"],
+    "category": "protection",
+    "description": "660-byte (0x294) journal record buffer in RAM. bms_extflash_journal_step writes the whole buffer to external flash as one 660-byte record and reads it back to verify it. It holds a 20-byte status snapshot (written by bms_status_event_snapshot when a status flag rises) followed by ten 64-byte history records at 0x200010BC. bms_history_ring_commit shifts the records down one slot per commit, so the buffer keeps the last ten commits with the newest at 0x200012FC. After five counted commits with a pending slot, bms_history_ring_commit passes this buffer to bms_slot_pool_register with tag 5; the meaning of tag 5 is not identified. The layout is inferred from the stores and is described by BmsJournalRecord and BmsHistoryRecord."
+  }
+}

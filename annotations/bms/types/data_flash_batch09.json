@@ -1,0 +1,23 @@
+{
+  "structs": {
+    "BmsExtFlashJournalHeader": {
+      "size": 12,
+      "description": "12-byte journal header of the external SPI flash. bms_extflash_journal_init reads it from external flash address 0x0 into RAM at 0x20001348 (probably) and bms_extflash_journal_step rewrites it after each journal record. Three 32-bit words, little-endian.",
+      "fields": [
+        {"name": "record_count", "offset": 0, "type": "u32", "description": "Number of journal records written so far (probably), 0 to 3000. bms_extflash_journal_init resets all three words to 0 when it is above 3000. bms_extflash_journal_step moves it by 5 in one branch. Read back by bms_u32_20001348_get."},
+        {"name": "sector_addr", "offset": 4, "type": "u32", "description": "External-flash address of the current 4 KB journal sector (probably), from 0x10000 to 0x267FFE in steps of 0x1000. Advanced by bms_extflash_journal_step when the record address reaches a new sector. Reset to 0x10000 when the header fails validation."},
+        {"name": "record_addr", "offset": 8, "type": "u32", "description": "External-flash address of the next 660-byte journal record (probably), from 0x10000 to 0x267FFF. Advanced by bms_extflash_journal_step after each record. Reset to 0x10000 when the header fails validation."}
+      ]
+    },
+    "BmsExtFlashLogHeader": {
+      "size": 12,
+      "description": "12-byte header of the external-flash log area. bms_extflash_journal_init reads it from external flash address 0x1000 into RAM at 0x20001354 (probably). It records where the next 64-byte log entry goes inside the log area that starts at 0x280000.",
+      "fields": [
+        {"name": "entry_offset", "offset": 0, "type": "u32", "description": "Byte offset of the next 64-byte log entry inside the current log window (probably), 0 to 0x4400. bms_extlog_request_dispatch subtracts 0x40 when it grows past 0x43FF. bms_get_word_20001354 returns this word. Reset to 0 when the header fails validation."},
+        {"name": "log_block_ptr", "offset": 4, "type": "u32", "description": "Pointer into the log area (probably the start of the current log block), from 0x280000 to 0x38FFFF. Checked by bms_extflash_journal_init and reset to 0x280000 when out of range. Not used by the log dispatcher in this packet."},
+        {"name": "log_addr", "offset": 8, "type": "u32", "description": "External-flash address of the next 64-byte log entry (probably), starting at 0x280000. When this reaches a 4 KB sector boundary (low 12 bits zero), bms_extlog_request_dispatch first calls the sector routine FUN_0800baa0 (probably a sector erase), then writes the entry here."}
+      ]
+    }
+  },
+  "enums": {}
+}

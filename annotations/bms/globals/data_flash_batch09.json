@@ -1,0 +1,162 @@
+{
+  "bms_g_4168_2000056c": {
+    "name": "bms_extflash_journal_pass_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000056c"],
+    "category": "flash",
+    "description": "Pass counter of bms_extflash_journal_step. Set to 0 on entry, then counted up while below 3, which suggests a bounded retry loop (probably around writing one journal record). RAM only; reset on every call."
+  },
+  "bms_g_4168_2000056d": {
+    "name": "bms_extflash_journal_verify_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000056d"],
+    "category": "flash",
+    "description": "Second loop counter of bms_extflash_journal_step, set to 0 on entry and counted while below 3. Probably the number of read-back verify attempts for a journal record or header. RAM only; reset on every call."
+  },
+  "bms_g_4168_2000056e": {
+    "name": "bms_extlog_dispatch_pass_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000056e"],
+    "category": "flash",
+    "description": "Loop counter of bms_extlog_request_dispatch, set to 0 on entry and counted up to 3. Probably the number of attempts made to store one 64-byte log entry. RAM only."
+  },
+  "bms_g_4168_2000056f": {
+    "name": "bms_extlog_header_retry_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000056f"],
+    "category": "flash",
+    "description": "Counter in bms_extlog_request_dispatch, set to 0 on entry and counted up while the loop test '2 < value' fails. Probably the number of retries when rewriting the log header. RAM only."
+  },
+  "bms_g_4168_20000629": {
+    "name": "bms_extflash_poll_budget_hi",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000629"],
+    "category": "flash",
+    "description": "High byte of the 16-bit poll budget word at 0x20000628, which bms_extflash_wait_ready uses while the external flash reports busy. The word is set to 0x01F4 on entry (low byte 0xF4 written at 0x628, this high byte set to 1) and reloaded from a 16-bit read on each poll; the wait gives up when it reaches zero. The low byte belongs to another packet and is not described here."
+  },
+  "bms_g_4168_2000062a": {
+    "name": "bms_extflash_wip_status",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x2000062a"],
+    "category": "flash",
+    "description": "16-bit word that bms_extflash_wip_poll reads on each call (probably the external flash status word). Low byte at 0x2000062a, high byte at 0x2000062b. The poll reports busy only when bit 0 of the SPI reply byte is set and this word is non-zero. Overwritten on every poll."
+  },
+  "bms_g_4168_2000062c": {
+    "name": "bms_extflash_not_ready_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000062c"],
+    "category": "flash",
+    "description": "Not-ready flag of the external flash. bms_extflash_wip_poll sets it to 1 when the status word is zero and clears it when the reply bit 0 is clear and the word is non-zero; otherwise it is left unchanged. bms_extflash_wait_ready sets it to 1 when the poll budget has run out and to 0 otherwise (probably 'write still in progress or timed out')."
+  },
+  "bms_g_4168_20000680": {
+    "name": "bms_flash_ecc_nmi_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000680"],
+    "category": "flash",
+    "description": "Set to 1 by the NMI handler bms_4168_08003290 when the internal flash ECC double-error flag is seen (probably bit 31 of the FLASH ECC register at 0x40022018). bms_flash_erase_program_page clears it and counts the event in bms_flash_program_error_count."
+  },
+  "bms_g_4168_20000681": {
+    "name": "bms_flash_write_inhibit",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000681"],
+    "category": "flash",
+    "description": "When non-zero, bms_flash_write_bytes returns 1 without writing, which refuses every internal flash write. Only read in this packet; the code that sets it is not identified here (probably an error latch)."
+  },
+  "bms_g_4168_20000682": {
+    "name": "bms_flash_program_error_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000682"],
+    "category": "flash",
+    "description": "Count of failed internal flash program attempts. bms_flash_erase_program_page adds 1 when the ECC flag bms_flash_ecc_nmi_flag is set and again when the ECC correction bit (probably bit 30 of the same register) is seen. Wraps as a byte; probably used for diagnostics only."
+  },
+  "bms_g_4168_20001341": {
+    "name": "bms_extflash_journal_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20001341"],
+    "category": "flash",
+    "description": "State of the journal state machine in bms_extflash_journal_step, which switches on this byte and sets it to 1 and 2 during a journal pass. Cleared to 0 by bms_extflash_journal_init. The meaning of each state is not visible in this packet (probably idle, record write, header write)."
+  },
+  "bms_g_4168_20001342": {
+    "name": "bms_extlog_hdr0_checked",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20001342"],
+    "category": "flash",
+    "description": "Latch that bms_extlog_request_dispatch sets to 1 once the first external-flash header check has run (probably one of the two 12-byte headers at flash 0x0 and 0x1000). Cleared to 0 by bms_extflash_journal_init."
+  },
+  "bms_g_4168_20001343": {
+    "name": "bms_extlog_hdr1_checked",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20001343"],
+    "category": "flash",
+    "description": "Latch that bms_extlog_request_dispatch sets to 1 once the second external-flash header check has run (probably the other 12-byte header). Cleared to 0 by bms_extflash_journal_init."
+  },
+  "bms_g_4168_20001348": {
+    "name": "bms_extflash_journal_header",
+    "type": "BmsExtFlashJournalHeader",
+    "size": 12,
+    "anchor": ["BMS_4168", "0x20001348"],
+    "category": "flash",
+    "description": "RAM copy of the 12-byte journal header at external flash address 0x0. It holds the journal record count and the current sector and record addresses, and is rewritten after each journal record (probably). bms_extflash_journal_init validates and resets it."
+  },
+  "bms_g_4168_20001354": {
+    "name": "bms_extlog_header",
+    "type": "BmsExtFlashLogHeader",
+    "size": 12,
+    "anchor": ["BMS_4168", "0x20001354"],
+    "category": "flash",
+    "description": "RAM copy of the 12-byte log header at external flash address 0x1000. It holds the offset and address of the next 64-byte log entry in the log area at 0x280000. Read by bms_extflash_journal_init and bms_get_word_20001354, and updated by bms_extlog_request_dispatch."
+  },
+  "bms_g_4168_20001360": {
+    "name": "bms_snapshot_datetime_word",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20001360"],
+    "category": "rtc",
+    "description": "Packed RTC date-time word at the start of the snapshot record. bms_snapshot_logger_tick stores it from a local word just before the record is queued (data_app_batch04 names the source as bms_rtc_datetime_pack; not verified here). bms_extlog_request_dispatch copies 64 bytes from this address to the external log, so the record body that starts at 0x20001364 (snapshot_record in data_app_batch04) is the rest of that log entry."
+  },
+  "bms_g_4168_20004420": {
+    "name": "bms_extflash_sector_buf",
+    "type": "u8",
+    "size": 4096,
+    "anchor": ["BMS_4168", "0x20004420"],
+    "category": "flash",
+    "description": "4 KB RAM image of one external-flash sector, used by bms_extflash_write_bytes. The sector is read into it, the new bytes are merged in, the sector is erased only if some target byte is not 0xFF, and the image is then written back. Bytes 0x20004421 onward are part of the same buffer."
+  },
+  "bms_g_4168_20005450": {
+    "name": "bms_flash_stage_buf",
+    "type": "u8",
+    "size": 2048,
+    "anchor": ["BMS_4168", "0x20005450"],
+    "category": "flash",
+    "description": "2 KB RAM staging buffer for internal flash writes. bms_flash_write_bytes copies the current page and the new bytes into it, then bms_flash_erase_program_page erases and programs one 2 KB page from it. The buffer ends at 0x20005C50, where the FDCAN handle starts."
+  },
+  "bms_g_4168_20005d2c": {
+    "name": "bms_flash_hal_lock",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20005d2c"],
+    "category": "flash",
+    "description": "Lock byte of the internal flash driver, in the HAL HAL_LockTypeDef style (probably the Lock field of the flash process structure whose base would be 0x20005D10). HAL_FLASHEx_Erase and HAL_FLASH_Program return busy when it is already 1, set it to 1 on entry and back to 0 on exit."
+  },
+  "bms_g_4168_20005d30": {
+    "name": "bms_flash_hal_error_code",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20005d30"],
+    "category": "flash",
+    "description": "Error code of the internal flash driver (probably the ErrorCode field, 0x20 past the flash process structure base 0x20005D10). Cleared to 0 at the start of HAL_FLASHEx_Erase and HAL_FLASH_Program. bms_flash_wait_idle_check stores the flash status register masked with 0xC3FA, which keeps the error bits (probably)."
+  }
+}
