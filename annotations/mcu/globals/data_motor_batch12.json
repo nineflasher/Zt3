@@ -24,13 +24,13 @@
   "mcu_g_0160_20000b90": {
     "name": "motor_b90_filter_obj",
     "type": "u8",
-    "size": 80,
+    "size": 51,
     "anchor": [
       "MCU_0160",
       "0x20000b90"
     ],
     "category": "motor",
-    "description": "80-byte filter or integrator object at 0x20000B90. Helpers FUN_0800A574 and FUN_0800A588 return the signed word at +0x0C shifted right by the byte at +0x32 (a Q-format shift). mcu_b90_low_and_enabled tests that value against 0x666. mcu_fb_lpf_select_update also passes the object to FUN_0800A644. The rest of the layout is not in this packet."
+    "description": "51-byte filter or integrator object at 0x20000B90 (the size stops before the 12b-build flag at 0x20000B9F, which maps onto this object). Helpers FUN_0800A574 and FUN_0800A588 return the signed word at +0x0C shifted right by the byte at +0x32 (a Q-format shift). mcu_b90_low_and_enabled tests that value against 0x666. mcu_fb_lpf_select_update also passes the object to FUN_0800A644. The rest of the layout is not in this packet."
   },
   "mcu_g_0160_20000be0": {
     "name": "motor_ramp_value",
@@ -146,16 +146,26 @@
     "description": "Debounce output byte set by mcu_digital_input_debounce and copied to 0x20000E1B. The drive-state and negative-limit logic tests it for zero (probably the input is active when non-zero)."
   },
   "mcu_g_0160_20000e1d": {
-    "name": "motor_motion_dir_flags",
+    "name": "motor_motion_dir_flag_a",
     "type": "u8",
-    "size": 2,
+    "size": 1,
     "anchor": [
       "MCU_0160",
       "0x20000e1d"
     ],
     "category": "motor",
-    "description": "Two motion-direction flags set by mcu_update_motion_direction_flags from mode bits 3 and 4 when the speed magnitude and the counter at 0x20000B20 qualify. Index 0 (0xE1D) is also tested by mcu_neg_limit_flag_update and mcu_run_enable_update. Index 1 (0xE1E) is tested by mcu_0160_08004E78 (probably forward and reverse).",
-    "count": 2
+    "description": "Motion-direction flag set by mcu_update_motion_direction_flags from mode bits 3 and 4 when the speed magnitude and the counter at 0x20000B20 qualify (probably forward). mcu_neg_limit_flag_update and mcu_run_enable_update also test it."
+  },
+  "mcu_g_0160_20000e1e": {
+    "name": "motor_motion_dir_flag_b",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1e"
+    ],
+    "category": "motor",
+    "description": "Second motion-direction flag, present in the 152 and 0160 builds only. mcu_update_motion_direction_flags sets it, and mcu_0160_08004E78 tests it (probably reverse)."
   },
   "mcu_g_0160_20000e24": {
     "name": "motor_drive_ramp_pair",

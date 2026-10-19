@@ -360,7 +360,7 @@
    "0x2000150a"
   ],
   "category": "display",
-  "description": "Position of the downward segment sweep, starting at 20 and counting down to 0 in vcu_display_sweep_down_step. Each step lights the mirrored segment at (position - display_sweep_mirror) and clears the segment at the position; when it reaches 0 the sweep starts again at 20."
+  "description": "Position of the downward segment sweep in vcu_display_sweep_down_step, restarted at 20 (0x14). While it is above 10, each step decrements it and lights segment (position - display_sweep_mirror) in both segment groups; from 10 down to 1 each step clears segment (position); at 0 it is set back to 20."
  },
  "vcu_g_0159_2000150c": {
   "name": "display_anim_submode",
@@ -415,7 +415,7 @@
    "0x20001510"
   ],
   "category": "display",
-  "description": "VCU_153 build: countdown tick counter of the start countdown (0..400 ticks). The digit 3, 2, 1, 0 is chosen at 100, 200, 300 and 400 ticks and the handshake is marked complete at the end (counterpart of display_state3_countdown)."
+  "description": "VCU_153 build: countdown tick counter of the start countdown (0..400 ticks). The digit 3, 2, 1, 0 is chosen at 100, 200, 300 and 400 ticks and it probably marks the handshake complete at the end (counterpart of display_state3_countdown)."
  },
  "vcu_g_153_20001512": {
   "name": "display_153_countdown_digit",
@@ -437,7 +437,7 @@
    "0x20001514"
   ],
   "category": "display",
-  "description": "VCU_153 build: packed display flag word. Each tick it is assembled from the input-hold bit (display_input_b_hold, bit 3), the drive sub-mode bit (vehicle_submode_flag, bit 6), the warning and speed-state bits and bit 1 from DAT_20001d04, then it drives the segment helper calls (same role as display_state3_flags in VCU_0159)."
+  "description": "VCU_153 build: packed display flag word of the VCU_153 renderer, rebuilt each tick (same role as display_state3_flags in VCU_0159). Bit 1 comes from DAT_20001d04, and the word is then split by the segment helpers FUN_0800c5d8, FUN_0800c720, FUN_0800c794, FUN_0800c778, FUN_0800c5f4, FUN_0800c610, FUN_0800c75c, FUN_0800be98 and FUN_0800c7b0."
  },
  "vcu_g_0159_20001516": {
   "name": "display_state0b_timer",
@@ -492,7 +492,7 @@
    "0x2000151e"
   ],
   "category": "display",
-  "description": "Countdown tick counter of display state 3 (the start countdown shown while display_countdown_state is non-zero). It runs 0..400: the digit changes at 100, 200, 300 and 400 ticks; at 300 the 0x7A message is sent to peer 7 via FUN_0800d018; at 400 display_countdown_state is set to 2."
+  "description": "Countdown tick counter of display state 3 (the start countdown shown while display_countdown_state is non-zero). The digit is 3 below 100 ticks, 2 from 100, 1 from 200 (while in 200..299 the 0x7A message is sent to peer 7 via FUN_0800d018), 0 from 300, and at 400 display_countdown_state is set to 2."
  },
  "vcu_g_0159_20001520": {
   "name": "display_state3_digit",
