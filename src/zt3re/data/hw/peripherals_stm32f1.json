@@ -1,0 +1,369 @@
+[
+ {
+  "name": "FLASHSIZE",
+  "base": 536868832,
+  "size": 2,
+  "type": null,
+  "description": "Flash size register, 16-bit, in Kbytes"
+ },
+ {
+  "name": "UID",
+  "base": 536868840,
+  "size": 12,
+  "type": null,
+  "description": "96-bit unique device ID"
+ },
+ {
+  "name": "OB",
+  "base": 536868864,
+  "size": 16,
+  "type": "OB_TypeDef",
+  "description": "Flash option bytes (system memory area, 16-bit entries)"
+ },
+ {
+  "name": "TIM2",
+  "base": 1073741824,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer 16-bit, 4 ch (APB1)"
+ },
+ {
+  "name": "TIM3",
+  "base": 1073742848,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer 16-bit, 4 ch (APB1)"
+ },
+ {
+  "name": "TIM4",
+  "base": 1073743872,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer 16-bit, 4 ch (APB1)"
+ },
+ {
+  "name": "RTC",
+  "base": 1073752064,
+  "size": 40,
+  "type": "RTC_TypeDef",
+  "description": "Real-time clock (BKP domain)"
+ },
+ {
+  "name": "WWDG",
+  "base": 1073753088,
+  "size": 12,
+  "type": "WWDG_TypeDef",
+  "description": "Window watchdog"
+ },
+ {
+  "name": "IWDG",
+  "base": 1073754112,
+  "size": 16,
+  "type": "IWDG_TypeDef",
+  "description": "Independent watchdog"
+ },
+ {
+  "name": "SPI2",
+  "base": 1073756160,
+  "size": 32,
+  "type": "SPI_TypeDef",
+  "description": "SPI2 / I2S2 (APB1)"
+ },
+ {
+  "name": "USART2",
+  "base": 1073759232,
+  "size": 28,
+  "type": "USART_TypeDef",
+  "description": "USART2 (APB1)"
+ },
+ {
+  "name": "USART3",
+  "base": 1073760256,
+  "size": 28,
+  "type": "USART_TypeDef",
+  "description": "USART3 (APB1)"
+ },
+ {
+  "name": "I2C1",
+  "base": 1073763328,
+  "size": 36,
+  "type": "I2C_TypeDef",
+  "description": "I2C1"
+ },
+ {
+  "name": "I2C2",
+  "base": 1073764352,
+  "size": 36,
+  "type": "I2C_TypeDef",
+  "description": "I2C2"
+ },
+ {
+  "name": "USB",
+  "base": 1073765376,
+  "size": 84,
+  "type": "USB_TypeDef",
+  "description": "USB full-speed device (F103xB; shares SRAM with CAN)"
+ },
+ {
+  "name": "USB_PMA",
+  "base": 1073766400,
+  "size": 512,
+  "type": null,
+  "description": "USB packet memory area (512 B dedicated SRAM; shared with CAN on F103 - USB and CAN cannot be used together)"
+ },
+ {
+  "name": "CAN1",
+  "base": 1073767424,
+  "size": 688,
+  "type": "CAN_TypeDef",
+  "description": "bxCAN (shares 512 B SRAM with USB; not simultaneously usable on F103)"
+ },
+ {
+  "name": "BKP",
+  "base": 1073769472,
+  "size": 56,
+  "type": "BKP_TypeDef",
+  "description": "Backup registers (10 x 16-bit data regs DR1..DR10 on xB parts)"
+ },
+ {
+  "name": "PWR",
+  "base": 1073770496,
+  "size": 8,
+  "type": "PWR_TypeDef",
+  "description": "Power control"
+ },
+ {
+  "name": "AFIO",
+  "base": 1073807360,
+  "size": 32,
+  "type": "AFIO_TypeDef",
+  "description": "Alternate function I/O remap and EXTI line mux"
+ },
+ {
+  "name": "EXTI",
+  "base": 1073808384,
+  "size": 24,
+  "type": "EXTI_TypeDef",
+  "description": "External interrupt/event controller (20 lines)"
+ },
+ {
+  "name": "GPIOA",
+  "base": 1073809408,
+  "size": 28,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port A"
+ },
+ {
+  "name": "GPIOB",
+  "base": 1073810432,
+  "size": 28,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port B"
+ },
+ {
+  "name": "GPIOC",
+  "base": 1073811456,
+  "size": 28,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port C"
+ },
+ {
+  "name": "GPIOD",
+  "base": 1073812480,
+  "size": 28,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port D"
+ },
+ {
+  "name": "GPIOE",
+  "base": 1073813504,
+  "size": 28,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port E (not bonded on <100-pin packages)"
+ },
+ {
+  "name": "ADC1",
+  "base": 1073816576,
+  "size": 80,
+  "type": "ADC_TypeDef",
+  "description": "12-bit ADC1"
+ },
+ {
+  "name": "ADC2",
+  "base": 1073817600,
+  "size": 80,
+  "type": "ADC_TypeDef",
+  "description": "12-bit ADC2 (dual mode via ADC_Common overlay at ADC1)"
+ },
+ {
+  "name": "TIM1",
+  "base": 1073818624,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "Advanced-control timer (16-bit, 4 ch + complementary outputs, BDTR)"
+ },
+ {
+  "name": "SPI1",
+  "base": 1073819648,
+  "size": 32,
+  "type": "SPI_TypeDef",
+  "description": "SPI1 (APB2)"
+ },
+ {
+  "name": "USART1",
+  "base": 1073821696,
+  "size": 28,
+  "type": "USART_TypeDef",
+  "description": "USART1 (APB2)"
+ },
+ {
+  "name": "DMA1",
+  "base": 1073872896,
+  "size": 8,
+  "type": "DMA_TypeDef",
+  "description": "DMA1 controller global ISR/IFCR"
+ },
+ {
+  "name": "DMA1_Channel1",
+  "base": 1073872904,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel2",
+  "base": 1073872924,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel3",
+  "base": 1073872944,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel4",
+  "base": 1073872964,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel5",
+  "base": 1073872984,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel6",
+  "base": 1073873004,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "DMA1_Channel7",
+  "base": 1073873024,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)"
+ },
+ {
+  "name": "RCC",
+  "base": 1073876992,
+  "size": 40,
+  "type": "RCC_TypeDef",
+  "description": "Reset and clock control"
+ },
+ {
+  "name": "FLASH",
+  "base": 1073881088,
+  "size": 36,
+  "type": "FLASH_TypeDef",
+  "description": "Flash interface registers (ACR, KEYR, OPTKEYR, SR, CR, AR, OBR, WRPR)"
+ },
+ {
+  "name": "CRC",
+  "base": 1073885184,
+  "size": 12,
+  "type": "CRC_TypeDef",
+  "description": "CRC-32 unit"
+ },
+ {
+  "name": "ITM",
+  "base": 3758096384,
+  "size": 4096,
+  "type": "ITM_Type",
+  "description": "Instrumentation Trace Macrocell"
+ },
+ {
+  "name": "DWT",
+  "base": 3758100480,
+  "size": 92,
+  "type": "DWT_Type",
+  "description": "Data Watchpoint and Trace (CYCCNT etc.)"
+ },
+ {
+  "name": "SCnSCB",
+  "base": 3758153728,
+  "size": 12,
+  "type": "SCnSCB_Type",
+  "description": "System control not in SCB (ICTR, ACTLR)"
+ },
+ {
+  "name": "SysTick",
+  "base": 3758153744,
+  "size": 16,
+  "type": "SysTick_Type",
+  "description": "SysTick timer (Cortex-M3 core)"
+ },
+ {
+  "name": "NVIC",
+  "base": 3758153984,
+  "size": 3588,
+  "type": "NVIC_Type",
+  "description": "Nested Vectored Interrupt Controller (43 IRQs on F103xB, 16 priority levels / 4 bits)",
+  "overlaps": [
+   "SCB",
+   "CoreDebug"
+  ]
+ },
+ {
+  "name": "SCB",
+  "base": 3758157056,
+  "size": 140,
+  "type": "SCB_Type",
+  "description": "System Control Block (CPUID, ICSR, VTOR, AIRCR, fault status)",
+  "overlaps": [
+   "NVIC"
+  ]
+ },
+ {
+  "name": "CoreDebug",
+  "base": 3758157296,
+  "size": 16,
+  "type": "CoreDebug_Type",
+  "description": "Core debug registers (DHCSR, DEMCR)",
+  "overlaps": [
+   "NVIC"
+  ]
+ },
+ {
+  "name": "TPI",
+  "base": 3758358528,
+  "size": 4048,
+  "type": "TPI_Type",
+  "description": "Trace Port Interface Unit (not wired on most F1 boards)"
+ },
+ {
+  "name": "DBGMCU",
+  "base": 3758366720,
+  "size": 8,
+  "type": "DBGMCU_TypeDef",
+  "description": "MCU debug component (IDCODE, CR freeze bits)"
+ }
+]

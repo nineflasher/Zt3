@@ -1,0 +1,540 @@
+[
+ {
+  "name": "UID",
+  "base": 536868780,
+  "size": 12,
+  "type": null,
+  "description": "96-bit unique device ID"
+ },
+ {
+  "name": "FLASHSIZE",
+  "base": 536868812,
+  "size": 2,
+  "type": null,
+  "description": "Flash size register, 16-bit, in Kbytes"
+ },
+ {
+  "name": "OB",
+  "base": 536868864,
+  "size": 16,
+  "type": "OB_TypeDef",
+  "description": "Flash option bytes (system memory)"
+ },
+ {
+  "name": "TIM2",
+  "base": 1073741824,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer 32-bit"
+ },
+ {
+  "name": "TIM3",
+  "base": 1073742848,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer 16-bit"
+ },
+ {
+  "name": "TIM6",
+  "base": 1073745920,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "Basic timer (F091/F072; also drives DAC)"
+ },
+ {
+  "name": "TIM7",
+  "base": 1073746944,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "Basic timer (F091/F072)"
+ },
+ {
+  "name": "TIM14",
+  "base": 1073750016,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer, 1 ch"
+ },
+ {
+  "name": "RTC",
+  "base": 1073752064,
+  "size": 100,
+  "type": "RTC_TypeDef",
+  "description": "Real-time clock (calendar, F0 layout)"
+ },
+ {
+  "name": "WWDG",
+  "base": 1073753088,
+  "size": 12,
+  "type": "WWDG_TypeDef",
+  "description": "Window watchdog"
+ },
+ {
+  "name": "IWDG",
+  "base": 1073754112,
+  "size": 20,
+  "type": "IWDG_TypeDef",
+  "description": "Independent watchdog"
+ },
+ {
+  "name": "SPI2",
+  "base": 1073756160,
+  "size": 36,
+  "type": "SPI_TypeDef",
+  "description": "SPI2 / I2S2"
+ },
+ {
+  "name": "USART2",
+  "base": 1073759232,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART2"
+ },
+ {
+  "name": "USART3",
+  "base": 1073760256,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART3 (F091/F072)"
+ },
+ {
+  "name": "USART4",
+  "base": 1073761280,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART4 (F091/F072)"
+ },
+ {
+  "name": "USART5",
+  "base": 1073762304,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART5 (F091 only)"
+ },
+ {
+  "name": "I2C1",
+  "base": 1073763328,
+  "size": 44,
+  "type": "I2C_TypeDef",
+  "description": "I2C1 (F0 TIMINGR layout)"
+ },
+ {
+  "name": "I2C2",
+  "base": 1073764352,
+  "size": 44,
+  "type": "I2C_TypeDef",
+  "description": "I2C2"
+ },
+ {
+  "name": "USB",
+  "base": 1073765376,
+  "size": 92,
+  "type": "USB_TypeDef",
+  "description": "USB full-speed device (F042/F072/F078 only; not on F091/F051)"
+ },
+ {
+  "name": "USB_PMA",
+  "base": 1073766400,
+  "size": 1024,
+  "type": null,
+  "description": "USB packet memory area, 1 KB (F042/F072/F078 only; shared with CAN SRAM on F072)"
+ },
+ {
+  "name": "CAN",
+  "base": 1073767424,
+  "size": 688,
+  "type": "CAN_TypeDef",
+  "description": "bxCAN (F091/F072/F042/F078; absent on F051)"
+ },
+ {
+  "name": "CRS",
+  "base": 1073769472,
+  "size": 16,
+  "type": "CRS_TypeDef",
+  "description": "Clock recovery system (F091/F072/F042)"
+ },
+ {
+  "name": "PWR",
+  "base": 1073770496,
+  "size": 8,
+  "type": "PWR_TypeDef",
+  "description": "Power control"
+ },
+ {
+  "name": "DAC1",
+  "base": 1073771520,
+  "size": 56,
+  "type": "DAC_TypeDef",
+  "description": "DAC (F091/F072/F051)"
+ },
+ {
+  "name": "CEC",
+  "base": 1073772544,
+  "size": 24,
+  "type": "CEC_TypeDef",
+  "description": "HDMI-CEC (F091/F072/F051)"
+ },
+ {
+  "name": "SYSCFG",
+  "base": 1073807360,
+  "size": 256,
+  "type": "SYSCFG_TypeDef",
+  "description": "System configuration (remap, EXTI mux, IRQ line status on F091)",
+  "overlaps": [
+   "COMP1",
+   "COMP2"
+  ]
+ },
+ {
+  "name": "COMP1",
+  "base": 1073807388,
+  "size": 2,
+  "type": "COMP_TypeDef",
+  "description": "Comparator 1 CSR (16-bit half of SYSCFG-adjacent COMP_CSR; F091/F072/F051)",
+  "overlaps": [
+   "SYSCFG"
+  ]
+ },
+ {
+  "name": "COMP2",
+  "base": 1073807390,
+  "size": 2,
+  "type": "COMP_TypeDef",
+  "description": "Comparator 2 CSR (16-bit half of COMP_CSR)",
+  "overlaps": [
+   "SYSCFG"
+  ]
+ },
+ {
+  "name": "EXTI",
+  "base": 1073808384,
+  "size": 24,
+  "type": "EXTI_TypeDef",
+  "description": "External interrupt/event controller"
+ },
+ {
+  "name": "USART6",
+  "base": 1073812480,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART6 (F091 only)"
+ },
+ {
+  "name": "USART7",
+  "base": 1073813504,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART7 (F091 only)"
+ },
+ {
+  "name": "USART8",
+  "base": 1073814528,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART8 (F091 only)"
+ },
+ {
+  "name": "ADC1",
+  "base": 1073816576,
+  "size": 68,
+  "type": "ADC_TypeDef",
+  "description": "12-bit ADC (F0 layout)"
+ },
+ {
+  "name": "ADC1_COMMON",
+  "base": 1073817352,
+  "size": 4,
+  "type": "ADC_Common_TypeDef",
+  "description": "ADC common (CCR) register"
+ },
+ {
+  "name": "TIM1",
+  "base": 1073818624,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "Advanced-control timer"
+ },
+ {
+  "name": "SPI1",
+  "base": 1073819648,
+  "size": 36,
+  "type": "SPI_TypeDef",
+  "description": "SPI1 / I2S1"
+ },
+ {
+  "name": "USART1",
+  "base": 1073821696,
+  "size": 44,
+  "type": "USART_TypeDef",
+  "description": "USART1"
+ },
+ {
+  "name": "TIM15",
+  "base": 1073823744,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer, 2 ch"
+ },
+ {
+  "name": "TIM16",
+  "base": 1073824768,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer, 1 ch"
+ },
+ {
+  "name": "TIM17",
+  "base": 1073825792,
+  "size": 84,
+  "type": "TIM_TypeDef",
+  "description": "General-purpose timer, 1 ch"
+ },
+ {
+  "name": "DBGMCU",
+  "base": 1073829888,
+  "size": 16,
+  "type": "DBGMCU_TypeDef",
+  "description": "MCU debug component"
+ },
+ {
+  "name": "DMA1",
+  "base": 1073872896,
+  "size": 172,
+  "type": "DMA_TypeDef",
+  "description": "DMA1 global ISR/IFCR (F091 layout also includes CSELR at 0xA8)",
+  "overlaps": [
+   "DMA1_Channel1",
+   "DMA1_Channel2",
+   "DMA1_Channel3",
+   "DMA1_Channel4",
+   "DMA1_Channel5",
+   "DMA1_Channel6",
+   "DMA1_Channel7"
+  ]
+ },
+ {
+  "name": "DMA1_Channel1",
+  "base": 1073872904,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel2",
+  "base": 1073872924,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel3",
+  "base": 1073872944,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel4",
+  "base": 1073872964,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel5",
+  "base": 1073872984,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel6",
+  "base": 1073873004,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA1_Channel7",
+  "base": 1073873024,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA1 channel (CCR, CNDTR, CPAR, CMAR)",
+  "overlaps": [
+   "DMA1"
+  ]
+ },
+ {
+  "name": "DMA2",
+  "base": 1073873920,
+  "size": 172,
+  "type": "DMA_TypeDef",
+  "description": "DMA2 (F091 only)",
+  "overlaps": [
+   "DMA2_Channel1",
+   "DMA2_Channel2",
+   "DMA2_Channel3",
+   "DMA2_Channel4",
+   "DMA2_Channel5"
+  ]
+ },
+ {
+  "name": "DMA2_Channel1",
+  "base": 1073873928,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA2 channel (F091 only)",
+  "overlaps": [
+   "DMA2"
+  ]
+ },
+ {
+  "name": "DMA2_Channel2",
+  "base": 1073873948,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA2 channel (F091 only)",
+  "overlaps": [
+   "DMA2"
+  ]
+ },
+ {
+  "name": "DMA2_Channel3",
+  "base": 1073873968,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA2 channel (F091 only)",
+  "overlaps": [
+   "DMA2"
+  ]
+ },
+ {
+  "name": "DMA2_Channel4",
+  "base": 1073873988,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA2 channel (F091 only)",
+  "overlaps": [
+   "DMA2"
+  ]
+ },
+ {
+  "name": "DMA2_Channel5",
+  "base": 1073874008,
+  "size": 16,
+  "type": "DMA_Channel_TypeDef",
+  "description": "DMA2 channel (F091 only)",
+  "overlaps": [
+   "DMA2"
+  ]
+ },
+ {
+  "name": "RCC",
+  "base": 1073876992,
+  "size": 56,
+  "type": "RCC_TypeDef",
+  "description": "Reset and clock control (F0 layout, CFGR2/CFGR3/CR2 for HSI14/HSI48)"
+ },
+ {
+  "name": "FLASH",
+  "base": 1073881088,
+  "size": 36,
+  "type": "FLASH_TypeDef",
+  "description": "Flash interface registers"
+ },
+ {
+  "name": "CRC",
+  "base": 1073885184,
+  "size": 24,
+  "type": "CRC_TypeDef",
+  "description": "CRC unit (configurable polynomial on F091/F072)"
+ },
+ {
+  "name": "TSC",
+  "base": 1073889280,
+  "size": 84,
+  "type": "TSC_TypeDef",
+  "description": "Touch sensing controller (F091/F072/F051/F042)"
+ },
+ {
+  "name": "GPIOA",
+  "base": 1207959552,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port A (AHB2)"
+ },
+ {
+  "name": "GPIOB",
+  "base": 1207960576,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port B"
+ },
+ {
+  "name": "GPIOC",
+  "base": 1207961600,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port C"
+ },
+ {
+  "name": "GPIOD",
+  "base": 1207962624,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port D"
+ },
+ {
+  "name": "GPIOE",
+  "base": 1207963648,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port E"
+ },
+ {
+  "name": "GPIOF",
+  "base": 1207964672,
+  "size": 44,
+  "type": "GPIO_TypeDef",
+  "description": "GPIO port F"
+ },
+ {
+  "name": "SysTick",
+  "base": 3758153744,
+  "size": 16,
+  "type": "SysTick_Type",
+  "description": "SysTick timer (Cortex-M0 core)"
+ },
+ {
+  "name": "NVIC",
+  "base": 3758153984,
+  "size": 800,
+  "type": "NVIC_Type",
+  "description": "Nested Vectored Interrupt Controller (32 IRQ lines max, 4 priority levels / 2 bits; F091 uses 0..30)"
+ },
+ {
+  "name": "SCB",
+  "base": 3758157056,
+  "size": 40,
+  "type": "SCB_Type",
+  "description": "System Control Block (no VTOR on Cortex-M0; vector remap via SYSCFG_CFGR1.MEM_MODE)"
+ }
+]
