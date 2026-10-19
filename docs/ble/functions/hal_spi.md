@@ -1,9 +1,10 @@
 # BLE - `hal_spi` functions
 
-12 functions.
+13 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
+| [`ble_spi_read_locked`](#ble_spi_read_locked) | 0x0C0460E8 | Receive-only SPI transfer on the active record, with try-lock and format reapply |
 | [`hal_ispi_recv`](#hal_ispi_recv) | 0x0C0326E8 | Polled full-duplex transfer on SPI instance 0 using the receive frame format; asserts if DMA is on |
 | [`hal_ispi_send`](#hal_ispi_send) | 0x0C0326C4 | Polled transmit on SPI instance 0 (internal analog/PMU SPI); asserts if TX DMA is configured |
 | [`hal_spi_apply_cfg_regs`](#hal_spi_apply_cfg_regs) | 0x0C031DA0 | Program CR1/CPSR/DMACR of an SPI instance from a derived config and select its clock source in the CMU |
@@ -16,6 +17,25 @@
 | [`hal_spi_open_common`](#hal_spi_open_common) | 0x0C0321F8 | Open an SPI instance for one user: build register config, enable clocks on first user, apply config |
 | [`hal_spi_tx_poll`](#hal_spi_tx_poll) | 0x0C032378 | Polled transmit-only SPI transfer of N bytes |
 | [`hal_spi_txrx_poll`](#hal_spi_txrx_poll) | 0x0C032288 | Polled full-duplex SPI transfer of N bytes using an 8-deep FIFO window |
+
+## ble_spi_read_locked
+
+**Receive-only SPI transfer on the active record, with try-lock and format reapply**
+
+Clocks param_1[1] bytes in from SPI, sending zeros, and stores them at param_2. The request's u16 at +0 selects a 12-byte flag record at 0x20003EE8; if its bits 3 or 4 are set they are cleared and FUN_0C032714 finishes the previous operation. The active SPI record is chosen by the byte at 0x2000391E (20-byte stride from 0x20003920), and the function try-locks 0x20003D05 through the ROM patch thunk at 0x200007F4, returning 0xFFFFFFE1 when the lock is busy. It reapplies that record's format with hal_spi_apply_format, and spins forever if the record's flags byte at +0x0B has its low two bits set (a trap, not an error return). Otherwise it calls hal_spi_txrx_poll with a NULL transmit buffer, restores the format with the saved low bits, and unlocks through the thunk at 0x2000081C.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | request: u16 channel index at +0, u16 byte count at +2 |
+| `param_2` | `ptr` | receive buffer |
+
+**Returns** `s32`: 0 on success; otherwise the hal_spi_txrx_poll status (1 early end, -1 bad length, -11 SPI busy), or -31 when the lock is busy
+
+**Notes:** The SPI instance passed to the transfer is not recovered by the decompiler (it shows the r0 left by the format call); the format call uses instance 1. The infinite loop is an assertion-style trap. FUN_0C032714 and the two ROM-patch thunks are not yet described.
+
+- Addresses by version: 219: 0x0C0460E8
+- Calls: `hal_spi_apply_format`, `hal_spi_txrx_poll`, `ble_219_0c032714`, `ble_ram_patch_thunk_200007f4`, `ble_ram_patch_thunk_2000081c`
+- Confidence: medium
 
 ## hal_ispi_recv
 
@@ -90,7 +110,7 @@ Looks up the SPI register block for instance param_1 in the pointer table at 0x0
 **Notes:** Which two records the config holds (e.g. master vs slave / two chip-select profiles) is not visible from this function; the semantics of register +0x88 are undocumented.
 
 - Addresses by version: 219: 0x0C031D78
-- Called by: `hal_spi_apply_cfg_regs`, `hal_spi_dma_cancel_all`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `ble_219_0c0460e8`
+- Called by: `hal_spi_apply_cfg_regs`, `hal_spi_dma_cancel_all`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## hal_spi_build_hw_cfg
@@ -243,5 +263,5 @@ Derives the frame size in bits from ((param_2 & 0x1fffff) >> 16) + 1 and maps it
 **Notes:** Meaning of register +4 bit1 as a loop-continue flag (PL022 CR1.SSE) and the return value 1 are inferred from the control flow.
 
 - Addresses by version: 219: 0x0C032288
-- Called by: `hal_ispi_recv`, `ble_219_0c0460e8`
+- Called by: `hal_ispi_recv`, `ble_spi_read_locked`
 - Confidence: medium

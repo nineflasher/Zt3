@@ -1,6 +1,6 @@
 # BLE - `ble_host` functions
 
-195 functions.
+200 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -159,7 +159,11 @@
 | [`hci_stream_buffer_is_empty`](#hci_stream_buffer_is_empty) | 0x0C045534 | Return true when the 5 KB HCI stream buffer holds no bytes |
 | [`hci_stream_buffer_receive_nowait`](#hci_stream_buffer_receive_nowait) | 0x0C045518 | Non-blocking read of up to N bytes from the global HCI stream buffer DAT_2000F2B0 |
 | [`hci_transport_h4_rx_advance`](#hci_transport_h4_rx_advance) | 0x0C06C2E0 | Advance the H4 UART receive state machine by the bytes just received |
+| [`hid_create_sdp_record`](#hid_create_sdp_record) | 0x0C04B788 | Build the HID device SDP service record into a data-element buffer |
+| [`hid_device_init`](#hid_device_init) | 0x0C04BB00 | Store the HID report descriptor and callbacks, then register HID PSMs 0x11 and 0x13 |
+| [`hid_device_validate_report`](#hid_device_validate_report) | 0x0C04AFCC | Check an outgoing HID report's report ID and size against the device's descriptor |
 | [`hid_report_id_status`](#hid_report_id_status) | 0x0C04AF00 | BTstack hid_device.c: classify a HID report ID as VALID (1), INVALID (2) or UNDECLARED (0) |
+| [`hid_report_size_valid`](#hid_report_size_valid) | 0x0C04AF54 | BTstack hid_report_size_valid(): check a report size against boot rules or the HID descriptor |
 | [`hid_report_size_valid_body`](#hid_report_size_valid_body) | 0x0C04AF5A | BTstack hid_report_size_valid body (entered after the size!=0 check at 0x0C04AF54) |
 | [`l2cap_channel_emit_event_70`](#l2cap_channel_emit_event_70) | 0x0C06C5AC | Emit vendor event 0x70 (26 bytes) describing an L2CAP channel with a sub-code |
 | [`l2cap_channel_get_u16_34_by_cid`](#l2cap_channel_get_u16_34_by_cid) | 0x0C06EC54 | Return the u16 at +0x34 of the L2CAP channel with a given local CID |
@@ -185,6 +189,7 @@
 | [`sdp_attribute_list_traverse_sequence`](#sdp_attribute_list_traverse_sequence) | 0x0C04C6FC | BTstack sdp_util.c: walk an SDP attribute list as (UINT16 attribute id, value) pairs |
 | [`sdp_attribute_write_fragment`](#sdp_attribute_write_fragment) | 0x0C04C780 | Per-attribute callback: write one attribute id and value into a byte-budgeted SDP response |
 | [`sdp_get_service_record_handle`](#sdp_get_service_record_handle) | 0x0C04BD98 | Read the 32-bit ServiceRecordHandle (attribute 0x0000) of an SDP record, 0 if absent |
+| [`sdp_init`](#sdp_init) | 0x0C04BD48 | Register the SDP server on PSM 1 with MTU 0xFFFF and no security |
 | [`sdp_pattern_uuid_match`](#sdp_pattern_uuid_match) | 0x0C04C680 | Per-UUID callback for a ServiceSearchPattern: fail unless the record contains the UUID |
 | [`sdp_record_attribute_list_length`](#sdp_record_attribute_list_length) | 0x0C04CB48 | Total encoded size of the requested attributes of an SDP record |
 | [`sdp_record_find_attribute`](#sdp_record_find_attribute) | 0x0C04CB6C | Find an SDP record attribute by 16-bit id and return a pointer to its value element |
@@ -1089,7 +1094,7 @@ Fills the 6-byte field at param_1 with random bytes through 0x0c045db0, then adv
 
 - Addresses by version: 219: 0x0C058170
 - Called by: `ble_219_0c02a8f8`, `ble_219_0c02cca8`, `ble_219_0c056a50`
-- Calls: `ble_219_0c045db0`
+- Calls: `ble_app_addr6_read`
 - Confidence: low
 
 ## ble_random_bytes_6
@@ -1104,7 +1109,7 @@ Calls the random-byte source at 0x0c045db0 (not analysed in this packet) with le
 
 - Addresses by version: 219: 0x0C058160
 - Called by: `ble_219_0c02b158`, `ble_gen_static_random_addr`
-- Calls: `ble_219_0c045db0`
+- Calls: `ble_app_addr6_read`
 - Confidence: medium
 
 ## ble_random_static_addr_build
@@ -1119,7 +1124,7 @@ Draws 6 random bytes through 0x0c045db0 into a local buffer. Bytes 0..3 are copi
 
 - Addresses by version: 219: 0x0C0581A8
 - Called by: `ble_219_0c056dd0`
-- Calls: `ble_219_0c045db0`, `bt_bdaddr_reverse_inplace`
+- Calls: `ble_app_addr6_read`, `bt_bdaddr_reverse_inplace`
 - Confidence: medium
 
 ## ble_range_broadcast
@@ -1189,7 +1194,7 @@ Takes a channel record: the channel id byte is at +8 and the pointer at +0x10 po
 **Notes:** The meanings of the 0x0C043338 and 0x0C043364 checks and of the 0x0C048298 state write are not established here. The category follows the other BLE host ring helpers.
 
 - Addresses by version: 219: 0x0C0422D4
-- Calls: `vPortEnterCritical`, `vPortExitCritical`, `uxQueueSpacesAvailable`, `prvIsQueueEmpty`, `ringbuf_free_space`, `ringbuf_is_empty`, `ble_219_0c048298`
+- Calls: `vPortEnterCritical`, `vPortExitCritical`, `uxQueueSpacesAvailable`, `prvIsQueueEmpty`, `ringbuf_free_space`, `ringbuf_is_empty`, `ble_evt_clear_index_bit`
 - Confidence: medium
 
 ## ble_sink_init
@@ -1479,7 +1484,7 @@ BTstack btstack_hid_parser.c btstack_hid_report_id_declared(descriptor_len, desc
 **Returns** `s32`: 1 if a Report ID item exists, else 0
 
 - Addresses by version: 219: 0x0C0653A0
-- Called by: `ble_219_0c04afcc`
+- Called by: `hid_device_validate_report`
 - Calls: `btstack_hid_parse_descriptor_item`
 - Confidence: high
 
@@ -2208,7 +2213,7 @@ data_size = co_read16_be(seq,1). If size < 256 a 2-byte header (type << 3 | DE_S
 | `param_4` | `ptr` | data bytes |
 
 - Addresses by version: 219: 0x0C04CAB8
-- Called by: `ble_219_0c04b788`
+- Called by: `hid_create_sdp_record`
 - Calls: `co_read16_be`, `co_write16_be`, `memcpy`
 - Confidence: high
 
@@ -2226,7 +2231,7 @@ data_size = co_read16_be(seq,1). Writes the descriptor byte (type << 3) | size_t
 | `param_4` | `u32` | value |
 
 - Addresses by version: 219: 0x0C04CA50
-- Called by: `ble_219_0c04b788`
+- Called by: `hid_create_sdp_record`
 - Calls: `co_read16_be`, `co_write16_be`, `co_write32_be`
 - Confidence: high
 
@@ -2241,7 +2246,7 @@ Writes header[0] = 0x36 ((DE_DES=6 << 3) | DE_SIZE_VAR_16=6) and a big-endian le
 | `param_1` | `ptr` | buffer that receives the sequence header |
 
 - Addresses by version: 219: 0x0C04C9F4
-- Called by: `ble_219_0c04b788`
+- Called by: `hid_create_sdp_record`
 - Calls: `co_write16_be`
 - Confidence: high
 
@@ -2328,7 +2333,7 @@ child_len = de_get_len(child) (ble_219_0c04c5b8); parent_len = co_read16_be(pare
 | `param_4` | `u32` | unused register pass-through |
 
 - Addresses by version: 219: 0x0C04CA28
-- Called by: `ble_219_0c04b788`
+- Called by: `hid_create_sdp_record`
 - Calls: `de_get_len`, `co_read16_be`, `co_write16_be`
 - Confidence: high
 
@@ -2345,7 +2350,7 @@ Computes the current length of the parent element with de_get_len (ble_219_0c04c
 **Returns** `ptr`: pointer to the new child sequence header
 
 - Addresses by version: 219: 0x0C04CA00
-- Called by: `ble_219_0c04b788`
+- Called by: `hid_create_sdp_record`
 - Calls: `de_get_len`, `co_write16_be`
 - Confidence: high
 
@@ -2618,6 +2623,63 @@ Called after each receive chunk: the count requested last time (DAT_20019328) is
 - Calls: `co_read16_le`, `ble_hook_invoke_indexed`
 - Confidence: medium
 
+## hid_create_sdp_record
+
+**Build the HID device SDP service record into a data-element buffer**
+
+Writes the complete HID device SDP service record into the data-element buffer at param_1 with the BTstack sdp_util builders. Attributes emitted: 0x0000 record handle (param_2), 0x0001 service class 0x1124 (HID), 0x0004 protocol list L2CAP plus HIDP (PSM 0x11), 0x0006 language base (en, UTF-8, base 0x0100), 0x0009 profile descriptor (HID version 0x0101), 0x000D additional protocol list with L2CAP PSM 0x13 (interrupt channel), and 0x0100 the service name, read as a pointer and strlen from the parameter block. The HID attributes are 0x0201 parser version 0x0111, 0x0202 subclass (u16 at byte 0), 0x0203 country code (byte 2), 0x0204 virtual cable (byte 3), 0x0205 reconnect initiate (byte 5), 0x020A remote wake (byte 4), 0x020C supervision timeout (u16 at byte 12), 0x020D normally connectable (byte 6), 0x020E boot device (byte 7), 0x020F and 0x0210 SSR latency and timeout (u16 at bytes 8 and 10), and 0x0206 the report descriptor as a type-0x22 element with pointer at byte 16 and length at byte 20.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output buffer for the data elements |
+| `param_2` | `u32` | service record handle |
+| `param_3` | `ptr` | HID configuration block; byte offsets are given in the description |
+
+**Notes:** The name follows the upstream BTstack builder name from memory; no SDP string in the export confirms it. Offsets are byte offsets within the parameter block.
+
+- Addresses by version: 219: 0x0C04B788
+- Called by: `ble_219_0c058f00`
+- Calls: `de_create_sequence`, `de_push_sequence`, `de_pop_sequence`, `de_add_number`, `de_add_data`, `strlen`
+- Confidence: medium
+
+## hid_device_init
+
+**Store the HID report descriptor and callbacks, then register HID PSMs 0x11 and 0x13**
+
+Stores the report descriptor length (u16 param_2, to 0x2000FA0C) and pointer (param_3, to 0x2000FA08), stores the u8 param_1 at 0x2000F9FC, and installs three handler pointers 0x0C04AEF0, 0x0C04AEFC and 0x0C04AEF8 (Thumb bit set) at 0x20003F9C, 0x20003FA0 and 0x20003FA4. It then registers the HID control PSM 0x11 and the interrupt PSM 0x13 with l2cap_register_service, each with MTU 100 and the security level from ble_ctrl_env_get_mode_or_4 (0x0C066EE4), using the fixed handler context LAB_0C04B01C. The arguments match the descriptor-length and descriptor parameters of BTstack hid_device_init() as far as known; the extra u8 parameter is not explained. The caller is 0x0C058F00.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u8` | not interpreted; stored at 0x2000F9FC |
+| `param_2` | `u16` | report descriptor length |
+| `param_3` | `ptr` | report descriptor bytes |
+
+- Addresses by version: 219: 0x0C04BB00
+- Called by: `ble_219_0c058f00`
+- Calls: `ble_ctrl_env_get_mode_or_4`, `l2cap_register_service`
+- Confidence: medium
+
+## hid_device_validate_report
+
+**Check an outgoing HID report's report ID and size against the device's descriptor**
+
+Checks a report about to be sent on device cid (param_1) with report type param_2 and length param_3, whose bytes are at param_4. If the descriptor declares report IDs (btstack_hid_report_id_declared on DAT_2000FA0C and DAT_2000FA08), the first byte is the report ID: an INVALID ID (hid_report_id_status returns 2) gives result 2 at once, and one byte is removed from the length. Without declared IDs the report ID is 0. The size is then validated by hid_report_size_valid (0x0C04AF54), and a failure returns 4.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | HID cid |
+| `param_2` | `u32` | report type: 1 input, 2 output, 3 feature |
+| `param_3` | `s32` | report length, including the report ID byte when IDs are declared |
+| `param_4` | `ptr` | report bytes |
+
+**Returns** `u32`: 0 when valid, 2 for an invalid report ID, 4 for a bad size
+
+**Notes:** The function that transmits the report is not in this packet, and the name is ours.
+
+- Addresses by version: 219: 0x0C04AFCC
+- Calls: `hid_report_id_status`, `hid_report_size_valid`, `btstack_hid_report_id_declared`
+- Confidence: medium
+
 ## hid_report_id_status
 
 **BTstack hid_device.c: classify a HID report ID as VALID (1), INVALID (2) or UNDECLARED (0)**
@@ -2632,8 +2694,30 @@ If the single hid_device instance (cid at DAT_2000fa10) matches param_1 and its 
 **Returns** `u32`: hid_report_id_status_t: 0 undeclared, 1 valid, 2 invalid
 
 - Addresses by version: 219: 0x0C04AF00
-- Called by: `ble_219_0c04afcc`
+- Called by: `hid_device_validate_report`
 - Calls: `btstack_hid_parse_descriptor_item`, `ble_hook_invoke_indexed`
+- Confidence: high
+
+## hid_report_size_valid
+
+**BTstack hid_report_size_valid(): check a report size against boot rules or the HID descriptor**
+
+Entry of BTstack hid_report_size_valid(cid, report_id, report_type, size). The first three instructions reject size 0, and the rest is the body at 0x0C04AF5A. For the boot-protocol device (cid equal to DAT_2000FA10 and protocol-mode byte DAT_2000FA2A equal to 0), report ID 1 (keyboard) needs size 8 or more, report ID 2 (mouse) at least 1, and any other ID fails. A cid mismatch logs 'hid_device_in_boot_protocol_mode: could not find hid device instace' (hid_device.c line 0x3D6) through ble_hook_invoke_indexed and falls through. Otherwise the size must equal btstack_hid_get_report_size_for_id(report_id, report_type, DAT_2000FA0C, DAT_2000FA08) exactly, and a zero result fails.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | HID cid |
+| `param_2` | `s32` | report ID |
+| `param_3` | `u32` | report type: 1 input, 2 output, 3 feature |
+| `param_4` | `s32` | report size in bytes, non-zero on entry |
+
+**Returns** `bool`: true when the size is valid for that report
+
+**Notes:** Entry split: the body is hid_report_size_valid_body (ble_219_0c04af5a), which carries the same logic; the split is a Ghidra artefact.
+
+- Addresses by version: 219: 0x0C04AF54
+- Called by: `hid_device_validate_report`
+- Calls: `hid_report_size_valid_body`
 - Confidence: high
 
 ## hid_report_size_valid_body
@@ -2654,7 +2738,7 @@ Second half of hid_device.c hid_report_size_valid(cid, report_id, report_type, r
 **Notes:** Not a standalone function in the source; it is the tail of ble_219_0c04af54.
 
 - Addresses by version: 219: 0x0C04AF5A
-- Called by: `ble_219_0c04af54`
+- Called by: `hid_report_size_valid`
 - Calls: `btstack_hid_get_report_size_for_id`, `ble_hook_invoke_indexed`
 - Confidence: high
 
@@ -2821,7 +2905,7 @@ Rejects a PSM already in the service list at 0x200194B0 (logs 'register: PSM %u 
 **Notes:** Matches BTstack l2cap_register_service. Callers 0c04bb00, 0c04bd48.
 
 - Addresses by version: 219: 0x0C06F078
-- Called by: `ble_219_0c04bb00`, `ble_219_0c04bd48`
+- Called by: `hid_device_init`, `sdp_init`
 - Calls: `btstack_linked_list_add`, `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `btstack_memory_l2cap_service_get`, `ble_ctrl_env_set_u8_at_0x59`, `ble_hook_invoke_indexed`
 - Confidence: high
 
@@ -3094,6 +3178,17 @@ Looks up attribute 0x0000 (ServiceRecordHandle) in the record's attribute list w
 - Addresses by version: 219: 0x0C04BD98
 - Called by: `sdp_register_service`
 - Calls: `bthost_byte_get_low3_bits`, `bthost_byte_get_high5_bits`, `sdp_record_find_attribute`, `co_read32_be`
+- Confidence: medium
+
+## sdp_init
+
+**Register the SDP server on PSM 1 with MTU 0xFFFF and no security**
+
+Sets the 32-bit word at 0x2000FCAC to 0x00010001 and registers PSM 1 (SDP) with l2cap_register_service, MTU 0xFFFF, security level 0 and the handler context LAB_0C04C374. The 0x00010001 value is not identified; it may be two initial 16-bit fields. The name follows the BTstack sdp_init() convention for this registration, and the caller is 0x0C059230.
+
+- Addresses by version: 219: 0x0C04BD48
+- Called by: `ble_219_0c059230`
+- Calls: `l2cap_register_service`
 - Confidence: medium
 
 ## sdp_pattern_uuid_match

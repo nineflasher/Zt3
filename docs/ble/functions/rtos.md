@@ -1,14 +1,19 @@
 # BLE - `rtos` functions
 
-97 functions.
+102 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`app_noop_hook_0c0427f0`](#app_noop_hook_0c0427f0) | 0x0C0427F0 | Empty function (single return), never called directly |
 | [`ble_bt_stack_task_create`](#ble_bt_stack_task_create) | 0x0C05B6CC | Create the 'bt stack' RTOS task with entry 0x0C05B678 and a 1 KiB stack |
+| [`ble_evt_clear_index_bit`](#ble_evt_clear_index_bit) | 0x0C048298 | Clear the event bit that ble_evt_set_index_bit sets, via xEventGroupClearBits |
+| [`ble_evt_read_bits`](#ble_evt_read_bits) | 0x0C0482B8 | Return the whole BLE event group value when the index bit is valid, else 0 |
+| [`ble_evt_set_index_bit`](#ble_evt_set_index_bit) | 0x0C048278 | Set event bit 2*index + (selector & 1) in the BLE event group at 0x2000F6D4 |
 | [`ble_sched_check_and_pend_pendsv`](#ble_sched_check_and_pend_pendsv) | 0x0C05D0C4 | Request a PendSV exception when the scheduler object reports pending work |
 | [`ble_sched_signal_event`](#ble_sched_signal_event) | 0x0C05D494 | Signal event 1 on the BLE scheduler object at 0x20017184 |
 | [`ble_signal_worker_event`](#ble_signal_worker_event) | 0x0C059938 | Signal the BLE worker event handle held in the global at 0x20014564 |
+| [`ble_stack_lock_give`](#ble_stack_lock_give) | 0x0C046EC0 | Release the shared BLE stack mutex taken by ble_stack_lock_take |
+| [`ble_stack_lock_take`](#ble_stack_lock_take) | 0x0C046E88 | Take the shared BLE stack mutex, creating it on first use while the scheduler runs |
 | [`pcTaskGetName`](#pctaskgetname) | 0x0C043F34 | FreeRTOS: return pointer to a task's name string |
 | [`posix_event_2000f65c_init`](#posix_event_2000f65c_init) | 0x0C047F70 | Static constructor: initialise the RTOS event object at 0x2000F660 and store its handle in 0x2000F65C |
 | [`posix_select_event_init`](#posix_select_event_init) | 0x0C048260 | Static constructor: initialise the RTOS event object that the fd-layer select() waits on |
@@ -124,6 +129,56 @@ Creates the task named 'bt stack' with entry point 0x0C05B678, stack size 0x400 
 - Calls: `xTaskCreateStatic`
 - Confidence: medium
 
+## ble_evt_clear_index_bit
+
+**Clear the event bit that ble_evt_set_index_bit sets, via xEventGroupClearBits**
+
+Uses the same index and selector mapping as ble_evt_set_index_bit and clears that bit in the event group at 0x2000F6D4 with FUN_0C042900, which is xEventGroupClearBits per its annotation. It returns immediately when the mask is zero. Callers are at 0x0C0422D4, 0x0C0424D8 and 0x0C04264C, which presumably consume a readiness event.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | descriptor index (descriptor number minus 3) |
+| `param_2` | `u32` | selector: bit 0 set means read readiness, clear means write readiness |
+
+- Addresses by version: 219: 0x0C048298
+- Called by: `ble_ring_poll_status`, `ble_219_0c0424d8`, `ble_219_0c04264c`
+- Calls: `xEventGroupClearBits`
+- Confidence: medium
+
+## ble_evt_read_bits
+
+**Return the whole BLE event group value when the index bit is valid, else 0**
+
+Returns 0 when the event group handle at 0x2000F6D4 is NULL or when the index's mask is zero. Otherwise it returns the result of FUN_0C042988 on the group (a one-argument call, presumed xEventGroupGetBits), which is the full group value and not only the requested bit, so callers must mask the result. Callers are at 0x0C04533C, 0x0C0462C4, 0x0C046380 and 0x0C0467B8.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | descriptor index (descriptor number minus 3) |
+| `param_2` | `u32` | selector, as in ble_evt_set_index_bit |
+
+**Returns** `u32`: whole event group value, or 0
+
+- Addresses by version: 219: 0x0C0482B8
+- Called by: `ble_219_0c04533c`, `ble_219_0c0462c4`, `ble_219_0c046380`, `ble_219_0c0467b8`
+- Calls: `rtos_timer_pend_fixed_callback_from_isr`
+- Confidence: medium
+
+## ble_evt_set_index_bit
+
+**Set event bit 2*index + (selector & 1) in the BLE event group at 0x2000F6D4**
+
+Maps an index and a selector to one bit of the event group at 0x2000F6D4: bit = 2*index + (selector & 1), with mask = 1 << bit. A mask of zero (bit 32 or more) skips the call. Otherwise it calls FUN_0C04291C with the group and the mask, presumed to be xEventGroupSetBits and the counterpart of the xEventGroupClearBits used by ble_evt_clear_index_bit. The even/odd layout is the one ble_fd_select uses: write readiness on the even bit and read readiness on the odd bit of descriptor index fd-3. Callers are at 0x0C0462C4 and 0x0C046380.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | descriptor index (descriptor number minus 3) |
+| `param_2` | `u32` | selector: bit 0 set means read readiness, clear means write readiness |
+
+- Addresses by version: 219: 0x0C048278
+- Called by: `ble_219_0c0462c4`, `ble_219_0c046380`
+- Calls: `xEventGroupSetBits`
+- Confidence: medium
+
 ## ble_sched_check_and_pend_pendsv
 
 **Request a PendSV exception when the scheduler object reports pending work**
@@ -159,6 +214,30 @@ A one-line trampoline. It calls the RTOS wrapper 0x0C04291C with the event or se
 - Addresses by version: 219: 0x0C059938
 - Calls: `xEventGroupSetBits`
 - Confidence: high
+
+## ble_stack_lock_give
+
+**Release the shared BLE stack mutex taken by ble_stack_lock_take**
+
+Gives the mutex at handle 0x2000F4C0 through FUN_0C042DF4 when the handle is non-NULL and xTaskGetSchedulerState is not 0 (not suspended), mirroring the take. It does nothing when the mutex was never created or the scheduler is suspended, so a scheduler suspension between take and give leaves the mutex held; that case is not handled.
+
+- Addresses by version: 219: 0x0C046EC0
+- Called by: `ble_219_0c070f40`, `ble_219_0c070fd8`, `ble_219_0c071080`
+- Calls: `xQueueGiveMutexRecursive`, `xTaskGetSchedulerState`
+- Confidence: medium
+
+## ble_stack_lock_take
+
+**Take the shared BLE stack mutex, creating it on first use while the scheduler runs**
+
+Creates the mutex lazily: if the handle at 0x2000F4C0 is NULL, FUN_0C042D80 is called with type 4 (presumed FreeRTOS recursive mutex) and the static 80-byte buffer at 0x2000F470, and the function returns if creation fails. Otherwise, when xTaskGetSchedulerState reports anything but 0 (suspended), the mutex is taken with an infinite timeout through FUN_0C0431F8. Nothing is taken while the scheduler is suspended, and ble_stack_lock_give applies the same test on release. Callers at 0x0C070F40, 0x0C070FD8 and 0x0C071080 use it around shared BLE stack code.
+
+**Notes:** The type code 4 and the FUN_0C0431F8 take are inferred from the other uses in this packet (for example the streaming buffer in ble_pktq_enqueue).
+
+- Addresses by version: 219: 0x0C046E88
+- Called by: `ble_219_0c070f40`, `ble_219_0c070fd8`, `ble_219_0c071080`
+- Calls: `prvInitialiseMutex`, `xQueueTakeMutexRecursive`, `xTaskGetSchedulerState`
+- Confidence: medium
 
 ## pcTaskGetName
 
@@ -279,7 +358,7 @@ Initialises a caller-supplied static Queue_t as a one-entry, zero-item-size queu
 **Notes:** Matches upstream prvInitialiseMutex and the static create path, but the decompile merges the two. The name is therefore a best match and is not confirmed against the source.
 
 - Addresses by version: 219: 0x0C042D80
-- Called by: `ble_219_0c0297b0`, `ble_219_0c02a478`, `ble_219_0c02dea8`, `ble_219_0c02e420`, `ble_219_0c035d30`, `ble_219_0c046e88`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_219_0c0484f0`, `ble_219_0c04855c`, `ble_219_0c0489e8` ...
+- Called by: `ble_219_0c0297b0`, `ble_219_0c02a478`, `ble_219_0c02dea8`, `ble_219_0c02e420`, `ble_219_0c035d30`, `ble_stack_lock_take`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_fd_find_next_open`, `ble_219_0c04855c`, `ble_pktq_init` ...
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `vListInitialise`, `xQueueGenericSend`
 - Confidence: medium
 
@@ -649,7 +728,7 @@ Builds a 16-byte timer-daemon message on the stack: command id -2 (tmrCOMMAND_EX
 **Notes:** The code at 0x0C042984 that serves as the callback is not described here, so the callee's purpose is unknown.
 
 - Addresses by version: 219: 0x0C042988
-- Called by: `ble_219_0c0482b8`, `ble_sched_check_and_pend_pendsv`
+- Called by: `ble_evt_read_bits`, `ble_sched_check_and_pend_pendsv`
 - Calls: `xQueueGenericSendFromISR`
 - Confidence: medium
 
@@ -934,7 +1013,7 @@ With zero ticks it only requests a context switch through rtos_pendsv_trigger. O
 | `xTicksToDelay` | `u32` | delay in ticks |
 
 - Addresses by version: 219: 0x0C0441A8
-- Called by: `ble_219_0c0287ac`, `ble_219_0c028c94`, `ble_219_0c029230`, `ble_219_0c02c49c`, `ble_219_0c04542c`, `ble_219_0c046e04`, `ble_219_0c04885c`, `ble_219_0c0593a4`, `ble_219_0c0598b8`, `ble_219_0c05a608`
+- Called by: `ble_219_0c0287ac`, `ble_219_0c028c94`, `ble_219_0c029230`, `ble_219_0c02c49c`, `ble_219_0c04542c`, `ble_219_0c046e04`, `ble_fd_select`, `ble_219_0c0593a4`, `ble_219_0c0598b8`, `ble_219_0c05a608`
 - Calls: `rtos_pendsv_trigger`, `prvAddCurrentTaskToDelayedList`, `xTaskResumeAll`
 - Confidence: high
 
@@ -1103,7 +1182,7 @@ taskENTER_CRITICAL (0x0c03f640), uxReturn = pxEventBits->uxEventBits (word at +0
 **Returns** `u32`: event bits before clearing
 
 - Addresses by version: 219: 0x0C042900
-- Called by: `ble_219_0c048298`
+- Called by: `ble_evt_clear_index_bit`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: high
 
@@ -1140,7 +1219,7 @@ Under vTaskSuspendAll it ORs the new bits into the stored word, then walks the w
 **Notes:** Flag layout as in xEventGroupWaitBits.
 
 - Addresses by version: 219: 0x0C04291C
-- Called by: `ble_219_0c048278`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_219_0c05d260`, `ble_xfer_pump_chunk_and_notify`, `ble_sched_signal_event`
+- Called by: `ble_evt_set_index_bit`, `ble_signal_worker_event`, `ble_deferred_list_post`, `ble_219_0c05d260`, `ble_xfer_pump_chunk_and_notify`, `ble_sched_signal_event`
 - Calls: `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskRemoveFromUnorderedEventList`
 - Confidence: high
 
@@ -1163,7 +1242,7 @@ Upstream FreeRTOS xEventGroupWaitBits(pxEventBits, uxBitsToWaitFor, xClearOnExit
 **Notes:** The flag constants 0x10000000, 0x20000000 and 0x40000000 differ from upstream FreeRTOS (0x01000000 and so on), so this build uses its own layout.
 
 - Addresses by version: 219: 0x0C042858
-- Called by: `ble_219_0c04885c`, `ble_219_0c0599d4`, `ble_219_0c05d108`
+- Called by: `ble_fd_select`, `ble_219_0c0599d4`, `ble_219_0c05d108`
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnUnorderedEventList`, `uxTaskResetEventItemValue`
 - Confidence: high
 
@@ -1255,7 +1334,7 @@ Checks that the caller (xTaskGetCurrentTaskHandle) is the mutex holder stored at
 **Returns** `s32`: 1 when the caller held the mutex and released one level, 0 otherwise
 
 - Addresses by version: 219: 0x0C042DF4
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046ec0`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
+- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_stack_lock_give`, `ble_pktq_enqueue`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
 - Calls: `xQueueGenericSend`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 
@@ -1313,7 +1392,7 @@ Upstream xQueueSemaphoreGenericTake. If a token is available (uxMessagesWaiting 
 **Notes:** The 6 in the priority expression matches the configMAX_PRIORITIES value used by the task list code (six ready lists).
 
 - Addresses by version: 219: 0x0C0430A8
-- Called by: `ble_219_0c028b90`, `ble_219_0c029284`, `ble_219_0c02b480`, `ble_219_0c02e5a4`, `ble_219_0c02e758`, `xQueueTakeMutexRecursive`, `hal_i2c_dev_write`, `ble_219_0c045940`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_219_0c0484f0` ...
+- Called by: `ble_219_0c028b90`, `ble_219_0c029284`, `ble_219_0c02b480`, `ble_219_0c02e5a4`, `ble_219_0c02e758`, `xQueueTakeMutexRecursive`, `hal_i2c_dev_write`, `ble_i2c_write_read_locked`, `ble_219_0c048138`, `ble_219_0c048204`, `ble_219_0c0482e4`, `ble_fd_find_next_open` ...
 - Calls: `rtos_pendsv_trigger`, `vPortEnterCritical`, `vPortExitCritical`, `prvUnlockQueue`, `vTaskSuspendAll`, `xTaskResumeAll`, `vTaskPlaceOnEventList`, `xTaskRemoveFromEventList`, `vTaskInternalSetTimeOutState`, `xTaskCheckForTimeOut`, `xTaskPriorityInherit`, `vTaskPriorityDisinheritAfterTimeout`, `pvTaskIncrementMutexHeldCount`
 - Confidence: high
 
@@ -1331,7 +1410,7 @@ If the caller (xTaskGetCurrentTaskHandle) already holds the mutex at +4, only th
 **Notes:** The decompiled function returns nothing, so the upstream pdPASS / pdFAIL result is not visible in this packet.
 
 - Addresses by version: 219: 0x0C0431F8
-- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_219_0c046e88`, `ble_219_0c048380`, `ble_219_0c048a44`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
+- Called by: `ble_219_0c02dc50`, `ble_219_0c02dea8`, `ble_219_0c035900`, `ble_stack_lock_take`, `ble_219_0c048380`, `ble_pktq_enqueue`, `ble_219_0c05d260`, `ble_219_0c05d2c0`, `ble_xfer_pump_chunk_and_notify`, `ble_219_0c05d358`
 - Calls: `xQueueSemaphoreTake`, `xTaskGetCurrentTaskHandle`
 - Confidence: high
 
@@ -1537,7 +1616,7 @@ If xSchedulerRunning (DAT_2000cc74) is 0 returns 1 (taskSCHEDULER_NOT_STARTED); 
 **Returns** `u32`: 0 = suspended, 1 = not started, 2 = running
 
 - Addresses by version: 219: 0x0C044638
-- Called by: `ble_219_0c035900`, `xTimerGenericCommand`, `ble_219_0c046e88`, `ble_219_0c046ec0`
+- Called by: `ble_219_0c035900`, `xTimerGenericCommand`, `ble_stack_lock_take`, `ble_stack_lock_give`
 - Confidence: high
 
 ## xTaskGetTickCount

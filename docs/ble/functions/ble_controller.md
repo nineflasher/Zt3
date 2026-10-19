@@ -859,7 +859,7 @@ If the byte at env+0x64 of the controller environment struct pointed to by the R
 **Notes:** Semantics unknown.
 
 - Addresses by version: 219: 0x0C066EE4
-- Called by: `ble_219_0c04bb00`, `bthost_latch_ctrl_mode_2000fb90`, `ble_219_0c06ee70`
+- Called by: `hid_device_init`, `bthost_latch_ctrl_mode_2000fb90`, `ble_219_0c06ee70`
 - Confidence: low
 
 ## ble_ctrl_env_get_public_addr

@@ -1,6 +1,6 @@
 # BLE - `hal` functions
 
-206 functions.
+207 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -57,6 +57,7 @@
 | [`ble_analog_chan_group_mask_apply`](#ble_analog_chan_group_mask_apply) | 0x0C037F88 | OR a channel's two stored masks into its bank-4 analog config register (0x4040..0x4066) |
 | [`ble_hw_ctrl_reg_bit1_clear`](#ble_hw_ctrl_reg_bit1_clear) | 0x0C08665C | If param_1 == 0, clear bit 1 of the register at 0x07FFA000; return 0 |
 | [`ble_hw_ctrl_reg_bit1_set`](#ble_hw_ctrl_reg_bit1_set) | 0x0C086648 | If param_1 == 0, set bit 1 of the register at 0x07FFA000; return 0 |
+| [`ble_i2c_write_read_locked`](#ble_i2c_write_read_locked) | 0x0C045940 | Run one I2C write-then-read under a per-instance mutex; returns the read length |
 | [`ble_irq_binary_sem_init`](#ble_irq_binary_sem_init) | 0x0C045250 | One-time setup of a binary semaphore and the IRQ 42 handler for a BLE block |
 | [`ble_reg3008_nibble_floor`](#ble_reg3008_nibble_floor) | 0x0C0386E0 | Raise the low nibble of register 0x3008 to a floor of 4, or 6 when DAT_20003D6A bits 4/6 are set |
 | [`ble_rf_agc_window_update_a`](#ble_rf_agc_window_update_a) | 0x0C038BCC | Recompute AGC window A: clamped level from param_1 + DAT_2000BCE1 and bound from DAT_2000BCE0 |
@@ -1014,6 +1015,25 @@ Reads the 32-bit word at 0x07FFA000, ORs in 0x2 and writes it back, but only whe
 
 - Addresses by version: 219: 0x0C086648
 - Called by: `norflash_set_read_mode`
+- Confidence: medium
+
+## ble_i2c_write_read_locked
+
+**Run one I2C write-then-read under a per-instance mutex; returns the read length**
+
+Runs one I2C write-then-read through the exported hal_i2c_recv (0x0C03136C) for the device described by param_2: byte 0 is the target address, byte 1 the write length, byte 2 the read length, the pointer at +4 the write buffer and the pointer at +8 the read buffer. The instance index is the u16 that param_1+0x10 points to, and the transaction runs under the static mutex at 0x2000F2B4 + instance*0x50 (taken with an infinite timeout through FUN_0C0430A8 and released through FUN_0C042C8C). hal_i2c_recv traps for instance 6 and above, so a bad index hangs the firmware instead of returning an error. On success the function returns the read length from descriptor byte 2; otherwise it returns the non-zero error of the failed phase. It has no direct callers, so it is reached through a callback or table.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | context struct; the u16 instance index is at the pointer stored at +0x10 |
+| `param_2` | `ptr` | I2C request: u8 address @0, u8 write length @1, u8 read length @2, write buffer pointer @4, read buffer pointer @8 |
+
+**Returns** `u32`: read length (descriptor byte 2) on success, else the non-zero hal_i2c error
+
+**Notes:** FUN_0C0430A8 and FUN_0C042C8C are not yet described; their take/give roles are inferred from the 0x50-byte per-instance record stride.
+
+- Addresses by version: 219: 0x0C045940
+- Calls: `hal_i2c_recv`, `xQueueGenericSend`, `xQueueSemaphoreTake`
 - Confidence: medium
 
 ## ble_irq_binary_sem_init
@@ -2444,7 +2464,7 @@ Asserts param_1 < 6 (infinite loop otherwise). Calls hal_i2c_master_send_poll wi
 **Notes:** Decompiler lost the argument forwarding to the send phase; the flags used for the write phase (restart/stop) are therefore not visible.
 
 - Addresses by version: 219: 0x0C03136C
-- Called by: `ble_219_0c045940`
+- Called by: `ble_i2c_write_read_locked`
 - Calls: `hal_i2c_master_send_poll`, `hal_i2c_master_recv_poll`
 - Confidence: medium
 

@@ -624,7 +624,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073AF0
-- Called by: `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_219_0c0460e8`
+- Called by: `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_2000081c
@@ -640,7 +640,7 @@ Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the 
 **Notes:** Target function identity unknown from the stub; name derived from the target address.
 
 - Addresses by version: 219: 0x0C073BB0
-- Called by: `hal_spi_dma_cancel_all`, `ble_219_0c031ea4`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_219_0c0460e8`
+- Called by: `hal_spi_dma_cancel_all`, `ble_219_0c031ea4`, `hal_spi_dma_rx_done_handler`, `hal_spi_dma_tx_done_handler`, `ble_219_0c0328cc`, `hal_spi_dma_rx_start`, `ble_spi_read_locked`
 - Confidence: medium
 
 ## ble_ram_patch_thunk_20000934
@@ -833,7 +833,7 @@ Sends the four-byte packet stored at ROM 0x0C076914 through bt_drv_hci_cmd_send_
 **Notes:** The packet contents are not visible in this packet, so the opcode is not identified.
 
 - Addresses by version: 219: 0x0C03BD70
-- Called by: `bt_drv_pending_action_poll`, `ble_219_0c04696c`, `ble_219_0c0469a0`, `ble_219_0c046a58`, `ble_219_0c046b4c`, `ble_219_0c046b90`, `ble_219_0c046bbc`, `ble_219_0c046bfc`, `ble_219_0c046c7c`
+- Called by: `bt_drv_pending_action_poll`, `ble_219_0c04696c`, `ble_219_0c0469a0`, `ble_vendor_fc87_send_keyed`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `ble_219_0c046c7c`
 - Calls: `bt_drv_hci_cmd_send_wait`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -851,7 +851,7 @@ Sends the HCI packet at param_1 (param_2 bytes) to the BT controller core and is
 **Notes:** Who sets DAT_20003EA4 is outside this packet. The 201-iteration bound is the literal 0xC9 in the decompile.
 
 - Addresses by version: 219: 0x0C03AC98
-- Called by: `bt_drv_hci_evt_conn_state_hook`, `bt_drv_hci_cmd_post_settle`, `bt_drv_hci_vendor_cmd_send`, `ble_219_0c03be8c`, `ble_219_0c0469a0`, `ble_219_0c046a58`, `ble_219_0c046af0`, `ble_219_0c046b4c`, `ble_219_0c046b90`, `ble_219_0c046bbc`, `ble_219_0c046bfc`, `ble_219_0c046c34` ...
+- Called by: `bt_drv_hci_evt_conn_state_hook`, `bt_drv_hci_cmd_post_settle`, `bt_drv_hci_vendor_cmd_send`, `ble_219_0c03be8c`, `ble_219_0c0469a0`, `ble_vendor_fc87_send_keyed`, `ble_vendor_fc87_send_test_pattern`, `ble_hci_le_tx_test_cmd`, `ble_hci_le_rx_test_cmd`, `ble_hci_le_enh_tx_test_cmd`, `ble_hci_le_enh_rx_test_cmd`, `ble_hci_le_test_end_cmd` ...
 - Calls: `hal_sysipc_send`, `bt_drv_intersys_send_saved_iface`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
@@ -1214,7 +1214,7 @@ When DAT_2000BE0C is zero it reads a status from 0x0C045F04 and, if that equals 
 
 - Addresses by version: 219: 0x0C03E5DC
 - Called by: `bt_drv_rf_analog_bringup`
-- Calls: `hal_analogif_reg_write`, `ble_219_0c045e04`, `ble_219_0c045f04`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
+- Calls: `hal_analogif_reg_write`, `ble_app_word_f360_read`, `ble_app_marker_s_check`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: medium
 
 ## bt_drv_rf_analog_bringup

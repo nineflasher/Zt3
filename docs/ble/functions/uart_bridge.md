@@ -1,10 +1,11 @@
 # BLE - `uart_bridge` functions
 
-3 functions.
+4 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
 | [`ble_app_queue_message`](#ble_app_queue_message) | 0x0C053F74 | Frame an app/UART message and queue it, splitting it when it exceeds the frame limit |
+| [`ble_uart_port_start`](#ble_uart_port_start) | 0x0C046494 | Start UART port 0..2: 115200-baud config, IRQ handler install and RX interrupt enable |
 | [`uart_disp_get_channel_ctx`](#uart_disp_get_channel_ctx) | 0x0C028790 | Return the UART dispatcher context for channel 0, else NULL |
 | [`uart_disp_get_channel_fd`](#uart_disp_get_channel_fd) | 0x0C02E57C | Return the /dev/uart2 file descriptor for channel 0, else -1 |
 
@@ -26,6 +27,24 @@ Builds frames in a 0xF7-byte buffer at 0x20012348 (zeroed first with memset). Me
 - Addresses by version: 219: 0x0C053F74
 - Called by: `ble_219_0c053018`, `ble_219_0c0540f4`, `ble_219_0c054180`, `ble_219_0c05420c`, `ble_slot_store_and_queue`
 - Calls: `ble_slot_mgr_check_flag5`, `ble_app_start_deferred_500ms_op`, `memcpy`, `memset`
+- Confidence: medium
+
+## ble_uart_port_start
+
+**Start UART port 0..2: 115200-baud config, IRQ handler install and RX interrupt enable**
+
+Starts the UART port whose index is the u16 that param_1+0x10 points to; indexes 3 and above return -19 (-ENODEV). It fills the 24-byte port record at 0x2000F414 + index*0x18 with the four-word line config {0x00030000, 0x00000201, 0x0001C200, 0} (0x1C200 is 115200 baud), stores 0x7C0 at +0x10 and the context pointer param_1 at +0x14, and clears two u16 counters at +4 and +6 of the port descriptor. The config goes to FUN_0C034008, the port's IRQ number is read from the table at 0x0C076850 and installed with hal_irq_install_handler (the context pointer is passed as the handler slot value), and the UART interrupt mask is then written through hal_uart_set_irq_mask. The decompiler does not recover the mask argument, so the value written is unknown.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | request struct; the pointer at +0x10 leads to the port descriptor, whose first u16 is the port index (0..2) |
+
+**Returns** `s32`: 0, or -19 (-ENODEV) for a bad port index
+
+**Notes:** The 115200 baud reading of 0x1C200 is an inference. FUN_0C034008 is not yet described.
+
+- Addresses by version: 219: 0x0C046494
+- Calls: `hal_uart_set_irq_mask`, `ble_219_0c034008`, `hal_irq_install_handler`
 - Confidence: medium
 
 ## uart_disp_get_channel_ctx

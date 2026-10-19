@@ -705,4 +705,4 @@ Also useful: `FUN_0c037588` (verification), `FUN_0c0369D8` (session), `FUN_0c036
 
 ---
 
-Scratch helpers used for this analysis (not part of the repository) are in `/tmp/claude-0/-home-user-Zt3/3ca6e74b-924f-5505-bd8f-a76e17d071ea/scratchpad/ble_arch/`. They are `lib.py`, `dec.py`, `callsites.py`, `rng.py`, `disasm_fw.py`, `lit.py`, `encl.py`.
+Scratch helpers used for this analysis (not part of the repository) are in `(scratch helper scripts, not committed)`. They are `lib.py`, `dec.py`, `callsites.py`, `rng.py`, `disasm_fw.py`, `lit.py`, `encl.py`.

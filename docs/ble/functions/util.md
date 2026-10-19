@@ -1,6 +1,6 @@
 # BLE - `util` functions
 
-64 functions.
+67 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -9,12 +9,15 @@
 | [`SEGGER_RTT_ReadNoLock`](#segger_rtt_readnolock) | 0x0C03FA40 | SEGGER RTT: read up to param_3 bytes from down buffer param_1 into param_2 without locking |
 | [`SEGGER_RTT_SetTerminal`](#segger_rtt_setterminal) | 0x0C03FCFC | SEGGER RTT: switch the active virtual terminal of up-buffer 0 by sending the 0xFF,<id> escape |
 | [`bes_image_format_name`](#bes_image_format_name) | 0x0C034818 | Return a name string for a section image-format magic value |
+| [`ble_byte_count_notify`](#ble_byte_count_notify) | 0x0C047588 | Add a byte count to a running total and fire the registered notify callback |
 | [`ble_clear_flag_2000bd18`](#ble_clear_flag_2000bd18) | 0x0C046CB4 | Clear the byte/word variable at 0x2000bd18 |
 | [`ble_clock_realtime_offset_update`](#ble_clock_realtime_offset_update) | 0x0C04014C | Reset (param nonzero) or refresh the REALTIME offset from the monotonic clock |
 | [`ble_get_ram_var_20003540_div4`](#ble_get_ram_var_20003540_div4) | 0x0C0866C0 | Return the global word at 0x20003540 shifted right by 2 |
 | [`ble_get_var_2000f5fc`](#ble_get_var_2000f5fc) | 0x0C04757C | Return the 32-bit global at 0x2000f5fc |
 | [`ble_mem_copy`](#ble_mem_copy) | 0x0C03AA40 | Wrapper around memcpy that returns 0 |
 | [`ble_mem_fill`](#ble_mem_fill) | 0x0C03AA50 | Wrapper around memset that returns 0 |
+| [`ble_pktq_enqueue`](#ble_pktq_enqueue) | 0x0C048A44 | Append a packet to the ble_pktq ring: copy the payload into the next slot |
+| [`ble_pktq_init`](#ble_pktq_init) | 0x0C0489E8 | Initialise a packet ring of n+1 descriptor slots and create its recursive mutex |
 | [`ble_set_var_2000f64c`](#ble_set_var_2000f64c) | 0x0C047634 | Store a 32-bit value in the global at 0x2000f64c, return 0 |
 | [`ble_slot_is_used_2000f4cc`](#ble_slot_is_used_2000f4cc) | 0x0C046F40 | Test whether entry N of the 32-bit table at 0x2000f4cc is non-zero |
 | [`ble_stub_nop_0c04628c`](#ble_stub_nop_0c04628c) | 0x0C04628C | Empty function (immediate return) |
@@ -151,6 +154,24 @@ Maps a 32-bit ASCII magic to a text label: 0x4d494152 ("RAIM") -> "romfs", 0x205
 - Called by: `ble_219_0c03655c`, `ble_219_0c0365a4`
 - Confidence: medium
 
+## ble_byte_count_notify
+
+**Add a byte count to a running total and fire the registered notify callback**
+
+If the optional count hook at 0x2000F60C is set, it is called with no arguments and its return value replaces the count. A positive count is added to the 32-bit running total at 0x2000F644, and if the listener record at 0x2000F64C has a callback at +4, the function evaluates total*1000 divided by the value at 0x2000F648 through __divdi3 (FUN_0C06FE20) and then calls that callback with no arguments. The quotient is not used in the decompiled code, so either the division is dead or the decompile is incomplete. The function returns the possibly replaced count.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | not used by the decompiled body |
+| `param_2` | `s32` | byte count; replaced by the hook result when the hook is set |
+
+**Returns** `s32`: the count after the optional hook
+
+- Addresses by version: 219: 0x0C047588
+- Called by: `ble_219_0c0285ec`
+- Calls: `__divdi3`
+- Confidence: low
+
 ## ble_clear_flag_2000bd18
 
 **Clear the byte/word variable at 0x2000bd18**
@@ -220,7 +241,7 @@ Calls newlib memcpy (0x0C0709BC) as memcpy(param_1, param_3, param_4) and return
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C03AA40
-- Called by: `bt_drv_hci_cmd_complete_info_rx`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b`, `bt_drv_reg_op_load_rssi_table_c`, `bt_drv_reg_op_load_table8_bdd4`, `rf_test_hci_cmd_complete_handler`, `ble_219_0c0469a0`, `ble_219_0c046a58`
+- Called by: `bt_drv_hci_cmd_complete_info_rx`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b`, `bt_drv_reg_op_load_rssi_table_c`, `bt_drv_reg_op_load_table8_bdd4`, `rf_test_hci_cmd_complete_handler`, `ble_219_0c0469a0`, `ble_vendor_fc87_send_keyed`
 - Calls: `memcpy`
 - Confidence: high
 
@@ -243,6 +264,45 @@ Calls newlib memset (0x0C070A0A) as memset(param_1, param_3, param_4) and return
 - Called by: `ble_219_0c03c070`
 - Calls: `memset`
 - Confidence: high
+
+## ble_pktq_enqueue
+
+**Append a packet to the ble_pktq ring: copy the payload into the next slot**
+
+Appends one packet, returning 14 when the payload is longer than the slot size (0x2000F7BC) and 16 when the ring is full (next head equals tail). It takes the ring mutex at 0x2000F7C4 with an infinite timeout, reserves the head slot and advances head with wrap at n, then releases the mutex. The descriptor's cookie word is set to param_3, and the payload is copied into the reserved slot with memcpy outside the lock, after which the length is written to the descriptor. A NULL payload or zero length stores length 0, copies nothing, and still returns 0. The consumer side is not in this packet, so the matching dequeue is unknown.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | payload source, may be NULL |
+| `param_2` | `u32` | payload length in bytes |
+| `param_3` | `u32` | cookie stored in the descriptor (for example an opaque pointer) |
+
+**Returns** `u32`: 0 on success, 14 if the payload is oversized, 16 if the ring is full
+
+- Addresses by version: 219: 0x0C048A44
+- Called by: `ble_219_0c0552c4`, `ble_219_0c055330`, `ble_219_0c0553d0`, `ble_219_0c055440`, `ble_219_0c05cadc`
+- Calls: `xQueueGiveMutexRecursive`, `xQueueTakeMutexRecursive`, `memcpy`
+- Confidence: medium
+
+## ble_pktq_init
+
+**Initialise a packet ring of n+1 descriptor slots and create its recursive mutex**
+
+Sets up the ring used by ble_pktq_enqueue. The buffer at param_3 must be 4-byte aligned (otherwise the function returns 1); it holds n+1 eight-byte descriptors ({u32 cookie, u16 length, 2 pad bytes}) followed by n+1 payload slots of slot_size bytes starting at buffer + 8*(n+1). It records the descriptor base at 0x2000F7B8, the slot base at 0x2000F7B4, the slot size at 0x2000F7BC and n at 0x2000F7BE, sets head (0x2000F7B0) and tail (0x2000F7C0) to 0, then creates the recursive mutex at 0x2000F7C4 with FUN_0C042D80 (type 4, static storage). The creation result is not checked.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u16` | slot size in bytes |
+| `param_2` | `s16` | n; the ring has n+1 slots |
+| `param_3` | `ptr` | 4-byte aligned storage of at least (8 + slot_size) * (n+1) bytes |
+| `param_4` | `u32` | not used by the initialiser; passed through to the mutex creator |
+
+**Returns** `u32`: 0 on success, 1 for a misaligned buffer
+
+- Addresses by version: 219: 0x0C0489E8
+- Called by: `ble_219_0c0592a4`
+- Calls: `prvInitialiseMutex`
+- Confidence: medium
 
 ## ble_set_var_2000f64c
 

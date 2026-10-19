@@ -1,6 +1,6 @@
 # BLE - `crypto` functions
 
-97 functions.
+100 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -14,6 +14,9 @@
 | [`aes128_encrypt_block`](#aes128_encrypt_block) | 0x0C048FD4 | AES-128 ECB encrypt of one 16-byte block, in place, using an expanded key |
 | [`aes128_key_expansion`](#aes128_key_expansion) | 0x0C048F3C | AES-128 key schedule: expand a 16-byte key into 176 bytes of round keys |
 | [`ble_crypto_ccm_cbc_mac`](#ble_crypto_ccm_cbc_mac) | 0x0C049288 | AES-128 CBC-MAC over a packet (CCM B0/B1 style blocks), emitting a 4-byte MIC |
+| [`ble_sha1_mix_pair16`](#ble_sha1_mix_pair16) | 0x0C04920C | SHA-1 over two 16-byte inputs (built-in defaults for NULL), keeping 16 digest bytes |
+| [`ble_sha1_oneshot`](#ble_sha1_oneshot) | 0x0C04AA80 | One-shot SHA-1 of a buffer into a 20-byte digest, wiping the context on exit |
+| [`ble_sha1_oneshot_thunk`](#ble_sha1_oneshot_thunk) | 0x0C04AAE8 | Thunk: branch to ble_sha1_oneshot at 0x0C04AA80 |
 | [`btstack_crypto_ccm_next_block`](#btstack_crypto_ccm_next_block) | 0x0C0645EC | Advance an AES-CCM request to its next 16-byte block, finishing it when done |
 | [`crc32_compute_poly`](#crc32_compute_poly) | 0x0C02C454 | CRC-32 (reflected, init/xorout 0xffffffff) of a buffer using a table built for a given polynomial |
 | [`crc32_make_table`](#crc32_make_table) | 0x0C02C3FC | Build the 256-entry reflected CRC-32 lookup table for a given polynomial |
@@ -295,6 +298,59 @@ Builds B0 = {0x59, 12 nonce bytes from param_4, 0x00, 0x00, payload_len} where p
 - Called by: `ble_219_0c0493d4`, `ble_219_0c0496a8`
 - Calls: `aes128_key_expansion`, `aes128_encrypt_block`, `memcpy`
 - Confidence: medium
+
+## ble_sha1_mix_pair16
+
+**SHA-1 over two 16-byte inputs (built-in defaults for NULL), keeping 16 digest bytes**
+
+Forms the 32-byte message A || B, where each 16-byte half is the input pointer or, when that pointer is NULL, a built-in constant (words 0x02B8CF97, 0xDE434184, 0x3B2B0056, 0x5D0A7834, the same for both halves). It hashes the message with ble_sha1_oneshot and writes the first 16 bytes of the 20-byte digest to param_3, dropping the last word. The purpose is not identified in this packet; the ble_crypto_* authentication path described in the brief is one candidate to check.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 16-byte input A, or NULL for the built-in constant |
+| `param_2` | `ptr` | 16-byte input B, or NULL for the built-in constant |
+| `param_3` | `ptr` | 16-byte output |
+
+**Notes:** The SHA-1 identity comes from the mbedTLS calls in the callee. The purpose is low confidence.
+
+- Addresses by version: 219: 0x0C04920C
+- Called by: `ble_219_0c0493d4`, `ble_219_0c0496a8`
+- Calls: `ble_sha1_oneshot_thunk`
+- Confidence: medium
+
+## ble_sha1_oneshot
+
+**One-shot SHA-1 of a buffer into a 20-byte digest, wiping the context on exit**
+
+Clears a 92-byte mbedTLS SHA-1 context with memset and loads the standard IV (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0). It feeds the input through mbedtls_sha1_update_ret when the length is non-zero and writes the 20-byte digest through mbedtls_sha1_finish_ret. The finish is skipped when the update fails, so the output is then left untouched. The context is zeroed byte by byte before returning.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | input data |
+| `param_2` | `s32` | input length in bytes; 0 is allowed |
+| `param_3` | `ptr` | 20-byte digest output |
+
+- Addresses by version: 219: 0x0C04AA80
+- Called by: `ble_sha1_oneshot_thunk`
+- Calls: `mbedtls_sha1_update_ret`, `mbedtls_sha1_finish_ret`, `memset`
+- Confidence: high
+
+## ble_sha1_oneshot_thunk
+
+**Thunk: branch to ble_sha1_oneshot at 0x0C04AA80**
+
+A single-instruction branch to ble_sha1_oneshot at 0x0C04AA80; Ghidra shows the target body here. Arguments pass through unchanged, so the behaviour is that of ble_sha1_oneshot. Its only caller in this packet is ble_sha1_mix_pair16.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | input data pointer, as in ble_sha1_oneshot |
+| `param_2` | `s32` | input length in bytes |
+| `param_3` | `ptr` | 20-byte digest output |
+
+- Addresses by version: 219: 0x0C04AAE8
+- Called by: `ble_sha1_mix_pair16`
+- Calls: `ble_sha1_oneshot`
+- Confidence: high
 
 ## btstack_crypto_ccm_next_block
 
@@ -966,7 +1022,7 @@ Computes high = (total[0] >> 29) | (total[1] << 3) and low = total[0] << 3 and s
 | `param_2` | `ptr` | output: 20-byte SHA-1 digest |
 
 - Addresses by version: 219: 0x0C04A9A8
-- Called by: `ble_219_0c04aa80`
+- Called by: `ble_sha1_oneshot`
 - Calls: `mbedtls_sha1_update_ret`
 - Confidence: high
 
@@ -986,7 +1042,7 @@ mbedtls_sha1_context layout: total[2] (byte count, lo/hi) at +0, state[5] at +8,
 **Returns** `s32`: 0 on success, else error from the block function
 
 - Addresses by version: 219: 0x0C04A924
-- Called by: `mbedtls_sha1_finish_ret`, `ble_219_0c04aa80`
+- Called by: `mbedtls_sha1_finish_ret`, `ble_sha1_oneshot`
 - Calls: `sha1_process_block`, `memcpy`
 - Confidence: high
 

@@ -212,7 +212,7 @@ param_1 selects UART 0..2 from the table at 0x0c085890 (otherwise trap). Reads t
 **Notes:** Meaning of DAT_2000aa8c as an RX DMA channel array (-1 = none) is inferred.
 
 - Addresses by version: 219: 0x0C033D50
-- Called by: `ble_219_0c046494`
+- Called by: `ble_uart_port_start`
 - Confidence: medium
 
 ## hal_uart_tx_dma_busy

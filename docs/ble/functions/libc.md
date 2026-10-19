@@ -1,6 +1,6 @@
 # BLE - `libc` functions
 
-91 functions.
+93 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -57,6 +57,8 @@
 | [`_strtoul_r`](#_strtoul_r) | 0x0C071A48 | newlib _strtoul_r: reentrant string-to-unsigned-long with base 0/8/10/16 autodetect and ERANGE |
 | [`_write`](#_write) | 0x0C04846C | newlib _write syscall: stdout/stderr to the console with CRLF translation, fds 3..48 via driver table |
 | [`atol`](#atol) | 0x0C0701E0 | Parse a base-10 integer from a string, saturating and setting ERANGE on overflow |
+| [`ble_fd_find_next_open`](#ble_fd_find_next_open) | 0x0C0484F0 | Find the next open descriptor above param_1 (numbers 3..48), or return -1 |
+| [`ble_fd_select`](#ble_fd_select) | 0x0C04885C | POSIX-style select() over descriptors 3..maxfd, waiting on the BLE event group |
 | [`clock_gettime`](#clock_gettime) | 0x0C03FEAC | POSIX clock_gettime built on the FreeRTOS tick: CLOCK_MONOTONIC (4) raw, CLOCK_REALTIME (1) plus epoch offset |
 | [`clock_settime`](#clock_settime) | 0x0C03FF68 | POSIX clock_settime: accept CLOCK_REALTIME only and store the epoch offset |
 | [`console_getc`](#console_getc) | 0x0C035CB8 | Blocking read of one console byte; retries on zero-length reads, -1 on error |
@@ -345,7 +347,7 @@ Divides the signed 64-bit dividend (param_1, param_2) by (param_3, param_4). A z
 **Notes:** Unsigned counterpart is ble_219_0c06fec0 (__udivdi3). The divisor-zero saturation is a custom choice in this build, not standard libgcc behaviour.
 
 - Addresses by version: 219: 0x0C06FE20
-- Called by: `ble_219_0c047588`, `ble_219_0c0707e8`
+- Called by: `ble_byte_count_notify`, `ble_219_0c0707e8`
 - Calls: `__udivdi3`, `__udivmoddi4`
 - Confidence: high
 
@@ -382,7 +384,7 @@ Returns the 32-bit value stored in the RAM pointer cell DAT_200049a8, which hold
 **Notes:** Name chosen from usage (errno pointer used by strtoul); in newlib the symbol is __errno().
 
 - Addresses by version: 219: 0x0C0701F8
-- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_219_0c04885c`, `sqrt`, `w_sqrtf` ...
+- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_fd_select`, `sqrt`, `w_sqrtf` ...
 - Confidence: medium
 
 ## __get_current_locale
@@ -1016,6 +1018,46 @@ Skips leading whitespace (ctype bit 0x08 at 0x0C0862A9), accepts one optional '+
 - Calls: `__errno`
 - Confidence: high
 
+## ble_fd_find_next_open
+
+**Find the next open descriptor above param_1 (numbers 3..48), or return -1**
+
+Scans the descriptor table at 0x2000F6D8 (one pointer per descriptor, 46 entries for descriptor numbers 3..48, non-NULL meaning open) for the first open descriptor numbered above param_1. It returns -1 when param_1 is below 2 or when nothing open follows. The scan runs under the mutex at 0x2000F680, which is created on first use with FUN_0C042D80(1, 0x2000F684) and taken with a 100-tick timeout whose result is not checked, then released with FUN_0C042C8C. The numbering is the one ble_fd_select uses.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | current descriptor number; the search starts at the next number |
+
+**Returns** `s32`: next open descriptor number, or -1
+
+- Addresses by version: 219: 0x0C0484F0
+- Called by: `ble_219_0c0360c0`
+- Calls: `xQueueGenericSend`, `prvInitialiseMutex`, `xQueueSemaphoreTake`
+- Confidence: medium
+
+## ble_fd_select
+
+**POSIX-style select() over descriptors 3..maxfd, waiting on the BLE event group**
+
+Implements select(maxfd, readfds, writefds, exceptfds, timeout) for descriptors 3 to maxfd; exceptfds is ignored. The timeout is converted to milliseconds (NULL means wait forever), and when either set is given with maxfd above 2, each requested descriptor adds one bit to the event mask (2*(fd-3) for write, 2*(fd-3)+1 for read) that FUN_0C042858 waits on. A descriptor in range with no ops pointer sets errno to EBADF (9) and returns -1. When the wait is satisfied, both caller sets are cleared and each requested descriptor whose bit fired has the readiness method at offset 0x10 of its ops object called (bit 1 readable, bit 0 writable); the caller's bit is set and the return value is the number of bits set. A timeout returns 0 without clearing the sets, which differs from POSIX, and when nothing was requested the function delays for the timeout (FUN_0C0441A8) and returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | maxfd, the highest descriptor number checked |
+| `param_2` | `ptr` | readfds bitmap, one bit per descriptor in u32 words |
+| `param_3` | `ptr` | writefds bitmap |
+| `param_4` | `ptr` | exceptfds, ignored |
+| `param_5` | `ptr` | timeout: s32 seconds at +0 and microseconds at +8; NULL waits forever |
+
+**Returns** `s32`: number of ready descriptor bits; 0 on timeout or nothing requested; -1 with errno EBADF; or the negative status of a readiness method
+
+**Notes:** Caller is ble_219_0c02eb60. The readiness method is called without visible arguments because the decompiler drops them. FUN_0C042858, FUN_0C0441A8 and FUN_0C0701F8 (__errno) are referenced; the first two are not yet described.
+
+- Addresses by version: 219: 0x0C04885C
+- Called by: `ble_219_0c02eb60`
+- Calls: `xEventGroupWaitBits`, `vTaskDelay`, `__errno`
+- Confidence: medium
+
 ## clock_gettime
 
 **POSIX clock_gettime built on the FreeRTOS tick: CLOCK_MONOTONIC (4) raw, CLOCK_REALTIME (1) plus epoch offset**
@@ -1572,7 +1614,7 @@ Advances through the string until a NUL byte and returns the pointer difference,
 **Returns** `u32`: string length in bytes
 
 - Addresses by version: 219: 0x0C071756
-- Called by: `util_find_str_in_buf`, `ble_219_0c0474b0`, `ble_219_0c04b788`, `ble_219_0c054534`, `ble_219_0c055b90`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `ble_219_0c067248`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `sscanf` ...
+- Called by: `util_find_str_in_buf`, `ble_219_0c0474b0`, `hid_create_sdp_record`, `ble_219_0c054534`, `ble_219_0c055b90`, `ble_gatt_read_char_value`, `ble_nv_load_device_name`, `fp_read_radix`, `ble_219_0c067248`, `hci_cmd_pack_format`, `ble_219_0c0702f8`, `sscanf` ...
 - Confidence: high
 
 ## strncmp

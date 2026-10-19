@@ -185,7 +185,7 @@ Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c): nvic_clear_
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C046F54
-- Called by: `ble_219_0c0300d0`, `ble_219_0c0315d8`, `ble_219_0c031810`, `ble_irq_binary_sem_init`, `ble_219_0c0459d4`, `ble_219_0c046494`
+- Called by: `ble_219_0c0300d0`, `ble_219_0c0315d8`, `ble_219_0c031810`, `ble_irq_binary_sem_init`, `ble_219_0c0459d4`, `ble_uart_port_start`
 - Calls: `nvic_clear_pending_irq`, `nvic_set_default_priority_and_enable_irq`, `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: medium
 

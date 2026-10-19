@@ -1,14 +1,138 @@
 # BLE - `factory_test` functions
 
-5 functions.
+12 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
+| [`ble_hci_le_enh_rx_test_cmd`](#ble_hci_le_enh_rx_test_cmd) | 0x0C046BFC | Send HCI LE Enhanced Receiver Test (0x2033) with three parameter bytes |
+| [`ble_hci_le_enh_tx_test_cmd`](#ble_hci_le_enh_tx_test_cmd) | 0x0C046BBC | Send HCI LE Enhanced Transmitter Test (0x2034) with four parameter bytes |
+| [`ble_hci_le_rx_test_cmd`](#ble_hci_le_rx_test_cmd) | 0x0C046B90 | Send HCI LE Receiver Test (0x201D) with one RX channel byte |
+| [`ble_hci_le_test_end_cmd`](#ble_hci_le_test_end_cmd) | 0x0C046C34 | Send HCI LE Test End (0x201F), which has no parameters |
+| [`ble_hci_le_tx_test_cmd`](#ble_hci_le_tx_test_cmd) | 0x0C046B4C | Send HCI LE Transmitter Test (0x201E) with channel, length and payload type |
+| [`ble_vendor_fc87_send_keyed`](#ble_vendor_fc87_send_keyed) | 0x0C046A58 | Send vendor HCI 0xFC87 for the table record whose key matches request byte 7 |
+| [`ble_vendor_fc87_send_test_pattern`](#ble_vendor_fc87_send_test_pattern) | 0x0C046AF0 | Send the fixed vendor HCI 0xFC87 test frame with a 0x55 address field |
 | [`bt_drv_vco_test_session_start`](#bt_drv_vco_test_session_start) | 0x0C03BD90 | Start a factory VCO test session on one channel, saving and overriding two analog registers |
 | [`bt_drv_vco_test_session_stop`](#bt_drv_vco_test_session_stop) | 0x0C03BE14 | End the factory VCO test session and restore the saved analog registers |
 | [`bt_drv_vco_test_start`](#bt_drv_vco_test_start) | 0x0C03DFAC | Start the BT VCO/synthesiser test on a channel: 0xD0220C00 = (channel & 0x7F) \| 0xA0000, then delay |
 | [`bt_drv_vco_test_stop`](#bt_drv_vco_test_stop) | 0x0C03DFF4 | Stop the BT VCO test: write 0 to RF channel register 0xD0220C00, then delay |
 | [`rf_test_hci_cmd_complete_handler`](#rf_test_hci_cmd_complete_handler) | 0x0C0468B4 | Capture return parameters of RF-test HCI Command Complete events into globals |
+
+## ble_hci_le_enh_rx_test_cmd
+
+**Send HCI LE Enhanced Receiver Test (0x2033) with three parameter bytes**
+
+Sends the 7-byte HCI command 01 33 20 03 p0 p1 p2, which is LE Enhanced Receiver Test (opcode 0x2033): RX_Channel, PHY and Modulation_Index, from the 3-byte request. It runs FUN_0C03BD70 first, then FUN_0C03AC98, and always returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 3 parameter bytes: channel, PHY, modulation index |
+
+**Returns** `s32`: always 0
+
+- Addresses by version: 219: 0x0C046BFC
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`, `bt_drv_hci_cmd_post_settle`
+- Confidence: high
+
+## ble_hci_le_enh_tx_test_cmd
+
+**Send HCI LE Enhanced Transmitter Test (0x2034) with four parameter bytes**
+
+Sends the 8-byte HCI command 01 34 20 04 followed by the four bytes at param_1, which is LE Enhanced Transmitter Test (opcode 0x2034): TX_Channel, Test_Data_Length, Packet_Payload and PHY, in that order. It runs FUN_0C03BD70 first, then FUN_0C03AC98, and always returns 0. The fourth parameter (PHY) is what distinguishes it from ble_hci_le_tx_test_cmd.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 4 parameter bytes: channel, length, payload, PHY |
+
+**Returns** `s32`: always 0
+
+- Addresses by version: 219: 0x0C046BBC
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`, `bt_drv_hci_cmd_post_settle`
+- Confidence: high
+
+## ble_hci_le_rx_test_cmd
+
+**Send HCI LE Receiver Test (0x201D) with one RX channel byte**
+
+Sends the 5-byte HCI command 01 1D 20 01 p0, which is LE Receiver Test (opcode 0x201D) with RX_Channel = p0 taken from the 1-byte request. It runs FUN_0C03BD70 first, then FUN_0C03AC98 with length 5, and always returns 0. It is the receive-side counterpart of ble_hci_le_tx_test_cmd.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 1-byte RX channel |
+
+**Returns** `s32`: always 0
+
+- Addresses by version: 219: 0x0C046B90
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`, `bt_drv_hci_cmd_post_settle`
+- Confidence: high
+
+## ble_hci_le_test_end_cmd
+
+**Send HCI LE Test End (0x201F), which has no parameters**
+
+Sends the 4-byte HCI command 01 1F 20 00, which is LE Test End (opcode 0x201F), through FUN_0C03AC98, and returns 0. Unlike the other test-command senders it does not call FUN_0C03BD70 first. The controller's reply, which carries the received-packet count in the Bluetooth spec, is handled elsewhere.
+
+**Returns** `s32`: always 0
+
+- Addresses by version: 219: 0x0C046C34
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`
+- Confidence: high
+
+## ble_hci_le_tx_test_cmd
+
+**Send HCI LE Transmitter Test (0x201E) with channel, length and payload type**
+
+Sends the 7-byte HCI command 01 1E 20 03 p0 p1 p2, which is LE Transmitter Test (opcode 0x201E, three parameters): TX_Channel = p0, Length_of_Test_Data = p1 and Packet_Payload = p2, all taken from the 3-byte request in param_1. It runs FUN_0C03BD70 first and clears the test-state word at 0x2000F464 when it is non-zero, then hands the frame to FUN_0C03AC98. It always returns 0.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 3-byte request: channel, data length, payload type |
+
+**Returns** `s32`: always 0
+
+**Notes:** The opcode mapping follows the Bluetooth Core LE Test command set. FUN_0C03AC98 (the HCI send) and FUN_0C03BD70 are not yet described.
+
+- Addresses by version: 219: 0x0C046B4C
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`, `bt_drv_hci_cmd_post_settle`
+- Confidence: high
+
+## ble_vendor_fc87_send_keyed
+
+**Send vendor HCI 0xFC87 for the table record whose key matches request byte 7**
+
+Runs FUN_0C03BD70 and then sends a 32-byte vendor HCI command, opcode 0xFC87 with a 28-byte parameter block, built from the 8-byte request in param_1: byte 0 goes to parameter 6, bytes 1 to 6 (an address) fill parameters 8 to 13, and byte 7 is a key. The key is matched against the first byte of the 27 six-byte records at 0x20003EF0; parameters 15, 16 and 18-19 take that record's byte 2, byte 1 and u16 at +4. The fixed parts are parameters 0-3 = 01 E8 03 00, parameter 7 = 0x02, parameter 14 = 0x01, parameter 17 = 0x04 and parameters 24-27 = 0xFFFFFFFF, with 4-5 and 20-23 zero. A missing key returns -1 without sending; on a match the counters at 0x2000F468 and 0x2000F46C are cleared when set, and the frame goes out through FUN_0C03AC98 with length 32.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 8-byte request: [0] parameter byte, [1..6] address, [7] record key |
+
+**Returns** `s32`: 0 when a matching record was sent, -1 when no record has the key
+
+**Notes:** Field meanings (the 0xFC87 command, the 0x03E8 word, the 27-record table) are inferred from the parameter layout. The constant sibling ble_vendor_fc87_send_test_pattern is the cross-check. FUN_0C03AC98 and FUN_0C03BD70 are not yet described.
+
+- Addresses by version: 219: 0x0C046A58
+- Called by: `ble_219_0c02c49c`
+- Calls: `ble_mem_copy`, `bt_drv_hci_cmd_send_wait`, `bt_drv_hci_cmd_post_settle`
+- Confidence: medium
+
+## ble_vendor_fc87_send_test_pattern
+
+**Send the fixed vendor HCI 0xFC87 test frame with a 0x55 address field**
+
+Takes no input and sends one fixed 32-byte frame: vendor opcode 0xFC87, parameter length 28, and parameters 02 E8 03 00 | 00 00 00 02 | 55 55 55 55 55 55 | 01 01 | 04 04 36 00 | 00 00 00 00 | FF FF FF FF. It is the keyed frame of ble_vendor_fc87_send_keyed with the address field filled with 0x55 bytes, mode byte 0x02 instead of the keyed 0x01, and the table fields set to constants (0x0036 at parameters 18-19). The 0x55 payload and the test-style layout suggest a non-signalling TX or test configuration, which is an inference. It calls only FUN_0C03AC98, without FUN_0C03BD70.
+
+**Returns** `s32`: always 0
+
+**Notes:** Caller is ble_219_0c02c49c, which also calls the keyed sender and the LE test commands.
+
+- Addresses by version: 219: 0x0C046AF0
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_hci_cmd_send_wait`
+- Confidence: low
 
 ## bt_drv_vco_test_session_start
 

@@ -1,6 +1,6 @@
 # BLE - `app` functions
 
-40 functions.
+48 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -22,9 +22,17 @@
 | [`app_set_word_2000de88`](#app_set_word_2000de88) | 0x0C0454C0 | Store param_1 into the global word DAT_2000de88 |
 | [`app_sn_prefix_whitelist_match`](#app_sn_prefix_whitelist_match) | 0x0C02A2E0 | Return 1 if a received serial number starts with a code from the ROM or RAM prefix list |
 | [`app_stub_return_zero_0c0454cc`](#app_stub_return_zero_0c0454cc) | 0x0C0454CC | Stub returning 0, only reachable indirectly |
+| [`ble_app_addr6_read`](#ble_app_addr6_read) | 0x0C045DB0 | Return the 6-byte identity at 0x2000F364 (u32 + u16), gated by request 0x101 |
 | [`ble_app_arm_4s_deadline`](#ble_app_arm_4s_deadline) | 0x0C05A1D8 | On mode 1: set a 4000-tick deadline, flag 0x200145a9=1 and snapshot the two event counters |
+| [`ble_app_block16_f36c_read`](#ble_app_block16_f36c_read) | 0x0C045D60 | Copy up to 16 bytes of the app block at 0x2000F36C, gated by request 0x101 |
+| [`ble_app_block16_f3b8_read`](#ble_app_block16_f3b8_read) | 0x0C045FA8 | Copy up to 16 bytes of the app block at 0x2000F3B8, gated by request 0x101 |
+| [`ble_app_block40_f38c_read`](#ble_app_block40_f38c_read) | 0x0C045E74 | Copy the 40-byte app block at 0x2000F38C..0x2000F3B3, gated by request 0x101 |
 | [`ble_app_get_status_code`](#ble_app_get_status_code) | 0x0C05CC8C | Derive a 0..4 status code from flag bits 7 and 14 of 0x200042fc and the byte at 0x20017046 |
+| [`ble_app_magic_caf_check`](#ble_app_magic_caf_check) | 0x0C045F60 | Check the 32-bit magic 0x00464143 ('CAF') at 0x2000F3B4, gated by request 0x101 |
+| [`ble_app_marker_o_check`](#ble_app_marker_o_check) | 0x0C045F40 | Report whether the marker byte at 0x2000F36B is 'o', gated by request 0x101 |
+| [`ble_app_marker_s_check`](#ble_app_marker_s_check) | 0x0C045F04 | Report whether the marker byte at 0x2000F36A is 'S', gated by request 0x101 |
 | [`ble_app_start_deferred_500ms_op`](#ble_app_start_deferred_500ms_op) | 0x0C05CB08 | Store an operation (id, mapped type code, args) in 0x200170d0.. and arm a 500 ms timer |
+| [`ble_app_word_f360_read`](#ble_app_word_f360_read) | 0x0C045E04 | Read the 32-bit word at 0x2000F360, gated by request 0x101 (length must be 4) |
 | [`ble_crypto_set_serial_number`](#ble_crypto_set_serial_number) | 0x0C05C888 | Copy up to 16 bytes into the vehicle serial-number buffer at 0x20004980 |
 | [`ble_event_window_expire`](#ble_event_window_expire) | 0x0C0582B0 | Expire old entries of the 10-slot event ring and count them into two tallies |
 | [`ble_nb_block_copy_in`](#ble_nb_block_copy_in) | 0x0C0567C8 | Copy n bytes from the source into the RAM block at 0x200042E0 |
@@ -118,7 +126,7 @@ If the global descriptor DAT_20003EC8 (an fd/handle from the '/dev/...' device l
 **Notes:** 0x0c0484b4 is assumed to be the ioctl-like entry of the LibWhale device layer; command 0x101 and the argument structure are unknown.
 
 - Addresses by version: 219: 0x0C041E10
-- Called by: `ble_219_0c045d60`, `ble_219_0c045db0`, `ble_219_0c045e04`, `ble_219_0c045e74`, `ble_219_0c045f04`, `ble_219_0c045f40`, `ble_219_0c045f60`, `ble_219_0c045fa8`
+- Called by: `ble_app_block16_f36c_read`, `ble_app_addr6_read`, `ble_app_word_f360_read`, `ble_app_block40_f38c_read`, `ble_app_marker_s_check`, `ble_app_marker_o_check`, `ble_app_magic_caf_check`, `ble_app_block16_f3b8_read`
 - Calls: `_close`
 - Confidence: low
 
@@ -320,6 +328,24 @@ Two-instruction function that just returns 0; no direct callers, so it is a defa
 - Addresses by version: 219: 0x0C0454CC
 - Confidence: high
 
+## ble_app_addr6_read
+
+**Return the 6-byte identity at 0x2000F364 (u32 + u16), gated by request 0x101**
+
+Gated copy of a 6-byte value: the u32 at 0x2000F364 goes to output bytes 0-3 and the u16 at 0x2000F368 to bytes 4-5. The first step is the app device request 0x101 (FUN_0C041E10), whose error is returned if it fails, and a length other than 6 returns -EINVAL. The 4+2 byte layout matches a Bluetooth device address, so the block is probably the controller's own address; this is inferred from size and layout only. Callers are at 0x0C02CCA8, 0x0C058160, 0x0C058170, 0x0C0581A8 and 0x0C058250.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 6-byte output buffer |
+| `param_2` | `s32` | requested length, must be 6 |
+
+**Returns** `s32`: 0 on success, -22 for a length other than 6, or the ioctl error
+
+- Addresses by version: 219: 0x0C045DB0
+- Called by: `ble_219_0c02cca8`, `ble_random_bytes_6`, `ble_random_addr_advance`, `ble_random_static_addr_build`, `ble_219_0c058250`
+- Calls: `app_dev_ioctl_cmd_101`
+- Confidence: medium
+
 ## ble_app_arm_4s_deadline
 
 **On mode 1: set a 4000-tick deadline, flag 0x200145a9=1 and snapshot the two event counters**
@@ -339,6 +365,60 @@ If param_1 == 1 it stores xTaskGetTickCount() + 4000 into DAT_200145ac (a deadli
 - Calls: `xTaskGetTickCount`, `ble_get_state_ptr_42f8`
 - Confidence: medium
 
+## ble_app_block16_f36c_read
+
+**Copy up to 16 bytes of the app block at 0x2000F36C, gated by request 0x101**
+
+Reads a 16-byte RAM block at 0x2000F36C after first issuing the app device request 0x101 (app_dev_ioctl_cmd_101, FUN_0C041E10); a non-zero ioctl result is returned unchanged. A requested length above 16 returns -EINVAL (-0x16) without copying, and otherwise the requested bytes are copied with memcpy. The 16-byte bound comes from the 0x11 comparison, and the block contents are not identified here. Callers are at 0x0C02A484, 0x0C02B158 and 0x0C02CCA8.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | destination buffer |
+| `param_2` | `u32` | number of bytes requested, 0..16 |
+
+**Returns** `s32`: 0 on success, -22 (-EINVAL) for a length above 16, or the ioctl error (-EIO)
+
+- Addresses by version: 219: 0x0C045D60
+- Called by: `ble_219_0c02a484`, `ble_219_0c02b158`, `ble_219_0c02cca8`
+- Calls: `app_dev_ioctl_cmd_101`, `memcpy`
+- Confidence: medium
+
+## ble_app_block16_f3b8_read
+
+**Copy up to 16 bytes of the app block at 0x2000F3B8, gated by request 0x101**
+
+Same pattern as ble_app_block16_f36c_read: the app device request 0x101 (FUN_0C041E10) must succeed, a length above 16 returns -EINVAL, and otherwise the requested bytes are copied from 0x2000F3B8 with memcpy. The 16-byte bound is inferred from the 0x11 comparison. Six callers use it: 0x0C0292F0, 0x0C029414, 0x0C0296C4, 0x0C02A484, 0x0C02B480 and 0x0C056A50.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | destination buffer |
+| `param_2` | `u32` | bytes requested, 0..16 |
+
+**Returns** `s32`: 0 on success, -22 for a length above 16, or the ioctl error
+
+- Addresses by version: 219: 0x0C045FA8
+- Called by: `ble_219_0c0292f0`, `ble_219_0c029414`, `ble_219_0c0296c4`, `ble_219_0c02a484`, `ble_219_0c02b480`, `ble_219_0c056a50`
+- Calls: `app_dev_ioctl_cmd_101`, `memcpy`
+- Confidence: medium
+
+## ble_app_block40_f38c_read
+
+**Copy the 40-byte app block at 0x2000F38C..0x2000F3B3, gated by request 0x101**
+
+Gated snapshot of a 40-byte RAM block: ten consecutive 32-bit words from 0x2000F38C to 0x2000F3B0 are copied in order into the caller's buffer, after the app device request 0x101 (FUN_0C041E10) has succeeded. A length other than 0x28 returns -EINVAL. The whole region is read as one unit, which suggests a fixed-size record, but its field layout is not identified here. The 0x2000F3B4 word read by ble_app_magic_caf_check sits directly after this block.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | 40-byte output buffer |
+| `param_2` | `s32` | requested length, must be 40 |
+
+**Returns** `s32`: 0 on success, -22 for a wrong length, or the ioctl error
+
+- Addresses by version: 219: 0x0C045E74
+- Called by: `ble_219_0c0285ec`, `ble_219_0c02cca8`
+- Calls: `app_dev_ioctl_cmd_101`
+- Confidence: medium
+
 ## ble_app_get_status_code
 
 **Derive a 0..4 status code from flag bits 7 and 14 of 0x200042fc and the byte at 0x20017046**
@@ -352,6 +432,45 @@ Reads the flag word at state+4 (0x200042fc). Result starts at 0. If bit 7 is set
 - Addresses by version: 219: 0x0C05CC8C
 - Called by: `ble_219_0c02a8f8`
 - Calls: `ble_get_state_ptr_42f8`
+- Confidence: medium
+
+## ble_app_magic_caf_check
+
+**Check the 32-bit magic 0x00464143 ('CAF') at 0x2000F3B4, gated by request 0x101**
+
+Returns true when the word at 0x2000F3B4 equals 0x00464143, which reads 'C', 'A', 'F', 0 in memory. The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. The word sits directly after the 40-byte block of ble_app_block40_f38c_read, so it is probably that block's validity tag; this is an inference.
+
+**Returns** `bool`: true when the gate passes and the magic matches
+
+- Addresses by version: 219: 0x0C045F60
+- Called by: `ble_219_0c02cca8`, `ble_219_0c0592a4`
+- Calls: `app_dev_ioctl_cmd_101`
+- Confidence: medium
+
+## ble_app_marker_o_check
+
+**Report whether the marker byte at 0x2000F36B is 'o', gated by request 0x101**
+
+Returns true when the byte at 0x2000F36B equals the ASCII character 'o' (0x6F). The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. It is the second of the two marker characters at 0x2000F36A/0x2000F36B tested by ble_app_marker_s_check, which probably tag a valid app-side record; that role is a guess.
+
+**Returns** `bool`: true when the gate passes and the byte is 'o'
+
+- Addresses by version: 219: 0x0C045F40
+- Called by: `ble_219_0c02cca8`
+- Calls: `app_dev_ioctl_cmd_101`
+- Confidence: medium
+
+## ble_app_marker_s_check
+
+**Report whether the marker byte at 0x2000F36A is 'S', gated by request 0x101**
+
+Returns true when the byte at 0x2000F36A equals the ASCII character 'S' (0x53). The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. This byte and the byte at 0x2000F36B ('o', tested by ble_app_marker_o_check) are two single-character markers that probably tag a valid app-side record; that role is a guess.
+
+**Returns** `bool`: true when the gate passes and the byte is 'S'
+
+- Addresses by version: 219: 0x0C045F04
+- Called by: `ble_219_0c02cca8`, `bt_drv_rf_2168_update_from_src`
+- Calls: `app_dev_ioctl_cmd_101`
 - Confidence: medium
 
 ## ble_app_start_deferred_500ms_op
@@ -374,6 +493,24 @@ Saves a pending operation in a global context block: DAT_200170d0 = param_1 (u16
 - Addresses by version: 219: 0x0C05CB08
 - Called by: `ble_app_queue_message`
 - Calls: `ble_host_timer_restart`
+- Confidence: low
+
+## ble_app_word_f360_read
+
+**Read the 32-bit word at 0x2000F360, gated by request 0x101 (length must be 4)**
+
+Gated read of the 32-bit RAM word at 0x2000F360 into the caller's pointer. The app device request 0x101 (FUN_0C041E10) runs first and its error is returned on failure, and the call is rejected with -EINVAL unless the length is exactly 4. The word is only read here; the code that writes it is elsewhere and its meaning is not established. Callers are at 0x0C02CCA8 and 0x0C03E5DC.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output u32 |
+| `param_2` | `s32` | requested length, must be 4 |
+
+**Returns** `s32`: 0 on success, -22 for a wrong length, or the ioctl error
+
+- Addresses by version: 219: 0x0C045E04
+- Called by: `ble_219_0c02cca8`, `bt_drv_rf_2168_update_from_src`
+- Calls: `app_dev_ioctl_cmd_101`
 - Confidence: low
 
 ## ble_crypto_set_serial_number
