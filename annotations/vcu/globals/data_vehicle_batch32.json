@@ -1,0 +1,35 @@
+{
+  "vcu_g_0159_2000338c": {
+    "name": "vehicle_telemetry_tail",
+    "type": "VehSnapshotTail",
+    "size": 34,
+    "description": "Telemetry record, second half (0159 build, 0x2000338c..0x200033ad). vcu_speed_mode_snapshot_update rewrites it with the head every 11th tick. It holds copies of protocol-owned words, 16-bit state values and the speed telemetry word (vehicle_speed_telemetry_a at +0x20). The gaps at +0x1a and +0x1c are not written in this build. The record ends with vehicle_snapshot_marker at +0x56 from the head.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000338c"
+    ]
+  },
+  "vcu_g_153_200033a6": {
+    "name": "vehicle_snap153_marker",
+    "type": "u8",
+    "size": 1,
+    "description": "153 build only. End marker of the 153 telemetry record (record base 0x20003350, offset +0x56). vcu_speed_mode_snapshot_update sets it to 0 after each snapshot. Same role as vehicle_snapshot_marker in the 0159 build.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_153",
+      "0x200033a6"
+    ]
+  },
+  "vcu_g_0159_200033b6": {
+    "name": "vehicle_snapshot_marker",
+    "type": "u8",
+    "size": 1,
+    "description": "End marker of the 0159 telemetry record (record base 0x20003360, offset +0x56). vcu_speed_mode_snapshot_update sets it to 3 after each snapshot. Probably a record-format or version tag; the consumer is not traced.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033b6"
+    ]
+  }
+}

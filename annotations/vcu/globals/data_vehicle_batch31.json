@@ -1,0 +1,159 @@
+{
+  "vcu_g_153_200020b0": {
+    "name": "vehicle_stage_active_lo",
+    "type": "u32",
+    "size": 4,
+    "description": "153 build only. Low 5-bit field of the packed stage code held in DAT_20001c76 (vehicle_revolution_state_v153 in data_vehicle_batch30): (code & 0x3f) >> 1, range 0..31. Rewritten every tick by vcu_revolution_stage_tracker (VCU_153 0x08004fc4). The high and middle fields are at 0x200020a8 and 0x200020ac (data_vehicle_batch30). Probably a mode or step index; the consumer is not traced.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_153",
+      "0x200020b0"
+    ]
+  },
+  "vcu_g_153_200020b4": {
+    "name": "vehicle_stage_request",
+    "type": "VehStageSplit",
+    "size": 12,
+    "description": "153 build only. The requested stage code DAT_20001f32 split into hi, mid and lo fields (code >> 10, (code & 0x3ff) >> 6, (code & 0x3f) >> 1), rewritten every tick by vcu_revolution_stage_tracker. The tracker copies DAT_20001f32 into the active code when the active code is 0 or a reset is requested. Probably the requested step that vehicle_stage_active_lo follows.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_153",
+      "0x200020b4"
+    ]
+  },
+  "vcu_g_0159_200021c5": {
+    "name": "vehicle_burst_count",
+    "type": "u8",
+    "size": 1,
+    "description": "Burst counter of vcu_sensor_threshold_pulse_count (0159 0x08007ecc). It increments when the debounce latch DAT_200021c4 sets and wraps at 10, so the value is 0..9. A nonzero value opens a 300-tick window; while the PB12 input is active low, bursts 3, 5, 8 and 9 send the messages with commands 0x3A, 0x1F, 0x3B and 0x20, then the counter resets. Probably counts sustained high readings of the sensor.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200021c5"
+    ]
+  },
+  "vcu_g_0159_200021ce": {
+    "name": "vehicle_led_chan_mask",
+    "type": "u8",
+    "size": 1,
+    "description": "Bits 0..7 of the 9-channel LED mask: bit n-1 is channel n (1..8). Set or cleared per channel by vcu_chan_mask_update (0159 0x0800aa9c) and set or cleared as a whole by led_frame_set_group_all (0x0800be30, 0x00 or 0xFF). Channel 0 is bit 0 of lighting_led_image_cf (data_lighting_batch16). Bytes 0x200021c6..0x200021d5 form the LED image sent to the driver. Meaning (lamp or output enable) probably.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200021ce"
+    ]
+  },
+  "vcu_g_0159_200021d0": {
+    "name": "vehicle_led_chan_mask_shadow",
+    "type": "u8",
+    "size": 1,
+    "description": "Second copy of the LED channel mask (bits 0..7 = channels 1..8, same order as vehicle_led_chan_mask), updated in the same two functions. Probably the shadow or pending copy used when the LED image is built. Channel 9 is bit 0 of 0x200021d1, owned by data_display_batch08.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200021d0"
+    ]
+  },
+  "vcu_g_14b_200031ee": {
+    "name": "vehicle_snap14b_pre_word",
+    "type": "u16",
+    "size": 2,
+    "description": "14b build only. 16-bit word read by the 14b speed snapshot (vcu_speed_mode_snapshot_update, 14b 0x08008a60) and copied to 0x20003234, the last slot of the 14b telemetry record. Its writer is not in this packet. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_14b",
+      "0x200031ee"
+    ]
+  },
+  "vcu_g_14b_20003200": {
+    "name": "vehicle_snap14b_slot_10",
+    "type": "u16",
+    "size": 2,
+    "description": "14b build only. Slot at +0x10 of the 14b telemetry record that starts at 0x200031f0 (see vehicle_snap14b_mid). Copied every 11th tick from DAT_20001da6 by the 14b speed snapshot. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_14b",
+      "0x20003200"
+    ]
+  },
+  "vcu_g_14b_20003204": {
+    "name": "vehicle_snap14b_mid",
+    "type": "VehSnap14bMid",
+    "size": 26,
+    "description": "14b build only. Thirteen 16-bit slots of the 14b telemetry record (record base 0x200031f0, slots 0x20003204..0x2000321d), rewritten every 11th tick by the 14b speed snapshot. They copy raw sensor words 2 and 3, the speed copy, CAN TX shadow words and other state. The record layout differs from the 0159 build.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_14b",
+      "0x20003204"
+    ]
+  },
+  "vcu_g_14b_20003228": {
+    "name": "vehicle_snap14b_tail",
+    "type": "VehSnap14bTail",
+    "size": 10,
+    "description": "14b build only. Five 16-bit slots at 0x20003228..0x20003230 (offsets +0x38..+0x40 of the 14b telemetry record), copied every 11th tick from DAT_20001c2a and DAT_20001a2a..DAT_20001a30. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_14b",
+      "0x20003228"
+    ]
+  },
+  "vcu_g_0159_20003346": {
+    "name": "vehicle_sensor_raw",
+    "type": "u16",
+    "size": 6,
+    "description": "Three raw 16-bit sensor words (index 0..2), stored by vcu_sensor_limit_derate_eval (0x08003594) from the readers app_get_u16_2000329c, _2000329e and _200032a0 before scaling. They are scaled by 1/14 (1/15 when DAT_20001feb is set) for the limit and derate ramps. Copied into vehicle_telemetry_head at +0x12..+0x16 and read as the 6-byte payload at 0x20003372 by vcu_ninebot_frame_dispatch.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003346"
+    ],
+    "count": 3
+  },
+  "vcu_g_0159_20003356": {
+    "name": "vehicle_can_tx_shadow",
+    "type": "u16",
+    "size": 4,
+    "description": "Two 16-bit shadow copies of outgoing CAN payload words. Word 0 (0x20003356) is set from DAT_20001f90 (vehicle_derate_word) when can_get_tx_payload_for_id (0159 0x0800b770) builds the 0x100 frame; word 1 (0x20003358) is set from the 0x301 frame when it is built. Both are copied into vehicle_telemetry_head at +0x28 and +0x2A.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003356"
+    ],
+    "count": 2
+  },
+  "vcu_g_0159_2000335e": {
+    "name": "vehicle_telemetry_ext_word",
+    "type": "u16",
+    "size": 2,
+    "description": "16-bit value read by vcu_speed_mode_snapshot_update and copied to vehicle_telemetry_tail at +0x18 (0x200033a4). No writer appears in the 0159 decompile, so it is probably written through a pointer or by an unnamed path. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000335e"
+    ]
+  },
+  "vcu_g_0159_20003360": {
+    "name": "vehicle_telemetry_head",
+    "type": "VehSnapshotHead",
+    "size": 44,
+    "description": "Telemetry record, first 44 bytes (0159 build). vcu_speed_mode_snapshot_update (0159 0x08008cc0) rewrites it every 11th tick: magic 0x515c at +0, then copies of status bytes and words, raw sensor words, the speed value and the CAN TX shadows. The record continues in vehicle_telemetry_tail and ends with vehicle_snapshot_marker at +0x56.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003360"
+    ]
+  },
+  "vcu_g_153_2000337e": {
+    "name": "vehicle_snap153_tail_words",
+    "type": "u16",
+    "size": 10,
+    "description": "153 build only. Five 16-bit slots at 0x2000337e..0x20003386 of the 153 telemetry record (record base 0x20003350, the 153 counterpart of vehicle_telemetry_head). Written every 11th tick by the 153 speed snapshot (VCU_153 0x08008c5c) from DAT_20001cc8..DAT_20001cd0, which are contiguous u16 words. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_153",
+      "0x2000337e"
+    ],
+    "count": 5
+  }
+}

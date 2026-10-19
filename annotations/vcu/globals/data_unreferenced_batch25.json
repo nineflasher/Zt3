@@ -310,18 +310,6 @@
   "category": "timer",
   "description": "Tick counter for the timeout in FUN_080031F4. It is cleared while the enable flag at 0x20001FED is 0 and counts up while it is 1. Once it passes 500, the function clears the enable flag and 0x20001F68, restarts via FUN_08008BB0 and FUN_08009DA8, and reports via FUN_0800B294."
  },
- "vcu_g_0159_200018be": {
-  "name": "unreferenced_rx_hdr_pad",
-  "type": "u8",
-  "size": 2,
-  "anchor": [
-   "VCU_0159",
-   "0x200018be"
-  ],
-  "category": "protocol",
-  "description": "Two bytes just below the receive frame buffer at 0x200018C0. Their address is taken by FUN_08008AEC, but the decompiled lines do not show their use. Probably frame-header staging bytes.",
-  "count": 2
- },
  "vcu_g_0159_200018c0": {
   "name": "unreferenced_rx_frame_buf",
   "type": "u8",
@@ -390,50 +378,6 @@
   "category": "app",
   "description": "Build-152 small counter. FUN_08009DA8 tests it against 3 (it sets DAT_20001CF6 when below 3 and the mode byte is not 4), and FUN_080047AC reads and writes it. Probably a retry count."
  },
- "vcu_g_153_20001b6e": {
-  "name": "unreferenced_b153_1b6e",
-  "type": "u8",
-  "size": 1,
-  "anchor": [
-   "VCU_153",
-   "0x20001b6e"
-  ],
-  "category": "app",
-  "description": "Build-153-only byte written through a pointer by FUN_080054EC. Its role is not visible in this packet."
- },
- "vcu_g_153_20001b72": {
-  "name": "unreferenced_b153_1b72",
-  "type": "u8",
-  "size": 1,
-  "anchor": [
-   "VCU_153",
-   "0x20001b72"
-  ],
-  "category": "app",
-  "description": "Build-153-only byte written through a pointer by FUN_080054EC. Its role is not visible in this packet."
- },
- "vcu_g_0159_20001b7e": {
-  "name": "unreferenced_flag_1b7e",
-  "type": "u8",
-  "size": 1,
-  "anchor": [
-   "VCU_0159",
-   "0x20001b7e"
-  ],
-  "category": "app",
-  "description": "Cleared to 0 by FUN_080054EC. Build 0159 only; no reader in this packet."
- },
- "vcu_g_0159_20001b82": {
-  "name": "unreferenced_flag_1b82",
-  "type": "u8",
-  "size": 1,
-  "anchor": [
-   "VCU_0159",
-   "0x20001b82"
-  ],
-  "category": "app",
-  "description": "Cleared to 0 by FUN_080054EC. Build 0159 only; no reader in this packet."
- },
  "vcu_g_0159_20001c34": {
   "name": "unreferenced_payload_1c34",
   "type": "u8",
@@ -478,17 +422,6 @@
   ],
   "category": "app",
   "description": "Build-14f-only byte read and written by FUN_080047AC and written by FUN_0800A39C through pointers. Its role is not visible in this packet."
- },
- "vcu_g_14f_20001f36": {
-  "name": "unreferenced_magic_1f36",
-  "type": "u16",
-  "size": 2,
-  "anchor": [
-   "VCU_14f",
-   "0x20001f36"
-  ],
-  "category": "app",
-  "description": "Set to the constant 0x5AA5 by FUN_08009DA8 in builds 14b, 14e and 14f. Probably a validity marker written at start-up."
  },
  "vcu_g_0159_20001f57": {
   "name": "unreferenced_flag_1f57",
@@ -577,17 +510,6 @@
   ],
   "category": "protocol",
   "description": "Byte copied from frame byte 5 by FUN_080054EC. It is passed by address to FUN_0800D018 as a 1-byte payload together with the command 0x56, probably a send or reply helper."
- },
- "vcu_g_152_20001fde": {
-  "name": "unreferenced_b152_1fde",
-  "type": "u8",
-  "size": 1,
-  "anchor": [
-   "VCU_152",
-   "0x20001fde"
-  ],
-  "category": "app",
-  "description": "Build-152-only byte written through a pointer by FUN_08009DA8. Its role is not visible in this packet."
  },
  "vcu_g_0159_20001fed": {
   "name": "unreferenced_timer_enable",

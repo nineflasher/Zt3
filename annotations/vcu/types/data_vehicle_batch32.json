@@ -1,0 +1,101 @@
+{
+  "structs": {
+    "VehSnapshotTail": {
+      "size": 34,
+      "description": "Second half of the 0159 telemetry record, starting at 0x2000338c (record base 0x20003360, offset +0x2c).",
+      "fields": [
+        {
+          "name": "src_335a",
+          "offset": 0,
+          "type": "u16",
+          "description": "Copy of DAT_2000335a (protocol-owned word, data_protocol_batch21)."
+        },
+        {
+          "name": "src_1cd8",
+          "offset": 2,
+          "type": "u16",
+          "description": "Copy of DAT_20001cd8, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1cda",
+          "offset": 4,
+          "type": "u16",
+          "description": "Copy of DAT_20001cda, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1cdc",
+          "offset": 6,
+          "type": "u16",
+          "description": "Copy of DAT_20001cdc, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1cde",
+          "offset": 8,
+          "type": "u16",
+          "description": "Copy of DAT_20001cde, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1ce0",
+          "offset": 10,
+          "type": "u16",
+          "description": "Copy of DAT_20001ce0, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1ce2",
+          "offset": 12,
+          "type": "u16",
+          "description": "Copy of DAT_20001ce2, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "src_1ae2",
+          "offset": 14,
+          "type": "u16",
+          "description": "Copy of DAT_20001ae2 (vehicle_build_id in data_vehicle_batch29)."
+        },
+        {
+          "name": "src_1ae4",
+          "offset": 16,
+          "type": "u16",
+          "description": "Copy of DAT_20001ae4, a 16-bit value (meaning not established)."
+        },
+        {
+          "name": "src_1ae6",
+          "offset": 18,
+          "type": "u16",
+          "description": "Copy of DAT_20001ae6, a 16-bit value (meaning not established)."
+        },
+        {
+          "name": "src_1ae8",
+          "offset": 20,
+          "type": "u16",
+          "description": "Copy of DAT_20001ae8 (vehicle_telemetry_word_b, data_vehicle_batch29)."
+        },
+        {
+          "name": "src_1c9c",
+          "offset": 22,
+          "type": "u16",
+          "description": "Copy of DAT_20001c9c, a 16-bit state value (meaning not established)."
+        },
+        {
+          "name": "ext_word",
+          "offset": 24,
+          "type": "u16",
+          "description": "Copy of vehicle_telemetry_ext_word (0x2000335e)."
+        },
+        {
+          "name": "src_1e62",
+          "offset": 30,
+          "type": "u16",
+          "description": "Copy of DAT_20001e62, a 16-bit value (meaning not established)."
+        },
+        {
+          "name": "speed_telemetry_a",
+          "offset": 32,
+          "type": "u16",
+          "description": "Copy of DAT_20001b70 (vehicle_speed_telemetry_a in data_vehicle_batch30), a speed-derived value in 0.1 km/h."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -17,7 +17,12 @@ Inputs: `COMPONENT` (ble|vcu|mcu|bms), `PACKETS` (one or more, e.g. `data_adc_ba
    addresses accessed through one base pointer with fixed offsets are one struct.  Describe each object
    ONCE: `anchor` = [anchor image, start address], `size` = total bytes, `type` (scalar, `u8`.. `f32`,
    `ptr`, or a struct/enum you define), `count` for arrays.  Every heading in the packet must fall inside
-   some object you write (the validator checks this).  Unused padding between objects is not an object.
+   some object (the validator checks this).  Unused padding between objects is not an object.
+   An object covers its families in EVERY build (the harness translates its address), so a heading that
+   sits inside a variable another file already describes needs no object of its own - and the validator
+   REJECTS any object that overlaps an object in another file of the component, in any build.  When the
+   evidence says a heading is really part of a larger variable, describe the larger variable once (or, if
+   it already exists elsewhere, leave the heading alone and mention it in your final report).
 4. Write `/home/user/Zt3/annotations/<COMPONENT>/globals/<PACKET>.json` (tables: `.../tables/<PACKET>.json`)
    keyed by the family id of the object's FIRST address (the heading id), and any structs/enums to
    `/home/user/Zt3/annotations/<COMPONENT>/types/<PACKET>.json` (struct names must be new - grep

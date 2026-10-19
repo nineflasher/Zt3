@@ -1,52 +1,533 @@
 {
- "vcu_g_0159_2000138c": {"name": "motor_ramp_limit_scaled", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x2000138c"], "category": "motor", "description": "Time-scaled limit: FUN_08001b46(elapsed, 3000, 6000, 40, 70) of motor_elapsed_ticks, computed in vcu_drive_command_update once the elapsed count passes 3000. Its value is then used to clamp the low byte of the output word 0x20001f96 (probably a derating limit that tightens over time)."},
- "vcu_g_153_2000138c": {"name": "motor_ramp_limit_scaled_b153", "type": "u16", "size": 2, "anchor": ["VCU_153", "0x2000138c"], "category": "motor", "description": "Build 152/153 layout of motor_ramp_limit_scaled. Same computation and use in vcu_drive_command_update."},
- "vcu_g_0159_2000139e": {"name": "motor_output_limit", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x2000139e"], "category": "motor", "description": "Target output limit, 0..255, recomputed each tick by vcu_drive_command_update from the drive mode (1..4) and the derating values. The output word low byte 0x20001f94 is brought toward this value through the ramp (motor_ramp_tick and motor_ramp_step)."},
- "vcu_g_14a_2000139e": {"name": "motor_output_limit_b14a", "type": "u8", "size": 1, "anchor": ["VCU_14a", "0x2000139e"], "category": "motor", "description": "Build 148/14a layout of motor_output_limit. Same byte and use in vcu_drive_command_update, at a different address in these builds."},
- "vcu_g_0159_2000139f": {"name": "motor_ramp_enable", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x2000139f"], "category": "motor", "description": "Ramp gate, 0 or 1, set every tick by vcu_drive_command_update from the speed-like value 0x20001f4c, flag 0x20001f4f and bit 2 of 0x20001f78. When it is 0 the output low byte is the idle value motor_idle_output. When it is 1 and 0x20001f4c is above 50, the ramp runs."},
- "vcu_g_14f_2000139f": {"name": "motor_ramp_enable_b14f", "type": "u8", "size": 1, "anchor": ["VCU_14f", "0x2000139f"], "category": "motor", "description": "Build 148..14f layout of motor_ramp_enable. Same flag and use in vcu_drive_command_update."},
- "vcu_g_153_2000139f": {"name": "motor_ramp_enable_b153", "type": "u8", "size": 1, "anchor": ["VCU_153", "0x2000139f"], "category": "motor", "description": "Build 152/153 layout of motor_ramp_enable. Same flag and use in vcu_drive_command_update."},
- "vcu_g_0159_200013a0": {"name": "motor_ramp_tick", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x200013a0"], "category": "motor", "description": "Tick counter of the output ramp in vcu_drive_command_update. It increments while the output is below motor_output_limit. When it passes motor_ramp_limit it resets to 0 and the output low byte 0x20001f94 rises by motor_ramp_step."},
- "vcu_g_14f_200013a0": {"name": "motor_ramp_tick_b14f", "type": "u8", "size": 1, "anchor": ["VCU_14f", "0x200013a0"], "category": "motor", "description": "Build 148..14f layout of motor_ramp_tick. Same counter and use in vcu_drive_command_update."},
- "vcu_g_153_200013a0": {"name": "motor_ramp_tick_b153", "type": "u8", "size": 1, "anchor": ["VCU_153", "0x200013a0"], "category": "motor", "description": "Build 152/153 layout of motor_ramp_tick. Same counter and use in vcu_drive_command_update."},
- "vcu_g_0159_200013a1": {"name": "motor_ramp_step", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x200013a1"], "category": "motor", "description": "Amount added to the output low byte 0x20001f94 each time the ramp tick passes motor_ramp_limit. It is set to 1 by vcu_drive_command_update when the ramp gate motor_ramp_enable is cleared."},
- "vcu_g_14f_200013a1": {"name": "motor_ramp_step_b14f", "type": "u8", "size": 1, "anchor": ["VCU_14f", "0x200013a1"], "category": "motor", "description": "Build 148..14f layout of motor_ramp_step. Same step value and use in vcu_drive_command_update."},
- "vcu_g_153_200013a1": {"name": "motor_ramp_step_b153", "type": "u8", "size": 1, "anchor": ["VCU_153", "0x200013a1"], "category": "motor", "description": "Build 152/153 layout of motor_ramp_step. Same step value and use in vcu_drive_command_update."},
- "vcu_g_0159_200013a2": {"name": "motor_level_setpoint_last", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x200013a2"], "category": "motor", "description": "Snapshot of the level setpoint motor_level_setpoint (probably u16). vcu_drive_command_update compares them each tick. On a change it copies the new value here and recomputes motor_setpoint_scaled. vcu_0159_080047ac clears it."},
- "vcu_g_14f_200013a2": {"name": "motor_level_setpoint_last_b14f", "type": "u16", "size": 2, "anchor": ["VCU_14f", "0x200013a2"], "category": "motor", "description": "Build 148..14f layout of motor_level_setpoint_last. Same snapshot and use in vcu_drive_command_update."},
- "vcu_g_14b_200013a4": {"name": "motor_drive_state_b14b", "type": "u8", "size": 1, "anchor": ["VCU_14b", "0x200013a4"], "category": "motor", "description": "Build-14b-only byte in the drive state block. vcu_0159_080047ac writes it and vcu_drive_command_update reads and writes it through a base pointer. Its meaning is not established."},
- "vcu_g_0159_200013b6": {"name": "motor_ramp_limit", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x200013b6"], "category": "motor", "description": "Ramp threshold for motor_ramp_tick, set per drive mode in vcu_drive_command_update to one of 8, 10, 12, 14 or 16. A larger value means each ramp step takes more ticks."},
- "vcu_g_0159_200013b8": {"name": "motor_idle_output", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x200013b8"], "category": "motor", "description": "Idle output value, 10 in every drive mode branch. It is copied to the low byte of 0x20001f94 when the ramp gate motor_ramp_enable is 0."},
- "vcu_g_153_200013b8": {"name": "motor_idle_output_b153", "type": "u8", "size": 1, "anchor": ["VCU_153", "0x200013b8"], "category": "motor", "description": "Build 152/153 layout of motor_idle_output. Same value and use in vcu_drive_command_update."},
- "vcu_g_0159_200013ba": {"name": "motor_duty_ramp", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x200013ba"], "category": "motor", "description": "Slew-limited duty value, 0..128. It moves one step toward a target computed from 0x20001e62 by FUN_0800f050, about once every 500 ticks (motor_slew_divider). vcu_drive_command_update multiplies it into the output word 0x20001f9a. It is capped at 0x80."},
- "vcu_g_0159_200013bc": {"name": "motor_slew_divider", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x200013bc"], "category": "motor", "description": "Tick divider for motor_duty_ramp. It increments each call; when it passes 500 it resets to 0 and allows one duty step."},
- "vcu_g_0159_200013be": {"name": "motor_elapsed_ticks", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x200013be"], "category": "motor", "description": "Elapsed-tick counter of the drive timing. It counts up each tick in vcu_drive_command_update. Past 3001 it also feeds motor_ramp_limit_scaled, and it resets to 0 after passing 5999 or when motor_low_state_timer expires."},
- "vcu_g_153_200013be": {"name": "motor_elapsed_ticks_b153", "type": "u16", "size": 2, "anchor": ["VCU_153", "0x200013be"], "category": "motor", "description": "Build 152/153 layout of motor_elapsed_ticks. Same counter and use in vcu_drive_command_update."},
- "vcu_g_0159_200013c0": {"name": "motor_low_state_timer", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x200013c0"], "category": "motor", "description": "500-tick timeout counter. It counts while 0x20001f88 is below 70, and when it passes 500 it resets itself and motor_elapsed_ticks (probably a stall or low-speed timeout)."},
- "vcu_g_14f_200013c0": {"name": "motor_low_state_timer_b14f", "type": "u16", "size": 2, "anchor": ["VCU_14f", "0x200013c0"], "category": "motor", "description": "Build 148..14f layout of motor_low_state_timer. Same timeout and use in vcu_drive_command_update."},
- "vcu_g_153_200013c0": {"name": "motor_low_state_timer_b153", "type": "u16", "size": 2, "anchor": ["VCU_153", "0x200013c0"], "category": "motor", "description": "Build 152/153 layout of motor_low_state_timer. Same timeout and use in vcu_drive_command_update."},
- "vcu_g_14f_200013c2": {"name": "motor_drive_state_b14f_13c2", "type": "u8", "size": 1, "anchor": ["VCU_14f", "0x200013c2"], "category": "motor", "description": "Build 148..14f byte in the drive state block, read and written by vcu_drive_command_update through a base pointer. Its meaning is not established."},
- "vcu_g_0159_200013c6": {"name": "motor_model_code_copy", "type": "char", "count": 4, "size": 4, "anchor": ["VCU_0159", "0x200013c6"], "category": "motor", "description": "Four-byte copy of the model code motor_model_code, taken each tick by vcu_drive_command_update. The code compares the two 16-bit halves as ASCII digit pairs (for example 0x3532 is \"25\") to choose the drive profile flag 0x20001fdb. The upper half, family 0159 200013c8, is inside this object."},
- "vcu_g_153_200013d0": {"name": "motor_mode_table_b153", "type": "u32", "count": 8, "size": 32, "anchor": ["VCU_153", "0x200013d0"], "category": "motor", "description": "Build 152/153 layout of motor_mode_table, shifted 12 bytes lower. Per profile row (0x30 bytes, selected by 0x20001fa5), four drive modes each have two words. The words are passed to FUN_08001256 and FUN_080012ba (probably f32 or u32 setpoints)."},
- "vcu_g_0159_200013dc": {"name": "motor_mode_table", "type": "u32", "count": 8, "size": 32, "anchor": ["VCU_0159", "0x200013dc"], "category": "motor", "description": "Per-profile table used by vcu_drive_command_update. Each row is 0x30 bytes, selected by the profile index 0x20001fa5. Four drive modes (0x20001b68 - 1) each have two u32 words at +8*mode (first word at 0x200013dc, second at 0x200013e0), and the mode-3 slot is overwritten from motor_index_pair_a/b or motor_row_pair_a. The words are probably f32 setpoints, passed to FUN_08001256 and FUN_080012ba."},
- "vcu_g_153_20001430": {"name": "motor_pair_b153_1430", "type": "u32", "count": 2, "size": 8, "anchor": ["VCU_153", "0x20001430"], "category": "motor", "description": "Build 152/153 word pair at 0x20001430..0x20001437, reached only through a base pointer in vcu_drive_command_update. It is probably one entry of a per-index table like motor_index_pair_a. The meaning is not established."},
- "vcu_g_0159_2000143c": {"name": "motor_index_pair_a", "type": "u32", "count": 2, "size": 8, "anchor": ["VCU_0159", "0x2000143c"], "category": "motor", "description": "Word pair of a table indexed by motor_profile_index - 1, with stride 8. In drive mode 3, when the profile 0x20001fa7 is 0 or 3, vcu_drive_command_update copies the first word to 0x200013ec + row and the second word (0x20001440) to 0x200013f0 + row."},
- "vcu_g_153_20001448": {"name": "motor_pair_b153_1448", "type": "u32", "count": 2, "size": 8, "anchor": ["VCU_153", "0x20001448"], "category": "motor", "description": "Build 152/153 word pair at 0x20001448..0x2000144f, reached only through a base pointer in vcu_drive_command_update. It is probably the build-152/153 counterpart of motor_index_pair_a. The meaning is not established."},
- "vcu_g_153_20001450": {"name": "motor_word_b153_1450", "type": "u32", "count": 1, "size": 4, "anchor": ["VCU_153", "0x20001450"], "category": "motor", "description": "Build 152/153 word at 0x20001450, reached only through a base pointer in vcu_drive_command_update. The meaning is not established."},
- "vcu_g_0159_20001454": {"name": "motor_row_pair_a", "type": "u32", "count": 2, "size": 8, "anchor": ["VCU_0159", "0x20001454"], "category": "motor", "description": "Per-profile word pair with stride 0x20, selected by 0x20001fa5. When flag 0x20001f92 bit 7 is set in drive mode 3, vcu_drive_command_update copies the first word (0x20001454) and the second word (0x20001458) into the mode-3 slots of the row of motor_mode_table."},
- "vcu_g_153_20001454": {"name": "motor_row_word_b153_1454", "type": "u32", "count": 1, "size": 4, "anchor": ["VCU_153", "0x20001454"], "category": "motor", "description": "Build 152/153 word at 0x20001454, with the same stride-0x20 profile indexing as motor_row_pair_a and the same copy in drive mode 3. The meaning is probably the same as motor_row_pair_a."},
- "vcu_g_0159_2000145c": {"name": "motor_index_pair_b", "type": "u32", "count": 2, "size": 8, "anchor": ["VCU_0159", "0x2000145c"], "category": "motor", "description": "Second word pair of the table indexed by motor_profile_index - 1, stride 8. In drive mode 3 with profile 0x20001fa7 not 0 or 3, vcu_drive_command_update copies its words (0x2000145c and 0x20001460) into the mode-3 slots of the row of motor_mode_table."},
- "vcu_g_14f_20001a9a": {"name": "motor_variant_cfg_a_b14f", "type": "u16", "count": 1, "size": 2, "anchor": ["VCU_14f", "0x20001a9a"], "category": "motor", "description": "Configuration word of the build 148..14f layout, read by vcu_drive_command_update and loaded with defaults by vcu_0159_08009da8. It is probably a variant or option word; the meaning is not established."},
- "vcu_g_14f_20001a9c": {"name": "motor_variant_cfg_b_b14f", "type": "u16", "count": 1, "size": 2, "anchor": ["VCU_14f", "0x20001a9c"], "category": "motor", "description": "Second configuration word of the build 148..14f layout, read by vcu_drive_command_update and loaded with defaults by vcu_0159_08009da8. It is probably a variant or option word; the meaning is not established."},
- "vcu_g_0159_20001ad7": {"name": "motor_model_letter", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x20001ad7"], "category": "motor", "description": "Model letter as an ASCII character. vcu_drive_command_update compares it with 'E', 'A', 'D', 'I' and 'U' to choose which model-code pair gives the drive profile flag 0x20001fdb (probably the vehicle model variant)."},
- "vcu_g_0159_20001ad9": {"name": "motor_model_code", "type": "char", "count": 4, "size": 4, "anchor": ["VCU_0159", "0x20001ad9"], "category": "motor", "description": "Four-character model or variant code stored as ASCII digit pairs. It is copied to motor_model_code_copy and compared by vcu_drive_command_update to choose the drive profile. Who writes it is not established in this packet."},
- "vcu_g_153_20001b42": {"name": "motor_mode_limit_a_b153", "type": "u16", "count": 1, "size": 2, "anchor": ["VCU_153", "0x20001b42"], "category": "motor", "description": "Build 152/153 word holding two per-mode limits. The low byte is the limit for drive mode 1 and the high byte is the limit for drive mode 2, both read and rewritten by vcu_drive_command_update. vcu_0159_08009da8 also writes it."},
- "vcu_g_153_20001b44": {"name": "motor_mode_limit_b_b153", "type": "u16", "count": 1, "size": 2, "anchor": ["VCU_153", "0x20001b44"], "category": "motor", "description": "Build 152/153 word whose high byte is the limit for drive mode 3, read and rewritten by vcu_drive_command_update. vcu_0159_08009da8 initialises it to 0x2020 (32, 32)."},
- "vcu_g_0159_20001b46": {"name": "motor_level_setpoint", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x20001b46"], "category": "motor", "description": "Level setpoint, 0..30 (probably the rider or host power request). The default is 5, set by vcu_runtime_defaults_init and vcu_0159_08009da8. vcu_drive_command_update clamps it to 0x1e (30). A change is recorded in motor_level_setpoint_last and rescales motor_setpoint_scaled."},
- "vcu_g_153_20001b46": {"name": "motor_level_setpoint_b153", "type": "u16", "size": 2, "anchor": ["VCU_153", "0x20001b46"], "category": "motor", "description": "Build 152/153 layout of motor_level_setpoint. Same setpoint, default and clamp in vcu_drive_command_update."},
- "vcu_g_0159_20001b90": {"name": "motor_profile_index", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x20001b90"], "category": "motor", "description": "Index (1 or 2, default 2) into the stride-8 tables motor_index_pair_a and motor_index_pair_b, used as (value - 1) * 8. vcu_0159_08009da8 replaces 0 with 2."},
- "vcu_g_0159_20001b9c": {"name": "motor_timeout_select", "type": "u8", "size": 1, "anchor": ["VCU_0159", "0x20001b9c"], "category": "motor", "description": "Selector for the timeout limit motor_timeout_limit: 0 gives 30, 1 gives 15 and 2 gives 5. The default is 1, set by vcu_runtime_defaults_init."},
- "vcu_g_14f_20001f2d": {"name": "motor_state_b14f", "type": "u8", "size": 1, "anchor": ["VCU_14f", "0x20001f2d"], "category": "motor", "description": "Build 148..14f byte in the drive state. vcu_0159_080047ac reads it and vcu_drive_command_update writes it through a pointer. The meaning is not established."},
- "vcu_g_0159_20001f8e": {"name": "motor_tx_word_184", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x20001f8e"], "category": "motor", "description": "16-bit field of CAN frame 0x184. vcu_drive_command_update sets it each tick from FUN_080012ee() (probably a measured value) or from the override at 0x200020a6. can_get_tx_payload_for_id places it in payload bytes 4 and 5."},
- "vcu_g_0159_20001f9a": {"name": "motor_output_duty", "type": "u16", "size": 2, "anchor": ["VCU_0159", "0x20001f9a"], "category": "motor", "description": "Output word. Its low byte is the output value 0..255, computed as (motor_duty_ramp times the mode limit) >> 6, or set to 0x14 (20) when the derate path is active. can_get_tx_payload_for_id copies that low byte into payload byte 2 of frame 0x20c."}
+ "vcu_g_0159_2000138c": {
+  "name": "motor_ramp_limit_scaled",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000138c"
+  ],
+  "category": "motor",
+  "description": "Time-scaled limit byte: FUN_08001b46(elapsed, 3000, 6000, 40, 70) of motor_elapsed_ticks, computed in vcu_drive_command_update once the elapsed count passes 3000. It is then used to clamp the low byte of the output word 0x20001f96 (probably a derating limit that tightens over time). Its size is 1 because the next byte 0x2000138d is vehicle_ready_flag_a."
+ },
+ "vcu_g_153_2000138c": {
+  "name": "motor_ramp_limit_scaled_b153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000138c"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_ramp_limit_scaled. Same computation and use in vcu_drive_command_update, one byte."
+ },
+ "vcu_g_0159_2000139e": {
+  "name": "motor_output_limit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139e"
+  ],
+  "category": "motor",
+  "description": "Target output limit, 0..255, recomputed each tick by vcu_drive_command_update from the drive mode (1..4) and the derating values. The output word low byte 0x20001f94 is brought toward this value through the ramp (motor_ramp_tick and motor_ramp_step)."
+ },
+ "vcu_g_14a_2000139e": {
+  "name": "motor_output_limit_b14a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x2000139e"
+  ],
+  "category": "motor",
+  "description": "Build 148/14a layout of motor_output_limit. Same byte and use in vcu_drive_command_update, at a different address in these builds."
+ },
+ "vcu_g_0159_2000139f": {
+  "name": "motor_ramp_enable",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139f"
+  ],
+  "category": "motor",
+  "description": "Ramp gate, 0 or 1, set every tick by vcu_drive_command_update from the speed-like value 0x20001f4c, flag 0x20001f4f and bit 2 of 0x20001f78. When it is 0 the output low byte is the idle value motor_idle_output. When it is 1 and 0x20001f4c is above 50, the ramp runs."
+ },
+ "vcu_g_14f_2000139f": {
+  "name": "motor_ramp_enable_b14f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x2000139f"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f layout of motor_ramp_enable. Same flag and use in vcu_drive_command_update."
+ },
+ "vcu_g_153_2000139f": {
+  "name": "motor_ramp_enable_b153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000139f"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_ramp_enable. Same flag and use in vcu_drive_command_update."
+ },
+ "vcu_g_0159_200013a0": {
+  "name": "motor_ramp_tick",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013a0"
+  ],
+  "category": "motor",
+  "description": "Tick counter of the output ramp in vcu_drive_command_update. It increments while the output is below motor_output_limit. When it passes motor_ramp_limit it resets to 0 and the output low byte 0x20001f94 rises by motor_ramp_step."
+ },
+ "vcu_g_14f_200013a0": {
+  "name": "motor_ramp_tick_b14f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x200013a0"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f layout of motor_ramp_tick. Same counter and use in vcu_drive_command_update."
+ },
+ "vcu_g_153_200013a0": {
+  "name": "motor_ramp_tick_b153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200013a0"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_ramp_tick. Same counter and use in vcu_drive_command_update."
+ },
+ "vcu_g_0159_200013a1": {
+  "name": "motor_ramp_step",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013a1"
+  ],
+  "category": "motor",
+  "description": "Amount added to the output low byte 0x20001f94 each time the ramp tick passes motor_ramp_limit. It is set to 1 by vcu_drive_command_update when the ramp gate motor_ramp_enable is cleared."
+ },
+ "vcu_g_14f_200013a1": {
+  "name": "motor_ramp_step_b14f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x200013a1"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f layout of motor_ramp_step. Same step value and use in vcu_drive_command_update."
+ },
+ "vcu_g_153_200013a1": {
+  "name": "motor_ramp_step_b153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200013a1"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_ramp_step. Same step value and use in vcu_drive_command_update."
+ },
+ "vcu_g_0159_200013a2": {
+  "name": "motor_level_setpoint_last",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013a2"
+  ],
+  "category": "motor",
+  "description": "Snapshot of the level setpoint motor_level_setpoint (probably u16). vcu_drive_command_update compares them each tick. On a change it copies the new value here and recomputes motor_setpoint_scaled. vcu_0159_080047ac clears it."
+ },
+ "vcu_g_14f_200013a2": {
+  "name": "motor_level_setpoint_last_b14f",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_14f",
+   "0x200013a2"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f layout of motor_level_setpoint_last. Same snapshot and use in vcu_drive_command_update."
+ },
+ "vcu_g_14b_200013a4": {
+  "name": "motor_drive_state_b14b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14b",
+   "0x200013a4"
+  ],
+  "category": "motor",
+  "description": "Build-14b-only byte in the drive state block. vcu_0159_080047ac writes it and vcu_drive_command_update reads and writes it through a base pointer. Its meaning is not established."
+ },
+ "vcu_g_0159_200013b6": {
+  "name": "motor_ramp_limit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013b6"
+  ],
+  "category": "motor",
+  "description": "Ramp threshold for motor_ramp_tick, set per drive mode in vcu_drive_command_update to one of 8, 10, 12, 14 or 16. A larger value means each ramp step takes more ticks."
+ },
+ "vcu_g_0159_200013b8": {
+  "name": "motor_idle_output",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013b8"
+  ],
+  "category": "motor",
+  "description": "Idle output value, 10 in every drive mode branch. It is copied to the low byte of 0x20001f94 when the ramp gate motor_ramp_enable is 0."
+ },
+ "vcu_g_153_200013b8": {
+  "name": "motor_idle_output_b153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200013b8"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_idle_output. Same value and use in vcu_drive_command_update."
+ },
+ "vcu_g_0159_200013ba": {
+  "name": "motor_duty_ramp",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013ba"
+  ],
+  "category": "motor",
+  "description": "Slew-limited duty value, 0..128. It moves one step toward a target computed from 0x20001e62 by FUN_0800f050, about once every 500 ticks (motor_slew_divider). vcu_drive_command_update multiplies it into the output word 0x20001f9a. It is capped at 0x80."
+ },
+ "vcu_g_0159_200013bc": {
+  "name": "motor_slew_divider",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013bc"
+  ],
+  "category": "motor",
+  "description": "Tick divider for motor_duty_ramp. It increments each call; when it passes 500 it resets to 0 and allows one duty step."
+ },
+ "vcu_g_0159_200013be": {
+  "name": "motor_elapsed_ticks",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013be"
+  ],
+  "category": "motor",
+  "description": "Elapsed-tick counter of the drive timing. It counts up each tick in vcu_drive_command_update. Past 3001 it also feeds motor_ramp_limit_scaled, and it resets to 0 after passing 5999 or when motor_low_state_timer expires."
+ },
+ "vcu_g_153_200013be": {
+  "name": "motor_elapsed_ticks_b153",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x200013be"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_elapsed_ticks. Same counter and use in vcu_drive_command_update."
+ },
+ "vcu_g_0159_200013c0": {
+  "name": "motor_low_state_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013c0"
+  ],
+  "category": "motor",
+  "description": "500-tick timeout counter. It counts while 0x20001f88 is below 70, and when it passes 500 it resets itself and motor_elapsed_ticks (probably a stall or low-speed timeout)."
+ },
+ "vcu_g_14f_200013c0": {
+  "name": "motor_low_state_timer_b14f",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_14f",
+   "0x200013c0"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f layout of motor_low_state_timer. Same timeout and use in vcu_drive_command_update."
+ },
+ "vcu_g_153_200013c0": {
+  "name": "motor_low_state_timer_b153",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x200013c0"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_low_state_timer. Same timeout and use in vcu_drive_command_update."
+ },
+ "vcu_g_14f_200013c2": {
+  "name": "motor_drive_state_b14f_13c2",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x200013c2"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f byte in the drive state block, read and written by vcu_drive_command_update through a base pointer. Its meaning is not established."
+ },
+ "vcu_g_0159_200013c6": {
+  "name": "motor_model_code_copy",
+  "type": "char",
+  "count": 4,
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x200013c6"
+  ],
+  "category": "motor",
+  "description": "Four-byte copy of the model code the model code at 0x20001ad9 (owned by vehicle_config_block in data_vehicle_batch29), taken each tick by vcu_drive_command_update. The code compares the two 16-bit halves as ASCII digit pairs (for example 0x3532 is \"25\") to choose the drive profile flag 0x20001fdb. The upper half, family 0159 200013c8, is inside this object."
+ },
+ "vcu_g_153_200013d0": {
+  "name": "motor_mode_table_b153",
+  "type": "u32",
+  "count": 8,
+  "size": 32,
+  "anchor": [
+   "VCU_153",
+   "0x200013d0"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_mode_table, shifted 12 bytes lower. Per profile row (0x30 bytes, selected by 0x20001fa5), four drive modes each have two words. The words are passed to FUN_08001256 and FUN_080012ba (probably f32 or u32 setpoints)."
+ },
+ "vcu_g_0159_200013dc": {
+  "name": "motor_mode_table",
+  "type": "u32",
+  "count": 8,
+  "size": 32,
+  "anchor": [
+   "VCU_0159",
+   "0x200013dc"
+  ],
+  "category": "motor",
+  "description": "Per-profile table used by vcu_drive_command_update. Each row is 0x30 bytes, selected by the profile index 0x20001fa5. Four drive modes (0x20001b68 - 1) each have two u32 words at +8*mode (first word at 0x200013dc, second at 0x200013e0), and the mode-3 slot is overwritten from motor_index_pair_a/b or motor_row_pair_a. The words are probably f32 setpoints, passed to FUN_08001256 and FUN_080012ba."
+ },
+ "vcu_g_153_20001430": {
+  "name": "motor_pair_b153_1430",
+  "type": "u32",
+  "count": 2,
+  "size": 8,
+  "anchor": [
+   "VCU_153",
+   "0x20001430"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word pair at 0x20001430..0x20001437, reached only through a base pointer in vcu_drive_command_update. It is probably one entry of a per-index table like motor_index_pair_a. The meaning is not established."
+ },
+ "vcu_g_0159_2000143c": {
+  "name": "motor_index_pair_a",
+  "type": "u32",
+  "count": 2,
+  "size": 8,
+  "anchor": [
+   "VCU_0159",
+   "0x2000143c"
+  ],
+  "category": "motor",
+  "description": "Word pair of a table indexed by motor_profile_index - 1, with stride 8. In drive mode 3, when the profile 0x20001fa7 is 0 or 3, vcu_drive_command_update copies the first word to 0x200013ec + row and the second word (0x20001440) to 0x200013f0 + row."
+ },
+ "vcu_g_153_20001448": {
+  "name": "motor_pair_b153_1448",
+  "type": "u32",
+  "count": 2,
+  "size": 8,
+  "anchor": [
+   "VCU_153",
+   "0x20001448"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word pair at 0x20001448..0x2000144f, reached only through a base pointer in vcu_drive_command_update. It is probably the build-152/153 counterpart of motor_index_pair_a. The meaning is not established."
+ },
+ "vcu_g_153_20001450": {
+  "name": "motor_word_b153_1450",
+  "type": "u32",
+  "count": 1,
+  "size": 4,
+  "anchor": [
+   "VCU_153",
+   "0x20001450"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word at 0x20001450, reached only through a base pointer in vcu_drive_command_update. The meaning is not established."
+ },
+ "vcu_g_0159_20001454": {
+  "name": "motor_row_pair_a",
+  "type": "u32",
+  "count": 2,
+  "size": 8,
+  "anchor": [
+   "VCU_0159",
+   "0x20001454"
+  ],
+  "category": "motor",
+  "description": "Per-profile word pair with stride 0x20, selected by 0x20001fa5. When flag 0x20001f92 bit 7 is set in drive mode 3, vcu_drive_command_update copies the first word (0x20001454) and the second word (0x20001458) into the mode-3 slots of the row of motor_mode_table."
+ },
+ "vcu_g_153_20001454": {
+  "name": "motor_row_word_b153_1454",
+  "type": "u32",
+  "count": 1,
+  "size": 4,
+  "anchor": [
+   "VCU_153",
+   "0x20001454"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word at 0x20001454, with the same stride-0x20 profile indexing as motor_row_pair_a and the same copy in drive mode 3. The meaning is probably the same as motor_row_pair_a."
+ },
+ "vcu_g_0159_2000145c": {
+  "name": "motor_index_pair_b",
+  "type": "u32",
+  "count": 2,
+  "size": 8,
+  "anchor": [
+   "VCU_0159",
+   "0x2000145c"
+  ],
+  "category": "motor",
+  "description": "Second word pair of the table indexed by motor_profile_index - 1, stride 8. In drive mode 3 with profile 0x20001fa7 not 0 or 3, vcu_drive_command_update copies its words (0x2000145c and 0x20001460) into the mode-3 slots of the row of motor_mode_table."
+ },
+ "vcu_g_14f_20001a9a": {
+  "name": "motor_variant_cfg_a_b14f",
+  "type": "u16",
+  "count": 1,
+  "size": 2,
+  "anchor": [
+   "VCU_14f",
+   "0x20001a9a"
+  ],
+  "category": "motor",
+  "description": "Configuration word of the build 148..14f layout, read by vcu_drive_command_update and loaded with defaults by vcu_0159_08009da8. It is probably a variant or option word; the meaning is not established."
+ },
+ "vcu_g_14f_20001a9c": {
+  "name": "motor_variant_cfg_b_b14f",
+  "type": "u16",
+  "count": 1,
+  "size": 2,
+  "anchor": [
+   "VCU_14f",
+   "0x20001a9c"
+  ],
+  "category": "motor",
+  "description": "Second configuration word of the build 148..14f layout, read by vcu_drive_command_update and loaded with defaults by vcu_0159_08009da8. It is probably a variant or option word; the meaning is not established."
+ },
+ "vcu_g_153_20001b42": {
+  "name": "motor_mode_limit_a_b153",
+  "type": "u16",
+  "count": 1,
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20001b42"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word holding two per-mode limits. The low byte is the limit for drive mode 1 and the high byte is the limit for drive mode 2, both read and rewritten by vcu_drive_command_update. vcu_0159_08009da8 also writes it."
+ },
+ "vcu_g_153_20001b44": {
+  "name": "motor_mode_limit_b_b153",
+  "type": "u16",
+  "count": 1,
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20001b44"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 word whose high byte is the limit for drive mode 3, read and rewritten by vcu_drive_command_update. vcu_0159_08009da8 initialises it to 0x2020 (32, 32)."
+ },
+ "vcu_g_0159_20001b46": {
+  "name": "motor_level_setpoint",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b46"
+  ],
+  "category": "motor",
+  "description": "Level setpoint, 0..30 (probably the rider or host power request). The default is 5, set by vcu_runtime_defaults_init and vcu_0159_08009da8. vcu_drive_command_update clamps it to 0x1e (30). A change is recorded in motor_level_setpoint_last and rescales motor_setpoint_scaled."
+ },
+ "vcu_g_153_20001b46": {
+  "name": "motor_level_setpoint_b153",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20001b46"
+  ],
+  "category": "motor",
+  "description": "Build 152/153 layout of motor_level_setpoint. Same setpoint, default and clamp in vcu_drive_command_update."
+ },
+ "vcu_g_0159_20001b90": {
+  "name": "motor_profile_index",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b90"
+  ],
+  "category": "motor",
+  "description": "Index (1 or 2, default 2) into the stride-8 tables motor_index_pair_a and motor_index_pair_b, used as (value - 1) * 8. vcu_0159_08009da8 replaces 0 with 2."
+ },
+ "vcu_g_0159_20001b9c": {
+  "name": "motor_timeout_select",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b9c"
+  ],
+  "category": "motor",
+  "description": "Selector for the timeout limit motor_timeout_limit: 0 gives 30, 1 gives 15 and 2 gives 5. The default is 1, set by vcu_runtime_defaults_init."
+ },
+ "vcu_g_14f_20001f2d": {
+  "name": "motor_state_b14f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001f2d"
+  ],
+  "category": "motor",
+  "description": "Build 148..14f byte in the drive state. vcu_0159_080047ac reads it and vcu_drive_command_update writes it through a pointer. The meaning is not established."
+ },
+ "vcu_g_0159_20001f9a": {
+  "name": "motor_output_duty",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f9a"
+  ],
+  "category": "motor",
+  "description": "Output word. Its low byte is the output value 0..255, computed as (motor_duty_ramp times the mode limit) >> 6, or set to 0x14 (20) when the derate path is active. can_get_tx_payload_for_id copies that low byte into payload byte 2 of frame 0x20c."
+ }
 }

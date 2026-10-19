@@ -11,15 +11,27 @@
     "description": "Element 0 of the five 16-bit ADC channel averages (raw 12-bit ADC counts, 0..4095). vcu_adc_average_16_scans writes it as (sum of 16 scans >> 4) through a (short) cast, and app_get_u16_2000329c returns it to the application (probably the sampled analog input of one sensor). Elements 1..4 at 0x2000329e..0x200032a5 are described as adc_avg_result_1_4 in data_app_batch03; together they form one five-element result array."
   },
   "vcu_g_0159_200032a6": {
-    "name": "adc_dma_scans",
+    "name": "adc_dma_scan0",
     "type": "AdcScan",
-    "size": 160,
+    "size": 10,
     "anchor": [
       "VCU_0159",
       "0x200032a6"
     ],
     "category": "adc",
-    "description": "Circular DMA buffer that DMA1 channel 1 fills with raw ADC1 conversion results (one halfword per conversion, 80 halfwords = 16 scans of 5 channels, scan-major). vcu_adc_dma_ring_init configures it at boot; it is written only by DMA. vcu_adc_average_16_scans reads all 80 halfwords each time it runs and stores the per-channel means in adc_avg_result_0..4. The addresses 0x200032a8 and 0x200032b0 are inside this buffer (channel 1 of scan 0 and channel 0 of scan 1).",
-    "count": 16
+    "description": "Scan 0 of the ADC1 DMA result buffer: five raw 12-bit conversion results (halfwords) that DMA1 channel 1 writes from the ADC1 data register. In every build the buffer starts here; in builds 148, 14a, 14b and 14e it is only this one 5-halfword scan (single-shot transfer), while build 0159 runs it as an 80-halfword circular ring (see adc_dma_scans_1_15). vcu_adc_average_16_scans reads it each time it runs. The family 0x200032a8 is channel 1 of this scan.",
+    "count": 1
+  },
+  "vcu_g_0159_200032b0": {
+    "name": "adc_dma_scans_1_15",
+    "type": "AdcScan",
+    "size": 150,
+    "anchor": [
+      "VCU_0159",
+      "0x200032b0"
+    ],
+    "category": "adc",
+    "description": "Scans 1..15 of the 80-halfword circular ADC1 DMA buffer (build 0159 only; vcu_adc_dma_ring_init sets the ring to 0x50 halfwords, circular mode). Each scan is five halfwords, one per channel, in regular-sequence order. vcu_adc_average_16_scans sums all 16 scans per channel and writes the means to adc_avg_result_0..4. The family 0x200032b0 is channel 0 of scan 1.",
+    "count": 15
   }
 }
