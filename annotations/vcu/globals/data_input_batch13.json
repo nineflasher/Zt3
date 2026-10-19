@@ -1,0 +1,554 @@
+{
+  "vcu_g_0159_20001354": {
+    "name": "input_mode_prev_sub",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001354"
+    ],
+    "category": "input",
+    "description": "Sub-mode value kept aside while special mode 4 is active. vcu_toggle_special_mode swaps it with the live sub-mode byte DAT_20001FA4 on each toggle, so it probably holds the sub-mode that was active before the special mode was entered and gets it back on exit. Only that swap touches it in this packet."
+  },
+  "vcu_g_0159_20001355": {
+    "name": "input_code_digit_prev_level",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001355"
+    ],
+    "category": "input",
+    "description": "Edge-detect shadow of the commit input DAT_20001F4F, copied by vcu_code_digit_entry_tick on every tick (DAT_20001355 = DAT_20001F4F). A digit is committed on a 0-to-1 change of DAT_20001F4F, or whenever DAT_200021B8 is 1. Values 0 or 1."
+  },
+  "vcu_g_0159_20001356": {
+    "name": "input_code_nibble_idle_ticks",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001356"
+    ],
+    "category": "input",
+    "description": "Idle tick counter of the nibble-based code entry (vcu_code_nibble_entry_tick). It is held at 0 while a key is being accepted and otherwise counts idle ticks; once it is above 60 (0x3C) the entry is treated as idle and ends (probably a commit timeout). Saturates at 61. Units: ticks."
+  },
+  "vcu_g_0159_20001357": {
+    "name": "input_key_seq_idle_ticks",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001357"
+    ],
+    "category": "input",
+    "description": "Idle tick counter of the key-sequence entry (vcu_key_sequence_entry_tick). It is reset to 0 by that routine and counts ticks while no key is pressed; once it is above 60 (0x3C) the accumulated keys are compared with the stored target (probably a settle time before the result). Units: ticks."
+  },
+  "vcu_g_0159_20001358": {
+    "name": "input_key_seq_nibble",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001358"
+    ],
+    "category": "input",
+    "description": "Low byte of input_key_seq_expected_nibble (DAT_20001380), copied by vcu_key_sequence_entry_tick. Nothing in this packet reads it back, so it is probably a copy kept for the display or a debug path. Range 0 to 15."
+  },
+  "vcu_g_0159_20001380": {
+    "name": "input_key_seq_expected_nibble",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20001380"
+    ],
+    "category": "input",
+    "description": "Expected key of the current position of the key sequence: vcu_key_sequence_entry_tick extracts the nibble at a bit position from the packed word input_key_seq_word and stores it here (probably a u32 variable, only the low byte is compared, with the pending key input_key_pending_code). Range 0 to 15."
+  },
+  "vcu_g_148_200013c0": {
+    "name": "input_pb14_tick_v148",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_148",
+      "0x200013c0"
+    ],
+    "category": "input",
+    "description": "PB14 timed-edge sequence tick counter in build 148 (probably the counterpart of input_pb14_seq_tick, which is not present in 148). Accessed only through a base register in vcu_pb14_timed_edge_sequence. Units: ticks."
+  },
+  "vcu_g_0159_200013c2": {
+    "name": "input_pb14_seq_tick",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200013c2"
+    ],
+    "category": "input",
+    "description": "Tick counter of the PB14 timed-edge sequence (vcu_pb14_timed_edge_sequence). It is reset at each state change, counts one per call, and a window ends when it is above 200 (0xC8); the longer 700-tick windows are probably counted with the same variable. Units: calls (ticks)."
+  },
+  "vcu_g_0159_200013c4": {
+    "name": "input_pb14_seq_edges",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200013c4"
+    ],
+    "category": "input",
+    "description": "Pin-level edge counter of the PB14 timed-edge sequence. It is reset at a state change and incremented per edge; the states advance after four edges (count above 3). Units: edges."
+  },
+  "vcu_g_14b_20001424": {
+    "name": "input_sm_d_counters_v14b",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_14b",
+      "0x20001424"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine D in build 14b (vcu_input_sm_d_tick accesses them through a base register; no decompiled line names them). Probably the same counters as input_sm_d_counters in the later builds. Layout is the InputDebounceCounters struct."
+  },
+  "vcu_g_14b_20001428": {
+    "name": "input_sm_e_counters_v14b",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_14b",
+      "0x20001428"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine E in build 14b (vcu_input_sm_e_tick, through a base register; no decompiled line names them). Probably the same role as input_sm_e_counters in the later builds. Layout is the InputDebounceCounters struct."
+  },
+  "vcu_g_0159_200014c8": {
+    "name": "input_sm_a_armed",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200014c8"
+    ],
+    "category": "input",
+    "description": "Armed latch of debounce machine A (vcu_input_sm_a_tick). An absent tick sets it to 1, and a present tick only starts the presence count when it is already 1, so the input must be seen absent first (probably a power-on or glitch guard). Nothing in this packet clears it."
+  },
+  "vcu_g_0159_200014cc": {
+    "name": "input_sm_b_counters",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200014cc"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine B (vcu_input_sm_b_tick). present_ticks at 0x200014CC and absent_ticks at 0x200014CE. A present tick also drives the 150-tick long-hold state 3; see the struct for units and limits."
+  },
+  "vcu_g_0159_200014d0": {
+    "name": "input_sm_d_counters",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200014d0"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine D (vcu_input_sm_d_tick). present_ticks at 0x200014D0 and absent_ticks at 0x200014D2. The qualifier is PB10 high and PB2 low; the counters follow the same rules as machine B."
+  },
+  "vcu_g_0159_200014d4": {
+    "name": "input_sm_e_counters",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200014d4"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine E (vcu_input_sm_e_tick). present_ticks at 0x200014D4 and absent_ticks at 0x200014D6. The qualifier is the complementary PB10/PB2 pattern; the counters follow the same rules as machine B."
+  },
+  "vcu_g_0159_200014dc": {
+    "name": "input_sm_c_counters",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200014dc"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine C (vcu_input_sm_c_tick, qualifier FUN_08007AB8). present_ticks at 0x200014DC and absent_ticks at 0x200014DE. Same rules as machine B."
+  },
+  "vcu_g_0159_200014e0": {
+    "name": "input_sm_a_counters",
+    "type": "InputDebounceCounters",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200014e0"
+    ],
+    "category": "input",
+    "description": "Presence and absence counters of debounce machine A (vcu_input_sm_a_tick, qualifier FUN_080056E8). present_ticks at 0x200014E0 and absent_ticks at 0x200014E2. Machine A has no long-hold state."
+  },
+  "vcu_g_148_200017d5": {
+    "name": "input_panel_flags_v148",
+    "type": "u8",
+    "count": 2,
+    "size": 2,
+    "anchor": [
+      "VCU_148",
+      "0x200017d5"
+    ],
+    "category": "input",
+    "description": "Two flags of the key report and blink routine in build 148 (vcu_panel_key_report_telemetry_tick, through a base register). Probably the 148 counterparts of input_panel_blink_flags. Values 0 or 1 probably."
+  },
+  "vcu_g_0159_2000189a": {
+    "name": "input_panel_phase",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000189a"
+    ],
+    "category": "input",
+    "description": "Phase counter of the key report and blink routine (vcu_panel_key_report_telemetry_tick). It is incremented each call; the code acts on the values 1 and 5 (different actions). The wrap point is not shown in this packet. Units: calls (ticks)."
+  },
+  "vcu_g_0159_2000189b": {
+    "name": "input_panel_blink_flags",
+    "type": "u8",
+    "count": 4,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x2000189b"
+    ],
+    "category": "input",
+    "description": "Four toggle flags of the key report routine, present in builds 153 and 0159 only. Each is set to 0 and then XOR-toggled on key events and tested for zero or nonzero to choose the C14/C15 output or blink mode. Element order is 0x2000189B, C, D, E. Values 0 or 1 probably."
+  },
+  "vcu_g_0159_200018a0": {
+    "name": "input_blink_ticks",
+    "type": "u16",
+    "count": 2,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200018a0"
+    ],
+    "category": "input",
+    "description": "Tick counters of the C14 and C15 blink (vcu_panel_key_report_telemetry_tick). Element 0 at 0x200018A0 and element 1 at 0x200018A2 (probably C14 and C15). Each is incremented per call and toggles its output on every multiple of 40 ticks, the 40-tick blink period. Units: ticks."
+  },
+  "vcu_g_0159_20001b48": {
+    "name": "input_item_select",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b48"
+    ],
+    "category": "input",
+    "description": "Item selector used by vcu_input_edge_actions. A switch on it chooses which item flag (DAT_20001F70..F75 or DAT_20001F4A) is set when the item event fires, and value 7 gates one of the special actions. Set to 2 by vcu_runtime_defaults_init at power-on. Values 0 to 7 seen (probably a menu item index)."
+  },
+  "vcu_g_0159_20001b76": {
+    "name": "input_code_stored",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b76"
+    ],
+    "category": "input",
+    "description": "Stored 4-digit unlock code, as an integer (probably u16). vcu_code_digit_entry_tick compares the entered digits against it. It is written elsewhere (not in this packet) and cleared to 0 by vcu_runtime_defaults_init at power-on. Secret material: the value is deliberately not recorded here."
+  },
+  "vcu_g_0159_20001b96": {
+    "name": "input_code_word_halves",
+    "type": "u16",
+    "count": 2,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b96"
+    ],
+    "category": "input",
+    "description": "The 32-bit packed code word held as two 16-bit halves: element 0 at 0x20001B96 is the low half, element 1 at 0x20001B98 the high half. vcu_key_sequence_entry_tick loads them from input_code_rx_word, vcu_nibble_count_snapshot joins them into input_code_stored_word, and vcu_runtime_defaults_init clears both at power-on. Secret material, values not recorded."
+  },
+  "vcu_g_0159_20001cec": {
+    "name": "input_code_progress_count",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cec"
+    ],
+    "category": "input",
+    "description": "Mirror of input_code_entry_index, copied by the key and nibble entry routines. vcu_display_frame_render_tick reads it to draw the progress bars of the passcode screen; vcu_nibble_count_snapshot clears it. Units: keys entered."
+  },
+  "vcu_g_14b_20001e92": {
+    "name": "input_edge_slot_v14b",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_14b",
+      "0x20001e92"
+    ],
+    "category": "input",
+    "description": "Build-14b-only byte written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 14b counterpart of the input-edge flags of the later builds."
+  },
+  "vcu_g_14e_20001e92": {
+    "name": "input_edge_slot_v14e",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_14e",
+      "0x20001e92"
+    ],
+    "category": "input",
+    "description": "Build-14e-only byte written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 14e counterpart of the input-edge flags of the later builds."
+  },
+  "vcu_g_14f_20001e92": {
+    "name": "input_edge_slot_v14f",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_14f",
+      "0x20001e92"
+    ],
+    "category": "input",
+    "description": "Build-14f-only byte written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 14f counterpart of the input-edge flags of the later builds."
+  },
+  "vcu_g_152_20001f32": {
+    "name": "input_edge_slot_v152",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_152",
+      "0x20001f32"
+    ],
+    "category": "input",
+    "description": "Build-152-only byte written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 152 counterpart of the input-edge flags of the later builds."
+  },
+  "vcu_g_153_20001f3a": {
+    "name": "input_edge_slot_v153",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_153",
+      "0x20001f3a"
+    ],
+    "category": "input",
+    "description": "Build-153-only byte written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 153 counterpart of the input-edge flags of the later builds."
+  },
+  "vcu_g_14a_20001f49": {
+    "name": "input_edge_slot_v14a",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_14a",
+      "0x20001f49"
+    ],
+    "category": "input",
+    "description": "Build-14a byte read and written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 14a/148 counterpart of an input-edge flag."
+  },
+  "vcu_g_0159_20001f4a": {
+    "name": "input_item_flag_4a",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f4a"
+    ],
+    "category": "input",
+    "description": "Item flag set by vcu_input_edge_actions: set to 1 when the item event fires for certain input_item_select values and cleared to 0 for another. Probably an 'item active' flag. Its consumer is not in this packet. Values 0 or 1."
+  },
+  "vcu_g_0159_20001f74": {
+    "name": "input_item_flag_74",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f74"
+    ],
+    "category": "input",
+    "description": "Second item flag set by vcu_input_edge_actions, to 1 or 0 depending on input_item_select (probably a flag of a different item than input_item_flag_4a). Consumer not in this packet. Values 0 or 1."
+  },
+  "vcu_g_0159_20001fb4": {
+    "name": "input_action_pending",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fb4"
+    ],
+    "category": "input",
+    "description": "Request flag set to 1 when a timed action or the key-sequence check completes. Writers include vcu_key_sequence_entry_tick, vcu_event_countdown_a, vcu_countdown_start_handshake and vcu_pb14_timed_edge_sequence; the reader is vcu_state2_periodic_tick. Probably a one-shot 'action due' request."
+  },
+  "vcu_g_0159_20001fbc": {
+    "name": "input_redraw_latch",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fbc"
+    ],
+    "category": "input",
+    "description": "Shared event and redraw latch. Many input routines set it to 1 when something changed (a key, a state reaching latch state 1, an alarm, the special-mode gate); vcu_event_countdown_a and _b consume it, and vcu_input_edge_actions sets it on any change of an event flag. Probably the display redraw request. Values 0 or 1."
+  },
+  "vcu_g_0159_20002021": {
+    "name": "input_mode_bit_2021",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002021"
+    ],
+    "category": "input",
+    "description": "One of the mode bits (DAT_20002020 to DAT_20002026) toggled by vcu_input_edge_actions: XOR 1 on one event and cleared on another. Probably a two-state option. Values 0 or 1."
+  },
+  "vcu_g_0159_2000202d": {
+    "name": "input_code_entry_index",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000202d"
+    ],
+    "category": "input",
+    "description": "Cursor and count of the code entry in progress: the number of keys accepted so far. Starts at 0, is incremented per accepted key by the key-sequence and nibble routines, and is limited by input_code_length. It is also the byte index into input_code_digits and is mirrored to input_code_progress_count. Units: keys."
+  },
+  "vcu_g_0159_20002030": {
+    "name": "input_code_accum",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20002030"
+    ],
+    "category": "input",
+    "description": "Packed nibble accumulator of the entry in progress: each accepted key shifts it left by 4 bits and ORs in the key code. It is compared with input_key_seq_target (key-sequence entry) or input_code_stored_word (nibble entry) when the entry ends, and cleared when an entry starts. Secret-related; no value recorded."
+  },
+  "vcu_g_0159_20002034": {
+    "name": "input_code_stored_word",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20002034"
+    ],
+    "category": "input",
+    "description": "Stored code word for the nibble-based entry, built by vcu_nibble_count_snapshot from the two halves in input_code_word_halves. vcu_code_nibble_entry_tick compares input_code_accum with it. Secret material; value not recorded here."
+  },
+  "vcu_g_0159_20002038": {
+    "name": "input_key_seq_word",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20002038"
+    ],
+    "category": "input",
+    "description": "Packed expected-key word of the key-sequence entry, copied from input_code_rx_word by vcu_0159_080054ec. vcu_key_sequence_entry_tick extracts the expected nibble of each position from it, and vcu_nibble_count_snapshot counts its nonzero nibbles into input_code_length. Secret-related; value not recorded."
+  },
+  "vcu_g_0159_2000203c": {
+    "name": "input_key_seq_target",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x2000203c"
+    ],
+    "category": "input",
+    "description": "Target value of the key-sequence entry, copied from input_code_rx_word by vcu_0159_080054ec. Once all keys are in, input_code_accum is compared with it and a match accepts the entry. Secret-related; value not recorded."
+  },
+  "vcu_g_0159_20002040": {
+    "name": "input_code_rx_word",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20002040"
+    ],
+    "category": "input",
+    "description": "32-bit code word received in a frame. vcu_0159_080054ec clears it and fills it from the payload bytes of the message through FUN_0800120E, the length coming from the frame header. The upper half is also addressed at 0x20002042 (covered by this object). Source of input_key_seq_word, input_key_seq_target and input_code_word_halves. Secret-related; value not recorded."
+  },
+  "vcu_g_0159_20002044": {
+    "name": "input_key_pending_code",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20002044"
+    ],
+    "category": "input",
+    "description": "Pending digit or key value of the entry. The digit routine reads and writes the digit at the cursor through it, the key and nibble routines load the consumed key number into it, and the passcode screen draws it. Cleared by vcu_nibble_count_snapshot. Range 0 to 9 for digits."
+  },
+  "vcu_g_0159_20002046": {
+    "name": "input_code_length",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002046"
+    ],
+    "category": "input",
+    "description": "Number of keys in the sequence being checked: vcu_nibble_count_snapshot sets it to the count of nonzero nibbles of input_key_seq_word. Keys are accepted while input_code_entry_index is below it. Units: keys."
+  },
+  "vcu_g_0159_20002047": {
+    "name": "input_last_key_code",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002047"
+    ],
+    "category": "input",
+    "description": "Code of the last accepted key: set to 1, 2 or 3 by the key and nibble routines and cleared to 0 by vcu_nibble_count_snapshot. led_frame_apply_mode_pattern reads it, probably to pick the LED pattern."
+  },
+  "vcu_g_0159_20002048": {
+    "name": "input_code_entry_stage",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002048"
+    ],
+    "category": "input",
+    "description": "Stage counter of the entry screen. The nibble routine increments it per key, vcu_0159_080047ac tests for 3, and vcu_display_frame_render_tick tests for 5 to pick a screen. Probably counts stages 0 to 5."
+  }
+}

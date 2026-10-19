@@ -1,0 +1,134 @@
+{
+  "vcu_g_0159_20000004": {
+    "name": "isr_usart2_rx_head",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20000004"
+    ],
+    "category": "isr",
+    "description": "Write index of the USART2 receive ring (0 to 249). USART2_IRQHandler stores each received byte at isr_usart2_rx_ring[index] and advances the index, wrapping to 0 after 249 (the test is index above 0xF9). Units: bytes. No reader in this packet."
+  },
+  "vcu_g_0159_200019ba": {
+    "name": "isr_usart2_rx_ring",
+    "type": "u8",
+    "count": 250,
+    "size": 250,
+    "anchor": [
+      "VCU_0159",
+      "0x200019ba"
+    ],
+    "category": "isr",
+    "description": "250-byte receive ring for USART2. USART2_IRQHandler fills it byte by byte at the index isr_usart2_rx_head. The consumer (probably a frame parser) is not in this packet."
+  },
+  "vcu_g_0159_20001018": {
+    "name": "isr_ertc_wakeup_count",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001018"
+    ],
+    "category": "isr",
+    "description": "Number of ERTC wakeup interrupts since reset. ERTC_WKUP_IRQHandler increments it and it wraps at 255. Not read in this packet, probably a diagnostic counter."
+  },
+  "vcu_g_0159_20001858": {
+    "name": "isr_can_last_error_code",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001858"
+    ],
+    "category": "isr",
+    "description": "Last CAN error code, the LEC field (bits 4 to 6 of the CAN error status register, 0 to 7), latched by CAN1_SE_IRQHandler. can_get_tx_payload_for_id places it in the CAN payload; vcu_0159_080047ac clears it to 0."
+  },
+  "vcu_g_0159_2000185b": {
+    "name": "isr_can_error_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000185b"
+    ],
+    "category": "isr",
+    "description": "Error-event flag set to 1 by CAN1_SE_IRQHandler. vcu_can_periodic_telemetry_tick tests it and clears it to 0 in the same call (probably so that a new error is reported once). Values 0 or 1."
+  },
+  "vcu_g_0159_2000186f": {
+    "name": "isr_can_tec",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000186f"
+    ],
+    "category": "isr",
+    "description": "CAN transmit error counter (TEC, bits 16 to 23 of the CAN error status register), latched by CAN1_SE_IRQHandler. vcu_0159_080047ac clears it; can_get_tx_payload_for_id places it in the CAN payload. Units: error counts."
+  },
+  "vcu_g_0159_20001870": {
+    "name": "isr_can_rec",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001870"
+    ],
+    "category": "isr",
+    "description": "CAN receive error counter (REC, bits 24 to 31 of the CAN error status register), latched by CAN1_SE_IRQHandler. vcu_0159_080047ac clears it; can_get_tx_payload_for_id places it in the CAN payload. Units: error counts."
+  },
+  "vcu_g_0159_20001fb7": {
+    "name": "isr_input_event_code",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fb7"
+    ],
+    "category": "isr",
+    "description": "Input event code of the external interrupt lines. EXINT15_10_IRQHandler writes 2 and 4, and EXINT3_IRQHandler writes 5. vcu_0159_080047ac reads 4 and clears the code to 0. Probably a one-shot event code for the main loop."
+  },
+  "vcu_g_0159_20001fb8": {
+    "name": "isr_exint_latch",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fb8"
+    ],
+    "category": "isr",
+    "description": "Input event latch set to 1 by EXINT15_10_IRQHandler. vcu_0159_080047ac and vcu_deep_sleep_enter_and_restore clear it, and vcu_pb14_timed_edge_sequence and vcu_state2_periodic_tick use it as an input level or event (probably the PB14 input). Values 0 or 1."
+  },
+  "vcu_g_0159_20001fc6": {
+    "name": "isr_exint3_quiet_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fc6"
+    ],
+    "category": "isr",
+    "description": "Quiet timer for the line 3 interrupt. EXINT3_IRQHandler and vcu_0159_080054ec reset it to 0, and vcu_0159_080047ac increments it every call and tests it against 500. Units: ticks."
+  },
+  "vcu_g_0159_20001fea": {
+    "name": "isr_ertc_wake_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001fea"
+    ],
+    "category": "isr",
+    "description": "Wake flag set to 1 by ERTC_WKUP_IRQHandler. The loop in vcu_0159_0800d858 (probably the application main routine) waits until it is nonzero and then clears it. Values 0 or 1."
+  }
+}

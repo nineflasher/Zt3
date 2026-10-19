@@ -1,0 +1,35 @@
+{
+  "vcu_g_0159_20000000": {
+    "name": "proto_frame_sync_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["VCU_0159", "0x20000000"],
+    "category": "protocol",
+    "description": "Stage of the frame-start matcher, run by vcu_0159_08008aec on each received protocol byte. 0 means idle. The byte 0x5A seen while idle sets it to 1 (armed for the next byte). A following 0xA5 sets the companion flag at 0x20000001 (probably the in-frame flag) and starts collecting the frame into the buffer at 0x200018C0. Any byte that does not fit the sequence clears this byte and the companion flags. The matcher is also cleared when a complete frame is handed to the dispatcher vcu_0159_080054ec. Boot value is not shown in this packet (zero is assumed). Only the 0x5A and 0xA5 header bytes are described here; the frame layout is in the protocol packets."
+  },
+  "vcu_g_0159_20001020": {
+    "name": "startup_uid_ref_u16",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["VCU_0159", "0x20001020"],
+    "category": "startup",
+    "description": "16-bit location whose address vcu_uid_load (vcu_0159_08007ca4) takes according to the xref map, but no decompiled line of that function reads or writes it, so its use is unknown here. It sits directly before the u16 array at 0x20001022 (flash_record_seq, documented in another packet). Probably a 16-bit field of the same kind, but this is a guess. Its value is not set by the start-up code shown in this packet."
+  },
+  "vcu_g_0159_20001028": {
+    "name": "proto_uid_check_word",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["VCU_0159", "0x20001028"],
+    "category": "protocol",
+    "description": "32-bit device check value derived from the chip unique ID. vcu_uid_load computes it at every start-up as the bitwise NOT of the 32-bit sum of the three ID words in vcu_g_0159_20002004 and stores it here. One branch of the frame dispatcher vcu_0159_080054ec accepts a frame when its length byte is 8 and the four bytes at offset 5 equal this word, so it works as a per-unit match or authorisation check (probably). The value is recomputed from the ID words on each boot and is not recorded in this description. Callers of vcu_0159_080054ec outside this packet are not checked here."
+  },
+  "vcu_g_0159_20002004": {
+    "name": "startup_device_id_words",
+    "type": "u32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["VCU_0159", "0x20002004"],
+    "category": "startup",
+    "description": "Three 32-bit copies of the factory device-ID words read by vcu_uid_load (vcu_0159_08007ca4) from 0x1FFFF7E8, 0x1FFFF7EC and 0x1FFFF7F0 at each start-up. Element 0 is at 0x20002004, element 1 at 0x20002008 and element 2 at 0x2000200C. vcu_uid_load sums them into proto_uid_check_word (0x20001028) and also copies them to 0x20001C68..0x20001C70. vcu_0159_080054ec copies them to the same 0x20001C68..0x20001C70 words as well, so the copies there are probably used for replies. The contents are device specific and are not recorded here."
+  }
+}
