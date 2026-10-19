@@ -262,7 +262,7 @@
   "ble_219_0c04c914": {
     "name": "de_get_normalized_uuid",
     "summary": "BTstack sdp_util.c: convert a DE_UUID element (16/32/128-bit) into a 128-bit UUID",
-    "description": "Returns 0 for NULL or if the element type (header[0] >> 3) is not 3 (DE_UUID). Size type 1 (DE_SIZE_16): big-endian u16 at +1; size type 2 (DE_SIZE_32): big-endian u32 at +1; either is expanded into the Bluetooth Base UUID with uuid_add_bluetooth_prefix and 1 is returned. Size type 4 (DE_SIZE_128): the 16 bytes at +1 are copied verbatim to param_1 (four unaligned word loads) and 1 is returned. Other size types give 0. No direct callers; used through the SDP traversal callbacks (e.g. the UUID matcher ble_219_0c04c681).",
+    "description": "Returns 0 for NULL or if the element type (header[0] >> 3) is not 3 (DE_UUID). Size type 1 (DE_SIZE_16): big-endian u16 at +1; size type 2 (DE_SIZE_32): big-endian u32 at +1; either is expanded into the Bluetooth Base UUID with uuid_add_bluetooth_prefix and 1 is returned. Size type 4 (DE_SIZE_128): the 16 bytes at +1 are copied verbatim to param_1 (four unaligned word loads) and 1 is returned. Other size types give 0. No direct callers; used through the SDP traversal callbacks (e.g. the UUID matcher ble_219_0c04c680).",
     "category": "ble_host",
     "params": [
       {"name": "param_1", "type": "ptr", "description": "out: 16-byte UUID128"},

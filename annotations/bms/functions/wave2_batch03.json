@@ -1,0 +1,622 @@
+{
+  "bms_4168_08006730": {
+    "name": "bms_state_refresh_scaled",
+    "summary": "Refresh scaled measurement and derived-limit fields of the BMS state block at 0x20000BDC",
+    "description": "Reads raw RAM globals (0x20000E24, E26, E3A, E40, E44, E4C, E50, E54, E88, E94, EE8, EEC) and writes each into a fixed 16-bit field of the state block from bms_ram_20000bdc_addr, dividing by 10, 100 or 1000 with bms_udiv32 or the signed divider bms_4168_0800113c. The capacity pair 0x20000E30 and 0x20000E34 is recomputed from E88, the second scaled by 97 percent. The derating factor is a three-band curve on the 16-bit value at +0xB2 with a floor of 80 applied to +0x11C, and bit 1 of +0x196 is set when that floor clamps. The 16-bit value at 0x20000E26 is lowered to the field at +0x104 when bits 0 and 2 of the byte at 0x200005C0 are both set. Caller is bms_4168_0800c638.",
+    "category": "soc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Packed fields: +0x1D8 high byte receives the signed quotient of the value at +0x11A by 100 (negated when below -99); +0x1DA holds (k*8/10) in the high byte and (k*15/10) in the low byte, where k = (DAT_20000E50/10)/100. Whether 0x0800113c is signed division is inferred from its use with negative inputs."
+  },
+  "bms_4130_08006830": {
+    "name": "bms_limit_derate_legacy_4130",
+    "summary": "Derate the two current limits and the gated output from one sampled reading and a SOC-like byte",
+    "description": "The signed 16-bit sample at sample selects a trapezoid factor f1 (0..100) between thresholds 0x20000D80..0x20000D83 with floor 0x20000D86, and a second factor f2 combines the sample with the byte at 0x20000CCC using floor 0x20000D87 and thresholds D83..D85. DAT_20000CF8 = f1*f2*DAT_20000D7D*DAT_20000D74/1000, clamped to 10 times DAT_20000D38. A third factor is 0 outside a dead band (0x20000D8A +/- one margin from bms_udiv32, edges D8A and D8C) and is otherwise reduced by slopes D8B below and D8D above; a fourth factor reduces by D8E per unit above 80 of the byte at 0x20000CCC. DAT_20000CF4 = f3*f4*D7D*D76/1000, clamped to 10 times DAT_20000D3A, and DAT_20000CFC = D8F*CF4/10 is forced to 0 unless the sample lies in [D88, D89). The sample unit is not established; it is probably a temperature.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "unused_arg",
+        "type": "u32",
+        "description": "unused by the body in the decompile"
+      },
+      {
+        "name": "sample",
+        "type": "ptr",
+        "description": "pointer to a signed 16-bit reading (unit not established)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "No direct caller in this packet (entry point, callback or indirect). Helper at 0x0800AEAC (id unresolved: not a function in any BMS build) is called first with no result used; its role is not in this packet."
+  },
+  "bms_4168_08006f90": {
+    "name": "bms_charge_integrate_step",
+    "summary": "Integrate the signed current step into the charge counters, rolling over into hours and cycles",
+    "description": "A sub-count accumulator at 0x20000EF8 is advanced by current_step * 10 * current (state+0x11A) when mode is 0, or by -35 when mode is 1, with an extra -12 when the current is zero. Whole multiples of 10 move from 0x20000EF8 to 0x20000EFC, and whole multiples of 3600 (0xE10) move from 0x20000EFC into the estimate at 0x20000EEC, which is clamped to 0 when negative. When the current is above 10 and bit 2 of the 16-bit word at +0x124 is set, positive whole-3600 counts are added to the 32-bit word at +0x1BE; once it exceeds 97 percent of 0x20000E34 that threshold is subtracted, the 16-bit counter at +0xB2 is incremented and bit 0x80 is set in the flag word at 0x200001C8. The 32-bit word is stored back at +0x1BE and +0x1C0.",
+    "category": "soc",
+    "params": [
+      {
+        "name": "current_step",
+        "type": "s32",
+        "description": "signed current step (scaled), multiplied by 10 before accumulation"
+      },
+      {
+        "name": "mode",
+        "type": "s32",
+        "description": "1 selects the -35 offset update; any other value uses the current-proportional update"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 3600-tick unit is assumed to be one hour if the tick is one second, which is a guess. The meaning of the +0xB2 counter as a cycle count is inferred from its use as the aging input in bms_4168_08006730."
+  },
+  "bms_4139_08007108": {
+    "name": "bms_frame_parse_legacy_4139",
+    "summary": "Byte-wise parser for the 0x5A/0xA5 framed record packet with CRC-16 check (4130/4139)",
+    "description": "A state machine in DAT_20000114 consumes one received byte per call. A 0x5A or 0xA5 byte starts a frame and is saved at 0x2000083D. The next byte gives the record count N in its high nibble and the first nibble pair of the 16-bit header word at 0x20000124, and the byte after it completes that word; N = 0 jumps straight to the CRC states. The payload of N*4 bytes is appended to the frame buffer at 0x20000A7C (length in DAT_2000011C) and copied to 0x20000AAE. Two CRC bytes, most significant first, are compared with crc16_usb_compute over the header and payload (reflected poly 0x8005, init 0xFFFF, final complement). On a match, N is capped to 63 and each 4-byte record is stored at 0x20000840 with its byte order reversed, then DAT_20000115 and DAT_20000120 are set to 1; the parser returns to idle in every case once the CRC step is reached.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "rx_byte",
+        "type": "u32",
+        "description": "received byte, low 8 bits used"
+      },
+      {
+        "name": "unused_arg2",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "unused_arg3",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "crc_arg",
+        "type": "u32",
+        "description": "passed through unchanged as the last argument of crc16_usb_compute"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Header nibble layout is inferred from the shifts and masks, not from a protocol spec. The meaning of the 16-bit word at 0x20000124 beyond its role as CRC seed/state is not established."
+  },
+  "bms_4139_080072e0": {
+    "name": "bms_4139_dual_bank_step",
+    "summary": "Advance the active accumulator bank, dispatch its handler and flip banks after an accepted frame",
+    "description": "With reset_request equal to 0 it calls bms_app_state_reset_legacy. Otherwise it adds step to the accumulator of the active bank (0x2000096C when DAT_20000116 is 0, else 0x20000868) and calls the handler taken from a flash function-pointer table at 0x0800F048, indexed by DAT_20000A61 for bank 0 or DAT_2000095D for bank 1, with step and the bank's record address (0x20000968 or 0x20000864). Both accumulators are reset to 0 when they exceed 499. When DAT_20000120 is set (raised by bms_frame_parse_legacy_4139 for an accepted frame), it is cleared and the active bank in DAT_20000116 is toggled.",
+    "category": "util",
+    "params": [
+      {
+        "name": "step",
+        "type": "s32",
+        "description": "increment added to the active accumulator and passed to the handler"
+      },
+      {
+        "name": "reset_request",
+        "type": "u32",
+        "description": "0 selects the legacy state reset; nonzero runs the step"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The per-bank handlers in the flash table are not in this packet. The 499 wrap window may be a 500-tick period, which is a guess."
+  },
+  "bms_4168_08007c10": {
+    "name": "bms_frame_parse_legacy_4168",
+    "summary": "Byte-wise 0x5A/0xA5 framed-packet parser with CRC-16 check for the 4148/4168 builds",
+    "description": "The 4148/4168 counterpart of bms_frame_parse_legacy_4139, with the same states, frame layout and CRC step, using the RAM block at 0x200001AC..0x200001BE (state, counts, CRC word at 0x200001BC, header word at 0x200001BE) and the frame buffer at 0x20000B68. While the mode byte at 0x200001AE equals 2 each byte is handed to bms_frame_rx_byte and the function returns. A valid frame rebuilds 4-byte records at 0x2000092C with reversed byte order and sets DAT_200001AD to 1. The state resets to idle after the CRC step in every case.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "rx_byte",
+        "type": "u32",
+        "description": "received byte, low 8 bits used"
+      },
+      {
+        "name": "unused_arg2",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "unused_arg3",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "crc_arg",
+        "type": "u32",
+        "description": "passed through unchanged as the last argument of crc16_usb_compute"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Same protocol reading as the 4139 variant, so its uncertainties apply here too."
+  },
+  "bms_4168_08007f18": {
+    "name": "bms_seq_restart_stamp",
+    "summary": "Restart a timed step sequence: store the start stamp and clear the step word",
+    "description": "Calls bms_4168_0800b904 (not described in this packet), clears the RAM word at 0x200008F4, stores the current time base from bms_tick_get in 0x200008E8, caches the state block pointer in 0x200008F0, clears bit 8 (0x0100) of state+0x196, and calls bms_4168_0800f288 (not described in this packet). It is called from the main-loop poll bms_4168_08010558 and does not wait by itself.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08007f8c": {
+    "name": "bms_state_ptr_cache_set",
+    "summary": "Cache the address of the BMS state block in the pointer at 0x20000018",
+    "description": "Stores the value returned by bms_ram_20000bdc_addr in the global pointer at 0x20000018. bms_4168_08007f9c reads that pointer back, so it is a cached base pointer for the state block. Nothing else is written.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08007f9c": {
+    "name": "bms_state_snapshot_submit",
+    "summary": "Forward four 16-bit state-block fields and an argument to bms_4168_0800e820",
+    "description": "Reads the cached state block pointer at 0x20000018 and passes the 16-bit fields at offsets 0x124, 0x126, 0x194 and 0x196 together with forward_arg to bms_4168_0800e820, which is not described in this packet. The call shape suggests a snapshot or report of these four fields, but that role is inferred. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "util",
+    "params": [
+      {
+        "name": "forward_arg",
+        "type": "u32",
+        "description": "forwarded unchanged to bms_4168_0800e820"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low"
+  },
+  "bms_4168_08007fc0": {
+    "name": "bms_record_store_from_state",
+    "summary": "Store selected state-block fields into the record at 0x200024CC through bms_record_set_or_clear",
+    "description": "Reads two 32-bit fields at state+0x1EA and state+0x1EE, a 32-bit field at state+0x1C2 and a 16-bit field at state+0x112 from the block returned by bms_ram_20000bdc_addr, and passes them to bms_record_set_or_clear. That routine writes the six-word record at 0x200024CC, or clears it when the 16-bit argument is 0xFFFF. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The field at +0x1C2 is not 4-byte aligned, so the compiler probably split that access into halfword reads; this is not verified."
+  },
+  "bms_4168_08007ffe": {
+    "name": "bms_tail_call_unnamed_a",
+    "summary": "Tail-call thunk to bms_4168_0800e748 (not described in this packet)",
+    "description": "Calls bms_4168_0800e748 with no arguments and returns. It is the only statement in the function and is called from the main-loop poll bms_4168_08010558. The callee is described in another packet.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008254": {
+    "name": "bms_timer10_poll",
+    "summary": "Poll a 10-tick periodic timer and arm it when the request byte at 0x20000020 is set",
+    "description": "If the one-shot request byte at 0x20000020 is set, it is cleared, the start stamp at 0x2000003C is taken from bms_tick_get, the word at 0x20000028 is set to 10, and the function returns 1. Otherwise bms_tick_timeout_check tests whether 10 time-base ticks have passed since the stamp; on expiry the stamp is re-taken, the elapsed value is stored in 0x20000028, and the function returns 1, else 0. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the timer was armed or expired, 0 otherwise"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_0800868c": {
+    "name": "bms_counter_1000_tick",
+    "summary": "Count 1000-tick periods into the signed 16-bit counter that 0x2000002C points to",
+    "description": "When the request byte at 0x2000001E is set it is cleared and the stamp at 0x20000034 is taken from bms_tick_get. bms_tick_timeout_check then tests for 1000 time-base ticks since the stamp, and on expiry the elapsed value overwrites the stamp word and the request byte is set, so the next call re-takes the stamp. The counter at the pointer in 0x2000002C is incremented on each expiry and reset to 0 instead when the result would be -1. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08008778": {
+    "name": "bms_dispatch_current_thunk",
+    "summary": "Thunk that runs the current handler through bms_dispatch_call_current",
+    "description": "Calls bms_dispatch_call_current (bms_4168_0800a88c), which uses the index byte at 0x20001340 to call a handler from the RAM pointer table at 0x20000578, then returns. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008780": {
+    "name": "bms_tail_call_unnamed_b",
+    "summary": "Tail-call thunk to bms_4168_0800fabc (not described in this packet)",
+    "description": "Calls bms_4168_0800fabc with no arguments and returns. The target is described in another packet. It is called from the main-loop poll bms_4168_08010558.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008890": {
+    "name": "bms_adc_hw_init",
+    "summary": "Bring up the ADC: clocks, PA4 analog pin, PCLK/2 clock mode, sampling time and regulator",
+    "description": "Enables the GPIOA clock (RCC.IOPENR bit 0) and the ADC clock (RCC.APBENR2 bit 20), selects PCLK as the ADC clock source by clearing CCIPR bits 31:30, and configures PA4 as an analog pin with LL_GPIO_Init. LL_ADC_Init is called with the clock-mode argument 0x40000000 (CFGR2 CKMODE 01, PCLK/2), and LL_ADC_REG_Init is called with the regular-group settings and channel bit 0x1000. The routine clears CFGR2 bits 0 and 29, sets sampling time code 5 (39.5 ADC clock cycles) for SMP1 and SMP2 in SMPR, clears interrupt-enable bits 2 and 3, and sets CR.ADVREGEN (bit 28) to power the regulator. A busy-wait sized from the RAM word at 0x200006A4 runs after the regulator is enabled, and ADC_ISR bit 13 is polled with a SysTick-bounded timeout and cleared by writing 0x2000. The ADC is not enabled or calibrated here; bms_4168_08008a18 does that on first use.",
+    "category": "adc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Register bit meanings are taken from the ST G0 reference as used in this code, not checked against the SVD. Sampling time code 5 is 39.5 cycles on G0 by the usual table. The busy-wait length meaning is inferred."
+  },
+  "bms_4168_08008a08": {
+    "name": "bms_adc_deinit",
+    "summary": "Stop and reset the ADC through LL_ADC_DeInit",
+    "description": "Calls LL_ADC_DeInit (bms_4168_08002910) on the ADC instance, which stops and disables the ADC if it is running and then resets its registers. Its only caller in this packet is bms_4168_080082f0.",
+    "category": "adc",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008a18": {
+    "name": "bms_adc_read_mv",
+    "summary": "Read one ADC channel selected from the table at 0x20000674 and return the result in millivolts",
+    "description": "channel_index indexes a 32-bit channel descriptor table at 0x20000674. Bits 26 to 29 of the descriptor are written to the low nibble of CHSELR to select the channel, and the descriptor shifted left by 8 clears the matching SMPR sample-time bits. If CR.ADEN is clear, the routine sets ADVREGEN, waits for the regulator using a busy-wait sized from the RAM word at 0x200006A4, runs calibration (CR.ADCAL) with the CFGR1 low bits held clear, then sets ADEN and waits for ADRDY (ISR bit 0). It then sets ADSTART (CR bit 2), waits for EOC (ISR bit 2) with a SysTick timeout, clears EOC by writing 4, and returns (DR & 0xFFFF) * 3300 / 4095 using bms_udiv32, i.e. millivolts for a 12-bit reading against a 3.3 V reference.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "channel_index",
+        "type": "s32",
+        "description": "index into the 4-byte channel descriptor table at 0x20000674"
+      },
+      {
+        "name": "unused_arg2",
+        "type": "u32",
+        "description": "unused by the body in the decompile"
+      },
+      {
+        "name": "unused_arg3",
+        "type": "u32",
+        "description": "unused by the body in the decompile"
+      },
+      {
+        "name": "unused_arg4",
+        "type": "u32",
+        "description": "unused by the body in the decompile"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "conversion result in millivolts, about 0 to 3300"
+    },
+    "confidence": "medium",
+    "notes": "The 3.3 V reference is inferred from the 3300 multiplier; the 4095 divisor is 12-bit full scale."
+  },
+  "bms_4168_08008bfc": {
+    "name": "bms_fdcan_tx_fifo_full",
+    "summary": "Return 1 when the FDCAN1 Tx FIFO has no free element, else 0",
+    "description": "Calls HAL_FDCAN_GetTxFifoFreeLevel on the FDCAN handle at 0x20005C50 and returns 0 when the free level is nonzero, otherwise 1. Its callers are bms_4168_0800b9a8 and bms_4168_0800b9f2, which are the transmit paths, so a return of 1 means the FIFO is full.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the Tx FIFO has no free element"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008c14": {
+    "name": "bms_fdcan_send_frame",
+    "summary": "Build an FDCAN Tx header from a frame record and queue it in the Tx FIFO",
+    "description": "Reads a frame record at frame_record: the 16-bit byte count at +0 becomes DataLength (count shifted left 16 in the header word at 0x20005CC0), a nonzero 32-bit word at +4 sets IdType to extended (0x40000000 at 0x20005CB8), a nonzero word at +8 sets TxFrameType to remote (0x20000000 at 0x20005CBC), and the 32-bit word at +12 becomes Identifier at 0x20005CB4. The remaining header fields at 0x20005CC4 to 0x20005CD4 are cleared and the payload starts at +16 of the record. HAL_FDCAN_AddMessageToTxFifoQ queues the frame on the handle at 0x20005C50, and the function returns true when HAL accepts it.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "frame_record",
+        "type": "ptr",
+        "description": "frame record: byte count at +0, extended flag at +4, remote flag at +8, identifier at +12, payload from +16"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when HAL_FDCAN_AddMessageToTxFifoQ succeeded"
+    },
+    "confidence": "medium",
+    "notes": "The header layout is inferred from the staging addresses 0x20005CB4 to 0x20005CD4 and the HAL field order. The flag values match HAL constants as read from the code."
+  },
+  "bms_4168_08008c64": {
+    "name": "bms_fdcan_add_mask_filter",
+    "summary": "Add one FDCAN mask filter to RX FIFO 0, resetting the MCU if HAL rejects it",
+    "description": "Builds a HAL_FDCAN_FilterTypeDef on the stack with IdType from id_type, FilterIndex from filter_index, FilterType set to MASK (2), FilterConfig set to store matches in RX FIFO 0 (1), FilterID1 from filter_id1 and FilterID2 from filter_id2 used as the mask. It then calls HAL_FDCAN_ConfigFilter on the handle in hfdcan. A nonzero status calls NVIC_SystemReset, so a rejected filter restarts the board. It is called five times by bms_4168_08008ca0.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "FDCAN handle (0x20005C50 in the caller)"
+      },
+      {
+        "name": "id_type",
+        "type": "u32",
+        "description": "ID type: 0 standard, 0x40000000 extended"
+      },
+      {
+        "name": "filter_index",
+        "type": "u32",
+        "description": "filter index"
+      },
+      {
+        "name": "filter_id1",
+        "type": "u32",
+        "description": "FilterID1, the identifier to match"
+      },
+      {
+        "name": "filter_id2",
+        "type": "u32",
+        "description": "FilterID2, the mask"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08008ca0": {
+    "name": "bms_fdcan_filters_start",
+    "summary": "Set up FDCAN1 filters, reject unmatched frames, start FDCAN and enable RX FIFO 0 interrupts",
+    "description": "Installs five mask filters through bms_fdcan_add_mask_filter: extended IDs 0x070000 with mask 0x3F0000 (index 0) and 0xEB0000 with mask 0xF80000 (index 4), and standard IDs 0x7F0 with mask 0xFFE (index 1), 0x720 exact (index 2) and 0x212 exact (index 3). HAL_FDCAN_ConfigGlobalFilter then rejects non-matching standard and extended frames and sends remote frames to the filters instead of rejecting them. HAL_FDCAN_Start starts the peripheral, and HAL_FDCAN_ActivateNotification enables the RX FIFO 0 new-message interrupt, routed to interrupt line 0. Each HAL failure calls NVIC_SystemReset.",
+    "category": "fdcan",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of the IDs (which message IDs these are) is not established in this packet."
+  },
+  "bms_4168_08008dd8": {
+    "name": "bms_memcpy_args_swap",
+    "summary": "Call memcpy with the first two arguments swapped, passing the length through",
+    "description": "Calls memcpy (bms_4168_08001214) with dst as the destination and src as the source, leaving the third argument register untouched, so the length is whatever the caller set. Callers in this packet are bms_4168_08003C3C and bms_4168_08008060.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source address"
+      },
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination address"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The swap is read from the register order in the wrapper; the length argument is not set here."
+  },
+  "bms_4168_08008f50": {
+    "name": "gpio_pb13_15_strap_read",
+    "summary": "Read PB13, PB14 and PB15 as active-low inputs and return a 3-bit mask",
+    "description": "Enables the GPIOB clock (RCC.IOPENR bit 1), configures PB13 to PB15 as inputs with pull-up through LL_GPIO_Init, and samples GPIOB.IDR bits 13 to 15. Bit 0, 1 or 2 of the result is set for each pin that reads low, then the same three pins are reconfigured as analog with no pull. The inputs are probably board straps or jumpers read at start-up; their role is not established in this packet. It is called from bms_4168_080040e4.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "bit i set when PB(13+i) reads low"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08008fcc": {
+    "name": "bms_gpio_board_init",
+    "summary": "Board GPIO bring-up: clocks for ports A to D and F, initial output levels, pin modes",
+    "description": "Enables the RCC.IOPENR clocks for GPIOA, GPIOB, GPIOC, GPIOD and GPIOF, then drives PA5, PA9 and PA15 low, PC7 and PD0 low and PD3 high through the BRR and BSRR registers. It then makes 28 calls to LL_GPIO_Init with pin masks for each port, for example 0x0003 on port A, 0x3B43 on port C and 0x0370 on port D, to set input, output, analog or alternate modes. It is called from bms_4168_08008294 and bms_4168_080082F0 during initialisation and returns nothing. The pin functions are not identified in this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Mode and pull values for each of the 28 calls are set by stack writes between calls; the table is not reproduced here."
+  },
+  "bms_4168_080091f8": {
+    "name": "bms_gpio_exti_init",
+    "summary": "Configure EXTI lines 2, 8 and 12 with their source ports and edges, and enable NVIC IRQ 6 and 7",
+    "description": "Sets analog or input modes for the interrupt input pins from the init masks on ports A, B, C, D and F and drives PA9 high. EXTI line 12 is routed to port B and configured for falling-edge trigger when PB12 reads high at this point, otherwise rising edge. Line 8 is routed to port A with a falling edge, and line 2 is routed to port C with a falling edge, after which its pending bit is cleared through the FPR register. PB12, PA8 and PC2 are switched back to input with their pulls cleared. Finally NVIC IRQ 7 (EXTI4_15) and IRQ 6 (EXTI2_3) are enabled with priority byte 0x80.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Trigger codes are read as LL constants (2 falling, 1 rising), not checked against the header. The IRQ names are the standard G0 vector names and match the brief's IRQ list."
+  },
+  "bms_4168_08009428": {
+    "name": "bms_i2c_bb_send_bit0",
+    "summary": "Clock one 0 bit on the bit-banged bus (SDA low with an SCL pulse) with a clock-stretch timeout",
+    "description": "Software bit-bang on PA11 (clock-like) and PA12 (data-like): PA11 is driven low, PA12 is switched to output by writing MODER directly and driven low, then PA11 is released and the routine polls PA11 for up to 24001 reads until it reads high (clock stretching). On success PA11 is driven low again and the function returns 0; if the clock never rises it returns 2. The bit timing uses bms_systick_wait_scaled(1). Called by bms_i2c_bb_read_ack as the acknowledge bit.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when the clock stayed low"
+    },
+    "confidence": "medium",
+    "notes": "The bus identity (I2C-style on PA11 and PA12) is inferred from the start, stop, acknowledge and byte sequences in the neighbouring functions, not confirmed by a device datasheet."
+  },
+  "bms_4130_08009454": {
+    "name": "bms_tim6_tim7_stop_reset",
+    "summary": "Stop and reset TIM6 and TIM7: counter disable, then peripheral reset",
+    "description": "Calls LL_TIM_DisableCounter and then LL_TIM_DeInit for TIM6, then for TIM7. Each call clears CR1.CEN and pulses the RCC reset line of the timer, returning both to their reset state. No direct caller is in this packet, so it is probably reached from a mode-change path or a callback table.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_080095b6": {
+    "name": "bms_i2c_bb_bus_init",
+    "summary": "Set up the bit-banged bus: enable GPIOA/GPIOB clocks, PA11 and PA12 open-drain high",
+    "description": "Clears a 24-byte local structure with bms_4168_08001246, enables the GPIOA and GPIOB clocks through LL_IOP_GRP1_EnableClock, and drives PA12 and PA11 high. It then configures both pins as open-drain outputs at very high speed with no pull through LL_GPIO_Init and drives them high again so the bus idles high. It is called from bms_4168_08008294 and bms_4168_080082F0 during initialisation.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08009622": {
+    "name": "bms_i2c_bb_bus_release",
+    "summary": "Release PA11 and PA12 back to analog (high-impedance) mode after bus use",
+    "description": "Clears a 24-byte local structure with bms_4168_08001246, then calls LL_GPIO_Init on GPIOA twice to set PA12 (pin 0x1000) and PA11 (pin 0x0800) to analog mode with no pull. It is the counterpart of bms_i2c_bb_bus_init and is called from bms_4168_080082F0.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08009664": {
+    "name": "bms_i2c_bb_send_bit1",
+    "summary": "Clock one 1 bit on the bit-banged bus (SDA high with an SCL pulse), with stretch timeout",
+    "description": "PA11 is driven low, PA12 is switched to output and driven high, then PA11 is released and the routine polls PA11 for up to 24001 reads until it reads high. On success PA11 is driven low and it returns 0; otherwise it returns 2. It is the NACK bit that bms_i2c_bb_read_ack sends for the last byte of a read.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when the clock stayed low"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_080096f0": {
+    "name": "bms_i2c_bb_read_ack",
+    "summary": "Read one byte on the bit-banged bus, then send ACK or NACK and optionally a STOP",
+    "description": "Calls bms_i2c_bb_read_byte to store the received byte at rx_out. If that succeeds, nack selects the acknowledge bit: 0 sends an ACK through bms_i2c_bb_send_bit0 and a nonzero value sends a NACK through bms_i2c_bb_send_bit1. If the acknowledge succeeded and send_stop is 1, bms_i2c_bb_stop is issued. It returns the status of the last step run, 0 on success or 2 on a clock-stretch timeout.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "rx_out",
+        "type": "ptr",
+        "description": "destination for the received byte"
+      },
+      {
+        "name": "nack",
+        "type": "s32",
+        "description": "0 sends ACK; nonzero sends NACK"
+      },
+      {
+        "name": "send_stop",
+        "type": "s32",
+        "description": "1 issues a STOP after the acknowledge; other values do not"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 2 on a clock-stretch timeout"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_08009740": {
+    "name": "bms_i2c_bb_read_byte",
+    "summary": "Receive one byte MSB first on the bit-banged bus, sampling PA12 while PA11 is high",
+    "description": "Switches PA12 to input, then for each of 8 bits pulses PA11 low and high, polls PA11 for up to 24001 reads until it reads high (clock stretching), and shifts the level of PA12 into the result. The byte is stored at rx_out and the function returns 0; if the clock stays low it returns 2 without storing. PA11 is left high after the last bit.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "rx_out",
+        "type": "ptr",
+        "description": "receives the byte as a char"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 2 on a clock-stretch timeout"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_0800982c": {
+    "name": "bms_i2c_bb_write_byte",
+    "summary": "Send one byte MSB first on the bit-banged bus with an SCL pulse per bit",
+    "description": "Configures PA12 as output and drives PA11 low. For each of the 8 bits, from the most significant down, PA12 is set to that bit while SCL is low, PA11 is released, the routine polls PA11 for up to 24001 reads until it reads high (clock stretching), and PA11 is driven low again. The acknowledge bit is not read, and the function returns 0 after all eight bits are sent, or 2 when a clock stretch times out.",
+    "category": "i2c",
+    "params": [
+      {
+        "name": "tx_byte",
+        "type": "u8",
+        "description": "byte to send; only the low 8 bits are used"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 after eight bits, 2 on a clock-stretch timeout"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_080098f0": {
+    "name": "bms_i2c_bb_start",
+    "summary": "Generate a START (or repeated START) condition on the bit-banged bus",
+    "description": "Drives PA12 to output, releases PA11 and PA12 high, and polls PA11 for up to 24001 reads until it reads high (clock stretching). It then pulls PA12 low while PA11 is high and finally pulls PA11 low, which is the SDA-falls-while-SCL-high start condition. It returns 0 on success, or 2 when the clock line does not rise.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when the clock line does not rise"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_0800997c": {
+    "name": "bms_i2c_bb_stop",
+    "summary": "Generate a STOP condition on the bit-banged bus (SDA rises while SCL is high)",
+    "description": "Drives SCL low and SDA low, releases SCL and polls it for up to 24001 reads until it reads high, then releases SDA so that it rises while SCL is high. This is the stop condition at the end of a transaction. Callers are bms_4168_080094b4, bms_4168_080096f0, bms_4168_080097d8 and bms_4168_08009a0c.",
+    "category": "i2c",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when SCL does not rise"
+    },
+    "confidence": "medium"
+  }
+}

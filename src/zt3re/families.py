@@ -372,8 +372,22 @@ def build(comp: str) -> dict:
     return result
 
 
+def render(comp: str, payload: dict) -> str:
+    from .doctor import families_inputs
+
+    payload = dict(payload)
+    payload["_prov"] = {"stage": "families", "inputs": families_inputs(comp)}
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
 def write(comp: str, payload: dict) -> Path:
     p = config.ANALYSIS_DIR / "families" / f"{comp}.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    p.write_text(render(comp, payload))
     return p
+
+
+def check(comp: str, payload: dict) -> bool:
+    """True when the committed file equals what a rebuild would write (regenerate-and-diff)."""
+    p = config.ANALYSIS_DIR / "families" / f"{comp}.json"
+    return p.exists() and p.read_text() == render(comp, payload)

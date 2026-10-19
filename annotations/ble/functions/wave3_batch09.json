@@ -1,0 +1,167 @@
+{
+  "ble_219_0c088474": {
+    "name": "norflash_set_burst_wrap",
+    "summary": "Write the flash burst-wrap command (0x77, payload 0x40 or 0x10) and update REG_038 for a slot",
+    "description": "Programs the flash burst-wrap setting with opcode 0x77 (Set Burst with Wrap, used by Winbond/GigaDevice-style SPI NOR parts) and a one-byte payload: 0x40 when param_2 is 0x20 (wrap on) or 0x10 when param_2 is 0 (wrap off); any other param_2 returns immediately. The payload is pushed into the TX FIFO after norflaship_clear_txfifo and norflaship_set_len_and_fill_txfifo, the command goes out as norflaship_send_cmd_byte(0x77, 0), and norflash_wait_busy_or_suspend(slot, 0) polls WIP to completion. For capacities above 16 MiB with manufacturer byte 0xC8 at descriptor offset 0, REG_014 bit 3 is cleared around the command and set again afterwards. REG_038 is then updated: param_2 == 0 clears bit 12, otherwise REG_038[14:13] is programmed from width 0x20 and bit 12 is set, and bit 0 is always set last. This is the only caller path from norflash_set_read_mode (ble_219_0c08866c), part of the norflash driver group.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "flash slot (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "0 = wrap off (payload 0x10), 0x20 = wrap on (payload 0x40), other values ignored"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The 0x77 opcode and the 0x10/0x40 payload meanings are inferred from SPI NOR convention, not verified against a datasheet. The 0xC8 gate for >16 MiB parts is a guess at GigaDevice devices."
+  },
+  "ble_219_0c08866c": {
+    "name": "norflash_set_read_mode",
+    "summary": "Decode and apply a flash read-mode word: read opcode, lane width, continuous read, burst wrap",
+    "description": "Masks the requested mode word param_2 with the device capability word at descriptor +0x14 (descriptor = DAT_2000306c[DAT_20003908[slot]]) and decodes it into a read selector (0x20 quad I/O, 0x10 quad output, 0x08 dual I/O, 0x04 dual output, 0x02 fast read, 0x01 normal read) and a lane width (0x40000 quad, 0x20000 dual, 0x10000 single). Continuous read (0x1000) is honoured only with selector 0x20 or 0x08, and burst wrap (0x4000) only with 0x20; unsupported combinations return 1 without touching hardware. If the normalised word differs from the cached word DAT_2000390C[slot], continuous read is turned off first via norflash_set_continuous_read when the device supports it, REG_014 bits 4 and 5 are cleared, and the new selector is applied: 0x20 sets REG_014 bit 4 (and norflaship_set_reg108(8) when descriptor bit 29 is set), 0x08 sets REG_014 bit 5, and the others write opcode 0x6B, 0x3B, 0x0B or 0x03 into REG_020[23:16]. Continuous read then loads the descriptor byte +5 into REG_004[11:4] with bit 25 set, and a wrap change calls norflash_set_burst_wrap and toggles BLE control bit 1 via ble_hw_ctrl_reg_bit1_set/clear (effective for slot 0 only). The cache is stored, REG_004 bit 0 is cleared, dummy cycles are re-applied, and the function returns 0.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "flash slot (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "requested read-mode word: selector in bits 0..5, lane width in 16..18, 0x1000 continuous read, 0x4000 burst wrap"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not used by the decompiled body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through as the trailing argument of norflash_set_continuous_read"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 = mode applied, 1 = unsupported mode combination"
+    },
+    "confidence": "medium",
+    "notes": "Selector-to-opcode mapping follows the standard JEDEC read opcodes. The 0x20/0x08 meanings (quad/dual I/O via REG_014 bits 4/5) agree with the wave-2 notes on norflash_set_continuous_read. The 0x4000 wrap toggle reaches BLE control bit 1 only for slot 0."
+  },
+  "ble_219_0c0889d8": {
+    "name": "norflash_read_jedec_id",
+    "summary": "Read up to 3 bytes of the flash JEDEC ID (opcode 0x9F) for a slot into a caller buffer",
+    "description": "Issues the RDID command 0x9F to a flash slot. If the cached read-mode word DAT_2000390C[slot] has continuous read (bit 12) it is turned off with norflash_set_continuous_read(slot, 0), and if the per-slot byte at 0x200038FC is set REG_014[23:16] is reprogrammed by norflaship_set_cfg14_byte2. After norflaship_wait_idle and norflaship_clear_fifos, the command is started with norflaship_send_cmd_ext(slot, 0x9F, 0, n, param_4) where n = min(param_3, 3), then norflaship_wait_fifo_level(n) waits for n bytes in the RX FIFO. The bytes are read one at a time from REG_010 by norflaship_read_rxfifo_byte into param_2[0..n-1]; for a standard RDID these are manufacturer, memory type and capacity. norflash_restore_read_config then re-arms continuous read and dummy cycles. With param_3 == 0 the command is still issued but no bytes are read, and the function always returns 0.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "flash slot (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "destination buffer, at least 3 bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "requested byte count, clamped to 3"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed as the trailing argument of norflaship_send_cmd_ext"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The decompiled call to norflaship_send_cmd_ext has five arguments (slot, 0x9F, 0, n, param_4), while the wave-1 summary lists four. The mapping of n to the length field is taken from the read loop, so the trailing argument is unverified. The byte order of the ID is assumed from the JEDEC RDID convention."
+  },
+  "ble_219_0c088f20": {
+    "name": "norflash_erase",
+    "summary": "Erase a 4 KiB, 32 KiB, 64 KiB or whole-chip region of a flash slot at an address",
+    "description": "Maps the erase kind param_3 to an opcode: 1 = 0x20 (4 KiB sector), 2 = 0x52 (32 KiB block), 3 = 0xD8 (64 KiB block), 4 = 0x60 (chip erase); any other value returns 0xF without touching hardware. If the descriptor capability word has bit 19 set and the cached read mode is mode-based (0x20) or opcode-based quad (0x10), that read mode is left first (REG_014 bit 4 cleared for 0x20, read opcode reset to 0x03 for 0x10) with the descriptor hook at +0x18 called as (slot, 1); a mirror block re-enters the mode after the erase. The sequence is Write Enable (norflaship_send_cmd_byte with 0x06), norflaship_set_reg30_top_byte(address), then the erase opcode with the address shifted into REG_000[31:8] by norflaship_send_cmd_byte. After norflaship_wait_idle, manufacturer byte 0x85 parts get a 400 us delay (norflash_delay_us(400)), then norflash_wait_busy_or_suspend(slot, param_4) polls completion. The mode is restored, REG_004 bit 0 is cleared, and the poll result is returned. This is part of the norflash driver group with norflash_page_program and norflash_set_read_mode.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "flash slot (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flash address; the top byte goes to REG_030 and the low 24 bits to the command"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "erase kind: 1 = 4 KiB, 2 = 32 KiB, 3 = 64 KiB, 4 = whole chip"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "suspend-allowed flag passed to norflash_wait_busy_or_suspend"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 = erase finished, 1 = suspended by a pending interrupt, 0xF = invalid erase kind"
+    },
+    "confidence": "medium",
+    "notes": "Opcodes are the standard JEDEC erase commands. The bit-19 mode exit/re-entry and the 0x85 delay gate are inferred from the code shape. 0x85 is the PUYA JEDEC code, unverified. For chip erase the address is still shifted in, which the chip-erase opcode presumably ignores."
+  },
+  "ble_219_0c089064": {
+    "name": "norflash_page_program",
+    "summary": "Program up to one 256-byte page of a flash slot, with dual or quad input opcodes when enabled",
+    "description": "Programs one page of a flash slot. Lengths above 256 bytes return 2 immediately. The opcode comes from the cached read-mode word DAT_2000390C[slot]: 0x32 (quad input page program) when lane bit 0x40000 is set, 0xA2 (dual input page program) when 0x20000 is set, otherwise 0x02 (page program). The TX FIFO is cleared and the first chunk is loaded by norflaship_set_len_and_fill_txfifo, which also sets the transfer length; then Write Enable (0x06) is sent, norflaship_set_reg30_top_byte(address) is written, and the program opcode with the address in REG_000[31:8] is issued by norflaship_send_cmd_byte. Remaining data is pushed by repeated norflaship_fill_txfifo calls as FIFO space frees up. After norflaship_wait_idle, manufacturer byte 0x85 parts get a 450 us settle delay (norflash_delay_us(0x1c2)), norflash_wait_busy_or_suspend(slot, param_5) polls completion, REG_004 bit 0 is cleared, and the poll result is returned.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "flash slot (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "page start address (24-bit)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "source data buffer"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "byte count, 0..256"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "suspend-allowed flag passed to norflash_wait_busy_or_suspend"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 = programmed, 1 = suspended by a pending interrupt, 2 = length above 256"
+    },
+    "confidence": "medium",
+    "notes": "0xA2 as dual input page program is inferred. It is not a JEDEC-standard opcode but several SPI NOR vendors use it. The 0x85 delay is a guess at PUYA parts, and its length check reads the post-loop variable, which is unclear in the decompile."
+  }
+}

@@ -1,8 +1,8 @@
-# Zt3 firmware analysis pipeline.  Requires Ghidra (see docs/methodology.md) and the zt3re package.
+# Zt3 firmware analysis pipeline.  Ghidra stages need GHIDRA_INSTALL_DIR; see README.md.
 PY      ?= python3
 ZT3     ?= zt3
 
-.PHONY: setup import match export decompile families plan check apply docs test all clean-project
+.PHONY: setup import match export decompile families plan validate lint doctor coverage apply docs test all clean-project
 
 setup:            ## install the harness (editable) with PyGhidra
 	$(PY) -m pip install -e '.[dev]'
@@ -25,7 +25,18 @@ families:         ## cross-version function / variable families -> analysis/fami
 plan:             ## annotation work packets -> analysis/work
 	$(ZT3) plan
 
-check:            ## coverage gate: every function/variable/table/type described?
+validate:         ## every annotation file against schema, families and its work packet
+	for f in annotations/*/functions/*.json; do \
+	  c=$$(basename $$(dirname $$(dirname $$f))); b=$$(basename $$f .json); \
+	  p=analysis/work/$$c/$$b.md; [ -f $$p ] && $(ZT3) validate $$f --packet $$p || $(ZT3) validate $$f; done
+
+lint:             ## style/hygiene lint of annotation text
+	$(ZT3) lint
+
+doctor:           ## freshness, ownership and orphan gate (no Ghidra needed)
+	$(ZT3) doctor && $(ZT3) families --check && $(ZT3) docs --check
+
+coverage:         ## report: every function/variable/table/type described?  (not a gate until the data stage)
 	$(ZT3) check
 
 apply:            ## write names, comments, types into the Ghidra programs
@@ -34,7 +45,7 @@ apply:            ## write names, comments, types into the Ghidra programs
 docs:             ## regenerate docs/<component>/*.md
 	$(ZT3) docs
 
-all: import match export decompile families check
+all: import match export decompile families doctor
 
 test:
 	$(PY) -m pytest -q tests

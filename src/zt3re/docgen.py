@@ -17,7 +17,7 @@ def _esc(s: str) -> str:
     return (s or "").replace("|", "\\|").replace("\n", " ")
 
 
-def build_component(comp: str) -> list[Path]:
+def build_component(comp: str, out_root: Path | None = None) -> list[Path]:
     cobj = config.COMPONENTS[comp]
     fam = objects.load_families(comp)
     funcs, globs, tabs, types = (ann.load_functions(comp), ann.load_globals(comp),
@@ -26,7 +26,7 @@ def build_component(comp: str) -> list[Path]:
                for n in fam["versions"]}
     by_addr = {n: {f["addr"]: f for f in e["functions"]} for n, e in exports.items()}
     hw = hwmap.get(cobj.chip)
-    out = config.DOCS_DIR / comp
+    out = (out_root or config.DOCS_DIR) / comp
     out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     versions = fam["versions"]
@@ -186,3 +186,24 @@ def build_component(comp: str) -> list[Path]:
     p.write_text("\n".join(lines) + "\n")
     written.append(p)
     return written
+
+
+def check_component(comp: str) -> list[str]:
+    """Regenerate into a temp dir and report files that differ from docs/ (regenerate-and-diff)."""
+    import filecmp
+    import tempfile
+
+    diffs: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        written = build_component(comp, Path(tmp))
+        for p in written:
+            rel = p.relative_to(tmp)
+            real = config.DOCS_DIR / rel
+            if not real.exists() or not filecmp.cmp(p, real, shallow=False):
+                diffs.append(str(rel))
+        expected = {str(p.relative_to(tmp)) for p in written}
+        for real in (config.DOCS_DIR / comp).rglob("*.md") if (config.DOCS_DIR / comp).exists() else []:
+            rel = str(real.relative_to(config.DOCS_DIR))
+            if rel not in expected and real.name != "architecture.md":
+                diffs.append(rel + " (orphan: not produced by `zt3 docs`)")
+    return diffs

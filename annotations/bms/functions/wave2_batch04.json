@@ -1,0 +1,413 @@
+{
+ "bms_4168_08009a0c": {
+  "name": "bms_pa12_ready_handshake",
+  "summary": "Pulse PA11 and poll PA12 for a low level; on timeout set *param_1 and return 1",
+  "description": "Two-pin handshake on GPIOA. It presets the PA12 output latch high through GPIOA.BSRR, clears MODER bits 25:24 to make PA12 an input, then drives PA11 high. After one bms_systick_wait_scaled(1) delay it polls PA12 with LL_GPIO_IsInputPinSet up to 0x9C5 (2501) times. If PA12 reads low, PA11 is driven low, *param_1 is set to 0 and the function returns 0. If the budget runs out, FUN_0800997C is called (not described in this packet), *param_1 is set to 1, PA11 is released and the function returns 1. The reading of PA11 as a request output and PA12 as the peer's ready line is inferred from the sequence.",
+  "category": "gpio",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "status byte written by the routine: 0 when PA12 went low, 1 on timeout"}
+  ],
+  "returns": {"type": "bool", "description": "1 on timeout, 0 when PA12 went low within the poll budget"},
+  "confidence": "medium",
+  "notes": "Caller is bms_4168_080097d8. The 2501-poll budget and the PA11/PA12 roles are not confirmed. FUN_0800997C is the timeout path and is outside this packet."
+ },
+ "bms_4139_08009bdc": {
+  "name": "bms_exti11_irq_arm",
+  "summary": "Route PB11 to EXTI line 11, enable its interrupt and set EXTI4_15 priority",
+  "description": "Arms the PB11 wake or input interrupt. It sets the EXTI11 source field in EXTI.EXTICR3 (bits 26:24 = 001, port B) by read-modify-write, then calls LL_EXTI_Init with line mask 0x800 and the trailing word 0x00010001, whose mode and edge bits are not decoded here. It writes 0x800 to the EXTI register at 0x40021810, clears MODER11 and PUPDR11 on GPIOB to leave PB11 as an unpulled input, and writes 0x80 into bits 31:24 of NVIC IPR register 0xE000E404, giving IRQ 7 (EXTI4_15 on STM32G0) priority 2. It then sets bit 7 in NVIC ISER to enable IRQ 7 and stores 1 in the RAM flag at 0x20000594. The counterpart is bms_exti11_irq_disarm.",
+  "category": "isr",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The packet lists the register at 0x40021810 as both EXTI.SWIER1 and EXTI.FPR1, so whether the write triggers or clears line 11 is unresolved. The IRQ 7 mapping is from the STM32G0 vector table, not from the packet's irq list."
+ },
+ "bms_4139_08009c78": {
+  "name": "bms_usart3_tx_setup",
+  "summary": "Reset USART3 and set PB10 to alternate function 4 as its output pin",
+  "description": "Prepares the USART3 TX pin. It calls FUN_08009B34 with 0 (not described in this packet) and then LL_USART_DeInit(USART3). It writes 0x400 to GPIOB.BRR so PB10 is driven low, then calls LL_GPIO_Init on GPIOB with a 6-field init block: pin 0x400, mode field 1, speed 2, push-pull output, pull field 2 (pull-down) and alternate function 4. The field order follows LL_GPIO_InitTypeDef, and the pin is inferred to be USART3_TX from the AF4 selection and the USART3 context.",
+  "category": "uart",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Callers are bms_4139_08007238 and bms_4139_0800e4f8. The exact meaning of the mode and pull fields and the AF4 pin mapping are inferred from the stack block."
+ },
+ "bms_4168_08009d84": {
+  "name": "bms_rtc_datetime_pack",
+  "summary": "Read RTC date and time in binary and pack them into a 4-byte bit-field record",
+  "description": "Reads the RTC calendar through HAL_RTC_GetDate and HAL_RTC_GetTime in binary format, using the RTC handle at RAM 0x20005D00. It packs the day of month into bits 0-5 of the output (from the Date byte of the date structure), the month into bits 6-11 (Month byte), the weekday into bits 12-16 (WeekDay byte) and the seconds, masked to 5 bits, into bits 17-21. Hour, minute and AM/PM fields are merged into the upper bytes with the same masking style, but their exact positions are only partly decoded, and the year byte is not packed. The routine writes only the output record.",
+  "category": "rtc",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "output record, 4 bytes written as two u16 bit-field words"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Hour, minute and AM/PM bit positions are not fully confirmed. Case 9 of bms_telemetry_block_fill stores this record in the telemetry frame."
+ },
+ "bms_4168_0800a000": {
+  "name": "bms_spi1_master_init",
+  "summary": "Enable GPIOB and SPI1 clocks, set PB3-PB5 to AF0, configure SPI1 master mode 0",
+  "description": "Brings up SPI1 as bus master. It enables the GPIOB clock in RCC.IOPENR and reads the register back as a clock-enable delay. It then configures PB3, PB4 and PB5 with LL_GPIO_Init as alternate-function 0 pins (SPI1 SCK, MISO and MOSI), high speed, push-pull, no pull. It sets the SPI1 clock in RCC.APBENR2 and calls LL_SPI_Init with master mode (0x104), 8-bit data (0x700), CPOL 0 and CPHA 0, software NSS (0x200), baud divider DIV2, MSB first, CRC disabled and CRC polynomial 7. It finally clears SPI_CR2 bit 4, sets SPI_CR2 bit 3, and sets SPI_CR1 bit 6 (SPE) to enable the peripheral.",
+  "category": "spi",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "The meaning of the two raw SPI_CR2 bit writes is not confirmed against the SVD. The LL_SPI_InitTypeDef field values are decoded from the stack block."
+ },
+ "bms_4168_0800a130": {
+  "name": "bms_sysclk_hse_pll_bringup",
+  "summary": "Start HSE and PLL as SYSCLK with HSI16 fallback, record 16 MHz, reset on failure",
+  "description": "Brings up the system clock. It sets RCC.CR HSEON and polls HSERDY for at most 3000 iterations. If HSE is ready, it writes PLLCFGR with PLLSRC = HSE and a fixed pattern (masked value OR 0xA0000C03), turns on the PLL and waits for PLLRDY, then selects the PLL as SYSCLK (CFGR.SW = 2) and waits for SWS to report it. If HSE does not come up it starts HSI16 (CR.HSION), waits for HSIRDY and selects HSI16 (SW = 0). In both cases it then calls bms_rtc_clock_bringup, clears CFGR bits 11:8 and 14:12, stores 16000000 through bms_set_state_word, and calls bms_4168_080021ec(3); a nonzero result calls NVIC_SystemReset. It ends by clearing CCIPR2 bits 9:8.",
+  "category": "clock",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The 16 MHz value is stored whichever source is used, so the stored frequency is an assumption rather than a measurement. bms_4168_080021ec is not described in this packet. The meaning of the CCIPR2 bits is not confirmed."
+ },
+ "bms_4168_0800a210": {
+  "name": "bms_get_uid_word_by_index",
+  "summary": "Return factory UID word 0, 1 or 2 by index; 0 for any other index",
+  "description": "Dispatches to the three unique-ID word readers. Index 0 returns bms_get_uid_word0, index 1 returns bms_get_uid_word1 and index 2 returns bms_get_uid_word2. Any other index returns 0. It has no side effects.",
+  "category": "util",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "word index, 0 to 2"}
+  ],
+  "returns": {"type": "u32", "description": "UID word for index 0 to 2, otherwise 0"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "bms_4168_0800a23c": {
+  "name": "bms_css_enable_sram_parity_lock",
+  "summary": "Enable the clock security system and set the SRAM parity lock in SYSCFG_CFGR2",
+  "description": "Calls HAL_RCC_EnableCSS (FUN_08002334), which sets RCC.CR.CSSON so that a failed HSE is detected. It then sets bit 1 of SYSCFG_CFGR2 at 0x40010018 by read-modify-write. On STM32G0 that bit is the SRAM parity lock, which can be cleared only by reset, so the setting is permanent once made. The bit meaning is taken from the STM32G0 reference, not from the packet.",
+  "category": "clock",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The SYSCFG_CFGR2 bit 1 meaning is from the reference manual and was not checked against the SVD in this packet."
+ },
+ "bms_4168_0800a254": {
+  "name": "bms_enter_stop_mode",
+  "summary": "Enter STOP 0 with WFI through PWR_EnterSTOPMode",
+  "description": "Calls PWR_EnterSTOPMode(0, 1). Following the HAL convention, the first argument selects LPMS = 0 (STOP 0 with the main regulator) and the second selects WFI as the entry instruction. The core stays in STOP until an enabled interrupt wakes it, and the routine returns after that wake-up. The routine arms no wake source of its own, so the caller must configure one beforehand.",
+  "category": "power",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The argument meanings are inferred from the HAL signature, not from the packet. Caller is bms_4168_080082f0."
+ },
+ "bms_4168_0800a2e0": {
+  "name": "bms_sysclk_hsi16_switch",
+  "summary": "Switch SYSCLK to HSI16 with APB prescaler cleared, record 16 MHz, reset on failure",
+  "description": "Falls back to the 16 MHz HSI oscillator as SYSCLK. It sets RCC.CR HSION, waits for HSIRDY, clears CFGR bits 11:8, sets CFGR.SW to 0 (HSI16) and waits until SWS shows HSI. It then clears CFGR bits 14:12, stores 16000000 through bms_set_state_word, and calls bms_4168_080021ec(3); a nonzero result calls NVIC_SystemReset. Finally it clears CCIPR2 bits 9:8. This is the HSI tail of bms_sysclk_hse_pll_bringup without the RTC step, so it is probably the re-clock after a STOP wake-up, which resumes on HSI16 (inferred).",
+  "category": "clock",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The STOP-wake use is inferred from the pairing with bms_enter_stop_mode. Caller is bms_4168_08003290."
+ },
+ "bms_4168_0800a354": {
+  "name": "bms_iwdg_start",
+  "summary": "Start the independent watchdog: /32 prescaler, reload 4000, wait for sync, then refresh",
+  "description": "Configures and starts the IWDG. It fetches the status object from bms_ram_20000bdc_addr, writes 0xCCCC to IWDG_KR to start the watchdog and 0x5555 to unlock PR, RLR and WINR, and sets IWDG_PR to 3 (divide by 32) and IWDG_RLR to 4000. It polls IWDG_SR for the PVU, RVU and WVU flags for at most 15000 iterations. If the wait times out it sets bit 2 (0x4) in the 16-bit status word at +0x194 of that object, otherwise it clears the bit. It writes 4000 to IWDG_WINR, so the window equals the reload and imposes no early-refresh limit, then reloads the counter with 0xAAAA. With a LSI of about 32 kHz the timeout is roughly 4 s.",
+  "category": "watchdog",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "The 4 s figure assumes a 32 kHz LSI, which is the STM32G0 nominal value. The bit at +0x194 is written but its meaning is not decoded here."
+ },
+ "bms_4168_0800a3c8": {
+  "name": "bms_tim6_update_flag_poll",
+  "summary": "Return true if TIM6 has an update flag pending, and clear it",
+  "description": "Checks and clears the TIM6 update flag. It calls bms_request_is_done with the TIM6 instance pointer, which returns bit 0 of the word at offset 0x10 (TIM6_SR, the UIF bit). If that bit is set it calls bms_request_reset, which writes 0xFFFFFFFE to the same word and so clears UIF. The routine returns true only when the flag was set. It is a non-blocking poll, and TIM6 is configured as a 10 Hz timer by bms_tim6_tim7_start.",
+  "category": "timer",
+  "params": [],
+  "returns": {"type": "bool", "description": "true when UIF was set; the flag is cleared by the call"},
+  "confidence": "high",
+  "notes": "The helpers take the TIM instance pointer as a request block, so the status word is TIM6_SR by address offset."
+ },
+ "bms_4168_0800a3e8": {
+  "name": "bms_tim6_tim7_start",
+  "summary": "Configure TIM6 as a polled 10 Hz timer and TIM7 as a 1 kHz update interrupt",
+  "description": "Sets up two basic timers from the 16 MHz clock. It calls a fill helper (FUN_08001246, not described here) on a 20-byte init block, enables the APB1 clocks for TIM6 (0x10) and TIM7 (0x20), and programs TIM6 with PSC 1599 and ARR 999, which gives 10 Hz. TIM6 gets ARR preload, master/slave mode off, reset trigger output, and its update flag cleared before the counter starts. For TIM7 it sets NVIC priority 1 on IRQ 18 and enables that IRQ through NVIC ISER bit 18, then programs PSC 15 and ARR 999 for 1 kHz, sets DIER.UIE to request an update interrupt each millisecond, clears the flag and starts the counter.",
+  "category": "timer",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The 16 MHz clock is assumed from bms_sysclk_hse_pll_bringup. IRQ 18 is TIM7_LPTIM2 in the STM32G0 vector table, and its handler is not in this packet. FUN_08001246 is not described here."
+ },
+ "bms_4168_0800a4b4": {
+  "name": "bms_tim6_tim7_stop",
+  "summary": "Stop TIM6 and TIM7, reset both timers and disable IRQ 18",
+  "description": "Undoes bms_tim6_tim7_start. For each of TIM6 and TIM7 it calls LL_TIM_DisableCounter and then LL_TIM_DeInit, which pulses the RCC reset line. It writes 0x40000 to NVIC ICER0 (0xE000E180) to disable IRQ 18, then runs a DSB and an ISB so the disable has taken effect before the function returns.",
+  "category": "timer",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "bms_4168_0800a680": {
+  "name": "bms_usart3_stop",
+  "summary": "Disable the USART3 RX-not-empty interrupt and reset USART3",
+  "description": "Turns off USART3 reception and resets the peripheral. It calls bms_usart3_rxne_irq_set(0) to clear CR1.RXFNEIE and then LL_USART_DeInit(USART3), which pulses the RCC reset line. The previous interrupt state returned by the setter is ignored.",
+  "category": "uart",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "bms_4168_0800a6f4": {
+  "name": "bms_rtc_wakeup_period_set",
+  "summary": "Arm the RTC wake-up timer for 1 to 31 seconds with RTC_TAMP IRQ priority 1",
+  "description": "Sets a periodic RTC wake-up interrupt. The argument is clamped to 1 to 31 (0 becomes 1, values above 31 become 31). The wake-up counter is clamp * 2000 when DAT_20000690 is 0, which suits LSI divided by 16 (about 2 kHz), and clamp << 11 when it is nonzero, which suits LSE divided by 16 (2048 Hz), so the period is about clamp seconds either way. It sets priority 1 (preempt 1, sub 0) on IRQ 2 (RTC_TAMP) through the priority helper at 0x080022B0, enables IRQ 2 through __NVIC_EnableIRQ, and starts the wake-up timer through the helper at 0x08002470 with the RTC handle at 0x20005D00, the counter and clock select 0 (RTCCLK / 16).",
+  "category": "rtc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "requested period in seconds, clamped to 1 to 31"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The role of FUN_08002470 is inferred from its arguments and is not described in this packet. The LSE flag at 0x20000690 is taken from its use here only."
+ },
+ "bms_4168_0800a73c": {
+  "name": "bms_rtc_wakeup_stop",
+  "summary": "Stop the RTC wake-up timer by calling helper 0x08002348 on the RTC handle",
+  "description": "Calls the helper at 0x08002348 with the RTC handle at 0x20005D00 and does nothing else. The helper is not described in this packet. It is most likely the HAL RTC wake-up deactivation routine, which pairs with bms_rtc_wakeup_period_set, but that is inferred from the single handle argument.",
+  "category": "rtc",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "low",
+  "notes": "Identity of the helper at 0x08002348 is unconfirmed."
+ },
+ "bms_4168_0800a7c8": {
+  "name": "bms_extflash_journal_init",
+  "summary": "Reset ten 20-byte slot records, then validate two 12-byte external flash headers",
+  "description": "Initialises the software state for external-flash journalling. It loops over ten 20-byte slot records starting at RAM 0x200013A0. In each record byte +0 is set to 1, byte +1 is cleared, and the words at +4, +8, +0xC and +0x10 are cleared. It then clears 0x20001340 to 0x20001345 and the word at 0x2000133C. It reads a 12-byte header from external SPI memory at address 0x000000 into 0x20001348 with bms_extflash_read (u32 counter, then two u32 pointers at 0x2000134C and 0x20001350). If the counter exceeds 3000, or either pointer lies outside 0x010000 to 0x267FFF, the RAM copy is reset to counter 0 and both pointers to 0x10000. A second header read from address 0x001000 into 0x20001354 is checked the same way, with a counter limit of 0x4400, pointer range 0x280000 to 0x38FFFF and default 0x280000. Only the RAM copies are reset, not the flash contents.",
+  "category": "app",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The meaning of the slot flags and the journal layout are inferred from the field sizes and range checks. Caller chain includes bms_4168_08008724."
+ },
+ "bms_4168_0800aa5c": {
+  "name": "bms_pc7_enable_and_settle",
+  "summary": "Drive PC7 high, wait 2000 units, reload the watchdog, wait 1000 more units",
+  "description": "Enables the device on GPIOC pin 7 and waits for it to settle. It sets GPIOC.BSRR bit 7 (0x80) to drive PC7 high, waits 2000 units through bms_systick_wait_repeat, reloads the independent watchdog with LL_IWDG_ReloadCounter between the two waits, and then waits 1000 more units. If one unit is 1 ms, as DAT_20000688 * 1000 SysTick counts suggests, the total is about 3 s. The device on PC7 is not identified in this packet.",
+  "category": "power",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The 1 ms unit size and the GPIOC base address are inferred. The purpose of the device on PC7 is unknown."
+ },
+ "bms_4168_0800b8ac": {
+  "name": "bms_pa5_drive_level",
+  "summary": "Drive GPIOA pin 5 high for a nonzero argument, low for zero",
+  "description": "Thin wrapper that sets the level of GPIOA pin 5. A nonzero argument calls gpio_pa5_set (BSRR) and zero calls gpio_pa5_reset (BRR). It changes no other state.",
+  "category": "gpio",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "nonzero drives PA5 high, zero drives it low"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "bms_4168_0800b8c0": {
+  "name": "bms_ntc_adc_to_celsius",
+  "summary": "Convert ADC channel 0 reading to degrees C through a 151-entry lookup table",
+  "description": "Takes a sample from the helper at 0x08008A18 with argument 0 and returns -30 when the sample is above 3299. Otherwise it forms the ratio (sample * 1000) / (3300 - sample) with the helper at 0x0800113C, which is a divide-with-remainder routine. It then searches the u16 table at flash 0x080108C4 linearly, from entry 1 upward, for the first entry not greater than the ratio. The result is the index minus 30, which covers roughly -30 to +120 C in 1 degree steps. The -30 return for an out-of-range sample is indistinguishable from a real -30 C reading.",
+  "category": "adc",
+  "params": [],
+  "returns": {"type": "s8", "description": "temperature in degrees C, about -30 to +120; -30 also marks an out-of-range sample"},
+  "confidence": "medium",
+  "notes": "The divider and NTC interpretation is inferred from the 3300 constant and the table. The helpers at 0x08008A18 and 0x0800113C are not described in this packet."
+ },
+ "bms_4168_0800b904": {
+  "name": "bms_record_queue_flush",
+  "summary": "Empty the 256-entry record queue and set the handler word at 0x20000684",
+  "description": "Discards every queued record. It copies the write index at 0x20004418 into the read index at 0x2000441A, so the queue reads as empty, and then stores the code address of LAB_08005A6C into RAM word 0x20000684 through bms_app_value_684_set. That word is presumably a handler pointer called by the queue consumer, but the consumer is not in this packet.",
+  "category": "app",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Caller is bms_4168_08007f18. The use of the pointer at 0x20000684 is inferred."
+ },
+ "bms_4168_0800b91c": {
+  "name": "bms_record_queue_pop",
+  "summary": "Pop the oldest 24-byte record from the 256-slot queue at 0x20002C18; 0 if empty",
+  "description": "Dequeues one record. The queue has 256 slots of 24 bytes at 0x20002C18, which end at the write index 0x20004418, and the read index at 0x2000441A wraps after 255. If the indexes are equal it returns 0. Otherwise it reads the six u32 fields of the slot, clears them, advances the read index, and writes the output record at param_1: field 3 at +0, a bool from field 1 at +4, a bool from field 2 at +5, the length byte from field 0 at +6, and up to 8 payload bytes copied from fields 4 and 5 to +7 with memcpy. The output layout (ID at +0, flags at +4 and +5, DLC at +6, data at +7) matches what bms_rx_frame_7f0_7f1 reads, so the queue holds received frames.",
+  "category": "app",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "output frame record, at least 15 bytes"}
+  ],
+  "returns": {"type": "bool", "description": "1 when a record was dequeued, 0 when the queue was empty"},
+  "confidence": "medium",
+  "notes": "The length byte is not clamped to 8 before memcpy, so a corrupted slot can copy more than the payload field holds. The producer is not in this packet."
+ },
+ "bms_4168_0800b9a8": {
+  "name": "bms_frame_send_when_ready",
+  "summary": "Submit one message, waiting up to 5 time-base ticks for the transmit path to free up",
+  "description": "Builds a small local message block from param_1 and param_3, takes a time stamp with bms_tick_get, and polls the busy check FUN_08008BFC while bms_tick_timeout_check has not expired after 5 ticks. It then calls FUN_08008C14 with the block to submit. A timeout is not reported: the submit is attempted anyway and the routine returns nothing. The block is initialised with memcpy (FUN_08001214) on an argument list not fully recovered from the decompile.",
+  "category": "protocol",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "message word stored into the local block"},
+   {"name": "param_2", "type": "u32", "description": "not used by the routine"},
+   {"name": "param_3", "type": "u32", "description": "second message word stored into the local block"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "FUN_08008BFC (busy check) and FUN_08008C14 (submit) are not described in this packet, so the send semantics are inferred from the loop shape. Callers include bms_4168_0800e9dc and bms_4168_0800f8e0."
+ },
+ "bms_4168_0800b9f2": {
+  "name": "bms_record_send_multiframe",
+  "summary": "Send a queued record in up to 8-byte frames, advancing its address between frames",
+  "description": "Transmits a record in the bms_record_queue_pop layout: a word at +0, flags at +4 and +5, length at +6 and payload from +7. When param_4 is 1, it loops over the payload in pieces of min(remaining, 8) bytes, copying each piece to a local 8-byte frame buffer with memcpy, waiting for the transmit path as in bms_frame_send_when_ready, and submitting the frame through FUN_08008C14. Between frames the payload pointer advances by 8 and the remaining length drops by 8, and when param_2 is nonzero the word at +0 advances by 4 << (param_3 & 0xFF). The loop stops at the first failed submit or when the length is used up. param_4 of 2 returns success without sending, and any other mode returns 0.",
+  "category": "protocol",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "record to send, in the queue record layout"},
+   {"name": "param_2", "type": "s32", "description": "nonzero: advance the word at +0 between frames"},
+   {"name": "param_3", "type": "u32", "description": "address step exponent: the step is 4 << param_3"},
+   {"name": "param_4", "type": "s32", "description": "mode: 1 sends, 2 succeeds without sending, other values fail"}
+  ],
+  "returns": {"type": "bool", "description": "1 when every submitted frame was accepted, otherwise 0"},
+  "confidence": "medium",
+  "notes": "The meaning of the address word at +0 (destination address or ID) is not confirmed. FUN_08008C14 is outside this packet."
+ },
+ "bms_4168_0800baa0": {
+  "name": "bms_extflash_sector_erase",
+  "summary": "Erase one 4 KB external flash sector with 0x20 after WREN and a ready wait",
+  "description": "Erases the 4 KB sector whose index is the low 12 bits of param_1. It asserts the chip select on PD3 (GPIOD BRR bit 3 low, BSRR bit 3 high to release), and sends WREN (0x06), then waits with bms_extflash_wait_ready. It then sends the sector-erase command 0x20 followed by a 24-bit address built as sector << 12, using the bytes sector >> 4, (sector & 0xF) << 4 and 0. The command set matches the W25Q-style SPI NOR family, but the part is not identified in the packet.",
+  "category": "flash",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "sector index; only the low 12 bits are used"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "PD3 as the chip select is inferred from the GPIOD base address. Callers are bms_4168_08003a50 and bms_4168_08005768."
+ },
+ "bms_4168_0800baec": {
+  "name": "bms_extflash_wip_poll",
+  "summary": "Read the external flash status once; return 1 while a write is still in progress",
+  "description": "Makes one poll of the external flash busy state. It copies the 16-bit value from bms_u16_2000067e_get into RAM bytes 0x2000062A and 0x2000062B, then sends RDSR (0x05) with PD3 asserted and reads one status byte. It returns 1 only when the WIP bit (bit 0) is set and the saved value is nonzero, meaning keep waiting. When WIP is clear and the saved value is nonzero it clears DAT_2000062C and returns 0. In every other case, including a zero saved value, DAT_2000062C is set to 1 and the routine returns 0.",
+  "category": "flash",
+  "params": [],
+  "returns": {"type": "bool", "description": "1 while busy with a nonzero saved value, otherwise 0"},
+  "confidence": "medium",
+  "notes": "The meaning of the 16-bit value at 0x2000067E and of the flag at 0x2000062C is not established in this packet."
+ },
+ "bms_4168_0800bb3c": {
+  "name": "bms_extflash_read",
+  "summary": "Read N bytes from external SPI flash at a 24-bit address using command 0x03",
+  "description": "Reads param_3 bytes starting at the 24-bit address param_2 into the buffer at param_1. It asserts PD3, sends READ DATA (0x03), then sends the address bytes from bits 23:16, 15:8 and 7:0, and clocks out 0xFF per byte, storing each received byte through a 16-bit index. PD3 is released at the end. The routine does not check the WIP bit or the bus status before reading.",
+  "category": "flash",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "destination buffer"},
+   {"name": "param_2", "type": "u32", "description": "24-bit flash address; the upper byte is ignored"},
+   {"name": "param_3", "type": "u32", "description": "byte count; values above 0xFFFF never terminate the loop"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "Callers in the packet use a count of 12. A count of 0x10000 or more makes the 16-bit index wrap, so the loop never exits, which is a latent hang."
+ },
+ "bms_4168_0800bb88": {
+  "name": "bms_extflash_read_device_id",
+  "summary": "Read the manufacturer and device ID with command 0x90 and return them as a u16",
+  "description": "Sends the Read Manufacturer/Device ID command 0x90 with PD3 asserted, followed by three zero address bytes, then reads two bytes: the manufacturer ID first and the device ID second. It returns them packed with the manufacturer in the high byte and the device in the low byte. The IDs are not checked against a table here.",
+  "category": "flash",
+  "params": [],
+  "returns": {"type": "u16", "description": "(manufacturer << 8) | device ID"},
+  "confidence": "high",
+  "notes": "Caller is bms_4168_08008724."
+ },
+ "bms_4168_0800bbc4": {
+  "name": "bms_extflash_wait_ready",
+  "summary": "Poll external flash status (0x05) until WIP clears, bounded by the 16-bit word at 0x2000067C",
+  "description": "Waits for the external flash to finish an internal write or erase. It starts a retry budget of 500 (0x01F4) at RAM 0x20000628, calls bms_u16_2000067c_set, then loops: it sends RDSR (0x05) with PD3 asserted and reads the status byte, and exits when WIP (bit 0) clears. While WIP stays set, the budget is reloaded from the 16-bit value returned by bms_u16_2000067c_get, so the loop continues as long as that value is nonzero, and a zero budget ends the wait early. DAT_2000062C ends as 1 if the budget is zero at exit and 0 otherwise.",
+  "category": "flash",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The argument passed to bms_u16_2000067c_set is not recovered from the decompile. The 0x2000067C value is assumed to be a countdown decremented elsewhere, which is not in this packet. Callers include bms_4168_0800baa0 and bms_4168_0800bd88."
+ },
+ "bms_4168_0800bd88": {
+  "name": "bms_extflash_page_program",
+  "summary": "Program N bytes into external flash with WREN and command 0x02, split at 256-byte boundaries",
+  "description": "Writes param_3 bytes from the RAM buffer param_1 to external flash at address param_2. Each piece is the smaller of the remaining length and the distance to the next 256-byte boundary. For each piece it sends WREN (0x06), then PAGE PROGRAM (0x02) with the 24-bit address and the data bytes, all with PD3 asserted, then waits for completion with bms_extflash_wait_ready. The buffer and address advance by the piece length until the count is used up. The routine does not read back or verify the data, and it does not check the status register for program errors.",
+  "category": "flash",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "source data buffer in RAM"},
+   {"name": "param_2", "type": "u32", "description": "24-bit destination flash address"},
+   {"name": "param_3", "type": "u32", "description": "byte count"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "Caller bms_4168_0800bc20 is not described in this packet. The 256-byte page size is the standard value for this command family."
+ },
+ "bms_4168_0800c380": {
+  "name": "bms_prot_debounce_quad",
+  "summary": "Run four debounced protection timers over a measurement record and update latch bits",
+  "description": "Per-tick evaluator for four debounced conditions. param_2 points to the sampled 16-bit measurements (fields at +2, +4, +6 and +0x12), and param_3 is the elapsed time added to the timers. Each timer (DAT_200004CC, DAT_200004D0, DAT_200004D4, DAT_200004D8) accumulates param_3 while its trigger test holds and resets to 0 otherwise, and is held at 0 while its own latch bit is set. When the first timer reaches DAT_200004E0 it clamps, sets 0x100 in the status word at +0x126 and sets 0x10 in DAT_200004C8. The second timer uses DAT_200004EC and sets 0x80 at +0x126 and 0x20 in DAT_200004C8, while the third, against DAT_200004F8, sets 0x2 in DAT_200004C8 and 0x2000 at +0x124. The fourth, against DAT_200004FC, clears that 0x2 latch and the 0x2000 status bit once the condition has cleared.",
+  "category": "protection",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "not used by the routine"},
+   {"name": "param_2", "type": "ptr", "description": "sampled measurement record with 16-bit fields at +2, +4, +6 and +0x12"},
+   {"name": "param_3", "type": "s32", "description": "elapsed time added to each accumulator per call"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The trigger thresholds (DAT_200004DC, E4, E8, F0, F4, F5) and the meanings of the sampled fields are not identified in this packet. Latch bits 0x10 and 0x20 are set here and never cleared here. The object is from bms_ram_20000bdc_addr."
+ },
+ "bms_4168_0800ce78": {
+  "name": "bms_prot_latch_pairs_update",
+  "summary": "Update seven debounced set/clear timer pairs and mirror the latch word into status bits",
+  "description": "Per-tick fault-latch engine for all four firmware builds. It first copies four flag bits from param_2 (bits 5, 4, 3 and 2) into the latch word DAT_20000258 as 0x4, 0x40, 0x800 and 0x8000. It then runs seven set/clear timer pairs with accumulators from DAT_20000F90 to DAT_20001024, in 8-byte pairs, each pair latching a bit in DAT_20000258 (0x2, 0x10, 0x400, 0x2000, 0x80000, 0x200000 or 0x800000). A pair's set timer accumulates param_3 while its trigger test holds and latches when it reaches its limit, and its clear timer releases the latch the same way. Each pair is held off while its own latch bit is set. Finally it rewrites the bit fields of the status halfwords at +0x124, +0x126, +0x196 and +0x198 of the object from bms_ram_20000bdc_addr from the latch word.",
+  "category": "protection",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "sampled measurement record with 16-bit fields at +2, +4, +6, +8 and +0x12"},
+   {"name": "param_2", "type": "s32", "description": "flag word; bits 2 to 5 are the four input flags"},
+   {"name": "param_3", "type": "s32", "description": "elapsed time added to each accumulator per call"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Pair thresholds and the exact trigger tests are not identified, and the bit mapping of the rewritten status fields is only partly decoded. Consumers of the status bits are outside this packet."
+ },
+ "bms_4139_0800c560": {
+  "name": "bms_prot_latch_pairs_update_alt",
+  "summary": "BMS_4130/4139 variant of the latch-pair update: seven timer pairs and latch word 0x2000019C",
+  "description": "Per-tick fault evaluator for the BMS_4130 and BMS_4139 builds, structured like bms_prot_latch_pairs_update but with its own sensor set. It takes a status record (param_1, with 16-bit fields at +2 and +4), a sample record (param_2, with words at +0, +4 and +8 and a 16-bit field at +0xE), the flag word param_3 and the elapsed time param_4. Flag bit 0 sets latch 0x8 and bit 1 sets 0x1000 in DAT_2000019C. Seven set/clear timer pairs at DAT_20000E24 to DAT_20000E80 latch the bits 0x2, 0x40, 0x400, 0x4000, 0x20000 and 0x80000 in that word, with the first two pairs sharing latch 0x2. In modes 6, 7 and 8 of DAT_20000014, a hysteresis on the field at param_1+2 (below 6 selects DAT_2000020C, from 6 to 10 keeps the previous choice, above 10 selects DAT_20000200) chooses the threshold; other modes use DAT_20000200. The latch word is written back into the status halfwords at +0x124, +0x126, +0x194 and +0x198.",
+  "category": "protection",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "status record with 16-bit fields at +2 and +4"},
+   {"name": "param_2", "type": "ptr", "description": "sample record with u32 words at +0, +4 and +8 and a 16-bit field at +0xE"},
+   {"name": "param_3", "type": "u32", "description": "flag word; bit 0 sets latch 0x8, bit 1 sets latch 0x1000"},
+   {"name": "param_4", "type": "s32", "description": "elapsed time added to each accumulator per call"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Threshold and sensor meanings are not identified in this packet. Callers are bms_4139_08006f08 only. The helper FUN_0800B3E4 is taken to be bms_ram_20000bdc_addr for this build."
+ },
+ "bms_4139_0800c950": {
+  "name": "bms_telemetry_block_fill",
+  "summary": "Fill telemetry block 0 to 10 of the 176-byte frame at 0x20001B90 and write its check word",
+  "description": "Fills one 16-byte block of the telemetry frame at RAM 0x20001B90. Each block has a 32-bit check word at +0, written last from FUN_080097E8, and data from +7. A switch on param_1 selects the content: blocks 0, 2, 5 and 6 copy 16-bit and 8-bit fields from the state object returned by bms_ram_20000bdc_addr; block 1 writes a 16-bit value as four ASCII hex digits; block 3 packs flag bits into two 16-bit words; block 4 maps eight signed 16-bit values at object +0x12C to bytes (value + 0x32, 0xFF for a sample of 0xFF, 0xFD below -29, and 0xFE at 121 and above); blocks 7 and 8 take 8-byte pieces of a 14-byte staging copy at 0x20001C40 made from object +4; block 9 stores the packed RTC date and time from bms_4168_08009d84; and block 10 writes fields and status bits.",
+  "category": "protocol",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "block index, 0 to 10"},
+   {"name": "param_2", "type": "u32", "description": "not used by the routine"},
+   {"name": "param_3", "type": "u32", "description": "not used by the routine"},
+   {"name": "param_4", "type": "u32", "description": "not used by the routine"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The check word comes from FUN_080097E8, which is outside this packet. The field-by-field content of blocks 0, 2, 3, 5, 6 and 10 is recorded only at the level of byte offsets."
+ },
+ "bms_4139_0800cebc": {
+  "name": "bms_rx_frame_7f0_7f1",
+  "summary": "Receive hook for IDs 0x7F0 and 0x7F1: latch one byte-1 bit selected by the module state",
+  "description": "Receive handler for frames with ID 0x7F0 or 0x7F1 that always returns 1, meaning the frame is consumed. It accepts only frames whose flag byte at +4 is zero and whose DLC at +6 is at least 2, then reads data byte 1 at +7 (same layout as bms_record_queue_pop). The 16-bit state value at +2 of the object from bms_ram_20000bdc_addr selects which bit is tested: state 7 tests bit 2, state 6 tests bit 3 and state 5 tests bit 4, and any other state returns at once. A clear bit sets DAT_200004FC to 1. A set bit sets DAT_200004FC to 2 and stores the result of FUN_080097E8 in DAT_20000500.",
+  "category": "protocol",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "received frame record: ID u32 at +0, flags at +4, DLC at +6, data from +7"}
+  ],
+  "returns": {"type": "bool", "description": "always 1: the frame is consumed"},
+  "confidence": "medium",
+  "notes": "No direct caller is in the packet, so the routine is presumably registered as a receive callback. The meaning of the state value and of the 0x7F0/0x7F1 frames is not identified. FUN_080097E8 is outside this packet."
+ }
+}

@@ -97,13 +97,19 @@ def cmd_decompile(args) -> int:
 def cmd_families(args) -> int:
     from . import families
 
+    rc = 0
     for comp in args.component or sorted(config.COMPONENTS):
         if not (config.ANALYSIS_DIR / "export" / comp).exists():
             continue
         payload = families.build(comp)
+        if args.check:
+            ok = families.check(comp, payload)
+            print(f"{comp}: {'up to date' if ok else 'STALE - committed families differ from a rebuild'}")
+            rc |= 0 if ok else 1
+            continue
         families.write(comp, payload)
         print(comp, json.dumps(payload["stats"], indent=1))
-    return 0
+    return rc
 
 
 def cmd_plan(args) -> int:
@@ -115,6 +121,17 @@ def cmd_plan(args) -> int:
         for p in paths:
             print("  ", p.relative_to(config.REPO_ROOT))
     return 0
+
+
+def cmd_doctor(args) -> int:
+    from . import doctor
+
+    findings = doctor.run(ci=args.ci)
+    for f in findings:
+        print(f)
+    gating = [f for f in findings if f.code in doctor.GATING]
+    print(f"doctor: {len(findings)} findings, {len(gating)} gating")
+    return 1 if gating else 0
 
 
 def cmd_lint(args) -> int:
@@ -181,10 +198,18 @@ def cmd_apply(args) -> int:
 def cmd_docs(args) -> int:
     from . import docgen
 
+    rc = 0
     for comp in args.component or sorted(config.COMPONENTS):
+        if not (config.ANALYSIS_DIR / "families" / f"{comp}.json").exists():
+            continue
+        if args.check:
+            diffs = docgen.check_component(comp)
+            print(f"{comp}: {'docs up to date' if not diffs else 'STALE: ' + ', '.join(diffs[:6])}")
+            rc |= 1 if diffs else 0
+            continue
         for p in docgen.build_component(comp):
             logging.info("wrote %s", p.relative_to(config.REPO_ROOT))
-    return 0
+    return rc
 
 
 def cmd_validate(args) -> int:
@@ -264,6 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("families", help="merge VT matches into cross-version function/global families")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
+    s.add_argument("--check", action="store_true", help="regenerate in memory and compare with the committed file")
     s.set_defaults(fn=cmd_families)
 
     s = sub.add_parser("plan", help="write annotation work packets (markdown) for subagents")
@@ -273,6 +299,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--replan", action="store_true",
                    help="ignore existing packets (DANGEROUS while agents work on them)")
     s.set_defaults(fn=cmd_plan)
+
+    s = sub.add_parser("doctor", help="freshness / ownership / orphan gate (no Ghidra needed)")
+    s.add_argument("--ci", action="store_true", help="skip checks that need the Ghidra project")
+    s.set_defaults(fn=cmd_doctor)
 
     s = sub.add_parser("lint", help="style/hygiene lint of annotation text (errors fail)")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
@@ -295,6 +325,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("docs", help="generate markdown docs under docs/")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
+    s.add_argument("--check", action="store_true", help="regenerate in memory and fail if docs/ differs")
     s.set_defaults(fn=cmd_docs)
 
     s = sub.add_parser("validate", help="validate one annotation JSON file (use before finishing a work packet)")

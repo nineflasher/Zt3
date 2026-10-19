@@ -1,0 +1,147 @@
+# Ownership manifest: every tracked path must match exactly one rule.  `zt3 doctor` enforces it.
+# producer = what writes the files, consumer = what reads them.  "hand" means a person/agent edits them.
+
+[[rule]]
+glob = "firmware/*/*.bin"
+class = "firmware"
+producer = "hand (scooter firmware dumps)"
+consumer = "zt3 import; zt3 export (sha256 provenance)"
+
+[[rule]]
+glob = "src/zt3re/**/*.py"
+class = "source"
+producer = "hand"
+consumer = "zt3 CLI, tests/"
+
+[[rule]]
+glob = "src/zt3re/data/hw/*.h"
+class = "hw-header"
+producer = "tools/svd2hw.py"
+consumer = "zt3re.enrich (Ghidra C parser), tests/ghidra/verify_artery.py"
+
+[[rule]]
+glob = "src/zt3re/data/hw/*.json"
+class = "hw-data"
+producer = "tools/svd2hw.py"
+consumer = "zt3re.enrich, zt3re.cortexm, zt3re.hwmap, tests/ghidra/verify_artery.py"
+
+[[rule]]
+glob = "src/zt3re/data/hw/svd/*"
+class = "hw-source"
+producer = "vendor (see svd/SOURCES.md)"
+consumer = "tools/svd2hw.py"
+
+[[rule]]
+glob = "src/zt3re/data/hw/README.md"
+class = "doc-hand"
+producer = "hand"
+consumer = "people"
+
+[[rule]]
+glob = "tools/*.py"
+class = "tool"
+producer = "hand"
+consumer = "Makefile targets"
+
+[[rule]]
+glob = "tests/**/*.py"
+class = "test"
+producer = "hand"
+consumer = "pytest / make test"
+
+[[rule]]
+glob = "analysis/export/*/*.json"
+class = "analysis-export"
+producer = "zt3 export"
+consumer = "zt3 families, zt3 plan, zt3 check, zt3 docs"
+
+[[rule]]
+glob = "analysis/matches/*/*.json"
+class = "analysis-match"
+producer = "zt3 match (Ghidra Version Tracking)"
+consumer = "zt3 families"
+
+[[rule]]
+glob = "analysis/families/*.json"
+class = "analysis-families"
+producer = "zt3 families"
+consumer = "zt3 plan, validate, check, apply, docs"
+
+[[rule]]
+glob = "analysis/plan/*.issued.txt"
+class = "plan-state"
+producer = "zt3 issue"
+consumer = "zt3 plan"
+
+[[rule]]
+glob = "analysis/plan/*.revisions.txt"
+class = "plan-state"
+producer = "hand (corrections reported by later waves)"
+consumer = "zt3 plan --review (post-wave review pass)"
+
+[[rule]]
+glob = "annotations/*/functions/*.json"
+class = "annotation"
+producer = "annotation agents (one file per work packet)"
+consumer = "zt3 validate/lint/check/apply/docs"
+
+[[rule]]
+glob = "annotations/*/{globals,tables}/*.json"
+class = "annotation"
+producer = "annotation agents"
+consumer = "zt3 validate/check/apply/docs"
+
+[[rule]]
+glob = "annotations/*/{types,module}.json"
+class = "annotation"
+producer = "annotation agents / hand"
+consumer = "zt3 apply, zt3 docs"
+
+[[rule]]
+glob = "docs/*/README.md"
+class = "doc-generated"
+producer = "zt3 docs"
+consumer = "people"
+
+[[rule]]
+glob = "docs/*/{data,types,versions,hardware}.md"
+class = "doc-generated"
+producer = "zt3 docs"
+consumer = "people"
+
+[[rule]]
+glob = "docs/*/functions/*.md"
+class = "doc-generated"
+producer = "zt3 docs"
+consumer = "people"
+
+[[rule]]
+glob = "docs/*/architecture.md"
+class = "doc-hand"
+producer = "hand (architecture analysis agents)"
+consumer = "people"
+
+[[rule]]
+glob = "docs/*.md"
+class = "doc-hand"
+producer = "hand"
+consumer = "people; zt3 doctor checks literals and links"
+
+[[rule]]
+glob = "docs/briefs/*.md"
+class = "doc-brief"
+producer = "hand"
+consumer = "annotation agents (read at the start of every work packet)"
+allow_absolute_paths = true   # agents need concrete interpreter/CLI paths
+
+[[rule]]
+glob = "{README.md,Makefile,pyproject.toml,MANIFEST.toml,.gitignore,LICENSE}"
+class = "config"
+producer = "hand"
+consumer = "people, pip, make, zt3 doctor"
+
+[[rule]]
+glob = ".github/workflows/*.yml"
+class = "ci"
+producer = "hand"
+consumer = "GitHub Actions"
