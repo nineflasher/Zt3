@@ -1,12 +1,10 @@
 # BMS - `util` functions
 
-36 functions.
+39 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`bms_4139_dual_bank_step`](#bms_4139_dual_bank_step) | (removed) | Advance the active accumulator bank, dispatch its handler and flip banks after an accepted frame |
-| [`bms_call_0800e748`](#bms_call_0800e748) | 0x08007FFE | Tail-call thunk to bms_4168_0800e748 (not described in this packet) |
-| [`bms_call_0800fabc`](#bms_call_0800fabc) | 0x08008780 | Tail-call thunk to bms_4168_0800fabc (not described in this packet) |
 | [`bms_copy_bytes8`](#bms_copy_bytes8) | 0x08003700 | Copy exactly 8 bytes from source to destination, unrolled |
 | [`bms_counter_accumulate`](#bms_counter_accumulate) | 0x080021B4 | Adds the step word at 0x20000698 into the 32-bit counter at 0x200006a0 |
 | [`bms_dispatch_current_thunk`](#bms_dispatch_current_thunk) | 0x08008778 | Thunk that runs the current handler through bms_dispatch_call_current |
@@ -19,14 +17,17 @@
 | [`bms_get_uid_word0`](#bms_get_uid_word0) | 0x08002190 | Returns word 0 of the 96-bit factory unique device ID |
 | [`bms_get_uid_word1`](#bms_get_uid_word1) | 0x0800219C | Returns word 1 of the 96-bit factory unique device ID |
 | [`bms_get_uid_word2`](#bms_get_uid_word2) | 0x080021A8 | Returns word 2 of the 96-bit factory unique device ID |
+| [`bms_get_uid_word_by_index`](#bms_get_uid_word_by_index) | 0x0800A210 | Return factory UID word 0, 1 or 2 by index; 0 for any other index |
 | [`bms_get_word_20001354`](#bms_get_word_20001354) | 0x080106BC | Return the 32-bit RAM word at 0x20001354 |
 | [`bms_indirect_nibble_get`](#bms_indirect_nibble_get) | 0x08009D74 | Return the low nibble of the byte that the RAM pointer at 0x20005D00 points to |
 | [`bms_lzrle_decompress`](#bms_lzrle_decompress) | 0x08001310 | Decodes a byte-oriented LZ/RLE stream of literals, zero runs and short back-references |
+| [`bms_mode_match`](#bms_mode_match) | 0x0800F26E | Return 1 when the state block mode at +2 equals the argument, treating 6 as a wildcard |
 | [`bms_noop_hook_08009a98`](#bms_noop_hook_08009a98) | 0x08009A98 | Empty hook: returns immediately with no side effects |
 | [`bms_noop_hook_08009a9a`](#bms_noop_hook_08009a9a) | 0x08009A9A | Empty hook: returns immediately with no side effects |
 | [`bms_rand_next`](#bms_rand_next) | 0x08001164 | Advances the LCG seed in RAM word 0x200006A8 and returns 31 pseudo-random bits |
 | [`bms_record12_addr`](#bms_record12_addr) | 0x0800CE3C | Return the address of 12-byte record N in the table at 0x20000264 |
 | [`bms_record_store_from_state`](#bms_record_store_from_state) | 0x08007FC0 | Store selected state-block fields into the record at 0x200024CC through bms_record_set_or_clear |
+| [`bms_reply_buffer_get`](#bms_reply_buffer_get) | 0x0800E2A8 | Return the 24-byte reply buffer at 0x20002BFE, clearing it while the busy flag is clear |
 | [`bms_request_is_done`](#bms_request_is_done) | 0x08003070 | Returns bit 0 of the request block's status word at offset 0x10 |
 | [`bms_request_reset`](#bms_request_reset) | 0x08002E84 | Clears the done bit of a request block by writing 0xFFFFFFFE to its word at offset 0x10 |
 | [`bms_rotate_word_bytes`](#bms_rotate_word_bytes) | 0x0800325C | Rotates the 4 bytes at param_1 by (param_2 & 3) positions, as in an AES RotWord step |
@@ -36,6 +37,8 @@
 | [`bms_slot_table_find`](#bms_slot_table_find) | 0x08005EE4 | Find or allocate a 36-byte slot keyed by an 8-bit pair |
 | [`bms_state_ptr_cache_set`](#bms_state_ptr_cache_set) | 0x08007F8C | Cache the address of the BMS state block in the pointer at 0x20000018 |
 | [`bms_state_snapshot_submit`](#bms_state_snapshot_submit) | 0x08007F9C | Forward four 16-bit state-block fields and an argument to bms_4168_0800e820 |
+| [`bms_tail_call_unnamed_a`](#bms_tail_call_unnamed_a) | 0x08007FFE | Tail-call thunk to bms_4168_0800e748 (not described in this packet) |
+| [`bms_tail_call_unnamed_b`](#bms_tail_call_unnamed_b) | 0x08008780 | Tail-call thunk to bms_4168_0800fabc (not described in this packet) |
 | [`bms_u8_to_bcd`](#bms_u8_to_bcd) | 0x08003514 | Convert an 8-bit binary value to packed BCD |
 | [`bms_udiv32`](#bms_udiv32) | 0x08001110 | Unsigned 32-bit restoring division; returns the quotient |
 | [`crc16_usb_compute`](#crc16_usb_compute) | 0x08004DA4 | Bitwise CRC-16, reflected poly 0x8005, init 0xFFFF, final complement |
@@ -45,12 +48,12 @@
 
 **Advance the active accumulator bank, dispatch its handler and flip banks after an accepted frame**
 
-With param_2 equal to 0 it calls bms_app_state_reset_legacy. Otherwise it adds param_1 to the accumulator of the active bank (0x2000096C when DAT_20000116 is 0, else 0x20000868) and calls the handler taken from a flash function-pointer table at 0x0800F048, indexed by DAT_20000A61 for bank 0 or DAT_2000095D for bank 1, with param_1 and the bank's record address (0x20000968 or 0x20000864). Both accumulators are reset to 0 when they exceed 499. When DAT_20000120 is set (raised by bms_frame_parse_legacy_4139 for an accepted frame), it is cleared and the active bank in DAT_20000116 is toggled.
+With reset_request equal to 0 it calls bms_app_state_reset_legacy. Otherwise it adds step to the accumulator of the active bank (0x2000096C when DAT_20000116 is 0, else 0x20000868) and calls the handler taken from a flash function-pointer table at 0x0800F048, indexed by DAT_20000A61 for bank 0 or DAT_2000095D for bank 1, with step and the bank's record address (0x20000968 or 0x20000864). Both accumulators are reset to 0 when they exceed 499. When DAT_20000120 is set (raised by bms_frame_parse_legacy_4139 for an accepted frame), it is cleared and the active bank in DAT_20000116 is toggled.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `s32` | increment added to the active accumulator and passed to the handler |
-| `param_2` | `u32` | 0 selects the legacy state reset; nonzero runs the step |
+| `step` | `s32` | increment added to the active accumulator and passed to the handler |
+| `reset_request` | `u32` | 0 selects the legacy state reset; nonzero runs the step |
 
 **Notes:** The per-bank handlers in the flash table are not in this packet. The 499 wrap window may be a 500-tick period, which is a guess.
 
@@ -58,28 +61,6 @@ With param_2 equal to 0 it calls bms_app_state_reset_legacy. Otherwise it adds p
 - Called by: `bms_4139_08007238`
 - Calls: `bms_app_state_reset_legacy`
 - Confidence: medium
-
-## bms_call_0800e748
-
-**Tail-call thunk to bms_4168_0800e748 (not described in this packet)**
-
-Calls bms_4168_0800e748 with no arguments and returns. It is the only statement in the function and is called from the main-loop poll bms_4168_08010558. The callee is described in another packet.
-
-- Addresses by version: 4130: 0x08006FB6, 4139: 0x080074B6, 4148: 0x08007CF6, 4168: 0x08007FFE
-- Called by: `bms_4168_08010558`
-- Calls: `bms_4168_0800e748`
-- Confidence: high
-
-## bms_call_0800fabc
-
-**Tail-call thunk to bms_4168_0800fabc (not described in this packet)**
-
-Calls bms_4168_0800fabc with no arguments and returns. The target is described in another packet. It is called from the main-loop poll bms_4168_08010558.
-
-- Addresses by version: 4130: 0x08007734, 4139: 0x08007C34, 4148: 0x08008480, 4168: 0x08008780
-- Called by: `bms_4168_08010558`
-- Calls: `bms_4168_0800fabc`
-- Confidence: high
 
 ## bms_copy_bytes8
 
@@ -207,7 +188,7 @@ Returns the UID symbol, the first 32-bit word of the factory-programmed 96-bit u
 **Returns** `u32`: unique ID bits 31-0
 
 - Addresses by version: 4130: 0x08002190, 4139: 0x08002190, 4148: 0x08002190, 4168: 0x08002190
-- Called by: `bms_4168_0800a210`
+- Called by: `bms_get_uid_word_by_index`
 - Confidence: high
 
 ## bms_get_uid_word1
@@ -219,7 +200,7 @@ Reads DAT_1FFF7594, the second 32-bit word of the factory unique device ID (base
 **Returns** `u32`: unique ID bits 63-32
 
 - Addresses by version: 4130: 0x0800219C, 4139: 0x0800219C, 4148: 0x0800219C, 4168: 0x0800219C
-- Called by: `bms_4168_0800a210`
+- Called by: `bms_get_uid_word_by_index`
 - Confidence: high
 
 ## bms_get_uid_word2
@@ -231,7 +212,24 @@ Reads DAT_1FFF7598, the third 32-bit word of the factory unique device ID (base 
 **Returns** `u32`: unique ID bits 95-64
 
 - Addresses by version: 4130: 0x080021A8, 4139: 0x080021A8, 4148: 0x080021A8, 4168: 0x080021A8
-- Called by: `bms_4168_0800a210`
+- Called by: `bms_get_uid_word_by_index`
+- Confidence: high
+
+## bms_get_uid_word_by_index
+
+**Return factory UID word 0, 1 or 2 by index; 0 for any other index**
+
+Dispatches to the three unique-ID word readers. Index 0 returns bms_get_uid_word0, index 1 returns bms_get_uid_word1 and index 2 returns bms_get_uid_word2. Any other index returns 0. It has no side effects.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | word index, 0 to 2 |
+
+**Returns** `u32`: UID word for index 0 to 2, otherwise 0
+
+- Addresses by version: 4130: 0x080091B0, 4139: 0x080096B0, 4148: 0x08009EFC, 4168: 0x0800A210
+- Called by: `bms_4168_08003c3c`, `bms_4168_08008060`, `bms_4168_080082f0`
+- Calls: `bms_get_uid_word0`, `bms_get_uid_word1`, `bms_get_uid_word2`
 - Confidence: high
 
 ## bms_get_word_20001354
@@ -259,7 +257,7 @@ Loads the pointer stored at RAM 0x20005D00, reads the byte it points to, and ret
 **Notes:** Byte width is inferred from the masking; the decompiler does not show a type for the pointer target.
 
 - Addresses by version: 4130: 0x08008D14, 4139: 0x08009214, 4148: 0x08009A60, 4168: 0x08009D74
-- Called by: `bms_4168_080064a0`, `bms_4168_0800faa0`
+- Called by: `bms_4168_080064a0`, `bms_seq_state_reset`
 - Confidence: medium
 
 ## bms_lzrle_decompress
@@ -280,6 +278,25 @@ Decodes a compressed stream from param_1 into param_2 until param_2 + param_3 is
 
 - Addresses by version: 4130: 0x08001310, 4139: 0x08001310, 4148: 0x08001310, 4168: 0x08001310
 - Confidence: medium
+
+## bms_mode_match
+
+**Return 1 when the state block mode at +2 equals the argument, treating 6 as a wildcard**
+
+Compares the 16-bit mode field at offset 2 of the BMS state block with param_2. It returns 1 when they are equal or when param_2 is 6, which matches any mode, and 0 otherwise. Mode values 5, 6 and 7 are the ones bms_can_status_frame_rx tests on the same field.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | unused by this function |
+| `param_2` | `u32` | mode to test; 6 matches any mode |
+
+**Returns** `u32`: 1 on match, 0 otherwise
+
+**Notes:** The packet shows no direct callers; the function is reached through a table or callback.
+
+- Addresses by version: 4130: 0x0800D754, 4139: 0x0800DD3C, 4148: 0x0800EDDE, 4168: 0x0800F26E
+- Calls: `bms_ram_20000bdc_addr`
+- Confidence: high
 
 ## bms_noop_hook_08009a98
 
@@ -347,6 +364,21 @@ Reads two 32-bit fields at state+0x1EA and state+0x1EE, a 32-bit field at state+
 - Calls: `bms_ram_20000bdc_addr`, `bms_record_set_or_clear`
 - Confidence: medium
 
+## bms_reply_buffer_get
+
+**Return the 24-byte reply buffer at 0x20002BFE, clearing it while the busy flag is clear**
+
+When the busy flag DAT_20002612 (used by bms_comm_service_step) is zero it clears the 24-byte buffer at 0x20002BFE through bms_4168_08001246, a two-argument routine that is not described yet, and then returns the buffer address. While the flag is set the buffer is returned unchanged. The buffer begins right after the 14-byte payload at 0x20002BF0 that the periodic send uses. Part of the message pool group.
+
+**Returns** `ptr`: address of the 24-byte buffer at 0x20002BFE
+
+**Notes:** The reason the buffer is left alone while busy is inferred from the flag name and the callers, not stated in the code. bms_4168_08001246 is not identified in this packet.
+
+- Addresses by version: 4148: 0x0800DE54, 4168: 0x0800E2A8
+- Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_4168_08005fc4`, `bms_4168_080068e8`, `bms_4168_08007704`, `bms_4168_08007d48`, `bms_4168_08007da4`, `bms_4168_0800c018`, `bms_4168_0800c96c`, `bms_4168_0800ce64` ...
+- Calls: `bms_4168_08001246`
+- Confidence: medium
+
 ## bms_request_is_done
 
 **Returns bit 0 of the request block's status word at offset 0x10**
@@ -362,7 +394,7 @@ Returns the value of bit 0 of the word at offset 0x10 of the object at param_1, 
 **Notes:** Reading bit 0 as 'done' is inferred from the reset value 0xFFFFFFFE in bms_request_reset. The name is a guess.
 
 - Addresses by version: 4130: 0x08003070, 4139: 0x08003070, 4148: 0x08003070, 4168: 0x08003070
-- Called by: `bms_4168_0800367c`, `bms_4168_0800a3c8`
+- Called by: `bms_4168_0800367c`, `bms_tim6_update_flag_poll`
 - Confidence: low
 
 ## bms_request_reset
@@ -378,7 +410,7 @@ Writes 0xFFFFFFFE to the word at offset 0x10 of the object at param_1. That clea
 **Notes:** The 'request' and 'done' names are guesses from the one-bit read in bms_request_is_done. The structure's other fields are not visible in this packet.
 
 - Addresses by version: 4130: 0x08002E84, 4139: 0x08002E84, 4148: 0x08002E84, 4168: 0x08002E84
-- Called by: `bms_4168_0800367c`, `bms_4168_0800a3c8`, `bms_4168_0800a3e8`
+- Called by: `bms_4168_0800367c`, `bms_tim6_update_flag_poll`, `bms_tim6_tim7_start`
 - Confidence: low
 
 ## bms_rotate_word_bytes
@@ -396,7 +428,7 @@ Copies the 4-byte word at param_1 into a stack temporary and writes it back rota
 **Notes:** Whether this is AES RotWord or a generic byte rotate is not visible in this packet. If it is a library routine, the library's name should replace the local one.
 
 - Addresses by version: 4130: 0x0800325C, 4139: 0x0800325C, 4148: 0x0800325C, 4168: 0x0800325C
-- Called by: `bms_4168_080106c8`
+- Called by: `bms_seed_key_transform`
 - Confidence: medium
 
 ## bms_seq_restart_stamp
@@ -407,7 +439,7 @@ Calls bms_4168_0800b904 (not described in this packet), clears the RAM word at 0
 
 - Addresses by version: 4130: 0x08006ED0, 4139: 0x080073D0, 4148: 0x08007C10, 4168: 0x08007F18
 - Called by: `bms_4168_08010558`
-- Calls: `bms_tick_get`, `bms_4168_0800b904`, `bms_ram_20000bdc_addr`, `bms_4168_0800f288`
+- Calls: `bms_tick_get`, `bms_record_queue_flush`, `bms_ram_20000bdc_addr`, `bms_chan_pool_init`
 - Confidence: medium
 
 ## bms_set_state_word
@@ -423,7 +455,7 @@ Trivial store of the 32-bit argument into the global at 0x200006A4, which the ro
 **Notes:** The name is generic because the word's role is unknown. Renaming should wait until the callers in the later waves are documented.
 
 - Addresses by version: 4130: 0x08002E78, 4139: 0x08002E78, 4148: 0x08002E78, 4168: 0x08002E78
-- Called by: `bms_4168_0800a130`, `bms_4168_0800a2e0`
+- Called by: `bms_sysclk_hse_pll_bringup`, `bms_sysclk_hsi16_switch`
 - Confidence: low
 
 ## bms_slot_pool_register
@@ -465,7 +497,7 @@ Searches a table of 36-byte (0x24) records. param_1 points to a header whose poi
 **Notes:** The table most likely maps a link between two 8-bit IDs to a slot; what the IDs are is not in this packet. The state value 1 = free is read from the loops and should be checked against the writers. The record stride 0x24 and the header layout are certain from the code.
 
 - Addresses by version: 4130: 0x08005668, 4139: 0x08005884, 4148: 0x08005D90, 4168: 0x08005EE4
-- Called by: `bms_4168_0800ff22`, `bms_4168_0800ff8e`
+- Called by: `bms_j1939_tp_rx_dispatch`, `bms_4168_0800ff8e`
 - Confidence: medium
 
 ## bms_state_ptr_cache_set
@@ -483,16 +515,38 @@ Stores the value returned by bms_ram_20000bdc_addr in the global pointer at 0x20
 
 **Forward four 16-bit state-block fields and an argument to bms_4168_0800e820**
 
-Reads the cached state block pointer at 0x20000018 and passes the 16-bit fields at offsets 0x124, 0x126, 0x194 and 0x196 together with param_1 to bms_4168_0800e820, which is not described in this packet. The call shape suggests a snapshot or report of these four fields, but that role is inferred. It is called from the main-loop poll bms_4168_08010558.
+Reads the cached state block pointer at 0x20000018 and passes the 16-bit fields at offsets 0x124, 0x126, 0x194 and 0x196 together with forward_arg to bms_4168_0800e820, which is not described in this packet. The call shape suggests a snapshot or report of these four fields, but that role is inferred. It is called from the main-loop poll bms_4168_08010558.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `u32` | forwarded unchanged to bms_4168_0800e820 |
+| `forward_arg` | `u32` | forwarded unchanged to bms_4168_0800e820 |
 
 - Addresses by version: 4130: 0x08006F54, 4139: 0x08007454, 4148: 0x08007C94, 4168: 0x08007F9C
 - Called by: `bms_4168_08010558`
-- Calls: `bms_4168_0800e820`
+- Calls: `bms_pd0_indicator_step`
 - Confidence: low
+
+## bms_tail_call_unnamed_a
+
+**Tail-call thunk to bms_4168_0800e748 (not described in this packet)**
+
+Calls bms_4168_0800e748 with no arguments and returns. It is the only statement in the function and is called from the main-loop poll bms_4168_08010558. The callee is described in another packet.
+
+- Addresses by version: 4130: 0x08006FB6, 4139: 0x080074B6, 4148: 0x08007CF6, 4168: 0x08007FFE
+- Called by: `bms_4168_08010558`
+- Calls: `bms_soc_band_classify`
+- Confidence: high
+
+## bms_tail_call_unnamed_b
+
+**Tail-call thunk to bms_4168_0800fabc (not described in this packet)**
+
+Calls bms_4168_0800fabc with no arguments and returns. The target is described in another packet. It is called from the main-loop poll bms_4168_08010558.
+
+- Addresses by version: 4130: 0x08007734, 4139: 0x08007C34, 4148: 0x08008480, 4168: 0x08008780
+- Called by: `bms_4168_08010558`
+- Calls: `bms_fault_record_service`
+- Confidence: high
 
 ## bms_u8_to_bcd
 
@@ -545,7 +599,7 @@ Bitwise CRC-16 over len bytes starting at data. The register starts at 0xFFFF, e
 **Notes:** Callers in the packet: bms_4139_08007108, bms_4168_08005128, bms_4168_08007c10, bms_4168_080106c8. Whether the CRC is CRC-16/USB or a custom variant is inferred from the constants; the frame it protects is not identified here.
 
 - Addresses by version: 4130: 0x08004590, 4139: 0x080047A4, 4148: 0x08004C58, 4168: 0x08004DA4
-- Called by: `bms_4168_08005128`, `bms_frame_parse_legacy_4168`, `bms_4168_080106c8`
+- Called by: `bms_4168_08005128`, `bms_frame_parse_legacy_4168`, `bms_seed_key_transform`
 - Confidence: high
 
 ## crc8_msb_compute

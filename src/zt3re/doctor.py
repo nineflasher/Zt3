@@ -202,7 +202,9 @@ def check_docs(findings: list[Finding]) -> None:
             if not (config.REPO_ROOT / p).exists() and not (config.REPO_ROOT / p.rstrip(":")).exists():
                 findings.append(Finding("LITERAL", str(rel), f"path `{p}` does not exist"))
         for target, _anchor in _LINK.findall(text):
-            if "://" in target or target.startswith("mailto:") or not re.search(r"[./]", target):
+            if "://" in target or target.startswith("mailto:"):
+                continue
+            if not (target.endswith(".md") or "/" in target):
                 continue                                   # prose in brackets, not a link
             if not (md.parent / target).exists():
                 findings.append(Finding("LINK", str(rel), f"broken link {target}"))

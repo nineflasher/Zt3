@@ -1,6 +1,6 @@
 # BMS - `app` functions
 
-31 functions.
+36 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -17,14 +17,19 @@
 | [`bms_byte_2000063e_addr`](#bms_byte_2000063e_addr) | 0x0800B8A4 | Return the address of the RAM byte at 0x2000063E |
 | [`bms_chan_bind`](#bms_chan_bind) | 0x0800FECC | Validate a descriptor and bind a channel object to a buffer, a length and that descriptor |
 | [`bms_chan_configure`](#bms_chan_configure) | 0x0800FFC6 | Set the extended fields of a channel object and mark it enabled after three nonzero checks |
+| [`bms_chan_pool_init`](#bms_chan_pool_init) | 0x0800F288 | Configure five 300-byte channel objects and bind them to the object at 0x200024C0 |
+| [`bms_ctrl_request_handshake`](#bms_ctrl_request_handshake) | 0x0800E7B0 | Latch a control request while state bit 0x194.6 is high and consume it on the falling edge |
 | [`bms_dispatch_call_current`](#bms_dispatch_call_current) | 0x0800A88C | Call the handler at entry [0x20001340] of the RAM pointer table at 0x20000578 |
 | [`bms_dispatch_index_nonzero`](#bms_dispatch_index_nonzero) | 0x0800A87C | Return true when the dispatch index byte at 0x20001340 is nonzero |
+| [`bms_extflash_journal_init`](#bms_extflash_journal_init) | 0x0800A7C8 | Reset ten 20-byte slot records, then validate two 12-byte external flash headers |
 | [`bms_flag_20001c8a_is_clear`](#bms_flag_20001c8a_is_clear) | 0x0800FB80 | Return 1 when the RAM byte at 0x20001C8A is zero, else 0 |
 | [`bms_nop_ce4c`](#bms_nop_ce4c) | 0x0800CE4C | Empty placeholder routine that does nothing |
 | [`bms_nop_e8d8`](#bms_nop_e8d8) | 0x0800E8D8 | Empty placeholder routine that does nothing |
 | [`bms_ram_200001c8_addr`](#bms_ram_200001c8_addr) | 0x0800BE1C | Return the address of the RAM object at 0x200001C8 |
 | [`bms_ram_2000068f_addr`](#bms_ram_2000068f_addr) | 0x08009D6C | Return the address of the RAM byte at 0x2000068F |
 | [`bms_ram_20000bdc_addr`](#bms_ram_20000bdc_addr) | 0x0800BE14 | Return the address of the RAM object at 0x20000BDC |
+| [`bms_record_queue_flush`](#bms_record_queue_flush) | 0x0800B904 | Empty the 256-entry record queue and set the handler word at 0x20000684 |
+| [`bms_record_queue_pop`](#bms_record_queue_pop) | 0x0800B91C | Pop the oldest 24-byte record from the 256-slot queue at 0x20002C18; 0 if empty |
 | [`bms_record_set_or_clear`](#bms_record_set_or_clear) | 0x0800E38C | Clear the six-word record at 0x200024CC when param_4 is 0xFFFF, else store its fields |
 | [`bms_u16_2000067c_get`](#bms_u16_2000067c_get) | 0x0800A55C | Return the u16 at RAM 0x2000067C |
 | [`bms_u16_2000067c_set`](#bms_u16_2000067c_set) | 0x0800A568 | Store a u16 into RAM 0x2000067C |
@@ -119,7 +124,7 @@ Writes param_1 to the 32-bit RAM word at 0x20000684 and returns nothing. The onl
 | `param_1` | `u32` | value to store |
 
 - Addresses by version: 4130: 0x08007B94, 4139: 0x08008094, 4148: 0x080088E0, 4168: 0x08008BE0
-- Called by: `bms_4168_0800b904`
+- Called by: `bms_record_queue_flush`
 - Confidence: medium
 
 ## bms_block_store_u16x7
@@ -192,7 +197,7 @@ Binds a channel object only when every argument passes its check: param_1 (the o
 **Notes:** The field meanings of the object are inferred from the stores and checks. The descriptor's contents are only tested here, not used.
 
 - Addresses by version: 4130: 0x0800E0D4, 4139: 0x0800E728, 4148: 0x0800F980, 4168: 0x0800FECC
-- Called by: `bms_4168_0800f288`
+- Called by: `bms_chan_pool_init`
 - Confidence: medium
 
 ## bms_chan_configure
@@ -214,7 +219,33 @@ Checks that param_1 is non-null and that param_2 and param_3 are nonzero, then f
 **Notes:** bms_chan_bind writes offset 4 as 16 bits and offset 8 as a pointer, while this function writes offset 4 as 32 bits and offset 8 as 16 bits. The two may describe different object types, or one of the layouts is wrong; check against the caller bms_4168_0800f288. The meaning of the flag at offset 2 is inferred from the constant 1.
 
 - Addresses by version: 4130: 0x0800E1CE, 4139: 0x0800E822, 4148: 0x0800FA7A, 4168: 0x0800FFC6
-- Called by: `bms_4168_0800f288`
+- Called by: `bms_chan_pool_init`
+- Confidence: medium
+
+## bms_chan_pool_init
+
+**Configure five 300-byte channel objects and bind them to the object at 0x200024C0**
+
+Initialises the channel pool. For each of the five 36-byte channel objects at 0x20001E30 (stride 0x24) it calls bms_chan_configure with the 300-byte buffer at 0x20001EE4 + 300 * i and length 300, then calls bms_chan_bind to bind the object at 0x200024C0 to the array of five channels with descriptor 0x200005F0. It finally stores the time base from bms_tick_get in DAT_200005DC.
+
+**Notes:** The return values of bms_chan_configure and bms_chan_bind are not checked here.
+
+- Addresses by version: 4130: 0x0800D76C, 4139: 0x0800DD54, 4148: 0x0800EDF8, 4168: 0x0800F288
+- Called by: `bms_seq_restart_stamp`
+- Calls: `bms_tick_get`, `bms_chan_bind`, `bms_chan_configure`
+- Confidence: high
+
+## bms_ctrl_request_handshake
+
+**Latch a control request while state bit 0x194.6 is high and consume it on the falling edge**
+
+Tracks a request handshake on bit 6 of the 16-bit word at state block +0x194. While that bit is high DAT_200005C3 is armed to 1. On the next call with the bit low, if DAT_200005C3 is armed, bit 1 (0x02) is set in DAT_200005C1 and bit 3 (0x08) in DAT_200005C0 when bit 7 (0x80) of DAT_200005CA is set, and when bit 8 (0x100) of DAT_200005CA is set that bit is cleared, bit 3 of DAT_200005C0 is set, and the shadow words DAT_200005C8 and DAT_200005CA are written back to the state block at +0x10E and +0x110. DAT_200005C3 is then cleared. Bit 3 of DAT_200005C0 forces bms_setpoint_window_sample to evaluate on its next call. Part of the control group with bms_setpoint_window_sample.
+
+**Notes:** The names of the request bits are not established; the handshake shape is taken from the code paths only.
+
+- Addresses by version: 4130: 0x0800CD34, 4139: 0x0800D31C, 4148: 0x0800E31C, 4168: 0x0800E7B0
+- Called by: `bms_setpoint_window_sample`
+- Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 
 ## bms_dispatch_call_current
@@ -239,6 +270,19 @@ Returns DAT_20001340 != 0 and has no side effects. 0x20001340 is the index that 
 
 - Addresses by version: 4130: 0x08009914, 4139: 0x08009E4C, 4148: 0x0800A568, 4168: 0x0800A87C
 - Called by: `bms_4168_080082f0`
+- Confidence: medium
+
+## bms_extflash_journal_init
+
+**Reset ten 20-byte slot records, then validate two 12-byte external flash headers**
+
+Initialises the software state for external-flash journalling. It loops over ten 20-byte slot records starting at RAM 0x200013A0. In each record byte +0 is set to 1, byte +1 is cleared, and the words at +4, +8, +0xC and +0x10 are cleared. It then clears 0x20001340 to 0x20001345 and the word at 0x2000133C. It reads a 12-byte header from external SPI memory at address 0x000000 into 0x20001348 with bms_extflash_read (u32 counter, then two u32 pointers at 0x2000134C and 0x20001350). If the counter exceeds 3000, or either pointer lies outside 0x010000 to 0x267FFF, the RAM copy is reset to counter 0 and both pointers to 0x10000. A second header read from address 0x001000 into 0x20001354 is checked the same way, with a counter limit of 0x4400, pointer range 0x280000 to 0x38FFFF and default 0x280000. Only the RAM copies are reset, not the flash contents.
+
+**Notes:** The meaning of the slot flags and the journal layout are inferred from the field sizes and range checks. Caller chain includes bms_4168_08008724.
+
+- Addresses by version: 4130: 0x08009860, 4139: 0x08009D98, 4148: 0x0800A4B4, 4168: 0x0800A7C8
+- Called by: `bms_4168_08008724`
+- Calls: `bms_extflash_read`
 - Confidence: medium
 
 ## bms_flag_20001c8a_is_clear
@@ -304,7 +348,7 @@ Returns &DAT_2000068f so the caller can read or write the byte through the point
 **Notes:** Width and role unknown; the decompiler shows an untyped pointer.
 
 - Addresses by version: 4130: 0x08008D0C, 4139: 0x0800920C, 4148: 0x08009A58, 4168: 0x08009D6C
-- Called by: `bms_4168_080064a0`, `bms_4168_0800fabc`
+- Called by: `bms_4168_080064a0`, `bms_fault_record_service`
 - Confidence: medium
 
 ## bms_ram_20000bdc_addr
@@ -319,6 +363,38 @@ Returns &DAT_20000bdc. The object's width and role are not shown, since the deco
 
 - Addresses by version: 4130: 0x0800AEAC, 4139: 0x0800B3E4, 4148: 0x0800BB00, 4168: 0x0800BE14
 - Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_4168_0800525c`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_4168_08005710`, `bms_4168_08005768`, `bms_4168_08005ab0`, `bms_4168_08005cdc`, `bms_4168_08005fc4`, `bms_state_refresh_scaled`, `bms_4168_080068e8` ...
+- Confidence: medium
+
+## bms_record_queue_flush
+
+**Empty the 256-entry record queue and set the handler word at 0x20000684**
+
+Discards every queued record. It copies the write index at 0x20004418 into the read index at 0x2000441A, so the queue reads as empty, and then stores the code address of LAB_08005A6C into RAM word 0x20000684 through bms_app_value_684_set. That word is presumably a handler pointer called by the queue consumer, but the consumer is not in this packet.
+
+**Notes:** Caller is bms_4168_08007f18. The use of the pointer at 0x20000684 is inferred.
+
+- Addresses by version: 4130: 0x0800A99C, 4139: 0x0800AED4, 4148: 0x0800B5F0, 4168: 0x0800B904
+- Called by: `bms_seq_restart_stamp`
+- Calls: `bms_app_value_684_set`
+- Confidence: medium
+
+## bms_record_queue_pop
+
+**Pop the oldest 24-byte record from the 256-slot queue at 0x20002C18; 0 if empty**
+
+Dequeues one record. The queue has 256 slots of 24 bytes at 0x20002C18, which end at the write index 0x20004418, and the read index at 0x2000441A wraps after 255. If the indexes are equal it returns 0. Otherwise it reads the six u32 fields of the slot, clears them, advances the read index, and writes the output record at param_1: field 3 at +0, a bool from field 1 at +4, a bool from field 2 at +5, the length byte from field 0 at +6, and up to 8 payload bytes copied from fields 4 and 5 to +7 with memcpy. The output layout (ID at +0, flags at +4 and +5, DLC at +6, data at +7) matches what bms_rx_frame_7f0_7f1 reads, so the queue holds received frames.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output frame record, at least 15 bytes |
+
+**Returns** `bool`: 1 when a record was dequeued, 0 when the queue was empty
+
+**Notes:** The length byte is not clamped to 8 before memcpy, so a corrupted slot can copy more than the payload field holds. The producer is not in this packet.
+
+- Addresses by version: 4130: 0x0800A9B4, 4139: 0x0800AEEC, 4148: 0x0800B608, 4168: 0x0800B91C
+- Called by: `bms_4168_080056b4`
+- Calls: `memcpy`
 - Confidence: medium
 
 ## bms_record_set_or_clear
@@ -349,7 +425,7 @@ Returns the halfword at RAM 0x2000067C. Its setter is bms_u16_2000067c_set. The 
 **Returns** `u16`: value of the halfword at 0x2000067C
 
 - Addresses by version: 4130: 0x080094C4, 4139: 0x080099FC, 4148: 0x0800A248, 4168: 0x0800A55C
-- Called by: `bms_4168_0800bbc4`
+- Called by: `bms_extflash_wait_ready`
 - Confidence: medium
 
 ## bms_u16_2000067c_set
@@ -363,7 +439,7 @@ Stores param_1 as a 16-bit value at RAM 0x2000067C, the halfword read by bms_u16
 | `param_1` | `u16` | value to store |
 
 - Addresses by version: 4130: 0x080094D0, 4139: 0x08009A08, 4148: 0x0800A254, 4168: 0x0800A568
-- Called by: `bms_4168_0800bbc4`
+- Called by: `bms_extflash_wait_ready`
 - Confidence: medium
 
 ## bms_u16_2000067e_get
@@ -375,7 +451,7 @@ Returns the halfword at RAM 0x2000067E. Its setter is bms_u16_2000067e_set. The 
 **Returns** `u16`: value of the halfword at 0x2000067E
 
 - Addresses by version: 4130: 0x08009478, 4139: 0x080099B0, 4148: 0x0800A1FC, 4168: 0x0800A510
-- Called by: `bms_4168_0800baec`
+- Called by: `bms_extflash_wip_poll`
 - Confidence: medium
 
 ## bms_u16_2000067e_set

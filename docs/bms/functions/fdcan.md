@@ -227,15 +227,15 @@ Writes one extended-identifier frame into the buffer at param_9. The 32-bit iden
 
 **Add one FDCAN mask filter to RX FIFO 0, resetting the MCU if HAL rejects it**
 
-Builds a HAL_FDCAN_FilterTypeDef on the stack with IdType from param_2, FilterIndex from param_3, FilterType set to MASK (2), FilterConfig set to store matches in RX FIFO 0 (1), FilterID1 from param_4 and FilterID2 from param_5 used as the mask. It then calls HAL_FDCAN_ConfigFilter on the handle in param_1. A nonzero status calls NVIC_SystemReset, so a rejected filter restarts the board. It is called five times by bms_4168_08008ca0.
+Builds a HAL_FDCAN_FilterTypeDef on the stack with IdType from id_type, FilterIndex from filter_index, FilterType set to MASK (2), FilterConfig set to store matches in RX FIFO 0 (1), FilterID1 from filter_id1 and FilterID2 from filter_id2 used as the mask. It then calls HAL_FDCAN_ConfigFilter on the handle in hfdcan. A nonzero status calls NVIC_SystemReset, so a rejected filter restarts the board. It is called five times by bms_4168_08008ca0.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | FDCAN handle (0x20005C50 in the caller) |
-| `param_2` | `u32` | ID type: 0 standard, 0x40000000 extended |
-| `param_3` | `u32` | filter index |
-| `param_4` | `u32` | FilterID1, the identifier to match |
-| `param_5` | `u32` | FilterID2, the mask |
+| `hfdcan` | `ptr` | FDCAN handle (0x20005C50 in the caller) |
+| `id_type` | `u32` | ID type: 0 standard, 0x40000000 extended |
+| `filter_index` | `u32` | filter index |
+| `filter_id1` | `u32` | FilterID1, the identifier to match |
+| `filter_id2` | `u32` | FilterID2, the mask |
 
 - Addresses by version: 4130: 0x08007C18, 4139: 0x08008118, 4148: 0x08008964, 4168: 0x08008C64
 - Called by: `bms_fdcan_filters_start`
@@ -358,11 +358,11 @@ Installs five mask filters through bms_fdcan_add_mask_filter: extended IDs 0x070
 
 **Build an FDCAN Tx header from a frame record and queue it in the Tx FIFO**
 
-Reads a frame record at param_1: the 16-bit byte count at +0 becomes DataLength (count shifted left 16 in the header word at 0x20005CC0), a nonzero 32-bit word at +4 sets IdType to extended (0x40000000 at 0x20005CB8), a nonzero word at +8 sets TxFrameType to remote (0x20000000 at 0x20005CBC), and the 32-bit word at +12 becomes Identifier at 0x20005CB4. The remaining header fields at 0x20005CC4 to 0x20005CD4 are cleared and the payload starts at +16 of the record. HAL_FDCAN_AddMessageToTxFifoQ queues the frame on the handle at 0x20005C50, and the function returns true when HAL accepts it.
+Reads a frame record at frame_record: the 16-bit byte count at +0 becomes DataLength (count shifted left 16 in the header word at 0x20005CC0), a nonzero 32-bit word at +4 sets IdType to extended (0x40000000 at 0x20005CB8), a nonzero word at +8 sets TxFrameType to remote (0x20000000 at 0x20005CBC), and the 32-bit word at +12 becomes Identifier at 0x20005CB4. The remaining header fields at 0x20005CC4 to 0x20005CD4 are cleared and the payload starts at +16 of the record. HAL_FDCAN_AddMessageToTxFifoQ queues the frame on the handle at 0x20005C50, and the function returns true when HAL accepts it.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | frame record: byte count at +0, extended flag at +4, remote flag at +8, identifier at +12, payload from +16 |
+| `frame_record` | `ptr` | frame record: byte count at +0, extended flag at +4, remote flag at +8, identifier at +12, payload from +16 |
 
 **Returns** `bool`: true when HAL_FDCAN_AddMessageToTxFifoQ succeeded
 
@@ -370,7 +370,7 @@ Reads a frame record at param_1: the 16-bit byte count at +0 becomes DataLength 
 
 - Addresses by version: 4130: 0x08007BC8, 4139: 0x080080C8, 4148: 0x08008914, 4168: 0x08008C14
 - Peripheral registers: `TIM2.CR1` (A)
-- Called by: `bms_4168_0800b9a8`, `bms_4168_0800b9f2`
+- Called by: `bms_frame_send_when_ready`, `bms_record_send_multiframe`
 - Calls: `HAL_FDCAN_AddMessageToTxFifoQ`
 - Confidence: medium
 
@@ -383,7 +383,7 @@ Calls HAL_FDCAN_GetTxFifoFreeLevel on the FDCAN handle at 0x20005C50 and returns
 **Returns** `bool`: true when the Tx FIFO has no free element
 
 - Addresses by version: 4130: 0x08007BB0, 4139: 0x080080B0, 4148: 0x080088FC, 4168: 0x08008BFC
-- Called by: `bms_4168_0800b9a8`, `bms_4168_0800b9f2`
+- Called by: `bms_frame_send_when_ready`, `bms_record_send_multiframe`
 - Calls: `HAL_FDCAN_GetTxFifoFreeLevel`
 - Confidence: high
 

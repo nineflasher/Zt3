@@ -16,7 +16,7 @@ Calls disableIRQinterrupts (CPSID i), issues a data synchronisation barrier, wri
 
 - Addresses by version: 4130: 0x08001444, 4139: 0x08001444, 4148: 0x08001444, 4168: 0x08001444
 - Peripheral registers: `SCB+0xc` (W)
-- Called by: `bms_4168_08008b98`, `bms_fdcan_add_mask_filter`, `bms_fdcan_filters_start`, `bms_4168_0800a130`, `bms_4168_0800a2e0`
+- Called by: `bms_4168_08008b98`, `bms_fdcan_add_mask_filter`, `bms_fdcan_filters_start`, `bms_sysclk_hse_pll_bringup`, `bms_sysclk_hsi16_switch`
 - Confidence: high
 
 ## Reset_Handler

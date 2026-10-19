@@ -1,6 +1,6 @@
 # BMS - `adc` functions
 
-6 functions.
+7 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -10,6 +10,7 @@
 | [`bms_adc_deinit`](#bms_adc_deinit) | 0x08008A08 | Stop and reset the ADC through LL_ADC_DeInit |
 | [`bms_adc_hw_init`](#bms_adc_hw_init) | 0x08008890 | Bring up the ADC: clocks, PA4 analog pin, PCLK/2 clock mode, sampling time and regulator |
 | [`bms_adc_read_mv`](#bms_adc_read_mv) | 0x08008A18 | Read one ADC channel selected from the table at 0x20000674 and return the result in millivolts |
+| [`bms_ntc_adc_to_celsius`](#bms_ntc_adc_to_celsius) | 0x0800B8C0 | Convert ADC channel 0 reading to degrees C through a 151-entry lookup table |
 
 ## LL_ADC_DeInit
 
@@ -97,14 +98,14 @@ Enables the GPIOA clock (RCC.IOPENR bit 0) and the ADC clock (RCC.APBENR2 bit 20
 
 **Read one ADC channel selected from the table at 0x20000674 and return the result in millivolts**
 
-param_1 indexes a 32-bit channel descriptor table at 0x20000674. Bits 26 to 29 of the descriptor are written to the low nibble of CHSELR to select the channel, and the descriptor shifted left by 8 clears the matching SMPR sample-time bits. If CR.ADEN is clear, the routine sets ADVREGEN, waits for the regulator using a busy-wait sized from the RAM word at 0x200006A4, runs calibration (CR.ADCAL) with the CFGR1 low bits held clear, then sets ADEN and waits for ADRDY (ISR bit 0). It then sets ADSTART (CR bit 2), waits for EOC (ISR bit 2) with a SysTick timeout, clears EOC by writing 4, and returns (DR & 0xFFFF) * 3300 / 4095 using bms_udiv32, i.e. millivolts for a 12-bit reading against a 3.3 V reference.
+channel_index indexes a 32-bit channel descriptor table at 0x20000674. Bits 26 to 29 of the descriptor are written to the low nibble of CHSELR to select the channel, and the descriptor shifted left by 8 clears the matching SMPR sample-time bits. If CR.ADEN is clear, the routine sets ADVREGEN, waits for the regulator using a busy-wait sized from the RAM word at 0x200006A4, runs calibration (CR.ADCAL) with the CFGR1 low bits held clear, then sets ADEN and waits for ADRDY (ISR bit 0). It then sets ADSTART (CR bit 2), waits for EOC (ISR bit 2) with a SysTick timeout, clears EOC by writing 4, and returns (DR & 0xFFFF) * 3300 / 4095 using bms_udiv32, i.e. millivolts for a 12-bit reading against a 3.3 V reference.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `s32` | index into the 4-byte channel descriptor table at 0x20000674 |
-| `param_2` | `u32` | unused by the body in the decompile |
-| `param_3` | `u32` | unused by the body in the decompile |
-| `param_4` | `u32` | unused by the body in the decompile |
+| `channel_index` | `s32` | index into the 4-byte channel descriptor table at 0x20000674 |
+| `unused_arg2` | `u32` | unused by the body in the decompile |
+| `unused_arg3` | `u32` | unused by the body in the decompile |
+| `unused_arg4` | `u32` | unused by the body in the decompile |
 
 **Returns** `u16`: conversion result in millivolts, about 0 to 3300
 
@@ -112,6 +113,21 @@ param_1 indexes a 32-bit channel descriptor table at 0x20000674. Bits 26 to 29 o
 
 - Addresses by version: 4130: 0x080079CC, 4139: 0x08007ECC, 4148: 0x08008718, 4168: 0x08008A18
 - Peripheral registers: `ADC.ADC_ISR` (RW), `ADC.ADC_CR` (RW), `ADC.ADC_CFGR1` (RW), `ADC.ADC_SMPR` (RW), `ADC.CHSELR_1` (RW), `ADC.ADC_DR` (R), `SysTick+0x0` (R)
-- Called by: `bms_4168_0800b8c0`
+- Called by: `bms_ntc_adc_to_celsius`
 - Calls: `bms_udiv32`
+- Confidence: medium
+
+## bms_ntc_adc_to_celsius
+
+**Convert ADC channel 0 reading to degrees C through a 151-entry lookup table**
+
+Takes a sample from the helper at 0x08008A18 with argument 0 and returns -30 when the sample is above 3299. Otherwise it forms the ratio (sample * 1000) / (3300 - sample) with the helper at 0x0800113C, which is a divide-with-remainder routine. It then searches the u16 table at flash 0x080108C4 linearly, from entry 1 upward, for the first entry not greater than the ratio. The result is the index minus 30, which covers roughly -30 to +120 C in 1 degree steps. The -30 return for an out-of-range sample is indistinguishable from a real -30 C reading.
+
+**Returns** `s8`: temperature in degrees C, about -30 to +120; -30 also marks an out-of-range sample
+
+**Notes:** The divider and NTC interpretation is inferred from the 3300 constant and the table. The helpers at 0x08008A18 and 0x0800113C are not described in this packet.
+
+- Addresses by version: 4130: 0x0800A958, 4139: 0x0800AE90, 4148: 0x0800B5AC, 4168: 0x0800B8C0
+- Called by: `bms_4168_0800c6dc`
+- Calls: `bms_4168_0800113c`, `bms_adc_read_mv`
 - Confidence: medium

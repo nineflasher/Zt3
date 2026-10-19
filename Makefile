@@ -2,7 +2,7 @@
 PY      ?= python3
 ZT3     ?= zt3
 
-.PHONY: setup import match export decompile families plan validate lint doctor coverage apply docs test all clean-project
+.PHONY: setup import match export decompile families plan validate lint doctor coverage apply docs test all clean-project snapshot
 
 setup:            ## install the harness (editable) with PyGhidra
 	$(PY) -m pip install -e '.[dev]'
@@ -52,3 +52,10 @@ test:
 
 clean-project:
 	rm -rf ghidra_project analysis/decomp analysis/work
+
+snapshot:         ## regenerate docs, run the gates, commit everything (MSG="...")
+	$(ZT3) docs
+	$(ZT3) doctor
+	$(ZT3) families --check
+	$(ZT3) docs --check
+	git add -A && git commit -q -m "$(MSG)" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -m "Claude-Session: https://claude.ai/code/session_01UyWHPv28MWcuvyzBdwFRqx"

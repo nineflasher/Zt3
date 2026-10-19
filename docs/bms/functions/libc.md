@@ -47,12 +47,12 @@ Increments an index while it is below param_3 and the bytes param_1[index] and p
 
 **Call memcpy with the first two arguments swapped, passing the length through**
 
-Calls memcpy (bms_4168_08001214) with param_2 as the destination and param_1 as the source, leaving the third argument register untouched, so the length is whatever the caller set. Callers in this packet are bms_4168_08003C3C and bms_4168_08008060.
+Calls memcpy (bms_4168_08001214) with dst as the destination and src as the source, leaving the third argument register untouched, so the length is whatever the caller set. Callers in this packet are bms_4168_08003C3C and bms_4168_08008060.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | source address |
-| `param_2` | `ptr` | destination address |
+| `src` | `ptr` | source address |
+| `dst` | `ptr` | destination address |
 
 **Notes:** The swap is read from the register order in the wrapper; the length argument is not set here.
 
@@ -76,5 +76,5 @@ Copies param_3 bytes from param_2 to param_1 in increasing address order. If bot
 **Notes:** Named after the C library routine by behaviour; the implementation is custom and not newlib's.
 
 - Addresses by version: 4130: 0x08001214, 4139: 0x08001214, 4148: 0x08001214, 4168: 0x08001214
-- Called by: `bms_4168_08005cdc`, `bms_4168_08008060`, `bms_memcpy_args_swap`, `bms_4168_08008de8`, `bms_4168_0800b91c`, `bms_4168_0800b9a8`, `bms_4168_0800b9f2`, `bms_4168_0800d76c`, `bms_4168_0800df2c`, `bms_4168_0800e8dc`, `bms_4168_0800e930`, `bms_4168_0800e988` ...
+- Called by: `bms_4168_08005cdc`, `bms_4168_08008060`, `bms_memcpy_args_swap`, `bms_4168_08008de8`, `bms_record_queue_pop`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_txq_enqueue`, `bms_4168_0800e8dc`, `bms_4168_0800e930`, `bms_4168_0800e988` ...
 - Confidence: high

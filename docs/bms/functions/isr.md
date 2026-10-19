@@ -1,6 +1,6 @@
 # BMS - `isr` functions
 
-12 functions.
+13 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -13,6 +13,7 @@
 | [`__NVIC_DisableIRQ`](#__nvic_disableirq) | 0x08002278 | Disables a device interrupt by writing its bit to NVIC ICER at 0xE000E180 |
 | [`__NVIC_EnableIRQ`](#__nvic_enableirq) | 0x08002298 | Enables a device interrupt by writing its bit to NVIC ISER at 0xE000E100 |
 | [`__NVIC_SetPriority`](#__nvic_setpriority) | 0x080022B0 | Sets the 2-bit priority of a device interrupt (NVIC IPR) or a system exception (SHPR) |
+| [`bms_exti11_irq_arm`](#bms_exti11_irq_arm) | (removed) | Route PB11 to EXTI line 11, enable its interrupt and set EXTI4_15 priority |
 | [`bms_exti11_irq_disarm`](#bms_exti11_irq_disarm) | (removed) | Disarm EXTI line 11 and its NVIC line EXTI4_15 when the armed byte is set |
 | [`bms_nvic_system_reset_plain`](#bms_nvic_system_reset_plain) | 0x0800A2A0 | CMSIS __NVIC_SystemReset body: request a system reset through SCB AIRCR and spin |
 | [`exti_disable_lines_2_8_12`](#exti_disable_lines_2_8_12) | 0x080093F0 | Clear EXTI interrupt mask bits for lines 12, 8 and 2 |
@@ -74,7 +75,7 @@ CMSIS-style NVIC_SetPriority for the Cortex-M0+. The priority in param_2 is mask
 
 - Addresses by version: 4130: 0x08003724, 4139: 0x08003724, 4148: 0x08003724, 4168: 0x08003724
 - Peripheral registers: `NVIC+0x300` (A), `SCB+0x1c` (A)
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## PendSV_Handler
@@ -124,7 +125,7 @@ CMSIS inline NVIC_EnableIRQ for the Cortex-M0+ core. For IRQn >= 0 it writes 1 <
 
 - Addresses by version: 4130: 0x08002298, 4139: 0x08002298, 4148: 0x08002298, 4168: 0x08002298
 - Peripheral registers: `NVIC+0x0` (W)
-- Called by: `bms_4168_08001c24`, `bms_4168_08002234`, `bms_4168_0800a6f4`
+- Called by: `bms_4168_08001c24`, `bms_4168_08002234`, `bms_rtc_wakeup_period_set`
 - Confidence: high
 
 ## __NVIC_SetPriority
@@ -140,8 +141,22 @@ CMSIS inline NVIC_SetPriority with __NVIC_PRIO_BITS = 2, so the priority is shif
 
 - Addresses by version: 4130: 0x080022B0, 4139: 0x080022B0, 4148: 0x080022B0, 4168: 0x080022B0
 - Peripheral registers: `NVIC+0x300` (A), `SCB+0x1c` (A)
-- Called by: `bms_4168_08001c24`, `bms_4168_080021ec`, `bms_4168_08002234`, `bms_4168_0800a6f4`
+- Called by: `bms_4168_08001c24`, `bms_4168_080021ec`, `bms_4168_08002234`, `bms_rtc_wakeup_period_set`
 - Confidence: high
+
+## bms_exti11_irq_arm
+
+**Route PB11 to EXTI line 11, enable its interrupt and set EXTI4_15 priority**
+
+Arms the PB11 wake or input interrupt. It sets the EXTI11 source field in EXTI.EXTICR3 (bits 26:24 = 001, port B) by read-modify-write, then calls LL_EXTI_Init with line mask 0x800 and the trailing word 0x00010001, whose mode and edge bits are not decoded here. It writes 0x800 to the EXTI register at 0x40021810, clears MODER11 and PUPDR11 on GPIOB to leave PB11 as an unpulled input, and writes 0x80 into bits 31:24 of NVIC IPR register 0xE000E404, giving IRQ 7 (EXTI4_15 on STM32G0) priority 2. It then sets bit 7 in NVIC ISER to enable IRQ 7 and stores 1 in the RAM flag at 0x20000594. The counterpart is bms_exti11_irq_disarm.
+
+**Notes:** The packet lists the register at 0x40021810 as both EXTI.SWIER1 and EXTI.FPR1, so whether the write triggers or clears line 11 is unresolved. The IRQ 7 mapping is from the STM32G0 vector table, not from the packet's irq list.
+
+- Addresses by version: 4130: 0x080096A4, 4139: 0x08009BDC
+- Peripheral registers: `EXTI.SWIER1` (A), `EXTI.FPR1` (W), `EXTI.EXTICR3` (RW), `NVIC+0x0` (W), `NVIC+0x304` (RW)
+- Called by: `bms_4139_08007238`
+- Calls: `LL_EXTI_Init`
+- Confidence: medium
 
 ## bms_exti11_irq_disarm
 

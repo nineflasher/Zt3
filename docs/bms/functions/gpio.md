@@ -1,6 +1,6 @@
 # BMS - `gpio` functions
 
-19 functions.
+22 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -12,6 +12,9 @@
 | [`LL_GPIO_SetOutputPin`](#ll_gpio_setoutputpin) | 0x08002CEA | Drives the selected GPIO output pins high by writing the mask to GPIOx BSRR |
 | [`bms_gpio_board_init`](#bms_gpio_board_init) | 0x08008FCC | Board GPIO bring-up: clocks for ports A to D and F, initial output levels, pin modes |
 | [`bms_gpio_exti_init`](#bms_gpio_exti_init) | 0x080091F8 | Configure EXTI lines 2, 8 and 12 with their source ports and edges, and enable NVIC IRQ 6 and 7 |
+| [`bms_pa12_ready_handshake`](#bms_pa12_ready_handshake) | 0x08009A0C | Pulse PA11 and poll PA12 for a low level; on timeout set *param_1 and return 1 |
+| [`bms_pa5_drive_level`](#bms_pa5_drive_level) | 0x0800B8AC | Drive GPIOA pin 5 high for a nonzero argument, low for zero |
+| [`bms_pd0_indicator_step`](#bms_pd0_indicator_step) | 0x0800E820 | Drive output PD0 with a blink pattern chosen from flag words, advancing the timer by param_5 |
 | [`gpio_pa15_reset`](#gpio_pa15_reset) | 0x08008F20 | Drive GPIOA pin 15 low through BRR |
 | [`gpio_pa15_set`](#gpio_pa15_set) | 0x08008F2C | Drive GPIOA pin 15 high through BSRR |
 | [`gpio_pa5_reset`](#gpio_pa5_reset) | 0x08009414 | Drive GPIOA pin 5 low through BRR |
@@ -74,7 +77,7 @@ Per-pin GPIO configuration, as in ST's LL_GPIO_Init, for each bit set in init[0]
 **Returns** `u32`: 0 = SUCCESS
 
 - Addresses by version: 4130: 0x08002C24, 4139: 0x08002C24, 4148: 0x08002C24, 4168: 0x08002C24
-- Called by: `bms_4168_080082f0`, `bms_adc_hw_init`, `gpio_pb13_15_strap_read`, `bms_gpio_board_init`, `bms_gpio_exti_init`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_bus_release`, `bms_4168_0800a000`, `bms_4168_0800a574`
+- Called by: `bms_4168_080082f0`, `bms_adc_hw_init`, `gpio_pb13_15_strap_read`, `bms_gpio_board_init`, `bms_gpio_exti_init`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_bus_release`, `bms_spi1_master_init`, `bms_4168_0800a574`
 - Confidence: high
 
 ## LL_GPIO_IsInputPinSet
@@ -91,7 +94,7 @@ Reads GPIOx IDR (offset 0x10) and returns 1 only if all bits of PinMask are set,
 **Returns** `bool`: true if all pins in the mask are high
 
 - Addresses by version: 4130: 0x08002CD4, 4139: 0x08002CD4, 4148: 0x08002CD4, 4168: 0x08002CD4
-- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_4168_08009a0c`
+- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_pa12_ready_handshake`
 - Confidence: high
 
 ## LL_GPIO_ResetOutputPin
@@ -106,7 +109,7 @@ Writes PinMask to GPIOx BRR (offset 0x28). On this part, BRR clears the output l
 | `PinMask` | `u32` | pins to drive low |
 
 - Addresses by version: 4130: 0x08002CE6, 4139: 0x08002CE6, 4148: 0x08002CE6, 4168: 0x08002CE6
-- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_4168_08009a0c`
+- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_pa12_ready_handshake`
 - Confidence: high
 
 ## LL_GPIO_SetOutputPin
@@ -121,7 +124,7 @@ Writes PinMask to GPIOx BSRR (offset 0x18). A 1 bit sets the matching output lat
 | `PinMask` | `u32` | pins to drive high |
 
 - Addresses by version: 4130: 0x08002CEA, 4139: 0x08002CEA, 4148: 0x08002CEA, 4168: 0x08002CEA
-- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_4168_08009a0c`
+- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_bus_init`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_pa12_ready_handshake`
 - Confidence: high
 
 ## bms_gpio_board_init
@@ -152,6 +155,61 @@ Sets analog or input modes for the interrupt input pins from the init masks on p
 - Calls: `LL_EXTI_Init`, `LL_GPIO_Init`
 - Confidence: medium
 
+## bms_pa12_ready_handshake
+
+**Pulse PA11 and poll PA12 for a low level; on timeout set *param_1 and return 1**
+
+Two-pin handshake on GPIOA. It presets the PA12 output latch high through GPIOA.BSRR, clears MODER bits 25:24 to make PA12 an input, then drives PA11 high. After one bms_systick_wait_scaled(1) delay it polls PA12 with LL_GPIO_IsInputPinSet up to 0x9C5 (2501) times. If PA12 reads low, PA11 is driven low, *param_1 is set to 0 and the function returns 0. If the budget runs out, FUN_0800997C is called (not described in this packet), *param_1 is set to 1, PA11 is released and the function returns 1. The reading of PA11 as a request output and PA12 as the peer's ready line is inferred from the sequence.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | status byte written by the routine: 0 when PA12 went low, 1 on timeout |
+
+**Returns** `bool`: 1 on timeout, 0 when PA12 went low within the poll budget
+
+**Notes:** Caller is bms_4168_080097d8. The 2501-poll budget and the PA11/PA12 roles are not confirmed. FUN_0800997C is the timeout path and is outside this packet.
+
+- Addresses by version: 4130: 0x080089AC, 4139: 0x08008EAC, 4148: 0x080096F8, 4168: 0x08009A0C
+- Called by: `bms_4168_080097d8`
+- Calls: `LL_GPIO_IsInputPinSet`, `LL_GPIO_ResetOutputPin`, `LL_GPIO_SetOutputPin`, `bms_systick_wait_scaled`, `bms_i2c_bb_stop`
+- Confidence: medium
+
+## bms_pa5_drive_level
+
+**Drive GPIOA pin 5 high for a nonzero argument, low for zero**
+
+Thin wrapper that sets the level of GPIOA pin 5. A nonzero argument calls gpio_pa5_set (BSRR) and zero calls gpio_pa5_reset (BRR). It changes no other state.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | nonzero drives PA5 high, zero drives it low |
+
+- Addresses by version: 4130: 0x0800A944, 4139: 0x0800AE7C, 4148: 0x0800B598, 4168: 0x0800B8AC
+- Called by: `bms_4168_0800c6dc`
+- Calls: `gpio_pa5_reset`, `gpio_pa5_set`
+- Confidence: high
+
+## bms_pd0_indicator_step
+
+**Drive output PD0 with a blink pattern chosen from flag words, advancing the timer by param_5**
+
+Adds param_5 to the timer DAT_20000564 on each call and chooses one of several patterns from the flag words. Pattern 1 (param_2 bit 2, or param_1 bit 5 or 6) has a 2000-tick period and is high from 1000 to 1999; pattern 2 (param_1 bit 3 or 4, param_3 bit 11, or param_2 bit 4) has a 3000-tick period and is high from 1500 to 2999; pattern 3 (param_1 bits 7, 8, 9, 10 or 12) has a 4000-tick period and is high from 2000 to 3999. When none of those match, param_1 bit 2 drives the output high at once, param_1 bit 1 gives a 1000-tick period high from 500 to 999, and otherwise param_4 bit 8 selects solid high or a 200-tick period high from 100 to 199. Each period ends by calling gpio_pd0_reset and clearing the timer, and the solid cases call gpio_pd0_set and clear the timer.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | state flags; bits 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 and 12 select patterns |
+| `param_2` | `u16` | flag word; bits 2 and 4 select patterns |
+| `param_3` | `u32` | flag word; bit 11 selects pattern 2 |
+| `param_4` | `s32` | bit 8 chooses the 200-tick pattern over solid high when no other pattern applies |
+| `param_5` | `s16` | elapsed ticks added to the timer |
+
+**Notes:** Whether PD0 drives an active-high or active-low LED or buzzer is not established here. The callers are not in this packet, so the meaning of the flag words is unknown. gpio_pd0_set and gpio_pd0_reset are the port-0x50000C00 BSRR and BRR writes described in the packet.
+
+- Addresses by version: 4130: 0x0800CDA4, 4139: 0x0800D38C, 4148: 0x0800E38C, 4168: 0x0800E820
+- Called by: `bms_state_snapshot_submit`
+- Calls: `gpio_pd0_reset`, `gpio_pd0_set`
+- Confidence: medium
+
 ## gpio_pa15_reset
 
 **Drive GPIOA pin 15 low through BRR**
@@ -179,7 +237,7 @@ Writes 0x8000 to GPIOA.BSRR (0x50000018), which sets PA15 atomically without tou
 Writes 0x20 to GPIOA.BRR (0x50000028), which resets PA5 atomically. It is the reset half of gpio_pa5_set. The only caller in the packet is bms_4168_0800b8ac. The pin's function is not established.
 
 - Addresses by version: 4130: 0x080083B4, 4139: 0x080088B4, 4148: 0x08009100, 4168: 0x08009414
-- Called by: `bms_4168_0800b8ac`
+- Called by: `bms_pa5_drive_level`
 - Confidence: high
 
 ## gpio_pa5_set
@@ -189,7 +247,7 @@ Writes 0x20 to GPIOA.BRR (0x50000028), which resets PA5 atomically. It is the re
 Writes 0x20 to GPIOA.BSRR (0x50000018), which sets PA5 atomically. It is the set half of gpio_pa5_reset. The only caller in the packet is bms_4168_0800b8ac.
 
 - Addresses by version: 4130: 0x080083BE, 4139: 0x080088BE, 4148: 0x0800910A, 4168: 0x0800941E
-- Called by: `bms_4168_0800b8ac`
+- Called by: `bms_pa5_drive_level`
 - Confidence: high
 
 ## gpio_pb13_15_strap_read
@@ -267,7 +325,7 @@ Writes 1 to the BRR register at 0x50000C28 of the port based at 0x50000C00, whic
 **Notes:** Port identification (0x50000C00 as GPIOD) is inferred from the G0 layout; the pin's function is unknown.
 
 - Addresses by version: 4130: 0x08008180, 4139: 0x08008680, 4148: 0x08008ECC, 4168: 0x080091E0
-- Called by: `bms_4168_0800e820`
+- Called by: `bms_pd0_indicator_step`
 - Confidence: medium
 
 ## gpio_pd0_set
@@ -279,5 +337,5 @@ Writes 1 to the BSRR register at 0x50000C18 of the port based at 0x50000C00, whi
 **Notes:** Port identification (0x50000C00 as GPIOD) is inferred from the G0 layout, as in gpio_pd0_reset.
 
 - Addresses by version: 4130: 0x0800818C, 4139: 0x0800868C, 4148: 0x08008ED8, 4168: 0x080091EC
-- Called by: `bms_4168_080082f0`, `bms_4168_0800e820`
+- Called by: `bms_4168_080082f0`, `bms_pd0_indicator_step`
 - Confidence: medium

@@ -1,6 +1,6 @@
 # BMS - `rtc` functions
 
-6 functions.
+9 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -9,7 +9,10 @@
 | [`HAL_RTC_MspInit`](#hal_rtc_mspinit) | 0x080026CC | Enables the RTC clock (BDCR.RTCEN and APBENR1.RTCAPBEN) when the handle is for the RTC |
 | [`bms_rtc_backup_reset_lse_on`](#bms_rtc_backup_reset_lse_on) | 0x08009BA4 | Pulse the RTC backup-domain reset, clear LSE drive bits, and set LSEON |
 | [`bms_rtc_clock_bringup`](#bms_rtc_clock_bringup) | 0x08009A9C | Start the RTC clock: try LSE with a timeout, fall back to LSI, select it, enable RTC |
+| [`bms_rtc_datetime_pack`](#bms_rtc_datetime_pack) | 0x08009D84 | Read RTC date and time in binary and pack them into a 4-byte bit-field record |
 | [`bms_rtc_lse_ready_get`](#bms_rtc_lse_ready_get) | 0x08009BDC | Return the LSE ready flag (RCC.BDCR LSERDY, bit 1) |
+| [`bms_rtc_wakeup_period_set`](#bms_rtc_wakeup_period_set) | 0x0800A6F4 | Arm the RTC wake-up timer for 1 to 31 seconds with RTC_TAMP IRQ priority 1 |
+| [`bms_rtc_wakeup_stop`](#bms_rtc_wakeup_stop) | 0x0800A73C | Stop the RTC wake-up timer by calling helper 0x08002348 on the RTC handle |
 
 ## HAL_RTC_GetDate
 
@@ -26,7 +29,7 @@ Reads the RTC DR register through the handle (the first handle word points at th
 **Returns** `u32`: HAL status; 0 (HAL_OK) on every path in this build
 
 - Addresses by version: 4130: 0x08002564, 4139: 0x08002564, 4148: 0x08002564, 4168: 0x08002564
-- Called by: `bms_4168_08009d84`
+- Called by: `bms_rtc_datetime_pack`
 - Confidence: high
 
 ## HAL_RTC_GetTime
@@ -46,7 +49,7 @@ Reads RTC TR through the handle and writes hours (TR bits 16-21), minutes (bits 
 **Notes:** The decompile does not show the read of RTC DR that ST's HAL normally performs after TR to release the shadow registers. This is either a different HAL revision or the read was removed.
 
 - Addresses by version: 4130: 0x080025BC, 4139: 0x080025BC, 4148: 0x080025BC, 4168: 0x080025BC
-- Called by: `bms_4168_08009d84`
+- Called by: `bms_rtc_datetime_pack`
 - Confidence: high
 
 ## HAL_RTC_MspInit
@@ -89,8 +92,25 @@ Brings up the RTC clock source in the RCC backup domain. It first tests RTCSEL (
 
 - Addresses by version: 4130: 0x08008A3C, 4139: 0x08008F3C, 4148: 0x08009788, 4168: 0x08009A9C
 - Peripheral registers: `PWR.CR1` (RW), `RCC.BDCR` (RW), `RCC.CSR` (RW)
-- Called by: `bms_4168_0800a130`
+- Called by: `bms_sysclk_hse_pll_bringup`
 - Confidence: high
+
+## bms_rtc_datetime_pack
+
+**Read RTC date and time in binary and pack them into a 4-byte bit-field record**
+
+Reads the RTC calendar through HAL_RTC_GetDate and HAL_RTC_GetTime in binary format, using the RTC handle at RAM 0x20005D00. It packs the day of month into bits 0-5 of the output (from the Date byte of the date structure), the month into bits 6-11 (Month byte), the weekday into bits 12-16 (WeekDay byte) and the seconds, masked to 5 bits, into bits 17-21. Hour, minute and AM/PM fields are merged into the upper bytes with the same masking style, but their exact positions are only partly decoded, and the year byte is not packed. The routine writes only the output record.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `ptr` | output record, 4 bytes written as two u16 bit-field words |
+
+**Notes:** Hour, minute and AM/PM bit positions are not fully confirmed. Case 9 of bms_telemetry_block_fill stores this record in the telemetry frame.
+
+- Addresses by version: 4130: 0x08008D24, 4139: 0x08009224, 4148: 0x08009A70, 4168: 0x08009D84
+- Called by: `bms_4168_08005ab0`, `bms_4168_08005cdc`, `bms_4168_08006514`, `bms_4168_080065e0`, `bms_4168_0800a8a0`, `bms_4168_0800d76c`, `bms_setpoint_window_sample`, `bms_4168_0800e9dc`
+- Calls: `HAL_RTC_GetDate`, `HAL_RTC_GetTime`
+- Confidence: medium
 
 ## bms_rtc_lse_ready_get
 
@@ -103,3 +123,33 @@ Reads RCC.BDCR and returns (value & 3) >> 1, which is bit 1, LSERDY, as 0 or 1. 
 - Addresses by version: 4130: 0x08008B7C, 4139: 0x0800907C, 4148: 0x080098C8, 4168: 0x08009BDC
 - Peripheral registers: `RCC.BDCR` (R)
 - Confidence: high
+
+## bms_rtc_wakeup_period_set
+
+**Arm the RTC wake-up timer for 1 to 31 seconds with RTC_TAMP IRQ priority 1**
+
+Sets a periodic RTC wake-up interrupt. The argument is clamped to 1 to 31 (0 becomes 1, values above 31 become 31). The wake-up counter is clamp * 2000 when DAT_20000690 is 0, which suits LSI divided by 16 (about 2 kHz), and clamp << 11 when it is nonzero, which suits LSE divided by 16 (2048 Hz), so the period is about clamp seconds either way. It sets priority 1 (preempt 1, sub 0) on IRQ 2 (RTC_TAMP) through the priority helper at 0x080022B0, enables IRQ 2 through __NVIC_EnableIRQ, and starts the wake-up timer through the helper at 0x08002470 with the RTC handle at 0x20005D00, the counter and clock select 0 (RTCCLK / 16).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | requested period in seconds, clamped to 1 to 31 |
+
+**Notes:** The role of FUN_08002470 is inferred from its arguments and is not described in this packet. The LSE flag at 0x20000690 is taken from its use here only.
+
+- Addresses by version: 4130: 0x0800978C, 4139: 0x08009CC4, 4148: 0x0800A3E0, 4168: 0x0800A6F4
+- Called by: `bms_4168_080082f0`
+- Calls: `__NVIC_EnableIRQ`, `__NVIC_SetPriority`, `bms_4168_08002470`
+- Confidence: medium
+
+## bms_rtc_wakeup_stop
+
+**Stop the RTC wake-up timer by calling helper 0x08002348 on the RTC handle**
+
+Calls the helper at 0x08002348 with the RTC handle at 0x20005D00 and does nothing else. The helper is not described in this packet. It is most likely the HAL RTC wake-up deactivation routine, which pairs with bms_rtc_wakeup_period_set, but that is inferred from the single handle argument.
+
+**Notes:** Identity of the helper at 0x08002348 is unconfirmed.
+
+- Addresses by version: 4130: 0x080097D4, 4139: 0x08009D0C, 4148: 0x0800A428, 4168: 0x0800A73C
+- Called by: `bms_4168_080082f0`
+- Calls: `bms_4168_08002348`
+- Confidence: low

@@ -1,10 +1,11 @@
 # BMS - `soc` functions
 
-3 functions.
+4 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`bms_charge_integrate_step`](#bms_charge_integrate_step) | 0x08006F90 | Integrate the signed current step into the charge counters, rolling over into hours and cycles |
+| [`bms_soc_band_classify`](#bms_soc_band_classify) | 0x0800E748 | Classify the state-of-charge value at +0x104 and set the mode code in the low bits of DAT_200005C0 |
 | [`bms_state_refresh_scaled`](#bms_state_refresh_scaled) | 0x08006730 | Refresh scaled measurement and derived-limit fields of the BMS state block at 0x20000BDC |
 | [`bms_tracking_filter_step`](#bms_tracking_filter_step) | 0x080072EC | One step of a dead-band tracking filter that slews an estimate toward a measurement |
 
@@ -12,18 +13,31 @@
 
 **Integrate the signed current step into the charge counters, rolling over into hours and cycles**
 
-A sub-count accumulator at 0x20000EF8 is advanced by param_1 * 10 * current (state+0x11A) when param_2 is 0, or by -35 when param_2 is 1, with an extra -12 when the current is zero. Whole multiples of 10 move from 0x20000EF8 to 0x20000EFC, and whole multiples of 3600 (0xE10) move from 0x20000EFC into the estimate at 0x20000EEC, which is clamped to 0 when negative. When the current is above 10 and bit 2 of the 16-bit word at +0x124 is set, positive whole-3600 counts are added to the 32-bit word at +0x1BE; once it exceeds 97 percent of 0x20000E34 that threshold is subtracted, the 16-bit counter at +0xB2 is incremented and bit 0x80 is set in the flag word at 0x200001C8. The 32-bit word is stored back at +0x1BE and +0x1C0.
+A sub-count accumulator at 0x20000EF8 is advanced by current_step * 10 * current (state+0x11A) when mode is 0, or by -35 when mode is 1, with an extra -12 when the current is zero. Whole multiples of 10 move from 0x20000EF8 to 0x20000EFC, and whole multiples of 3600 (0xE10) move from 0x20000EFC into the estimate at 0x20000EEC, which is clamped to 0 when negative. When the current is above 10 and bit 2 of the 16-bit word at +0x124 is set, positive whole-3600 counts are added to the 32-bit word at +0x1BE; once it exceeds 97 percent of 0x20000E34 that threshold is subtracted, the 16-bit counter at +0xB2 is incremented and bit 0x80 is set in the flag word at 0x200001C8. The 32-bit word is stored back at +0x1BE and +0x1C0.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `s32` | signed current step (scaled), multiplied by 10 before accumulation |
-| `param_2` | `s32` | 1 selects the -35 offset update; any other value uses the current-proportional update |
+| `current_step` | `s32` | signed current step (scaled), multiplied by 10 before accumulation |
+| `mode` | `s32` | 1 selects the -35 offset update; any other value uses the current-proportional update |
 
 **Notes:** The 3600-tick unit is assumed to be one hour if the tick is one second, which is a guess. The meaning of the +0xB2 counter as a cycle count is inferred from its use as the aging input in bms_4168_08006730.
 
 - Addresses by version: 4139: 0x080064BC, 4148: 0x08006CE8, 4168: 0x08006F90
 - Called by: `bms_4168_080068e8`, `bms_4168_08007348`
 - Calls: `bms_udiv32`, `bms_4168_0800113c`, `bms_ram_20000bdc_addr`, `bms_ram_200001c8_addr`
+- Confidence: medium
+
+## bms_soc_band_classify
+
+**Classify the state-of-charge value at +0x104 and set the mode code in the low bits of DAT_200005C0**
+
+Reads the 16-bit value at state block +0x104, which is treated as a percentage with 100 meaning full, and sets the low three bits of DAT_200005C0 as a mode code. A value above 99 is forced to 100 and bits 0 and 1 are cleared, keeping bit 2. Otherwise, when the value is at or below the 16-bit limit at +0x11E the mode becomes 3 (bits 0 and 1 set, bit 2 cleared), and in all other cases it becomes 1 (bit 0 only).
+
+**Notes:** The source tests (value - 80) > 19 as a signed comparison, so only values of 100 and above take the forced-100 branch; values from 80 to 99 fall through to the threshold test. The reading of +0x104 as state of charge is inferred from the value 100 and the bms_4148 use in bms_balance_timer_step.
+
+- Addresses by version: 4130: 0x0800CCCC, 4139: 0x0800D2B4, 4148: 0x0800E2B4, 4168: 0x0800E748
+- Called by: `bms_tail_call_unnamed_a`
+- Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 
 ## bms_state_refresh_scaled

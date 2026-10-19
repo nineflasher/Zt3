@@ -40,13 +40,13 @@ Clears a 24-byte local structure with bms_4168_08001246, then calls LL_GPIO_Init
 
 **Read one byte on the bit-banged bus, then send ACK or NACK and optionally a STOP**
 
-Calls bms_i2c_bb_read_byte to store the received byte at param_1. If that succeeds, param_2 selects the acknowledge bit: 0 sends an ACK through bms_i2c_bb_send_bit0 and a nonzero value sends a NACK through bms_i2c_bb_send_bit1. If the acknowledge succeeded and param_3 is 1, bms_i2c_bb_stop is issued. It returns the status of the last step run, 0 on success or 2 on a clock-stretch timeout.
+Calls bms_i2c_bb_read_byte to store the received byte at rx_out. If that succeeds, nack selects the acknowledge bit: 0 sends an ACK through bms_i2c_bb_send_bit0 and a nonzero value sends a NACK through bms_i2c_bb_send_bit1. If the acknowledge succeeded and send_stop is 1, bms_i2c_bb_stop is issued. It returns the status of the last step run, 0 on success or 2 on a clock-stretch timeout.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | destination for the received byte |
-| `param_2` | `s32` | 0 sends ACK; nonzero sends NACK |
-| `param_3` | `s32` | 1 issues a STOP after the acknowledge; other values do not |
+| `rx_out` | `ptr` | destination for the received byte |
+| `nack` | `s32` | 0 sends ACK; nonzero sends NACK |
+| `send_stop` | `s32` | 1 issues a STOP after the acknowledge; other values do not |
 
 **Returns** `s32`: 0 on success, 2 on a clock-stretch timeout
 
@@ -59,11 +59,11 @@ Calls bms_i2c_bb_read_byte to store the received byte at param_1. If that succee
 
 **Receive one byte MSB first on the bit-banged bus, sampling PA12 while PA11 is high**
 
-Switches PA12 to input, then for each of 8 bits pulses PA11 low and high, polls PA11 for up to 24001 reads until it reads high (clock stretching), and shifts the level of PA12 into the result. The byte is stored at param_1 and the function returns 0; if the clock stays low it returns 2 without storing. PA11 is left high after the last bit.
+Switches PA12 to input, then for each of 8 bits pulses PA11 low and high, polls PA11 for up to 24001 reads until it reads high (clock stretching), and shifts the level of PA12 into the result. The byte is stored at rx_out and the function returns 0; if the clock stays low it returns 2 without storing. PA11 is left high after the last bit.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `ptr` | receives the byte as a char |
+| `rx_out` | `ptr` | receives the byte as a char |
 
 **Returns** `s32`: 0 on success, 2 on a clock-stretch timeout
 
@@ -122,7 +122,7 @@ Drives SCL low and SDA low, releases SCL and polls it for up to 24001 reads unti
 **Returns** `u32`: 0 on success, 2 when SCL does not rise
 
 - Addresses by version: 4130: 0x0800891C, 4139: 0x08008E1C, 4148: 0x08009668, 4168: 0x0800997C
-- Called by: `bms_4168_080094b4`, `bms_i2c_bb_read_ack`, `bms_4168_080097d8`, `bms_4168_08009a0c`
+- Called by: `bms_4168_080094b4`, `bms_i2c_bb_read_ack`, `bms_4168_080097d8`, `bms_pa12_ready_handshake`
 - Calls: `LL_GPIO_IsInputPinSet`, `LL_GPIO_ResetOutputPin`, `LL_GPIO_SetOutputPin`, `bms_systick_wait_scaled`
 - Confidence: medium
 
@@ -134,7 +134,7 @@ Configures PA12 as output and drives PA11 low. For each of the 8 bits, from the 
 
 | Parameter | Type | Description |
 |---|---|---|
-| `param_1` | `u8` | byte to send; only the low 8 bits are used |
+| `tx_byte` | `u8` | byte to send; only the low 8 bits are used |
 
 **Returns** `u32`: 0 after eight bits, 2 on a clock-stretch timeout
 

@@ -13,7 +13,6 @@ Functions are tracked across builds with Ghidra Version Tracking (see methodolog
 | Function | Change |
 |---|---|
 | `bms_4148_08007a70` | removed in BMS_4168 |
-| `bms_4148_0800e228` | removed in BMS_4168 |
 | `bms_4168_080012ec` | modified |
 | `bms_4168_08003cc0` | modified |
 | `bms_4168_08004128` | modified |
@@ -32,10 +31,11 @@ Functions are tracked across builds with Ghidra Version Tracking (see methodolog
 | `bms_4168_0800ce64` | modified |
 | `bms_4168_0800d76c` | modified |
 | `bms_4168_0800ddb0` | modified |
-| `bms_4168_0800e060` | modified |
 | `bms_4168_0800e67c` | added in BMS_4168 |
 | `bms_4168_0800ec04` | modified |
 | `bms_4168_0800f2e0` | modified |
 | `bms_4168_0800fb94` | modified |
+| `bms_balance_timer_step` | removed in BMS_4168 |
 | `bms_charge_integrate_step` | modified |
+| `bms_comm_service_step` | modified |
 | `gpio_pb13_15_strap_read` | modified |

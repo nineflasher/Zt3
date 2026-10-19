@@ -1,6 +1,6 @@
 # BMS - `timer` functions
 
-17 functions.
+20 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -19,7 +19,10 @@
 | [`bms_systick_wait_scaled`](#bms_systick_wait_scaled) | 0x08008DA0 | Busy-wait for param_1 * DAT_20000688 SysTick counts |
 | [`bms_tick_get`](#bms_tick_get) | 0x0800A348 | Return the 32-bit time base word at 0x20000678 |
 | [`bms_tick_timeout_check`](#bms_tick_timeout_check) | 0x0800A528 | True when (time base - start stamp) reaches the threshold; stores the elapsed value on expiry |
+| [`bms_tim6_tim7_start`](#bms_tim6_tim7_start) | 0x0800A3E8 | Configure TIM6 as a polled 10 Hz timer and TIM7 as a 1 kHz update interrupt |
+| [`bms_tim6_tim7_stop`](#bms_tim6_tim7_stop) | 0x0800A4B4 | Stop TIM6 and TIM7, reset both timers and disable IRQ 18 |
 | [`bms_tim6_tim7_stop_reset`](#bms_tim6_tim7_stop_reset) | (removed) | Stop and reset TIM6 and TIM7: counter disable, then peripheral reset |
+| [`bms_tim6_update_flag_poll`](#bms_tim6_update_flag_poll) | 0x0800A3C8 | Return true if TIM6 has an update flag pending, and clear it |
 | [`bms_timer10_poll`](#bms_timer10_poll) | 0x08008254 | Poll a 10-tick periodic timer and arm it when the request byte at 0x20000020 is set |
 
 ## LL_TIM_DeInit
@@ -36,7 +39,7 @@ Resets one timer by writing a force-reset and then a release-reset to its bit in
 
 - Addresses by version: 4130: 0x08002E8C, 4139: 0x08002E8C, 4148: 0x08002E8C, 4168: 0x08002E8C
 - Peripheral registers: `RCC.APBRSTR1` (RW), `RCC.APBRSTR2` (RW)
-- Called by: `bms_4168_0800a4b4`
+- Called by: `bms_tim6_tim7_stop`
 - Confidence: high
 
 ## LL_TIM_DisableCounter
@@ -50,7 +53,7 @@ Clears CR1 bit 0 (CEN) by read-modify-write and keeps the other CR1 bits, which 
 | `TIMx` | `ptr` | timer instance; word 0 is CR1 |
 
 - Addresses by version: 4130: 0x08002FA4, 4139: 0x08002FA4, 4148: 0x08002FA4, 4168: 0x08002FA4
-- Called by: `bms_4168_0800a4b4`
+- Called by: `bms_tim6_tim7_stop`
 - Confidence: high
 
 ## LL_TIM_DisableMasterSlaveMode
@@ -64,7 +67,7 @@ Clears bit 7 of the word at offset 8 of the timer block (SMCR, master/slave mode
 | `TIMx` | `ptr` | timer instance |
 
 - Addresses by version: 4130: 0x08002FAE, 4139: 0x08002FAE, 4148: 0x08002FAE, 4168: 0x08002FAE
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## LL_TIM_EnableARRPreload
@@ -78,7 +81,7 @@ ORs 0x80 into CR1 (offset 0), setting ARPE (auto-reload preload enable). With AR
 | `TIMx` | `ptr` | timer instance; word 0 is CR1 |
 
 - Addresses by version: 4130: 0x08002FB8, 4139: 0x08002FB8, 4148: 0x08002FB8, 4168: 0x08002FB8
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## LL_TIM_EnableCounter
@@ -92,7 +95,7 @@ ORs 1 into CR1 (CEN), which starts the counter from its current CNT value. Other
 | `TIMx` | `ptr` | timer instance; word 0 is CR1 |
 
 - Addresses by version: 4130: 0x08002FC2, 4139: 0x08002FC2, 4148: 0x08002FC2, 4168: 0x08002FC2
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## LL_TIM_Init
@@ -109,7 +112,7 @@ Applies an LL_TIM_InitTypeDef-style record to a timer, as ST's LL_TIM_Init does.
 **Returns** `u32`: ErrorStatus, always 0 (SUCCESS)
 
 - Addresses by version: 4130: 0x08002FCC, 4139: 0x08002FCC, 4148: 0x08002FCC, 4168: 0x08002FCC
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## LL_TIM_SetTriggerOutput
@@ -124,7 +127,7 @@ Replaces CR2 (offset 4) bits 4 to 6 (MMS, master mode selection, which chooses t
 | `trigger_output` | `u32` | MMS value already in bits 4 to 6 |
 
 - Addresses by version: 4130: 0x08003080, 4139: 0x08003080, 4148: 0x08003080, 4168: 0x08003080
-- Called by: `bms_4168_0800a3e8`
+- Called by: `bms_tim6_tim7_start`
 - Confidence: high
 
 ## SysTick_Config
@@ -201,7 +204,7 @@ Runs param_1 repetitions of a busy-wait. Each repetition polls SysTick->VAL (0xE
 
 - Addresses by version: 4130: 0x08007D0C, 4139: 0x0800820C, 4148: 0x08008A58, 4168: 0x08008D58
 - Peripheral registers: `SysTick+0x4` (R), `SysTick+0x8` (R)
-- Called by: `bms_4168_080082bc`, `bms_4168_080082f0`, `bms_4168_0800aa5c`, `bms_4168_0800aae8`, `bms_4168_0800b314`, `bms_4168_0800b406`, `bms_4168_0800b57e`
+- Called by: `bms_4168_080082bc`, `bms_4168_080082f0`, `bms_pc7_enable_and_settle`, `bms_4168_0800aae8`, `bms_4168_0800b314`, `bms_4168_0800b406`, `bms_4168_0800b57e`
 - Confidence: high
 
 ## bms_systick_wait_scaled
@@ -218,7 +221,7 @@ A single busy-wait with the same SysTick VAL/LOAD elapsed-count method as bms_sy
 
 - Addresses by version: 4130: 0x08007D54, 4139: 0x08008254, 4148: 0x08008AA0, 4168: 0x08008DA0
 - Peripheral registers: `SysTick+0x4` (R), `SysTick+0x8` (R)
-- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_4168_08009a0c`
+- Called by: `bms_i2c_bb_send_bit0`, `bms_i2c_bb_send_bit1`, `bms_i2c_bb_read_byte`, `bms_i2c_bb_write_byte`, `bms_i2c_bb_start`, `bms_i2c_bb_stop`, `bms_pa12_ready_handshake`
 - Confidence: medium
 
 ## bms_tick_get
@@ -232,7 +235,7 @@ Returns the u32 at RAM 0x20000678. Many callers use it as a time stamp, and bms_
 **Notes:** Callers in the packet include bms_4139_0800c950, bms_4139_0800cd7c, bms_4139_0800cebc and about a dozen bms_4168 functions; the packet's caller list is truncated.
 
 - Addresses by version: 4130: 0x080092E8, 4139: 0x080097E8, 4148: 0x0800A034, 4168: 0x0800A348
-- Called by: `bms_4168_080056b4`, `bms_4168_080062f0`, `bms_4168_080064a0`, `bms_4168_08006514`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_4168_0800b9a8`, `bms_4168_0800b9f2`, `bms_4168_0800d76c`, `bms_4168_0800ddb0` ...
+- Called by: `bms_4168_080056b4`, `bms_4168_080062f0`, `bms_4168_080064a0`, `bms_4168_08006514`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_4168_0800ddb0` ...
 - Confidence: medium
 
 ## bms_tick_timeout_check
@@ -252,8 +255,34 @@ Computes an elapsed time from the 32-bit time base at 0x20000678 and the start s
 **Notes:** The wrap case subtracts one more than a plain unsigned subtraction. This may be a decompiler artifact of a borrow idiom or a real off-by-one; check the disassembly. Callers: bms_4139_0800cd7c, bms_4168_080064a0, bms_4168_08007f48, bms_4168_08008254, bms_4168_080082f0, bms_4168_0800868c, bms_4168_0800b9a8, bms_4168_0800b9f2, bms_4168_0800ddb0, bms_4168_0800e2c8, bms_4168_0800f8b4, bms_4168_0800fabc.
 
 - Addresses by version: 4130: 0x08009490, 4139: 0x080099C8, 4148: 0x0800A214, 4168: 0x0800A528
-- Called by: `bms_4168_080064a0`, `bms_4168_08007f48`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_4168_0800b9a8`, `bms_4168_0800b9f2`, `bms_4168_0800ddb0`, `bms_4168_0800e2c8`, `bms_4168_0800f8b4`, `bms_4168_0800fabc`
+- Called by: `bms_4168_080064a0`, `bms_4168_08007f48`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800ddb0`, `bms_can_status_frame_rx`, `bms_4168_0800f8b4`, `bms_fault_record_service`
 - Confidence: medium
+
+## bms_tim6_tim7_start
+
+**Configure TIM6 as a polled 10 Hz timer and TIM7 as a 1 kHz update interrupt**
+
+Sets up two basic timers from the 16 MHz clock. It calls a fill helper (FUN_08001246, not described here) on a 20-byte init block, enables the APB1 clocks for TIM6 (0x10) and TIM7 (0x20), and programs TIM6 with PSC 1599 and ARR 999, which gives 10 Hz. TIM6 gets ARR preload, master/slave mode off, reset trigger output, and its update flag cleared before the counter starts. For TIM7 it sets NVIC priority 1 on IRQ 18 and enables that IRQ through NVIC ISER bit 18, then programs PSC 15 and ARR 999 for 1 kHz, sets DIER.UIE to request an update interrupt each millisecond, clears the flag and starts the counter.
+
+**Notes:** The 16 MHz clock is assumed from bms_sysclk_hse_pll_bringup. IRQ 18 is TIM7_LPTIM2 in the STM32G0 vector table, and its handler is not in this packet. FUN_08001246 is not described here.
+
+- Addresses by version: 4130: 0x08009388, 4139: 0x08009888, 4148: 0x0800A0D4, 4168: 0x0800A3E8
+- Peripheral registers: `TIM6.CR1` (A), `TIM7.CR1` (A), `TIM7.DIER` (RW), `NVIC+0x0` (AW)
+- Called by: `bms_4168_08008294`, `bms_4168_080082f0`
+- Calls: `bms_4168_08001246`, `LL_APB1_GRP1_EnableClock`, `bms_request_reset`, `LL_TIM_DisableMasterSlaveMode`, `LL_TIM_EnableARRPreload`, `LL_TIM_EnableCounter`, `LL_TIM_Init`, `LL_TIM_SetTriggerOutput`, `NVIC_SetPriority`
+- Confidence: medium
+
+## bms_tim6_tim7_stop
+
+**Stop TIM6 and TIM7, reset both timers and disable IRQ 18**
+
+Undoes bms_tim6_tim7_start. For each of TIM6 and TIM7 it calls LL_TIM_DisableCounter and then LL_TIM_DeInit, which pulses the RCC reset line. It writes 0x40000 to NVIC ICER0 (0xE000E180) to disable IRQ 18, then runs a DSB and an ISB so the disable has taken effect before the function returns.
+
+- Addresses by version: 4139: 0x08009954, 4148: 0x0800A1A0, 4168: 0x0800A4B4
+- Peripheral registers: `TIM6.CR1` (A), `TIM7.CR1` (A), `NVIC+0x80` (W)
+- Called by: `bms_4168_080082f0`
+- Calls: `LL_TIM_DeInit`, `LL_TIM_DisableCounter`
+- Confidence: high
 
 ## bms_tim6_tim7_stop_reset
 
@@ -265,6 +294,22 @@ Calls LL_TIM_DisableCounter and then LL_TIM_DeInit for TIM6, then for TIM7. Each
 - Peripheral registers: `TIM6.CR1` (A), `TIM7.CR1` (A)
 - Called by: `bms_4168_080082f0`
 - Calls: `LL_TIM_DeInit`, `LL_TIM_DisableCounter`
+- Confidence: high
+
+## bms_tim6_update_flag_poll
+
+**Return true if TIM6 has an update flag pending, and clear it**
+
+Checks and clears the TIM6 update flag. It calls bms_request_is_done with the TIM6 instance pointer, which returns bit 0 of the word at offset 0x10 (TIM6_SR, the UIF bit). If that bit is set it calls bms_request_reset, which writes 0xFFFFFFFE to the same word and so clears UIF. The routine returns true only when the flag was set. It is a non-blocking poll, and TIM6 is configured as a 10 Hz timer by bms_tim6_tim7_start.
+
+**Returns** `bool`: true when UIF was set; the flag is cleared by the call
+
+**Notes:** The helpers take the TIM instance pointer as a request block, so the status word is TIM6_SR by address offset.
+
+- Addresses by version: 4130: 0x08009368, 4139: 0x08009868, 4148: 0x0800A0B4, 4168: 0x0800A3C8
+- Peripheral registers: `TIM6.CR1` (A)
+- Called by: `bms_4168_080082f0`
+- Calls: `bms_request_reset`, `bms_request_is_done`
 - Confidence: high
 
 ## bms_timer10_poll

@@ -1,12 +1,14 @@
 # BMS - `uart` functions
 
-3 functions.
+5 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`LL_USART_DeInit`](#ll_usart_deinit) | 0x0800308C | Pulses the RCC reset line of a USART instance (USART1 to USART6); returns 1 for other pointers |
 | [`bms_usart3_rxne_irq_set`](#bms_usart3_rxne_irq_set) | 0x0800A694 | Enable or disable the USART3 RX FIFO-not-empty interrupt (CR1.RXFNEIE) and return the previous IRQ state |
 | [`bms_usart3_send_bytes`](#bms_usart3_send_bytes) | 0x0800A6D0 | Blocking transmit of a byte buffer on USART3, waiting for TC before each TDR write |
+| [`bms_usart3_stop`](#bms_usart3_stop) | 0x0800A680 | Disable the USART3 RX-not-empty interrupt and reset USART3 |
+| [`bms_usart3_tx_setup`](#bms_usart3_tx_setup) | (removed) | Reset USART3 and set PB10 to alternate function 4 as its output pin |
 
 ## LL_USART_DeInit
 
@@ -22,7 +24,7 @@ Resets one USART by writing a force-reset and then a release-reset to its bit in
 
 - Addresses by version: 4130: 0x0800308C, 4139: 0x0800308C, 4148: 0x0800308C, 4168: 0x0800308C
 - Peripheral registers: `RCC.APBRSTR1` (RW), `RCC.APBRSTR2` (RW)
-- Called by: `bms_4168_0800a680`
+- Called by: `bms_usart3_stop`
 - Confidence: high
 
 ## bms_usart3_rxne_irq_set
@@ -41,7 +43,7 @@ With param_1 == 1 it sets USART3_CR1 bit 5 (RXFNEIE, RX FIFO not empty interrupt
 
 - Addresses by version: 4130: 0x080095FC, 4139: 0x08009B34, 4148: 0x0800A380, 4168: 0x0800A694
 - Peripheral registers: `USART3.CR1_FIFO_ENABLED` (RW)
-- Called by: `bms_4168_0800a574`, `bms_4168_0800a680`
+- Called by: `bms_4168_0800a574`, `bms_usart3_stop`
 - Confidence: medium
 
 ## bms_usart3_send_bytes
@@ -59,3 +61,29 @@ For each of the param_2 bytes it polls USART3_ISR bit 6 (TC, transmission comple
 - Peripheral registers: `USART3.ISR_FIFO_ENABLED` (R), `USART3.TDR` (W)
 - Called by: `bms_4168_08005128`
 - Confidence: high
+
+## bms_usart3_stop
+
+**Disable the USART3 RX-not-empty interrupt and reset USART3**
+
+Turns off USART3 reception and resets the peripheral. It calls bms_usart3_rxne_irq_set(0) to clear CR1.RXFNEIE and then LL_USART_DeInit(USART3), which pulses the RCC reset line. The previous interrupt state returned by the setter is ignored.
+
+- Addresses by version: 4130: 0x080095E8, 4139: 0x08009B20, 4148: 0x0800A36C, 4168: 0x0800A680
+- Peripheral registers: `USART3.CR1_FIFO_ENABLED` (A)
+- Called by: `bms_4168_080082f0`
+- Calls: `LL_USART_DeInit`, `bms_usart3_rxne_irq_set`
+- Confidence: high
+
+## bms_usart3_tx_setup
+
+**Reset USART3 and set PB10 to alternate function 4 as its output pin**
+
+Prepares the USART3 TX pin. It calls FUN_08009B34 with 0 (not described in this packet) and then LL_USART_DeInit(USART3). It writes 0x400 to GPIOB.BRR so PB10 is driven low, then calls LL_GPIO_Init on GPIOB with a 6-field init block: pin 0x400, mode field 1, speed 2, push-pull output, pull field 2 (pull-down) and alternate function 4. The field order follows LL_GPIO_InitTypeDef, and the pin is inferred to be USART3_TX from the AF4 selection and the USART3 context.
+
+**Notes:** Callers are bms_4139_08007238 and bms_4139_0800e4f8. The exact meaning of the mode and pull fields and the AF4 pin mapping are inferred from the stack block.
+
+- Addresses by version: 4130: 0x08009740, 4139: 0x08009C78
+- Peripheral registers: `USART3.CR1_FIFO_ENABLED` (A)
+- Called by: `bms_4139_08007238`, `bms_4139_0800e4f8`
+- Calls: `LL_GPIO_Init`, `LL_USART_DeInit`, `bms_usart3_rxne_irq_set`
+- Confidence: medium
