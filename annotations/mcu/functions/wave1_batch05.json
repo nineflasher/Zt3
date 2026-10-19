@@ -1,0 +1,764 @@
+{
+  "mcu_0160_080097ba": {
+    "name": "mcu_moving_average6_update",
+    "summary": "Push one sample into a 6-slot running-sum moving average and return the mean",
+    "description": "Ring-buffer moving average with six slots. The byte at struct+0x00 is the write index and is advanced as (index + 1) % 6. The sample previously stored in that slot (s32 array at +0x04..+0x1b) is subtracted from the running sum at +0x20, the new sample is added (sum += new - old) and written into the slot. Returns sum / 6 using signed 32-bit division, so the mean is truncated toward zero. The first six outputs are biased by the initial contents of the array and sum, which the caller sets up.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "new sample"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "filter state: u8 index at +0x00, s32 samples[6] at +0x04, s32 running sum at +0x20"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "mean of the six most recent samples (sum / 6)"
+    },
+    "confidence": "high",
+    "notes": "The signal being averaged is not visible in this packet; the only caller is mcu_0160_08009160."
+  },
+  "mcu_0160_080097e4": {
+    "name": "mcu_get_word_at_0x6c",
+    "summary": "Getter returning the 32-bit word at offset 0x6c of a structure",
+    "description": "Returns *(u32 *)(struct + 0x6c) with no check. Same pattern as the other one-word getters in this component (for example mcu_get_word_at_0x90). Called from mcu_0160_0800314c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "structure base pointer"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "word at struct+0x6c"
+    },
+    "confidence": "high",
+    "notes": "Field meaning is not visible from this function alone."
+  },
+  "mcu_0160_08009954": {
+    "name": "mcu_edge_counter_step",
+    "summary": "Advance a bidirectional phase counter one step and return its selected edge output bit",
+    "description": "Steps a counter structure and returns one output bit. Layout: u32 count at +0x00, u32 limit at +0x04, u32 reload at +0x08, u8 mode at +0x0c, u8 phase at +0x0d (0 = low, 1 = high, 2 = not yet defined), u8 last-edge latch at +0x0e, u8 output at +0x0f, u8 enable at +0x10. If the enable byte is 0 it returns 0 and changes nothing. Up-step (direction != 0): count is incremented until it reaches limit; at the limit the phase is set to 1 and count is reloaded from the reload value. Down-step: count is decremented, and when it is already 0 the phase is cleared to 0. The latch is set to 0 on a 0 to 1 phase transition and to 1 on a 1 to 0 transition. Output mode: 1 = phase high, 2 = rising edge, 3 = falling edge, 4 = any edge, 5 = phase high with latch 0, 6 = phase low with latch 1, other = 0. Modes 2 to 4 compare the phase before and after this step; modes 5 and 6 use the updated latch. It is one of a small group with mcu_edge_counter_init, mcu_edge_counter_reset and mcu_edge_counter_force_high, which operate on the same structure. Called from about a dozen motor-control sites (for example mcu_0160_08003434, mcu_0160_08008a14).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "counter structure (layout in description)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "direction: nonzero counts up, zero counts down"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "output bit at struct+0x0f (0 or 1)"
+    },
+    "confidence": "medium",
+    "notes": "The algorithm is clear from the code. The meaning of phase, mode and output in the motor control is a guess."
+  },
+  "mcu_0160_08009a40": {
+    "name": "mcu_edge_counter_init",
+    "summary": "Initialise an edge counter with limit, reload value and output mode, then enable it",
+    "description": "Succeeds only if both limit (param_2) and reload (param_3) are non-zero. On success it writes count = 0, limit at +0x04, reload at +0x08, the mode byte at +0x0c, phase = 2 and latch = 2 (both undefined, so the first mcu_edge_counter_step emits no edge), output = 0 at +0x0f, and sets the enable byte at +0x10 to 1; it returns 1. On failure it clears the enable byte and returns 0, leaving the structure inert. Companion of mcu_edge_counter_step (mcu_0160_08009954). Callers: mcu_0160_08003784, mcu_0160_08005c0c, mcu_0160_08008998, mcu_12b_08005c80.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "counter structure to initialise"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "counter limit (top value), must be non-zero"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "reload value loaded on overflow, must be non-zero"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "output mode selector 0 to 6, see mcu_edge_counter_step"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 on success, 0 if limit or reload is zero"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08009a6e": {
+    "name": "mcu_edge_counter_reset",
+    "summary": "Reset an edge counter to zero with phase and output low, keeping its configuration",
+    "description": "Sets count (+0x00) to 0, phase (+0x0d) to 0 and output (+0x0f) to 0, then returns 1. Limit, reload, mode, latch and enable are not touched, so the counter can be restarted without running mcu_edge_counter_init again. Callers: mcu_0160_08003434, mcu_0160_08003608, mcu_0160_08003664, mcu_0160_08003a0c, mcu_143_08003624, mcu_143_08003910, mcu_143_080052ac.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "counter structure"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08009a7a": {
+    "name": "mcu_edge_counter_force_high",
+    "summary": "Load an edge counter with its reload value and force phase and output high",
+    "description": "Sets count (+0x00) to the reload value (+0x08), phase (+0x0d) to 1 and output (+0x0f) to 1, then returns 1. The next up-step continues from the reload value. The output stays high only until the next mcu_edge_counter_step recomputes it. Callers: mcu_0160_08003784, mcu_0160_08003cc8.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "counter structure"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08009a88": {
+    "name": "SVC_Handler",
+    "summary": "SVC exception handler: empty, returns immediately",
+    "description": "Cortex-M SVCall vector target whose body is a bare return, so an svc instruction does nothing. Its presence in all four builds suggests the SVC slot is an unused default stub.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08009eb8": {
+    "name": "mcu_latched_value_set",
+    "summary": "Store a 32-bit value and set the valid flag byte at struct+0x04",
+    "description": "Writes the u32 argument to struct+0x00, sets the byte at struct+0x04 to 1 and returns 1. The flag is probably a 'value present' marker that readers check before using the stored word, following the valid-flag convention used elsewhere in this component (mcu_param_block3_init_checked).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "value holder: u32 value at +0x00, valid byte at +0x04"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "value to store"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the flag is inferred from the pattern."
+  },
+  "mcu_0160_0800a244": {
+    "name": "mcu_track_min_nonzero_u8",
+    "summary": "Store a value in RAM byte 0x200003bc if it is smaller than the stored value or the stored value is 0",
+    "description": "Writes the low byte of the argument into the RAM byte at 0x200003bc when the argument is below the current value or the current value is 0. Zero therefore acts as 'no sample yet', but it is also a valid stored value: once a 0 has been stored, the next call always overwrites it. Only 8 bits are stored, so a value above 255 is compared at full width but stored truncated. Callers: mcu_0160_080061fc, mcu_0160_0800b324, mcu_0160_0800d548, mcu_12b_0800b0a4.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "candidate value (only the low 8 bits are stored)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Meaning of the RAM byte 0x200003bc is not visible in this packet."
+  },
+  "mcu_0160_0800a258": {
+    "name": "NVIC_SystemReset",
+    "summary": "CMSIS NVIC_SystemReset: request a system reset through AIRCR.SYSRESETREQ and spin",
+    "description": "Same as the CMSIS __NVIC_SystemReset inline in core_cm4.h. When running privileged it runs enableFIQinterrupts(1) (the decompiler's name for the Cortex-M fault/interrupt-mask enable), then DSB, then writes SCB->AIRCR (0xE000ED0C) = 0x05FA0004 | (old AIRCR & 0x700). That is the VECTKEY 0x5FA with SYSRESETREQ set, keeping the PRIGROUP field. It then runs DSB again and loops forever while the reset takes effect. Callers mcu_0160_080065f0, mcu_0160_0800a0b0, mcu_0160_0800a85c and mcu_12b_0800bfd0 suggest it is a deliberate reset path, possibly for fault recovery (inferred).",
+    "category": "power",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "does not return"
+    },
+    "confidence": "high",
+    "notes": "The exact instruction behind enableFIQinterrupts(1) was not verified; on Cortex-M it is presumably an interrupt or fault mask clear."
+  },
+  "mcu_0160_0800a280": {
+    "name": "mcu_bytes_equal_n8",
+    "summary": "Compare two byte strings of length n with an 8-bit counter and return 1 if equal",
+    "description": "memcmp-like: walks both strings from the start, returns 0 at the first differing byte, otherwise 1 (also 1 when n is 0). The index is an 8-bit counter (uVar1 = (uVar1 + 1) & 0xff), so for n above 255 the loop never exits on equal data and only mismatches stop it. Lengths 0 to 255 are the only safe use. Callers: mcu_0160_0800665c, mcu_0160_0800b324, mcu_152_08006a7c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "first byte string"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "second byte string"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "byte count (use 0 to 255)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 if the strings are equal, 0 otherwise"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a2aa": {
+    "name": "SysTick_Handler",
+    "summary": "SysTick exception handler: empty, returns immediately",
+    "description": "Cortex-M SysTick vector target with a bare return, so the core SysTick interrupt does nothing. The time base must come from elsewhere; the MCU brief lists TMR3 and TMR4 as the active timer interrupts.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a2ac": {
+    "name": "SystemInit",
+    "summary": "CMSIS SystemInit: reset the CRM clock tree to HICK, clear PLL and clock flags, set VTOR",
+    "description": "Same as SystemInit in libraries/cmsis/cm4/device_support/system_at32f415.c, including its PWC prologue. Steps: enable the PWC clock (CRM APB1EN bit 28, PWCEN), set bit 2 of the byte at 0x40007050 (an address outside the PWC block in the repo SVD, not named), then disable the PWC clock. Then CRM->CTRL |= HICKEN and wait for HICKSTBL; select HICK as system clock (CFG.SCLKSEL = 0) and wait for SCLKSTS = 0; clear HEXTEN, HEXTBYPS, CFDEN and PLLEN (CTRL &= ~0x010D0000); set CFG = 0; PLL = 0x1F10; MISC1 = 0x00100000; and CLKINT = 0x009F0000 to clear the stability and CFD flags. Finally SCB->VTOR = 0x08000000 (flash base, no vector offset). Called from Reset_Handler (mcu_0160_08001188).",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "VTOR is set to 0x08000000. The MCU brief places the application at 0x08001000 behind a 4 KiB bootloader, so unless a vector offset is applied elsewhere the active vector table is the one at 0x08000000. Worth checking against the bootloader layout."
+  },
+  "mcu_143_0800a4ac": {
+    "name": "mcu_get_field_0x10_ashr_scale",
+    "summary": "Return the s32 field at +0x10 arithmetic-shifted right by the scale byte at +0x32",
+    "description": "Returns *(s32 *)(struct + 0x10) >> (s8)(struct + 0x32), a sign-preserving shift that rescales a stored value by a per-object power of two. The shift count is a signed byte; the Cortex-M ASR-by-register instruction uses only the low byte, so counts of 32 or more return 0 or -1. Present in MCU_12b and MCU_143 only. Called from mcu_143_080052ac.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "struct holding the value at +0x10 and the shift count at +0x32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "field >> scale"
+    },
+    "confidence": "high",
+    "notes": "Which quantity is at +0x10 and its unit are not visible in this packet."
+  },
+  "mcu_143_0800a4b8": {
+    "name": "mcu_get_field_0x18_ashr_scale",
+    "summary": "Return the s32 field at +0x18 arithmetic-shifted right by the scale byte at +0x32",
+    "description": "Same pattern as mcu_get_field_0x10_ashr_scale: returns *(s32 *)(struct + 0x18) >> (s8)(struct + 0x32). Present in MCU_12b and MCU_143 only. Called from mcu_143_080052ac.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "struct holding the value at +0x18 and the shift count at +0x32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "field >> scale"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a574": {
+    "name": "mcu_get_var_34c_ashr_scale",
+    "summary": "Return RAM word 0x2000034c arithmetic-shifted right by the scale byte at struct+0x32",
+    "description": "Reads the 32-bit RAM variable at 0x2000034c and returns it shifted right by the signed byte at struct+0x32. It is the global-variable version of mcu_get_field_0x0c_ashr_scale. Present in MCU_152 and MCU_0160 only. Callers: mcu_0160_08003f2c, mcu_0160_080052bc.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "scale descriptor; only the shift count at +0x32 is used"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "RAM word at 0x2000034c >> scale"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a588": {
+    "name": "mcu_get_field_0x0c_ashr_scale",
+    "summary": "Return the s32 field at +0x0c arithmetic-shifted right by the scale byte at +0x32",
+    "description": "Same pattern as the other scaled getters: returns *(s32 *)(struct + 0x0c) >> (s8)(struct + 0x32). Callers: mcu_0160_08003f2c, mcu_0160_0800a56c, mcu_0160_0800a570, mcu_143_080052ac.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "struct holding the value at +0x0c and the shift count at +0x32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "field >> scale"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a6b0": {
+    "name": "mcu_set_byte_field_0x4c",
+    "summary": "Store a byte at struct+0x4c and return 1",
+    "description": "Writes the u8 argument to struct+0x4c and returns 1, so callers can use it as a success-returning setter. Callers: mcu_0160_08004e78, mcu_0160_08005054.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "structure"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "value to store at +0x4c"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a7f0": {
+    "name": "mcu_store_inverted_mask_0x10",
+    "summary": "Store the bitwise complement of a word at struct+0x10",
+    "description": "Writes ~value to the u32 at struct+0x10. Storing the complement means a bit set in the argument reads back as 0 from that word. mcu_test_mask_0x10 (mcu_0160_0800a81e) tests the same word, so the two form a pair. Called from mcu_0160_08009160.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "structure"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "mask to store, complemented before the write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The purpose of the stored mask is not visible in this packet."
+  },
+  "mcu_0160_0800a818": {
+    "name": "mcu_get_u16_field_0x34",
+    "summary": "Return the u16 field at struct+0x34",
+    "description": "Getter: returns the 16-bit value at struct+0x34. Called from mcu_0160_08009160.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "structure"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "field at struct+0x34"
+    },
+    "confidence": "high",
+    "notes": "Field name and meaning are not visible in this packet."
+  },
+  "mcu_0160_0800a81e": {
+    "name": "mcu_test_mask_0x10",
+    "summary": "Return true if any bit of the mask is set in the word at struct+0x10",
+    "description": "Returns ((u32 *)(struct + 0x10) & mask) != 0. It reads the word that mcu_store_inverted_mask_0x10 writes in complemented form, so a true result means a masked bit is 1 in the stored word, which is 0 in the mask as originally given. Called from mcu_0160_08009160.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "structure"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "bit mask to test"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if any masked bit is set in the stored word"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800a8d8": {
+    "name": "mcu_u16_table_bsearch_desc",
+    "summary": "Binary search of a descending u16 table that leaves the bracket index in a register",
+    "description": "Bisects a table of n u16 entries (n = param_1 masked to 16 bits) for the position of threshold x = param_3. The bracket starts at low = 0 and high = n - 1, and the loop runs while high - low > 1. At each midpoint it moves low to mid when x <= table[mid], otherwise high to mid. The table is therefore expected to be in descending order, and at the end table[low] >= x > table[high]. The function has no return statement: the decompiler shows void and the final bracket index is left in a register for the caller. Callers: mcu_0160_0800209c, mcu_0160_08002148.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "number of table entries"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "u16 threshold table"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "value searched for (compared with the u16 entries)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none; the bracket index is left in a register (not determined)"
+    },
+    "confidence": "medium",
+    "notes": "Which register holds the result, and what the table represents, could not be determined from this packet."
+  },
+  "mcu_0160_0800ab12": {
+    "name": "mcu_frame_ring_pop_to_desc",
+    "summary": "Hand the next queued 256-byte frame from a 4-slot ring to a descriptor when the channel is ready",
+    "description": "Service step for a 4-entry frame ring inside a context structure. A busy guard at context +0x00 and +0x02 makes it return at once if either byte is set; otherwise it sets +0x02. If the descriptor's pending bit (bit 0 of desc word 0) is set, it first checks bit (4 * channel - 3) of status word 0. If that bit is clear it clears the busy flag and returns. If it is set, it sets the same bit in status word 1 as a latch and clears the descriptor's pending bit. Then, if the ring's read index (+0x404) differs from its write index (+0x405), it resets the 32-bit idle counter at +0x604, points desc word 3 at slot+8 and desc word 1 at the slot length (slot+4; each slot is 0x100 bytes), sets the pending bit, advances the read index modulo 4 and increments the count at +0x406. Otherwise, if the descriptor is not pending, it increments the 32-bit idle counter at +0x604 and saturates it at 20 (0x14). It then clears the busy flag and returns.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "unused by the decompiled body"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "status words: word 0 = live input bits, word 1 = latched bits"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "ring context: busy flags at +0x00/+0x02, 4 slots of 0x100 bytes from +0x08, indices at +0x404/+0x405, count +0x406, idle counter +0x604"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "descriptor: word 0 bit 0 = pending, word 1 = length, word 3 = data pointer"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "channel number; selects bit (4 * channel - 3) of the status words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The mechanism is clear from the code. The purpose (a transmit or receive frame ring, and what the status bits mean) is inferred."
+  },
+  "mcu_12b_0800b0a0": {
+    "name": "mcu_nop_stub_v12b",
+    "summary": "Empty stub present only in the MCU_12b build (immediate return)",
+    "description": "Bare return. It exists only in the MCU_12b build and no function in the packet calls it directly, so it is probably a callback or default slot reached through a pointer. It plays the same role as mcu_nop_stub in the other builds.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The slot it fills is unknown."
+  },
+  "mcu_0160_0800b2c0": {
+    "name": "mcu_update_inhibit_latch_1fcd",
+    "summary": "Set or clear the drive-inhibit latch at 0x20001fcd from fault flags and the value at 0x20000f30",
+    "description": "Recomputes a one-byte latch at 0x20001fcd, where 1 means inhibit and 0 means allowed. The allow predicate is: (bit 2 of byte 0x20001fd4 is clear, or (bytes 0x20001fd2 and 0x20001fd3 are both zero and (bit 2 of 0x20001fe2 is clear or 0x20000f30 < 0x28001))) AND (flag 0x20000e32 is zero or 0x20000f30 < 0x10000). If the predicate is false the latch is set to 1. If it is true and 0x20000f30 < 0x10000 the latch is cleared to 0; if it is true and the value is at or above 0x10000 the latch is left unchanged. Flag 0x20000e32 is the one set by mcu_update_flag_e32_from_mode_3 (mode byte equal to 3).",
+    "category": "protection",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The constants 0x10000 (1.0 in Q16) and 0x28001 (just above 2.5 in Q16) suggest 0x20000f30 is a Q16 quantity such as speed, voltage or current; not confirmed. The individual flags at 0x20001fd2 to 0x20001fe2 are unknown."
+  },
+  "mcu_0160_0800b320": {
+    "name": "UsageFault_Handler",
+    "summary": "UsageFault exception handler: infinite loop",
+    "description": "Cortex-M UsageFault vector target that spins forever. A usage fault (undefined instruction, unaligned access, or divide by zero when trapping is enabled) hangs the MCU until a reset, for example from the watchdog if it is enabled.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "does not return"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b52a": {
+    "name": "mcu_pair_table_find_or_alloc",
+    "summary": "Find or allocate a 36-byte pair-table entry for keys (a, b); mode 0 refuses a reversed (b, a) duplicate",
+    "description": "Searches a table of 36-byte entries (base pointer at table+0x00, u16 count at table+0x04). Entry byte 0 and byte 1 are the two keys, and byte 2 is the state, where 1 means free and any other value means in use. Mode 0 (strict): first scans for an in-use entry with keys reversed (b, a); if one exists it returns NULL. Otherwise it looks for an in-use entry with keys (a, b) and returns it, else the first free entry, else NULL. Non-zero mode skips the reversed check and does only the in-use (a, b) lookup and then the free-entry allocation. The caller fills the returned entry. Callers: mcu_0160_0800d038, mcu_0160_0800d0b0.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "table header: entry base pointer at +0x00, u16 entry count at +0x04"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "key a (entry byte 0 on a match)"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "key b (entry byte 1 on a match)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "0 = strict mode with reversed-duplicate refusal; non-zero = lookup or allocate only"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "pointer to the matching or newly free entry, or NULL"
+    },
+    "confidence": "medium",
+    "notes": "Key meanings are unknown. The exclusion of reversed pairs suggests a bidirectional link table, but this is a guess."
+  },
+  "mcu_0160_0800b6a2": {
+    "name": "mcu_adc_apply_scan_cont_config",
+    "summary": "Write scan mode, continuous mode, alignment and sequence length from a 4-byte record into the ADC registers",
+    "description": "Copies a 4-byte configuration record into an ADC register block whose offsets match ADC1 at 0x40012400. Byte 0 goes to CTRL1 bit 8 (SQEN, sequence/scan mode). Byte 1 goes to CTRL2 bit 1 (RPEN, repeat/continuous). Byte 2 goes to CTRL2 bit 11 (DTALIGN, data alignment). Byte 3 goes to OSQ1 bits 20 to 23 (OCLEN = (byte 3 - 1) & 0xF, the number of ordinary conversions minus one). Each field is written by read-modify-write, leaving other bits unchanged. Called from mcu_0160_08002068.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (layout of ADC1: CTRL1 at +0x04, CTRL2 at +0x08, OSQ1 at +0x2c)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "4-byte configuration record: scan, repeat, alignment, conversion count"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Peripheral base is assumed from the register offsets. The bit names come from the ADC1 table in src/zt3re/data/hw/at32f415_registers.json."
+  },
+  "mcu_0160_0800b6ce": {
+    "name": "mcu_adc_config_set_default",
+    "summary": "Fill a 4-byte ADC config record with defaults: no scan, no repeat, right aligned, one conversion",
+    "description": "Writes 0, 0, 0 and 1 into the record: scan off, repeat off, right alignment, and a conversion count of 1. Byte 3 holds the count, and mcu_adc_apply_scan_cont_config stores it minus one in OCLEN. Called from mcu_0160_08002068.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "4-byte configuration record to fill"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b6dc": {
+    "name": "mcu_adc_start_init_calibration",
+    "summary": "Set ADCALINIT (CTRL2 bit 3) to start ADC calibration initialisation",
+    "description": "Sets bit 3 of the ADC CTRL2 register (ADCALINIT, initialise A/D calibration) at struct+0x08 with a read-modify-write OR, leaving other bits alone. Called from mcu_0160_08001fb0 together with the other mcu_adc_* helpers, so that function is probably the ADC bring-up sequence (inferred).",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b6e6": {
+    "name": "mcu_adc_calib_init_busy",
+    "summary": "Return 1 while ADCALINIT (CTRL2 bit 3) is set",
+    "description": "Returns CTRL2 bit 3 (ADCALINIT). The hardware normally clears this bit when calibration initialisation completes, so a 1 means it is still running. Called from mcu_0160_08001fb0, likely to poll for completion (inferred).",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true while ADCALINIT is set"
+    },
+    "confidence": "medium",
+    "notes": "The hardware clear-on-completion behaviour is from the vendor reference, not verified here."
+  },
+  "mcu_0160_0800b6f6": {
+    "name": "mcu_adc_start_calibration",
+    "summary": "Set ADCAL (CTRL2 bit 2) to start A/D calibration",
+    "description": "Sets CTRL2 bit 2 (ADCAL) by OR, which starts the ADC calibration. Completion is checked with mcu_adc_calibration_busy. Called from mcu_0160_08001fb0.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b700": {
+    "name": "mcu_adc_calibration_busy",
+    "summary": "Return 1 while ADCAL (CTRL2 bit 2) is set",
+    "description": "Returns CTRL2 bit 2 (ADCAL). It should read 1 while calibration runs and 0 once it is done, because the hardware clears the bit. Called from mcu_0160_08001fb0.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true while ADCAL is set"
+    },
+    "confidence": "medium",
+    "notes": "The clear-on-completion behaviour is from the vendor reference, not verified here."
+  },
+  "mcu_0160_0800b710": {
+    "name": "mcu_adc_set_ordinary_dma",
+    "summary": "Set or clear the ordinary-channel DMA enable (CTRL2 bit 8, OCDMAEN) from bit 0 of the argument",
+    "description": "Replaces CTRL2 bit 8 (OCDMAEN, DMA transfer enable for ordinary channels) with bit 0 of the argument, by read-modify-write. Called from mcu_0160_0800d548, the application main entry, so DMA for ADC conversions is presumably switched on at start-up.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "enable flag (bit 0 used)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b71a": {
+    "name": "mcu_adc_set_enable",
+    "summary": "Set or clear the ADC enable bit ADCEN (CTRL2 bit 0) from bit 0 of the argument",
+    "description": "Replaces CTRL2 bit 0 (ADCEN) with bit 0 of the argument, by read-modify-write. It does not wait for the ADC stabilisation time after enabling; any such wait is the caller's job. Called from mcu_0160_08001fb0.",
+    "category": "adc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ADC register block (CTRL2 at +0x08)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "enable flag (bit 0 used)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_0800b724": {
+    "name": "mcu_store_inverted_word",
+    "summary": "Store the bitwise complement of the argument into a word",
+    "description": "Writes ~value to *p. This is the same operation as mcu_store_inverted_mask_0x10, but with the destination passed directly rather than at a fixed offset. It keeps a mask in complemented form. Called from mcu_0160_08001ee4 and mcu_0160_0800226c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination word"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "value to store, complemented before the write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  }
+}
