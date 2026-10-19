@@ -62,6 +62,8 @@ def _cortex_m_regions(base: int, sram: int, ahb2_gpio: bool = False) -> tuple[Re
         Region("PERIPH", 0x40000000, 0x30000, write=True, volatile=True,
                comment="APB1/APB2/AHB1 peripheral window"),
     ]
+    regs.append(Region("SYSMEM", 0x1FFFF000, 0x1000, write=False, volatile=True,
+                       comment="System memory / ROM bootloader, unique device ID (0x1FFFF7E8), flash size, option bytes (0x1FFFF800)"))
     if ahb2_gpio:
         regs.append(Region("PERIPH_AHB2", 0x48000000, 0x2000, write=True, volatile=True,
                            comment="AHB2 GPIO ports A-F (STM32F0 style)"))

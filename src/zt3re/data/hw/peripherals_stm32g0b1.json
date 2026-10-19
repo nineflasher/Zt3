@@ -1,0 +1,838 @@
+[
+ {
+  "name": "PACKAGE_DATA",
+  "base": 536835328,
+  "size": 2,
+  "type": null,
+  "description": "Package data register (16 bit, system memory)",
+  "source": "extra"
+ },
+ {
+  "name": "UID",
+  "base": 536835472,
+  "size": 12,
+  "type": null,
+  "description": "96-bit unique device ID (system memory)",
+  "source": "extra"
+ },
+ {
+  "name": "FLASHSIZE",
+  "base": 536835552,
+  "size": 2,
+  "type": null,
+  "description": "Flash size register, 16 bit, in KBytes (system memory)",
+  "source": "extra"
+ },
+ {
+  "name": "TIM2",
+  "base": 1073741824,
+  "size": 108,
+  "type": "TIM2_Type",
+  "description": "General-purpose-timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "interrupts": [
+   {
+    "number": 15,
+    "name": "TIM2"
+   }
+  ]
+ },
+ {
+  "name": "TIM3",
+  "base": 1073742848,
+  "size": 108,
+  "type": "TIM2_Type",
+  "description": "General-purpose-timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "derivedFrom": "TIM2",
+  "interrupts": [
+   {
+    "number": 16,
+    "name": "TIM3_TIM4"
+   }
+  ]
+ },
+ {
+  "name": "TIM4",
+  "base": 1073743872,
+  "size": 108,
+  "type": "TIM2_Type",
+  "description": "General-purpose-timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "derivedFrom": "TIM2"
+ },
+ {
+  "name": "TIM6",
+  "base": 1073745920,
+  "size": 48,
+  "type": "TIM6_Type",
+  "description": "Basic timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM"
+ },
+ {
+  "name": "TIM7",
+  "base": 1073746944,
+  "size": 48,
+  "type": "TIM6_Type",
+  "description": "Basic timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "derivedFrom": "TIM6",
+  "interrupts": [
+   {
+    "number": 18,
+    "name": "TIM7"
+   }
+  ]
+ },
+ {
+  "name": "TIM14",
+  "base": 1073750016,
+  "size": 108,
+  "type": "TIM14_Type",
+  "description": "General purpose timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "interrupts": [
+   {
+    "number": 19,
+    "name": "TIM14"
+   }
+  ]
+ },
+ {
+  "name": "RTC",
+  "base": 1073752064,
+  "size": 96,
+  "type": "RTC_Type",
+  "description": "Real-time clock",
+  "source": "svd",
+  "block": 1024,
+  "group": "RTC",
+  "interrupts": [
+   {
+    "number": 2,
+    "name": "RTC_TAMP"
+   }
+  ]
+ },
+ {
+  "name": "WWDG",
+  "base": 1073753088,
+  "size": 12,
+  "type": "WWDG_Type",
+  "description": "System window watchdog",
+  "source": "svd",
+  "block": 1024,
+  "group": "WWDG",
+  "interrupts": [
+   {
+    "number": 0,
+    "name": "WWDG"
+   }
+  ]
+ },
+ {
+  "name": "IWDG",
+  "base": 1073754112,
+  "size": 20,
+  "type": "IWDG_Type",
+  "description": "Independent watchdog",
+  "source": "svd",
+  "block": 1024,
+  "group": "IWDG"
+ },
+ {
+  "name": "SPI2",
+  "base": 1073756160,
+  "size": 34,
+  "type": "SPI_Type",
+  "description": "Serial peripheral interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "SPI",
+  "derivedFrom": "SPI1",
+  "interrupts": [
+   {
+    "number": 26,
+    "name": "SPI2_SPI3"
+   }
+  ]
+ },
+ {
+  "name": "SPI3",
+  "base": 1073757184,
+  "size": 34,
+  "type": "SPI_Type",
+  "description": "Serial peripheral interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "SPI",
+  "derivedFrom": "SPI1"
+ },
+ {
+  "name": "USART2",
+  "base": 1073759232,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "derivedFrom": "USART1",
+  "interrupts": [
+   {
+    "number": 28,
+    "name": "USART2_LPUART2"
+   }
+  ]
+ },
+ {
+  "name": "USART3",
+  "base": 1073760256,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "derivedFrom": "USART1",
+  "interrupts": [
+   {
+    "number": 29,
+    "name": "USART3_USART4_USART5_USART6_LPUART1"
+   }
+  ]
+ },
+ {
+  "name": "USART4",
+  "base": 1073761280,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "derivedFrom": "USART1"
+ },
+ {
+  "name": "USART5",
+  "base": 1073762304,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "derivedFrom": "USART1"
+ },
+ {
+  "name": "I2C1",
+  "base": 1073763328,
+  "size": 44,
+  "type": "I2C_Type",
+  "description": "Inter-integrated circuit",
+  "source": "svd",
+  "block": 1024,
+  "group": "I2C",
+  "interrupts": [
+   {
+    "number": 23,
+    "name": "I2C1"
+   }
+  ]
+ },
+ {
+  "name": "I2C2",
+  "base": 1073764352,
+  "size": 44,
+  "type": "I2C_Type",
+  "description": "Inter-integrated circuit",
+  "source": "svd",
+  "block": 1024,
+  "group": "I2C",
+  "derivedFrom": "I2C1",
+  "interrupts": [
+   {
+    "number": 24,
+    "name": "I2C2_I2C3"
+   }
+  ]
+ },
+ {
+  "name": "USB",
+  "base": 1073765376,
+  "size": 92,
+  "type": "USB_Type",
+  "description": "Universal serial bus full-speed host/device interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "USB"
+ },
+ {
+  "name": "FDCAN1",
+  "base": 1073767424,
+  "size": 260,
+  "type": "FDCAN_Type",
+  "description": "FD controller area network",
+  "source": "svd",
+  "block": 1024,
+  "group": "FDCAN"
+ },
+ {
+  "name": "FDCAN2",
+  "base": 1073768448,
+  "size": 260,
+  "type": "FDCAN_Type",
+  "description": "FD controller area network",
+  "source": "svd",
+  "block": 1024,
+  "group": "FDCAN",
+  "derivedFrom": "FDCAN1"
+ },
+ {
+  "name": "PWR",
+  "base": 1073770496,
+  "size": 80,
+  "type": "PWR_Type",
+  "description": "Power control",
+  "source": "svd",
+  "block": 1024,
+  "group": "PWR",
+  "interrupts": [
+   {
+    "number": 1,
+    "name": "PVD"
+   }
+  ]
+ },
+ {
+  "name": "DAC",
+  "base": 1073771520,
+  "size": 80,
+  "type": "DAC_Type",
+  "description": "DAC",
+  "source": "svd",
+  "block": 1024,
+  "group": "DAC",
+  "interrupts": [
+   {
+    "number": 17,
+    "name": "TIM6_DAC_LPTIM1"
+   }
+  ]
+ },
+ {
+  "name": "HDMI_CEC",
+  "base": 1073772544,
+  "size": 24,
+  "type": "HDMI_CEC_Type",
+  "description": "HDMI-CEC",
+  "source": "svd",
+  "block": 1024,
+  "group": "CEC",
+  "interrupts": [
+   {
+    "number": 30,
+    "name": "CEC"
+   }
+  ]
+ },
+ {
+  "name": "LPTIM1",
+  "base": 1073773568,
+  "size": 40,
+  "type": "LPTIM_Type",
+  "description": "Low power timer",
+  "source": "svd",
+  "block": 1024,
+  "group": "LPTIM"
+ },
+ {
+  "name": "LPUART1",
+  "base": 1073774592,
+  "size": 48,
+  "type": "LPUART_Type",
+  "description": "Low-power universal asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "LPUART"
+ },
+ {
+  "name": "LPUART2",
+  "base": 1073775616,
+  "size": 48,
+  "type": "LPUART_Type",
+  "description": "Low-power universal asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "LPUART",
+  "derivedFrom": "LPUART1"
+ },
+ {
+  "name": "I2C3",
+  "base": 1073776640,
+  "size": 44,
+  "type": "I2C_Type",
+  "description": "Inter-integrated circuit",
+  "source": "svd",
+  "block": 1024,
+  "group": "I2C",
+  "derivedFrom": "I2C1"
+ },
+ {
+  "name": "LPTIM2",
+  "base": 1073779712,
+  "size": 40,
+  "type": "LPTIM_Type",
+  "description": "Low power timer",
+  "source": "svd",
+  "block": 1024,
+  "group": "LPTIM",
+  "derivedFrom": "LPTIM1"
+ },
+ {
+  "name": "UCPD1",
+  "base": 1073782784,
+  "size": 60,
+  "type": "UCPD_Type",
+  "description": "USB Power Delivery interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "UCPD",
+  "interrupts": [
+   {
+    "number": 8,
+    "name": "UCPD1_UCPD2_USB"
+   }
+  ]
+ },
+ {
+  "name": "UCPD2",
+  "base": 1073783808,
+  "size": 60,
+  "type": "UCPD_Type",
+  "description": "USB Power Delivery interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "UCPD",
+  "derivedFrom": "UCPD1"
+ },
+ {
+  "name": "TAMP",
+  "base": 1073786880,
+  "size": 276,
+  "type": "TAMP_Type",
+  "description": "Tamper and backup registers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TAMP"
+ },
+ {
+  "name": "SRAMCAN_FDCAN1",
+  "base": 1073787904,
+  "size": 848,
+  "type": null,
+  "description": "FDCAN1 message RAM (212 words) - not in SVD, from RM0444 / stm32g0b1xx.h SRAMCAN_BASE",
+  "source": "extra"
+ },
+ {
+  "name": "SRAMCAN_FDCAN2",
+  "base": 1073788752,
+  "size": 848,
+  "type": null,
+  "description": "FDCAN2 message RAM (212 words) - not in SVD, = SRAMCAN_BASE + 0x350",
+  "source": "extra"
+ },
+ {
+  "name": "SYSCFG",
+  "base": 1073807360,
+  "size": 256,
+  "type": "SYSCFG_Type",
+  "description": "System configuration controller",
+  "source": "svd",
+  "block": 256,
+  "group": "SYSCFG",
+  "overlaps": [
+   "VREFBUF"
+  ]
+ },
+ {
+  "name": "VREFBUF",
+  "base": 1073807408,
+  "size": 8,
+  "type": "VREFBUF_Type",
+  "description": "System configuration controller",
+  "source": "svd",
+  "block": 1024,
+  "group": "VREFBUF",
+  "overlaps": [
+   "SYSCFG"
+  ]
+ },
+ {
+  "name": "COMP",
+  "base": 1073807872,
+  "size": 12,
+  "type": "COMP_Type",
+  "description": "Comparator",
+  "source": "svd",
+  "block": 1024,
+  "group": "COMP"
+ },
+ {
+  "name": "ADC",
+  "base": 1073816576,
+  "size": 780,
+  "type": "ADC_Type",
+  "description": "Analog to Digital Converter",
+  "source": "svd",
+  "block": 1024,
+  "group": "ADC",
+  "interrupts": [
+   {
+    "number": 12,
+    "name": "ADC_COMP"
+   }
+  ]
+ },
+ {
+  "name": "TIM1",
+  "base": 1073818624,
+  "size": 108,
+  "type": "TIM1_Type",
+  "description": "Advanced-timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "interrupts": [
+   {
+    "number": 13,
+    "name": "TIM1_BRK_UP_TRG_COM"
+   },
+   {
+    "number": 14,
+    "name": "TIM1_CC"
+   }
+  ]
+ },
+ {
+  "name": "SPI1",
+  "base": 1073819648,
+  "size": 34,
+  "type": "SPI_Type",
+  "description": "Serial peripheral interface",
+  "source": "svd",
+  "block": 1024,
+  "group": "SPI",
+  "interrupts": [
+   {
+    "number": 25,
+    "name": "SPI1"
+   }
+  ]
+ },
+ {
+  "name": "USART1",
+  "base": 1073821696,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "interrupts": [
+   {
+    "number": 27,
+    "name": "USART1"
+   }
+  ]
+ },
+ {
+  "name": "USART6",
+  "base": 1073822720,
+  "size": 48,
+  "type": "USART_Type",
+  "description": "Universal synchronous asynchronous receiver transmitter",
+  "source": "svd",
+  "block": 1024,
+  "group": "USART",
+  "derivedFrom": "USART1"
+ },
+ {
+  "name": "TIM15",
+  "base": 1073823744,
+  "size": 108,
+  "type": "TIM15_Type",
+  "description": "General purpose timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "interrupts": [
+   {
+    "number": 20,
+    "name": "TIM15"
+   }
+  ]
+ },
+ {
+  "name": "TIM16",
+  "base": 1073824768,
+  "size": 108,
+  "type": "TIM16_Type",
+  "description": "General purpose timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "interrupts": [
+   {
+    "number": 21,
+    "name": "TIM16"
+   }
+  ]
+ },
+ {
+  "name": "TIM17",
+  "base": 1073825792,
+  "size": 108,
+  "type": "TIM16_Type",
+  "description": "General purpose timers",
+  "source": "svd",
+  "block": 1024,
+  "group": "TIM",
+  "derivedFrom": "TIM16",
+  "interrupts": [
+   {
+    "number": 22,
+    "name": "TIM17"
+   }
+  ]
+ },
+ {
+  "name": "DBG",
+  "base": 1073829888,
+  "size": 16,
+  "type": "DBG_Type",
+  "description": "Debug support",
+  "source": "svd",
+  "block": 1024,
+  "group": "DBG"
+ },
+ {
+  "name": "DMA1",
+  "base": 1073872896,
+  "size": 144,
+  "type": "DMA_Type",
+  "description": "Direct memory access controller",
+  "source": "svd",
+  "block": 1024,
+  "group": "DMA",
+  "interrupts": [
+   {
+    "number": 9,
+    "name": "DMA1_Channel1"
+   },
+   {
+    "number": 10,
+    "name": "DMA1_Channel2_3"
+   },
+   {
+    "number": 11,
+    "name": "DMA1_Channel4_5_6_7_DMAMUX_DMA2_Channel1_2_3_4_5"
+   }
+  ]
+ },
+ {
+  "name": "DMA2",
+  "base": 1073873920,
+  "size": 144,
+  "type": "DMA_Type",
+  "description": "Direct memory access controller",
+  "source": "svd",
+  "block": 1024,
+  "group": "DMA",
+  "derivedFrom": "DMA1"
+ },
+ {
+  "name": "DMAMUX",
+  "base": 1073874944,
+  "size": 328,
+  "type": "DMAMUX_Type",
+  "description": "DMAMUX",
+  "source": "svd",
+  "block": 2048,
+  "group": "DMAMUX"
+ },
+ {
+  "name": "RCC",
+  "base": 1073876992,
+  "size": 100,
+  "type": "RCC_Type",
+  "description": "Reset and clock control",
+  "source": "svd",
+  "block": 1024,
+  "group": "RCC",
+  "interrupts": [
+   {
+    "number": 4,
+    "name": "RCC_CRS"
+   }
+  ]
+ },
+ {
+  "name": "EXTI",
+  "base": 1073879040,
+  "size": 152,
+  "type": "EXTI_Type",
+  "description": "External interrupt/event controller",
+  "source": "svd",
+  "block": 1024,
+  "group": "EXTI",
+  "interrupts": [
+   {
+    "number": 5,
+    "name": "EXTI0_1"
+   },
+   {
+    "number": 6,
+    "name": "EXTI2_3"
+   },
+   {
+    "number": 7,
+    "name": "EXTI4_15"
+   }
+  ]
+ },
+ {
+  "name": "FLASH",
+  "base": 1073881088,
+  "size": 132,
+  "type": "FLASH_Type",
+  "description": "Flash",
+  "source": "svd",
+  "block": 1024,
+  "group": "Flash",
+  "interrupts": [
+   {
+    "number": 3,
+    "name": "FLASH"
+   }
+  ]
+ },
+ {
+  "name": "CRC",
+  "base": 1073885184,
+  "size": 24,
+  "type": "CRC_Type",
+  "description": "Cyclic redundancy check calculation unit",
+  "source": "svd",
+  "block": 1024,
+  "group": "CRC"
+ },
+ {
+  "name": "GPIOA",
+  "base": 1342177280,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO"
+ },
+ {
+  "name": "GPIOB",
+  "base": 1342178304,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO"
+ },
+ {
+  "name": "GPIOC",
+  "base": 1342179328,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO",
+  "derivedFrom": "GPIOB"
+ },
+ {
+  "name": "GPIOD",
+  "base": 1342180352,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO",
+  "derivedFrom": "GPIOB"
+ },
+ {
+  "name": "GPIOE",
+  "base": 1342181376,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO",
+  "derivedFrom": "GPIOB"
+ },
+ {
+  "name": "GPIOF",
+  "base": 1342182400,
+  "size": 44,
+  "type": "GPIO_Type",
+  "description": "General-purpose I/Os",
+  "source": "svd",
+  "block": 1024,
+  "group": "GPIO",
+  "derivedFrom": "GPIOB"
+ },
+ {
+  "name": "SysTick",
+  "base": 3758153744,
+  "size": 16,
+  "type": "SysTick_Type",
+  "description": "System timer",
+  "source": "core"
+ },
+ {
+  "name": "NVIC",
+  "base": 3758153984,
+  "size": 800,
+  "type": "NVIC_Type",
+  "description": "Nested Vectored Interrupt Controller",
+  "source": "core"
+ },
+ {
+  "name": "SCB",
+  "base": 3758157056,
+  "size": 40,
+  "type": "SCB_Type",
+  "description": "System Control Block (VTOR, AIRCR ...)",
+  "source": "core"
+ },
+ {
+  "name": "MPU",
+  "base": 3758157200,
+  "size": 20,
+  "type": "MPU_Type",
+  "description": "Memory Protection Unit",
+  "source": "core"
+ }
+]

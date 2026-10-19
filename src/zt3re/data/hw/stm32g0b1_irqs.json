@@ -1,0 +1,529 @@
+[
+ {
+  "number": 0,
+  "exception": 16,
+  "name": "WWDG",
+  "description": "Window WatchDog Interrupt",
+  "handler": "WWDG_IRQHandler",
+  "svd_name": "WWDG",
+  "peripherals": [
+   "WWDG"
+  ],
+  "header_name": "WWDG",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 1,
+  "exception": 17,
+  "name": "PVD_VDDIO2",
+  "description": "PVD through EXTI line 16, PVM (monit. VDDIO2) through EXTI line 34",
+  "handler": "PVD_VDDIO2_IRQHandler",
+  "svd_name": "PVD",
+  "peripherals": [
+   "PWR"
+  ],
+  "header_name": "PVD_VDDIO2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 2,
+  "exception": 18,
+  "name": "RTC_TAMP",
+  "description": "RTC interrupt through the EXTI line 19 & 21",
+  "handler": "RTC_TAMP_IRQHandler",
+  "svd_name": "RTC_TAMP",
+  "peripherals": [
+   "RTC"
+  ],
+  "header_name": "RTC_TAMP",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 3,
+  "exception": 19,
+  "name": "FLASH",
+  "description": "FLASH global Interrupt",
+  "handler": "FLASH_IRQHandler",
+  "svd_name": "FLASH",
+  "peripherals": [
+   "FLASH"
+  ],
+  "header_name": "FLASH",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 4,
+  "exception": 20,
+  "name": "RCC_CRS",
+  "description": "RCC and CRS global Interrupt",
+  "handler": "RCC_CRS_IRQHandler",
+  "svd_name": "RCC_CRS",
+  "peripherals": [
+   "RCC"
+  ],
+  "header_name": "RCC_CRS",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 5,
+  "exception": 21,
+  "name": "EXTI0_1",
+  "description": "EXTI 0 and 1 Interrupts",
+  "handler": "EXTI0_1_IRQHandler",
+  "svd_name": "EXTI0_1",
+  "peripherals": [
+   "EXTI"
+  ],
+  "header_name": "EXTI0_1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 6,
+  "exception": 22,
+  "name": "EXTI2_3",
+  "description": "EXTI Line 2 and 3 Interrupts",
+  "handler": "EXTI2_3_IRQHandler",
+  "svd_name": "EXTI2_3",
+  "peripherals": [
+   "EXTI"
+  ],
+  "header_name": "EXTI2_3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 7,
+  "exception": 23,
+  "name": "EXTI4_15",
+  "description": "EXTI Line 4 to 15 Interrupts",
+  "handler": "EXTI4_15_IRQHandler",
+  "svd_name": "EXTI4_15",
+  "peripherals": [
+   "EXTI"
+  ],
+  "header_name": "EXTI4_15",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 8,
+  "exception": 24,
+  "name": "USB_UCPD1_2",
+  "description": "USB, UCPD1 and UCPD2 global Interrupt",
+  "handler": "USB_UCPD1_2_IRQHandler",
+  "svd_name": "UCPD1_UCPD2_USB",
+  "peripherals": [
+   "UCPD1"
+  ],
+  "header_name": "USB_UCPD1_2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 9,
+  "exception": 25,
+  "name": "DMA1_Channel1",
+  "description": "DMA1 Channel 1 Interrupt",
+  "handler": "DMA1_Channel1_IRQHandler",
+  "svd_name": "DMA1_Channel1",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 10,
+  "exception": 26,
+  "name": "DMA1_Channel2_3",
+  "description": "DMA1 Channel 2 and Channel 3 Interrupts",
+  "handler": "DMA1_Channel2_3_IRQHandler",
+  "svd_name": "DMA1_Channel2_3",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel2_3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 11,
+  "exception": 27,
+  "name": "DMA1_Ch4_7_DMA2_Ch1_5_DMAMUX1_OVR",
+  "description": "DMA1 Ch4 to Ch7, DMA2 Ch1 to Ch5 and DMAMUX1 Overrun Interrupts",
+  "handler": "DMA1_Ch4_7_DMA2_Ch1_5_DMAMUX1_OVR_IRQHandler",
+  "svd_name": "DMA1_Channel4_5_6_7_DMAMUX_DMA2_Channel1_2_3_4_5",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Ch4_7_DMA2_Ch1_5_DMAMUX1_OVR",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 12,
+  "exception": 28,
+  "name": "ADC1_COMP",
+  "description": "ADC1, COMP1,COMP2, COMP3 Interrupts (combined with EXTI 17 & 18)",
+  "handler": "ADC1_COMP_IRQHandler",
+  "svd_name": "ADC_COMP",
+  "peripherals": [
+   "ADC"
+  ],
+  "header_name": "ADC1_COMP",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 13,
+  "exception": 29,
+  "name": "TIM1_BRK_UP_TRG_COM",
+  "description": "TIM1 Break, Update, Trigger and Commutation Interrupts",
+  "handler": "TIM1_BRK_UP_TRG_COM_IRQHandler",
+  "svd_name": "TIM1_BRK_UP_TRG_COM",
+  "peripherals": [
+   "TIM1"
+  ],
+  "header_name": "TIM1_BRK_UP_TRG_COM",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 14,
+  "exception": 30,
+  "name": "TIM1_CC",
+  "description": "TIM1 Capture Compare Interrupt",
+  "handler": "TIM1_CC_IRQHandler",
+  "svd_name": "TIM1_CC",
+  "peripherals": [
+   "TIM1"
+  ],
+  "header_name": "TIM1_CC",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 15,
+  "exception": 31,
+  "name": "TIM2",
+  "description": "TIM2 Interrupt",
+  "handler": "TIM2_IRQHandler",
+  "svd_name": "TIM2",
+  "peripherals": [
+   "TIM2"
+  ],
+  "header_name": "TIM2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 16,
+  "exception": 32,
+  "name": "TIM3_TIM4",
+  "description": "TIM3, TIM4 global Interrupt",
+  "handler": "TIM3_TIM4_IRQHandler",
+  "svd_name": "TIM3_TIM4",
+  "peripherals": [
+   "TIM3"
+  ],
+  "header_name": "TIM3_TIM4",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 17,
+  "exception": 33,
+  "name": "TIM6_DAC_LPTIM1",
+  "description": "TIM6, DAC and LPTIM1 global Interrupts",
+  "handler": "TIM6_DAC_LPTIM1_IRQHandler",
+  "svd_name": "TIM6_DAC_LPTIM1",
+  "peripherals": [
+   "DAC"
+  ],
+  "header_name": "TIM6_DAC_LPTIM1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 18,
+  "exception": 34,
+  "name": "TIM7_LPTIM2",
+  "description": "TIM7 and LPTIM2 global Interrupt",
+  "handler": "TIM7_LPTIM2_IRQHandler",
+  "svd_name": "TIM7",
+  "peripherals": [
+   "TIM7"
+  ],
+  "header_name": "TIM7_LPTIM2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 19,
+  "exception": 35,
+  "name": "TIM14",
+  "description": "TIM14 global Interrupt",
+  "handler": "TIM14_IRQHandler",
+  "svd_name": "TIM14",
+  "peripherals": [
+   "TIM14"
+  ],
+  "header_name": "TIM14",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 20,
+  "exception": 36,
+  "name": "TIM15",
+  "description": "TIM15 global Interrupt",
+  "handler": "TIM15_IRQHandler",
+  "svd_name": "TIM15",
+  "peripherals": [
+   "TIM15"
+  ],
+  "header_name": "TIM15",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 21,
+  "exception": 37,
+  "name": "TIM16_FDCAN_IT0",
+  "description": "TIM16, FDCAN1_IT0 and FDCAN2_IT0 Interrupt",
+  "handler": "TIM16_FDCAN_IT0_IRQHandler",
+  "svd_name": "TIM16",
+  "peripherals": [
+   "TIM16"
+  ],
+  "header_name": "TIM16_FDCAN_IT0",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 22,
+  "exception": 38,
+  "name": "TIM17_FDCAN_IT1",
+  "description": "TIM17, FDCAN1_IT1 and FDCAN2_IT1 Interrupt",
+  "handler": "TIM17_FDCAN_IT1_IRQHandler",
+  "svd_name": "TIM17",
+  "peripherals": [
+   "TIM17"
+  ],
+  "header_name": "TIM17_FDCAN_IT1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 23,
+  "exception": 39,
+  "name": "I2C1",
+  "description": "I2C1 Interrupt (combined with EXTI 23)",
+  "handler": "I2C1_IRQHandler",
+  "svd_name": "I2C1",
+  "peripherals": [
+   "I2C1"
+  ],
+  "header_name": "I2C1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 24,
+  "exception": 40,
+  "name": "I2C2_3",
+  "description": "I2C2, I2C3 Interrupt (combined with EXTI 24 and EXTI 22)",
+  "handler": "I2C2_3_IRQHandler",
+  "svd_name": "I2C2_I2C3",
+  "peripherals": [
+   "I2C2"
+  ],
+  "header_name": "I2C2_3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 25,
+  "exception": 41,
+  "name": "SPI1",
+  "description": "SPI1/I2S1 Interrupt",
+  "handler": "SPI1_IRQHandler",
+  "svd_name": "SPI1",
+  "peripherals": [
+   "SPI1"
+  ],
+  "header_name": "SPI1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 26,
+  "exception": 42,
+  "name": "SPI2_3",
+  "description": "SPI2/I2S2, SPI3/I2S3 Interrupt",
+  "handler": "SPI2_3_IRQHandler",
+  "svd_name": "SPI2_SPI3",
+  "peripherals": [
+   "SPI2"
+  ],
+  "header_name": "SPI2_3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 27,
+  "exception": 43,
+  "name": "USART1",
+  "description": "USART1 Interrupt",
+  "handler": "USART1_IRQHandler",
+  "svd_name": "USART1",
+  "peripherals": [
+   "USART1"
+  ],
+  "header_name": "USART1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 28,
+  "exception": 44,
+  "name": "USART2_LPUART2",
+  "description": "USART2 + LPUART2 Interrupt",
+  "handler": "USART2_LPUART2_IRQHandler",
+  "svd_name": "USART2_LPUART2",
+  "peripherals": [
+   "USART2"
+  ],
+  "header_name": "USART2_LPUART2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 29,
+  "exception": 45,
+  "name": "USART3_4_5_6_LPUART1",
+  "description": "USART3, USART4, USART5, USART6, LPUART1 globlal Interrupts (combined with EXTI 28)",
+  "handler": "USART3_4_5_6_LPUART1_IRQHandler",
+  "svd_name": "USART3_USART4_USART5_USART6_LPUART1",
+  "peripherals": [
+   "USART3"
+  ],
+  "header_name": "USART3_4_5_6_LPUART1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 30,
+  "exception": 46,
+  "name": "CEC",
+  "description": "CEC Interrupt(combined with EXTI 27)",
+  "handler": "CEC_IRQHandler",
+  "svd_name": "CEC",
+  "peripherals": [
+   "HDMI_CEC"
+  ],
+  "header_name": "CEC",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ }
+]

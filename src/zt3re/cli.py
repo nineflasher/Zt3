@@ -152,6 +152,58 @@ def cmd_apply(args) -> int:
     return 0
 
 
+def cmd_docs(args) -> int:
+    from . import docgen
+
+    for comp in args.component or sorted(config.COMPONENTS):
+        for p in docgen.build_component(comp):
+            logging.info("wrote %s", p.relative_to(config.REPO_ROOT))
+    return 0
+
+
+def cmd_validate(args) -> int:
+    """Validate one annotation file (functions/globals/tables/types) against schema and families."""
+    import re
+    from pathlib import Path
+
+    from . import annotations as ann, objects
+
+    path = Path(args.file).resolve()
+    comp = path.parent.parent.name if path.name != "types.json" else path.parent.name
+    kind = path.parent.name
+    j = json.loads(path.read_text())
+    errs: list[str] = []
+    if path.name == "types.json":
+        errs += ann.validate_types(j)
+    else:
+        fam = objects.load_families(comp)
+        key = {"functions": "functions", "globals": "globals", "tables": "tables"}[kind]
+        for k, n in j.items():
+            if k not in fam[key]:
+                errs.append(f"{k}: not a known {key[:-1]} family of {comp}")
+                continue
+            errs += ann.validate_function(k, n) if kind == "functions" else ann.validate_data(k, n)
+        existing = {"functions": ann.load_functions, "globals": ann.load_globals, "tables": ann.load_tables}[kind](comp)
+        mine = {k: n.get("name") for k, n in j.items()}
+        taken = {v.get("name"): k for k, v in existing.items() if k not in j and path.name not in str(k)}
+        for k, nm in mine.items():
+            if nm in taken:
+                errs.append(f"{k}: name {nm!r} already used by {taken[nm]} in another file")
+        if args.packet:
+            ids = set(re.findall(r"^## `([\w]+)`", Path(args.packet).read_text(), re.M))
+            miss = sorted(ids - set(j))
+            extra = sorted(set(j) - ids)
+            errs += [f"missing answer for {m}" for m in miss]
+            errs += [f"unexpected entry {m} (not in packet)" for m in extra]
+        names = [n.get("name") for n in j.values()]
+        dup = {x for x in names if names.count(x) > 1}
+        errs += [f"duplicate name inside file: {d}" for d in sorted(dup)]
+    for e in errs:
+        print("ERROR", e)
+    print(f"{path.name}: {len(j)} entries, {len(errs)} problems")
+    return 1 if errs else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="zt3", description=__doc__)
     p.add_argument("-v", "--verbose", action="store_true")
@@ -202,6 +254,15 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("apply", help="apply annotations to the Ghidra programs")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
     s.set_defaults(fn=cmd_apply)
+
+    s = sub.add_parser("docs", help="generate markdown docs under docs/")
+    s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
+    s.set_defaults(fn=cmd_docs)
+
+    s = sub.add_parser("validate", help="validate one annotation JSON file (use before finishing a work packet)")
+    s.add_argument("file")
+    s.add_argument("--packet", help="work packet .md: every function in it must be answered")
+    s.set_defaults(fn=cmd_validate)
     return p
 
 

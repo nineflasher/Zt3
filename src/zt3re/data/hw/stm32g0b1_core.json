@@ -1,0 +1,294 @@
+{
+ "chip": "stm32g0b1",
+ "cpu": "Cortex-M0+",
+ "svd_cpu": "CM0",
+ "svd_device": "STM32G0B1",
+ "vector_table_slots": 47,
+ "vector_table_source": "startup_stm32g0b1xx.s",
+ "reserved_irq_numbers": [],
+ "vectors": [
+  {
+   "slot": 0,
+   "name": "_estack",
+   "reserved": false,
+   "standard_name": "_estack"
+  },
+  {
+   "slot": 1,
+   "name": "Reset_Handler",
+   "reserved": false,
+   "standard_name": "Reset_Handler"
+  },
+  {
+   "slot": 2,
+   "name": "NMI_Handler",
+   "reserved": false,
+   "standard_name": "NMI_Handler"
+  },
+  {
+   "slot": 3,
+   "name": "HardFault_Handler",
+   "reserved": false,
+   "standard_name": "HardFault_Handler"
+  },
+  {
+   "slot": 4,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 5,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 6,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 7,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 8,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 9,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 10,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 11,
+   "name": "SVC_Handler",
+   "reserved": false,
+   "standard_name": "SVC_Handler"
+  },
+  {
+   "slot": 12,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 13,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 14,
+   "name": "PendSV_Handler",
+   "reserved": false,
+   "standard_name": "PendSV_Handler"
+  },
+  {
+   "slot": 15,
+   "name": "SysTick_Handler",
+   "reserved": false,
+   "standard_name": "SysTick_Handler"
+  },
+  {
+   "slot": 16,
+   "irq": 0,
+   "name": "WWDG_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 17,
+   "irq": 1,
+   "name": "PVD_VDDIO2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 18,
+   "irq": 2,
+   "name": "RTC_TAMP_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 19,
+   "irq": 3,
+   "name": "FLASH_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 20,
+   "irq": 4,
+   "name": "RCC_CRS_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 21,
+   "irq": 5,
+   "name": "EXTI0_1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 22,
+   "irq": 6,
+   "name": "EXTI2_3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 23,
+   "irq": 7,
+   "name": "EXTI4_15_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 24,
+   "irq": 8,
+   "name": "USB_UCPD1_2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 25,
+   "irq": 9,
+   "name": "DMA1_Channel1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 26,
+   "irq": 10,
+   "name": "DMA1_Channel2_3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 27,
+   "irq": 11,
+   "name": "DMA1_Ch4_7_DMA2_Ch1_5_DMAMUX1_OVR_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 28,
+   "irq": 12,
+   "name": "ADC1_COMP_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 29,
+   "irq": 13,
+   "name": "TIM1_BRK_UP_TRG_COM_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 30,
+   "irq": 14,
+   "name": "TIM1_CC_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 31,
+   "irq": 15,
+   "name": "TIM2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 32,
+   "irq": 16,
+   "name": "TIM3_TIM4_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 33,
+   "irq": 17,
+   "name": "TIM6_DAC_LPTIM1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 34,
+   "irq": 18,
+   "name": "TIM7_LPTIM2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 35,
+   "irq": 19,
+   "name": "TIM14_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 36,
+   "irq": 20,
+   "name": "TIM15_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 37,
+   "irq": 21,
+   "name": "TIM16_FDCAN_IT0_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 38,
+   "irq": 22,
+   "name": "TIM17_FDCAN_IT1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 39,
+   "irq": 23,
+   "name": "I2C1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 40,
+   "irq": 24,
+   "name": "I2C2_3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 41,
+   "irq": 25,
+   "name": "SPI1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 42,
+   "irq": 26,
+   "name": "SPI2_3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 43,
+   "irq": 27,
+   "name": "USART1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 44,
+   "irq": 28,
+   "name": "USART2_LPUART2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 45,
+   "irq": 29,
+   "name": "USART3_4_5_6_LPUART1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 46,
+   "irq": 30,
+   "name": "CEC_IRQHandler",
+   "reserved": false
+  }
+ ],
+ "note": "slot = exception number; slot 0 holds the initial stack pointer; IRQ n is slot n+16; 'reserved' slots are .word 0 in the vendor startup file"
+}
