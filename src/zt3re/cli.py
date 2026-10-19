@@ -246,7 +246,10 @@ def cmd_validate(args) -> int:
             errs += objects.overlaps(comp, j, kind)
             if args.packet:
                 ids = set(re.findall(r"^## `([\w]+)`", Path(args.packet).read_text(), re.M))
-                errs += [f"family {m} in the packet is not covered by any object" for m in sorted(ids - covered)]
+                # a heading may also be covered by an object in another file of the component
+                others = {k: v for k, v in ({"globals": ann.load_globals, "tables": ann.load_tables}[kind](comp)).items() if k not in j}
+                covered_elsewhere = {fid for r in objects.resolve(comp, others, kind)[0].values() for fid in r["covers"]}
+                errs += [f"family {m} in the packet is not covered by any object" for m in sorted(ids - covered - covered_elsewhere)]
         names = [n.get("name") for n in j.values()]
         errs += [f"duplicate name inside file: {d}" for d in sorted({x for x in names if names.count(x) > 1})]
     else:

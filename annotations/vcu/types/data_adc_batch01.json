@@ -1,0 +1,41 @@
+{
+  "structs": {
+    "AdcScan": {
+      "size": 10,
+      "description": "One ADC1 scan frame as the DMA stores it: five 16-bit conversion results in regular-sequence channel order (probably one conversion per channel per trigger).",
+      "fields": [
+        {
+          "name": "ch0",
+          "offset": 0,
+          "type": "u16",
+          "description": "Raw ADC1 result of scan slot 0 (12-bit value, 0..4095)."
+        },
+        {
+          "name": "ch1",
+          "offset": 2,
+          "type": "u16",
+          "description": "Raw ADC1 result of scan slot 1 (12-bit value, 0..4095)."
+        },
+        {
+          "name": "ch2",
+          "offset": 4,
+          "type": "u16",
+          "description": "Raw ADC1 result of scan slot 2 (12-bit value, 0..4095)."
+        },
+        {
+          "name": "ch3",
+          "offset": 6,
+          "type": "u16",
+          "description": "Raw ADC1 result of scan slot 3 (12-bit value, 0..4095)."
+        },
+        {
+          "name": "ch4",
+          "offset": 8,
+          "type": "u16",
+          "description": "Raw ADC1 result of scan slot 4 (12-bit value, 0..4095)."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -1,14 +1,25 @@
 {
  "vcu_g_0159_20001490": {
-  "name": "upgrade_session",
-  "type": "UpgradeSession",
-  "size": 44,
+  "name": "upgrade_flags",
+  "type": "UpgradeFlags",
+  "size": 6,
   "anchor": [
    "VCU_0159",
    "0x20001490"
   ],
   "category": "upgrade",
-  "description": "Firmware-upgrade session record, described as the UpgradeSession struct. Cleared by vcu_crypto_key_load and driven by vcu_fw_update_frame_handler. The fields cover the build-0159 variables from 0x20001490 to 0x200014BB."
+  "description": "Firmware-upgrade session flags and sequence byte at RAM 0x20001490 (struct UpgradeFlags). Driven by vcu_fw_update_frame_handler and cleared by vcu_crypto_key_load. Bytes 0x20001496 to 0x20001499 are not part of this object."
+ },
+ "vcu_g_0159_2000149c": {
+  "name": "upgrade_xfer",
+  "type": "UpgradeXfer",
+  "size": 32,
+  "anchor": [
+   "VCU_0159",
+   "0x2000149c"
+  ],
+  "category": "upgrade",
+  "description": "Firmware-transfer size, progress, checksum, block count and the 8-byte chain and block words at RAM 0x2000149C (struct UpgradeXfer). Driven by vcu_fw_update_frame_handler and cleared by vcu_crypto_key_load."
  },
  "vcu_g_153_200014a0": {
   "name": "upgrade_progress_checksum_b153",

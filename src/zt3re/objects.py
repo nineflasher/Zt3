@@ -16,11 +16,12 @@ def parse_addr(v) -> int:
 
 
 def resolve(comp: str, notes: dict, fam_key: str) -> tuple[dict, list[str]]:
-    """Return ({object_id: {"covers": [fam ids], "starts": {image: addr}}}, errors).
+    """Return ({object_id: {"covers": [fam ids], "starts": {image: addr}, "size"}}, errors).
 
-    `fam_key` is 'globals' or 'tables'.  An object anchored at (image, start) with `size` covers every
-    family that has a member address inside [start, start+size) of that image.  The object's start in
-    another image is derived from the covered families' member addresses.
+    An object anchored at (image, start) with `size` covers every family with a member inside
+    [start, start+size) of that image.  Its start in the other images follows from those families'
+    members; families living only in those other images are then covered too (second pass), so one
+    object describes the variable in every build even where the family map could not align it.
     """
     fam = load_families(comp)[fam_key]
     by_img: dict[str, list[tuple[int, str]]] = defaultdict(list)
@@ -34,15 +35,22 @@ def resolve(comp: str, notes: dict, fam_key: str) -> tuple[dict, list[str]]:
     for oid, n in notes.items():
         img, start = n["anchor"][0], parse_addr(n["anchor"][1])
         size = n["size"]
-        lst = by_img.get(img, [])
-        covered = [(a, fid) for a, fid in lst if start <= a < start + size]
-        starts: dict[str, Counter] = defaultdict(Counter)
-        for a, fid in covered:
-            for img2, a2 in fam[fid]["members"].items():
-                starts[img2][a2 - (a - start)] += 1
-        starts_best = {i: c.most_common(1)[0][0] for i, c in starts.items()}
-        starts_best.setdefault(img, start)
-        out[oid] = {"covers": sorted({fid for _, fid in covered}), "starts": starts_best, "size": size}
+        starts_best = {img: start}
+        covered: set[str] = set()
+        for _ in range(2):                                    # anchor pass, then cross-build pass
+            starts: dict[str, Counter] = defaultdict(Counter)
+            for i, s0 in starts_best.items():
+                for a, fid in by_img.get(i, []):
+                    if s0 <= a < s0 + size:
+                        covered.add(fid)
+                        for img2, a2 in fam[fid]["members"].items():
+                            starts[img2][a2 - (a - s0)] += 1
+            new_starts = {i: c.most_common(1)[0][0] for i, c in starts.items()}
+            new_starts[img] = start
+            if new_starts == starts_best:
+                break
+            starts_best = new_starts
+        out[oid] = {"covers": sorted(covered), "starts": starts_best, "size": size}
     return out, errs
 
 

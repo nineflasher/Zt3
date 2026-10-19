@@ -1,0 +1,25 @@
+{
+  "vcu_g_0159_2000329c": {
+    "name": "adc_avg_result_0",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000329c"
+    ],
+    "category": "adc",
+    "description": "Element 0 of the five 16-bit ADC channel averages (raw 12-bit ADC counts, 0..4095). vcu_adc_average_16_scans writes it as (sum of 16 scans >> 4) through a (short) cast, and app_get_u16_2000329c returns it to the application (probably the sampled analog input of one sensor). Elements 1..4 at 0x2000329e..0x200032a5 are described as adc_avg_result_1_4 in data_app_batch03; together they form one five-element result array."
+  },
+  "vcu_g_0159_200032a6": {
+    "name": "adc_dma_scans",
+    "type": "AdcScan",
+    "size": 160,
+    "anchor": [
+      "VCU_0159",
+      "0x200032a6"
+    ],
+    "category": "adc",
+    "description": "Circular DMA buffer that DMA1 channel 1 fills with raw ADC1 conversion results (one halfword per conversion, 80 halfwords = 16 scans of 5 channels, scan-major). vcu_adc_dma_ring_init configures it at boot; it is written only by DMA. vcu_adc_average_16_scans reads all 80 halfwords each time it runs and stores the per-channel means in adc_avg_result_0..4. The addresses 0x200032a8 and 0x200032b0 are inside this buffer (channel 1 of scan 0 and channel 0 of scan 1).",
+    "count": 16
+  }
+}
