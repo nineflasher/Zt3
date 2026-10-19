@@ -375,5 +375,5 @@ def build(comp: str) -> dict:
 def write(comp: str, payload: dict) -> Path:
     p = config.ANALYSIS_DIR / "families" / f"{comp}.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(payload, separators=(",", ":")))
+    p.write_text(json.dumps(payload, separators=(",", ":"), sort_keys=True))
     return p

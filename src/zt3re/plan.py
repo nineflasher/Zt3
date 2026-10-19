@@ -32,7 +32,8 @@ _HEAD = re.compile(r"^## `([\w]+)`", re.M)
 
 
 def _issued_path(comp: str) -> Path:
-    return config.ANALYSIS_DIR / "work" / comp / "issued.txt"
+    """Issued-packet list: committed, so a fresh clone cannot re-hand-out in-flight work."""
+    return config.ANALYSIS_DIR / "plan" / f"{comp}.issued.txt"
 
 
 def issued(comp: str) -> set[str]:

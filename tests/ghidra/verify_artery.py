@@ -6,7 +6,7 @@ Covers the two chips identified in the scooter firmware (see README.md, "Artery 
   stm32g0b1  STM32G0B1, Cortex-M0+         (BMS board)
 
 Run:
-    GHIDRA_INSTALL_DIR=/opt/ghidra_12.1.4_PUBLIC /opt/zt3-venv/bin/python verify_artery.py [-v]
+    python tests/ghidra/verify_artery.py [-v]   (needs Ghidra; GHIDRA_INSTALL_DIR)
 
 For each chip the script
   1. parses <chip>.h with ghidra.app.util.cparser.C.CParserUtils into a throwaway
@@ -37,7 +37,8 @@ import tempfile
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
+REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
+HW = os.path.join(REPO, "src", "zt3re", "data", "hw")
 VERBOSE = "-v" in sys.argv
 
 os.environ.setdefault("GHIDRA_INSTALL_DIR", "/opt/ghidra_12.1.4_PUBLIC")
@@ -240,7 +241,7 @@ def main():
 
     for S in SUITES:
         stem = S["stem"]
-        header = os.path.join(HERE, stem + ".h")
+        header = os.path.join(HW, stem + ".h")
         print("== %s ==" % header)
         dtm, structs = parse(CParserUtils, SADTM, TaskMonitor, header)
         for name in sorted(structs):
@@ -270,8 +271,8 @@ def main():
         check(nspot >= 30, "%s: fewer than 30 spot checks" % stem)
 
         # ---- 3. every register of <chip>_registers.json vs the parsed struct
-        regs = json.load(open(os.path.join(HERE, "%s_registers.json" % stem)))
-        items = json.load(open(os.path.join(HERE, "peripherals_%s.json" % stem)))
+        regs = json.load(open(os.path.join(HW, "%s_registers.json" % stem)))
+        items = json.load(open(os.path.join(HW, "peripherals_%s.json" % stem)))
         by_name = {i["name"]: i for i in items}
         nreg = nalias = 0
         for pname, doc in regs.items():
@@ -345,8 +346,8 @@ def main():
         print("  %d structs, %d peripherals in JSON, %d well-known bases checked" % (len(structs), len(items), len(S["bases"])))
 
         # ---- 5. IRQs / core / firmware vector table
-        irqs = json.load(open(os.path.join(HERE, "%s_irqs.json" % stem)))
-        core = json.load(open(os.path.join(HERE, "%s_core.json" % stem)))
+        irqs = json.load(open(os.path.join(HW, "%s_irqs.json" % stem)))
+        core = json.load(open(os.path.join(HW, "%s_core.json" % stem)))
         nums = [i["number"] for i in irqs]
         check(nums == sorted(set(nums)), "%s: IRQ numbers not unique/sorted" % stem)
         iby = dict((i["name"], i["number"]) for i in irqs)

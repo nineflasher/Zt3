@@ -7,7 +7,7 @@ name = "zt3re"
 version = "0.1.0"
 description = "Reverse-engineering harness for the Zt3 scooter firmware set (Ghidra/PyGhidra based)"
 requires-python = ">=3.10"
-dependencies = ["pyghidra>=3.1.0", "capstone>=5.0"]
+dependencies = ["pyghidra>=3.1.0"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
