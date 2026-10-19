@@ -1,0 +1,87 @@
+{
+  "ble_219_0c068da8": {
+    "name": "hci_packet_handler",
+    "summary": "BTstack HCI packet demux: incoming/outgoing ACL reassembly and HCI event dispatch",
+    "description": "BTstack hci_packet_handler with event_handler and acl_handler inlined (the hci.c log strings are kept). param_1 is the packet kind: 2 = incoming ACL, 3 = outgoing ACL toward the transport, 4 = HCI event; every call first goes through the trace hook ble_hook_invoke4 with direction 1. Incoming ACL finds the connection by the 12-bit handle in the list at env+0x14, checks the length against the 4-byte ACL header, and reassembles L2CAP PDUs in a 263-byte buffer at conn+0x88: PB=2 starts a PDU and stores its expected length (L2CAP length + 4) at conn+0x8A, PB=1 appends a continuation, and a completed PDU is passed up through the ACL hook at env+0x18; conn+0x7C receives the arrival time from btstack_run_loop_get_time_ms. Outgoing ACL bumps a per-connection packet counter at conn+0x54, and every 10th packet stores a timestamp at conn+0x50 and re-arms the connection timer through ble_ctrl_conn_arm_timeout_timer; for a 0x53-byte packet when the word at env+0x194 is 10 and env+0x1D2 bits 0..1 are 3, it drops the 20 bytes at offsets 3..0x16, sets the length byte at offset 2 to 0x3C and the total to 0x3F, then calls the transport send hook at env+0x1C with type 3. HCI events (total length = byte 1 + 2) are dispatched on the event code; the bring-up sub-state at env+0x199 advances when a Command Complete or Command Status matches the pending opcode at env+0x1AE, and most events are then relayed to the registered handlers with hci_emit_event.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "packet kind: 2 incoming ACL, 3 outgoing ACL to the transport, 4 HCI event; other values are ignored"},
+      {"name": "param_2", "type": "ptr", "description": "packet buffer (4-byte ACL header or 2-byte event header)"},
+      {"name": "param_3", "type": "u32", "description": "total packet length in bytes"}
+    ],
+    "returns": {"type": "void", "description": "none; results go to connection records, hooks and internal events"},
+    "confidence": "medium",
+    "notes": "Env offsets: env = DAT_200190D0; env+0x14 connection list head; env+0x18 ACL-in hook; env+0x1C transport send hook; env+0x24 connection-request hook; env+0x28 hardware-error hook; env+0x177 command-credit flag (num_hci_command_packets != 0); env+0x194 word set by Read Local Version (0x131 is stored as 0x0F); env+0x198 phase; env+0x199 bring-up sub-state; env+0x1AE pending opcode; env+0x1B5 inquiry state byte. The ACL-out 0x53 rewrite is not explained and the type-3 meaning (outgoing ACL) is inferred from the transport send call and the handle/length checks. Events handled: 0x01 Inquiry Complete (raises internal 0xDD when env+0x1B5 == 0x81); 0x02/0x22/0x2F inquiry results, each record turned into an internal 0xDC record with BD_ADDR, class, clock offset, RSSI and, for EIR, the Device ID (AD type 0x10) and up to 32 bytes of local name from ad_iterator; 0x03 Connection Complete (on success: state 4, handle at conn+0x0A, 10 s timer via btstack_run_loop_set_timer and add_timer, internal 0x61 with the connection count; on failure ble_ctrl_conn_free_guarded); 0x04 Connection Request (BD_ADDR at offset 2, link type at offset 11: 1 = ACL record type 0xFD, otherwise SCO 0xFC; own address gives reason 0x0F, no resources 0x0D, hook refusal 0x0E, stored at env+0x1D6 with the reason at env+0x1D5); 0x05 Disconnection Complete (record reset, pending notify with 0x13, timers reset, timer handler 0x0C06611D installed); 0x08 Encryption Change (status 0 -> ble_ctrl_conn_key_size_check); 0x0E Command Complete by opcode: 0x1001 Read Local Version (manufacturer word to env+0x194), 0x1002 Read Local Supported Commands (17-bit mask at env+0x190), 0x1003 Read Local Supported Features (LMP features at env+0x188, derived word at env+0x196 XORed with 0x3306), 0x1005 Read Buffer Size (ACL and SCO lengths and counts to env+0x17A..0x17D, 0x178 and 0x17C), 0x1009 Read BD_ADDR (own address to env+0x38); 0x0F Command Status (credit flag at env+0x177; 0x0405 and 0x0429 touch the connection record at env+0x239; 0x0401 error sets env+0x1B5 to 0x81); 0x10 Hardware Error (calls the hook at env+0x28, or ll_env_run_stop_hooks plus hci_power_control_on if none); 0x11 Flush Occurred (state 5); 0x12 Role Change (role byte conn+0x0D); 0x13 Number of Completed Packets (decrements conn+0x194 per handle, logs underflow, calls ble_ctrl_flush_deferred_event if an SCO record was touched); 0x14 Mode Change (mode byte conn+0x2D); 0x16 PIN Code Request; 0x17/0x18 Link Key Request/Notification (16-byte key at conn+0x18, key type at offset 24, level byte conn+0x17); 0x23 Read Remote Extended Features; 0x2C Synchronous Connection Complete (SCO record 0xFC, SCO count reported to the hook at env+0x24 offset 0x24); 0x31..0x36 IO capability, user confirmation, passkey and Simple Pairing; 0x3E LE Meta (sub 1 LE Connection Complete, sub 3 LE Connection Update Complete, sub 6 LE Remote Connection Parameter Request accepted only inside the configured limits); 0x6E transport packet sent (error on a synchronous transport); 0x6F; 0xFF vendor event. Log calls use FUN_0c06c138 (ble_hook_invoke_indexed in earlier annotations) with a level-2 printf-style argument list (format, \"hci.c\", line); that call pattern looks like a level-gated log sink, not the 2-argument hook described for that name, so the name is kept for consistency but should be reviewed."
+  },
+  "ble_219_0c06b048": {
+    "name": "ble_ctrl_phase_request",
+    "summary": "Move the controller phase machine on start, stop or shutdown requests",
+    "description": "Requests a transition of the controller phase byte at env+0x198 (0 idle, 1 bring-up, 2 operational, 3 disconnect-all, 4 stopped, 5 stop sequence). param_1 is the request: 0 = stop, 1 = start, 2 = shut down. From idle, start calls hci_power_control_on; on success it sets the ready flag env+0x177, clears env+0x170 and writes u16 0x0001 to env+0x198 (phase 1, sub-state 0), and on failure it logs an hci.c error and returns the error code. From stopped or the stop sequence, start also returns to bring-up (phase 1), calling the start callback at offset 0x10 of the table at env+0x0C first when the phase was stopped. In bring-up, stop runs ll_env_run_stop_hooks (which clears the phase), and shut down calls the stop callback at offset 0x0C of the table at env+0x0C and moves to stopped (4). Shut down from operational or disconnect-all writes 0x3B05 (phase 5, sub-state 0x3B, the stop sequence), and stop in operational or stop sequence calls ble_ctrl_pending_drain_and_arm_timer. Every path that does not return early emits internal event 0x60 with one payload byte, the new phase.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "request code: 0 stop, 1 start, 2 shut down"}
+    ],
+    "returns": {"type": "int", "description": "0 on success or no-op, or the hci_power_control_on error code when power-on fails"},
+    "confidence": "medium",
+    "notes": "Phase numbers and sub-state meaning follow ble_ctrl_state_machine_step (wave4_batch15). The event is written as a 3-byte buffer 0x60, 0x01, phase; batch15 describes the same event as u16 0x0160 in the little-endian buffer, which is consistent. The hook table at env+0x0C is not named here; its callbacks at +0x0C and +0x10 are inferred from the call sites. Does not drive the sub-state machine itself, which is in ble_ctrl_state_machine_step."
+  },
+  "ble_219_0c06b154": {
+    "name": "ble_ctrl_full_reset",
+    "summary": "Controller full reset: notify hook, disconnect all links, rebuild pools, request stop",
+    "description": "Full restart path for the controller. It calls the function at offset 8 of the table at env+0x10 when that table exists, then ble_ctrl_disconnect_all_connections (reason 0x16), then btstack_memory_pools_init to recreate the 15 BTstack memory pools, and finally ble_ctrl_phase_request(0) to move the phase machine to stop. It takes no parameters and returns nothing. The pools are rebuilt after the disconnect, so no connection record can still point into the old pool memory.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The call sequence is certain from the code. The reason for rebuilding the pools after the disconnect is inferred. The only caller in this packet's set is ble_219_0c059180 (from the caller list)."
+  },
+  "ble_219_0c06b178": {
+    "name": "ble_ctrl_set_status_flag0",
+    "summary": "Set status flag 0 (env+0x1B2) and notify the state machine, or echo event 0x66",
+    "description": "Stores param_1 != 0 into the boolean at env+0x1B2 and rebuilds the combined status byte at env+0x1B1 as flag0 | (flag1 << 1), where flag1 is the boolean at env+0x1B3. A change also sets bit 0x10 of the 16-bit word at env+0x48 and calls ble_ctrl_state_machine_step. When the value is already equal, it emits internal event 0x66 with length 2 carrying the two flag bytes instead of changing anything, so the caller gets a status echo. The purpose of the two flags is not identified.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "new flag value; non-zero means set"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Callers are ble_219_0c0571d4, ble_219_0c058250, ble_219_0c059ac0 and ble_219_0c05a874. The event length byte of 2 is taken from the 2-byte store before the emit call; the emit call's second argument is not visible in the decompile. Compare ble_ctrl_set_status_flag1, which returns silently when unchanged."
+  },
+  "ble_219_0c06b1e0": {
+    "name": "ble_ctrl_set_status_flag1",
+    "summary": "Set status flag 1 (env+0x1B3) and notify the state machine when it changes",
+    "description": "Stores param_1 != 0 into the boolean at env+0x1B3 and rebuilds the combined status byte at env+0x1B1 as flag0 (env+0x1B2) | (flag1 << 1). A changed value also sets bit 0x10 of the 16-bit word at env+0x48 and calls ble_ctrl_state_machine_step; an unchanged value returns without side effects, unlike ble_ctrl_set_status_flag0, which emits event 0x66.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "new flag value; non-zero means set"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Callers are ble_219_0c0571d4, ble_219_0c058250 and ble_219_0c059ac0. The purpose of the two flags is not identified; the pairing with ble_ctrl_set_status_flag0 and the shared status byte at env+0x1B1 suggests two independent controller modes."
+  },
+  "ble_219_0c06b2b0": {
+    "name": "ble_ctrl_conn_mark_service_pending",
+    "summary": "Mark a connection by handle as needing service and run the controller state machine",
+    "description": "Searches the connection list at env+0x14 for the record whose 16-bit handle at +0x0A equals param_1. If that record's state word at +0x10 has neither bit 0x01 nor bit 0x10 set, it sets bits 0x03 so the connection's two pending request flags are serviced, and then it calls ble_ctrl_state_machine_step. An unknown handle is ignored with no side effects.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "connection handle (12-bit)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Callers are ble_219_0c06dc56 and ble_219_0c06ee70. The meaning of bits 0x01, 0x02 and 0x10 is inferred from usage across the other handlers, not documented; bit 0x10 appears to mark a link already queued or busy."
+  },
+  "ble_219_0c06b374": {
+    "name": "ble_ctrl_conn_request_security_level",
+    "summary": "Request a security level for a connection and report the current level via event 0xD8",
+    "description": "Handles a request that the connection with handle param_1 reach security level param_2 (0 to 4). When the byte at env+0x64 is set and the request is non-zero, the level is first capped at 4. An unknown handle, or a request the link already satisfies with nothing pending, is answered with internal event 0xD8 (length 3: the handle as u16, then the current level from ll_link_get_level, or 0 for an unknown handle). Otherwise the level is stored in the pending byte conn+0x17, bit 0x800 is set in conn+0x10, and if neither bit 0x01 nor bit 0x10 is set it sets bits 0x03 and calls ble_ctrl_state_machine_step. A link that already has a pending level, or has bit 0x1000 of conn+0x10 set (a security procedure in progress), only has its pending level raised and nothing else happens.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "connection handle"},
+      {"name": "param_2", "type": "u8", "description": "requested security level 0..4"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The decompile repeats the list search; the second search finds the same record, so the code is read as one lookup. Levels 0..4 follow ll_link_get_level (wave1_batch11). Event 0xD8 has payload length 3, which is the 0x03 that ble_ctrl_conn_key_size_check (wave2_batch10) calls its sub-code; they are the same event, so that wording may be worth tidying."
+  }
+}

@@ -1,0 +1,276 @@
+{
+  "ble_219_0c0722c0": {
+    "name": "fputc",
+    "summary": "fputc(c, fp): lock the stream, store one byte through _putc_r, return it or EOF",
+    "description": "Newlib-style fputc with no reent argument. The three static stdio FILE placeholders in the image (0x0C076A9C = stdin, 0x0C076ABC = stdout, 0x0C076A7C = stderr) are swapped for the current reent's _stdin, _stdout and _stderr (reent+0x4, +0x8, +0xC), where the reent is the global pointer at RAM 0x200049A8. If that reent's __sdidinit word (+0x18) is zero it first runs __sinit (0x0C072130). The recursive stream lock (__retarget_lock_acquire_recursive on FILE word 0x16) is taken unless _flags2 bit 0 (__SNLK) or _flags bit 0x200 (__SSTR) is set, then _putc_r (0x0C073450) does the write, the lock is released and the result is returned.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "character to write (only the low byte is stored)"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer, may be one of the static stdio placeholders"}
+    ],
+    "returns": {"type": "s32", "description": "the byte written, or -1 (EOF) on error"},
+    "confidence": "high",
+    "notes": "The string literal '/dev/' listed in the packet is not referenced by this routine."
+  },
+  "ble_219_0c07239c": {
+    "name": "fputs",
+    "summary": "fputs(s, fp): buffered write of a NUL-terminated string, returns 0 or EOF",
+    "description": "Writes the NUL-terminated string at param_1 to the stream one byte at a time with the same buffer test as _putc_r: _w (word 2) is decremented, and when it goes negative and either _w is below _lbfsize (word 6) or the byte is newline (0x0A) the byte goes to __swbuf_r (0x0C0735E4), otherwise it is stored at _p (word 0) and _p advances. Before the loop, if the stream already has __SWR (0x8) and a buffer it skips setup, otherwise it calls __swsetup_r (0x0C073688) and returns EOF if that fails. The stream lock is taken and released the same way as in fputc. The loop ends at the terminating NUL and returns 0 (also for string streams); if __swbuf_r reports -1 the loop stops, the rest of the string is dropped and -1 is returned.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "NUL-terminated string to write"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 when the whole string was accepted, -1 (EOF) on error"},
+    "confidence": "high",
+    "notes": "The '/dev/' string reference in the packet is not used here; it is probably a neighbouring literal picked up by the decompiler."
+  },
+  "ble_219_0c0724c4": {
+    "name": "libc_lseek_r",
+    "summary": "_lseek_r-style wrapper: clear the driver errno shadow, call fd_lseek, copy errno out",
+    "description": "Reentrant wrapper around fd_lseek (0x0C048380) in the style of newlib _lseek_r. It zeroes the global driver-errno shadow DAT_20019540 (RAM 0x20019540), calls fd_lseek with param_2, param_3 and param_4 (the decompiler also repeats param_4 in the argument list, which is probably a register artifact), and if that call returned -1 while the shadow is non-zero it stores the shadow into *param_1. The first word of struct _reent is _errno, so that store is the reent errno. The seek result is not returned to the caller.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent pointer; its first word receives errno"},
+      {"name": "param_2", "type": "s32", "description": "file descriptor, passed to fd_lseek"},
+      {"name": "param_3", "type": "s32", "description": "seek offset argument, passed to fd_lseek"},
+      {"name": "param_4", "type": "s32", "description": "whence argument, passed to fd_lseek"}
+    ],
+    "returns": {"type": "void", "description": "no return value; errno is the only output"},
+    "confidence": "medium",
+    "notes": "The void return and the repeated param_4 are odd for a newlib _lseek_r, so the name is modelled on it rather than confirmed. The driver layer writes the shadow word 0x20019540 on error, as the fd_lseek summary describes."
+  },
+  "ble_219_0c0724e8": {
+    "name": "libc_realloc_hysteresis",
+    "summary": "realloc-style buffer resize that only moves the block when it is too small or 2x too big",
+    "description": "Resizes the heap block at param_2 to param_3 bytes, using the reentrant allocator context param_1. param_3 == 0 frees the block (0x0C070F40 = _free_r) and returns 0. A NULL block is just allocated with _malloc_r (0x0C071080). For a non-NULL block it reads the old block's size with 0x0C0739F4 and reallocates only when that size is smaller than the request or the request is at most half of it; otherwise the same pointer is returned. A reallocation mallocs a new block, memcpy's min(old size, new size) bytes, frees the old block, and returns the new pointer; if the malloc fails it returns 0 and leaves the old block in place. Its callers are the stream write path (0x0C072546) and __submore (0x0C073574).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent / allocator context, passed through to _malloc_r and _free_r"},
+      {"name": "param_2", "type": "ptr", "description": "existing block, or NULL"},
+      {"name": "param_3", "type": "u32", "description": "requested size in bytes; 0 frees"}
+    ],
+    "returns": {"type": "ptr", "description": "block to use (old or new), NULL on allocation failure or after a free"},
+    "confidence": "medium",
+    "notes": "The packet names 0x0C0739F4 crt_eh_get_entry_offset (wave 1). Here it is called with no arguments and used as the old block's size, which looks like malloc_usable_size; check that entry before relying on the size logic. The policy (move only if too small or more than 2x too big) is not the usual newlib _realloc_r."
+  },
+  "ble_219_0c072546": {
+    "name": "libc_sbuf_write",
+    "summary": "Append bytes to a FILE write buffer, growing a malloc'd one by 1.5x when full",
+    "description": "Copies param_4 bytes from param_3 into the write buffer of the stream param_2 (word 0 = _p, word 2 = _w, word 4 = buffer base, word 5 = buffer size). It is the output callback the printf core passes to _printf_i (0x0C0725FC passes this address + 1 as the function pointer), used for literal text. If _w is greater than the count it copies that count. If the stream has __SMBF|__SOPT (0x480) the buffer is grown to max(size*3/2, used+n+1): when __SOPT (0x400) is set a fresh block is malloc'd and the used bytes copied, otherwise the block is resized with libc_realloc_hysteresis (0x0C0724E8); both paths then clear __SOPT and set __SMBF, and an allocation failure frees the old block, sets errno ENOMEM (12) and __SERR (0x40), and returns -1. If the stream is not growable only min(_w, n) bytes are copied, and the function returns 0.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent / allocator context"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"},
+      {"name": "param_3", "type": "ptr", "description": "source bytes"},
+      {"name": "param_4", "type": "u32", "description": "number of bytes to write"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 when the buffer could not grow"},
+    "confidence": "medium",
+    "notes": "The flag tests follow the decompile: bit 0x400 selects copy-to-new-block, bit 0x80 means malloc'd buffer. The structure is that of a growable string or memstream sink, so the exact stream type is not confirmed."
+  },
+  "ble_219_0c0725fc": {
+    "name": "libc_svfprintf_core",
+    "summary": "printf core: parse each % spec, emit literal text, dispatch integer conversions to _printf_i",
+    "description": "Format engine of the stream printf family, in the style of newlib-nano _svfprintf_r. If the stream has __SMBF (0x80) and no buffer yet it mallocs a 64-byte buffer (word 5 = 0x40) first. Literal text runs go out through libc_sbuf_write (0x0C072546). For each '%' it reads the flag characters from the set '#-0+ ' into a bit mask (the space and plus flags are kept as a sign byte), then a width (digits or '*' taken from the va_list), then '.' with digits or '*' for the precision, then an optional modifier from a 3-character set at 0x0C0863E3 and the conversion letter. Conversions 'e f g E F G' are not formatted here: the code only advances the va_list past an 8-byte-aligned double and emits nothing. Every other conversion goes to _printf_i (0x0C072F3C) with the flag mask, width, precision, the output callback 0x0C072546 and the va_list pointer. It returns the number of bytes emitted, or -1 if a write failed or __SERR is set.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent / allocator context"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"},
+      {"name": "param_3", "type": "ptr", "description": "format string"},
+      {"name": "param_4", "type": "ptr", "description": "pointer to the va_list cursor"}
+    ],
+    "returns": {"type": "s32", "description": "bytes emitted, or -1 on error"},
+    "confidence": "medium",
+    "notes": "The byte count for float conversions is not updated in the decompile (the value is taken from an unassigned register), so the total may be off when a float spec is present. Use of the 0x0C0863E3 modifier set is inferred from its use with memchr; the literal was not read. Compare with the locked entry _vfprintf_r (0x0C072BFC), which has the same format loop."
+  },
+  "ble_219_0c072876": {
+    "name": "libc_ungetc_restore",
+    "summary": "Restore the FILE read buffer after the ungetc pushback is used up, else set EOF",
+    "description": "Called when the read side runs out of its pushback bytes. If a pushback buffer is active (word 0xD non-zero) it frees that buffer unless it is the inline one at word 0x11, clears word 0xD, and sets _r (word 1) to the saved count in word 0x10. If that saved count is non-zero it points _p (word 0) at the saved pointer in word 0xF and returns 0, so reading continues from the old buffer. Otherwise it resets _p to the normal buffer base (word 4), sets _r to 0, sets __SEOF (0x20) in _flags and returns -1 (EOF).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer, not used by the code"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 when pushed-back bytes remain, -1 (EOF) otherwise"},
+    "confidence": "medium",
+    "notes": "The word indices match the pushback buffer used by __submore (0x0C073574); the newlib name for this routine is not confirmed."
+  },
+  "ble_219_0c072ba8": {
+    "name": "__sputc_r",
+    "summary": "Unlocked one-byte stream put: decrement _w, store the byte or defer to __swbuf_r",
+    "description": "Writes one byte (param_2) to the stream param_3 without taking the stream lock. It decrements _w (word 2); if the result is negative and either it is below _lbfsize (word 6) or the byte is newline (0x0A), it returns the result of __swbuf_r (0x0C0735E4) for the byte. Otherwise it stores the byte at _p, advances _p and returns the byte value as an int. It is the locked _putc_r (0x0C073450) without the lock, and is the per-byte step of the unlocked output callback libc_sputs_bytes (0x0C072BD6).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer, passed through to __swbuf_r"},
+      {"name": "param_2", "type": "s32", "description": "byte to write"},
+      {"name": "param_3", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "the byte stored, or the __swbuf_r result (-1 on error)"},
+    "confidence": "high",
+    "notes": "The name __sputc_r is the newlib macro's name; the copy here is an out-of-line function."
+  },
+  "ble_219_0c072bd6": {
+    "name": "libc_sputs_bytes",
+    "summary": "Unlocked write of n bytes through __sputc_r, stopping at the first failed byte",
+    "description": "Loops over n bytes of param_3 and calls __sputc_r (0x0C072BA8) on each one. It returns 0 when every byte was accepted and -1 at the first byte the put reports as failed (-1), leaving the remaining bytes unwritten. It is the output callback of the locked vfprintf entry _vfprintf_r (0x0C072BFC), which holds the stream lock across the call, so it does not lock itself.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer, passed through"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"},
+      {"name": "param_3", "type": "ptr", "description": "source bytes"},
+      {"name": "param_4", "type": "s32", "description": "number of bytes"}
+    ],
+    "returns": {"type": "s32", "description": "0 when all bytes were written, -1 on the first failure"},
+    "confidence": "high",
+    "notes": "The decompile passes extra arguments to the callee in its call site; __sputc_r takes three."
+  },
+  "ble_219_0c072bfc": {
+    "name": "_vfprintf_r",
+    "summary": "vfprintf: lock the stream, set it up for writing, run the format engine with unlocked output",
+    "description": "Locked, reentrant vfprintf. It runs __sinit (0x0C072130) if the reent is not initialised, swaps the placeholder std FILEs for the reent's stdin/stdout/stderr as fputc does, and takes the stream lock unless __SNLK or __SSTR is set. Unless the stream is already writable with a buffer it calls __swsetup_r (0x0C073688); on failure it releases the lock and returns -1. The format loop is the same as libc_svfprintf_core (0x0C0725FC) except that it has no malloc'd 64-byte buffer path, and its literal text and conversion output go through the unlocked callback libc_sputs_bytes (0x0C072BD6). Conversions go to _printf_i (0x0C072F3C), and float specs skip their double argument as in the core. The lock is released before returning, and __SERR makes the result -1.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"},
+      {"name": "param_3", "type": "ptr", "description": "format string"},
+      {"name": "param_4", "type": "ptr", "description": "pointer to the va_list cursor"}
+    ],
+    "returns": {"type": "s32", "description": "bytes written, or -1 on error"},
+    "confidence": "medium",
+    "notes": "Same float-count caveat as libc_svfprintf_core. The name follows the signature (reent, FILE, fmt, va) and the setup and lock calls."
+  },
+  "ble_219_0c07342c": {
+    "name": "libc_open_r",
+    "summary": "_open_r-style wrapper: clear the driver errno shadow, call fd_open_device, copy errno out",
+    "description": "Same pattern as libc_lseek_r (0x0C0724C4). It zeroes the driver-errno shadow DAT_20019540, calls fd_open_device (0x0C04855C) with param_2, param_3 and param_4, and when that returns -1 with a non-zero shadow it stores the shadow into *param_1 (the reent _errno, first word of struct _reent). It returns nothing, so the descriptor returned by fd_open_device is not passed back to the caller. The only observable output is the errno store.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent pointer; its first word receives errno"},
+      {"name": "param_2", "type": "ptr", "description": "device or file name, passed to fd_open_device"},
+      {"name": "param_3", "type": "s32", "description": "open flags, passed to fd_open_device"},
+      {"name": "param_4", "type": "s32", "description": "mode, passed to fd_open_device"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium",
+    "notes": "The void return with a discarded fd_open_device result is unusual for a newlib _open_r, so the name is modelled on it. The caller is 0x0C071A94, whose use of the fd is not in this packet; check that caller before relying on the lost descriptor."
+  },
+  "ble_219_0c073450": {
+    "name": "_putc_r",
+    "summary": "_putc_r(reent, c, fp): locked single-byte stream put with the buffer/newline flush rule",
+    "description": "Reentrant putc. It runs __sinit if the reent is not initialised, then takes the stream lock (__retarget_lock_acquire_recursive on FILE word 0x16) unless _flags2 bit 0 (__SNLK) or _flags bit 0x200 (__SSTR) is set. It decrements _w (word 2); if the result is negative and either _w is below _lbfsize (word 6) or the byte is newline (0x0A), it calls __swbuf_r (0x0C0735E4) to buffer the byte and possibly flush. Otherwise it stores the byte at _p and advances _p. The lock is released before return, and the function returns the byte masked to 8 bits or the __swbuf_r result.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer"},
+      {"name": "param_2", "type": "s32", "description": "byte to write"},
+      {"name": "param_3", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "the byte written (0..255), or the __swbuf_r result (-1 on error)"},
+    "confidence": "high",
+    "notes": "Its unlocked twin is __sputc_r (0x0C072BA8). Its caller fputc (0x0C0722C0) already holds the lock, so the stream lock is taken twice on that path; this is the recursive lock, so it is safe."
+  },
+  "ble_219_0c073574": {
+    "name": "__submore",
+    "summary": "__submore: grow the FILE pushback buffer from the inline 3-byte area to 1 KiB, then doubling",
+    "description": "Grows a stream's ungetc pushback buffer. If the current buffer is still the inline one at word 0x11 (the 3-byte area), it mallocs 0x400 (1024) bytes with _malloc_r (0x0C071080), places the three inline bytes at offsets 0x3FD, 0x3FE and 0x3FF in that order, points _p (word 0) at offset 0x3FD and stores the block pointer in word 0xD and the size 0x400 in word 0xE. Otherwise it resizes the block to twice its size with libc_realloc_hysteresis (0x0C0724E8), copies the old contents into the upper half of the new block, and points _p at the start of the old data. It returns 0 on success and -1 when the allocation fails.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent / allocator context"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 on allocation failure"},
+    "confidence": "high",
+    "notes": "Matches the purpose of newlib __submore; the 0x400 size equals BUFSIZ."
+  },
+  "ble_219_0c0735e4": {
+    "name": "__swbuf_r",
+    "summary": "__swbuf_r: buffered byte write slow path; flushes when the buffer fills or on newline",
+    "description": "Slow path of _putc_r. It runs __sinit if needed and maps the placeholder FILE. Unless the stream already has __SWR and a buffer it calls __swsetup_r (0x0C073688) and returns -1 on failure. It sets _w from _lbfsize (word 6), and if the buffer is full (used bytes at or above the buffer size in word 5) it flushes with _fflush_r (0x0C073894) first and returns -1 if that fails. It then stores the byte, decrements _w, and returns the byte unless the buffer just became full or the stream is line-buffered (__SLBF, bit 0) and the byte is newline (0x0A); in those cases it flushes and returns the byte on success or -1 on failure. Callers are _putc_r (0x0C073450), __sputc_r (0x0C072BA8) and fputs (0x0C07239C).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer"},
+      {"name": "param_2", "type": "s32", "description": "byte to write"},
+      {"name": "param_3", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "the byte written, or -1 on error"},
+    "confidence": "high",
+    "notes": "The code also stores a constant code address (LAB_0C0720C8) into reent+0x28 in the buffer setup path of __smakebuf_r, not here."
+  },
+  "ble_219_0c073688": {
+    "name": "__swsetup_r",
+    "summary": "__swsetup_r: make a stream writable, fix read state, set _w/_lbfsize, allocate a missing buffer",
+    "description": "Prepares a stream for writing and returns 0 on success or -1 with __SERR (0x40) on failure. If __SWR (0x8) is clear and __SRW (0x10) is also clear it sets errno EBADF (9) and fails. If __SRD (0x4) read state is set it frees the read pushback buffer when one exists (not the inline one), resets _p to the buffer base and _r to 0, and clears __SRD and __SEOF. It then sets __SWR. The write counter is set from the buffering mode: fully buffered streams get _w = buffer size, line-buffered (__SLBF) streams get _w = 0 and _lbfsize = -size, and unbuffered (__SNBF) streams get _w = 0. If no buffer exists it calls __smakebuf_r (0x0C073958) unless the stream is a string stream; it returns 0 when a buffer is present or none is needed, and fails when __SMBF is set without a buffer.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer; errno is written through it"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 when the stream can be written, -1 on failure"},
+    "confidence": "medium",
+    "notes": "The name follows the newlib wsetup routine; the buffering-mode table is taken from the code and was not compared with the original source."
+  },
+  "ble_219_0c073764": {
+    "name": "abort",
+    "summary": "abort(): raise SIGABRT, then call 0x0C035FC0(1), presumed not to return",
+    "description": "Calls raise(SIGABRT) (6) through 0x0C073A54, then calls ble_219_0c035fc0 with 1, which is presumed not to return. The trailing call acquires the recursive lock at RAM 0x2001953C, and that line only runs if the exit call returns. It matches newlib abort(), which raises SIGABRT and then exits with status 1. Its caller is 0x0C071FFC, a fatal path.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "medium",
+    "notes": "Wave 4 batch 3 describes 0x0C035FC0 as a task return handler (print 'task exit', delete the task, hang), which does not obviously match exit(1). Check that entry. The lock acquire after a presumed-noreturn call may be a decompiler artifact."
+  },
+  "ble_219_0c07378c": {
+    "name": "__sflush_r",
+    "summary": "__sflush_r: write out pending output or seek back over unread input, then reset the buffer",
+    "description": "Core of fflush for one stream. For a writable stream (__SWR, 0x8) with a buffer it writes the pending bytes (_p minus base) through the stream write hook (word 0xA, called with the cookie in word 8), in chunks, and resets _w to the buffer size for fully buffered streams; a hook result below 1 sets __SERR and returns -1. For a read-mode stream with buffered input it finds the current file offset (the cached word 0x15 when __SOFF (0x1000) is set, otherwise a SEEK_CUR of 0 through the seek hook word 0xB) and seeks back to that offset minus the unread count _r, minus the saved pushback count when the pushback buffer is active, with SEEK_SET. It frees the pushback buffer if needed and drops the buffered input. ESPIPE (29) and EINVAL (22) from an unseekable stream are ignored and treated as success.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer; errno is written through it"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 on a write or seek error"},
+    "confidence": "medium",
+    "notes": "The seek-hook argument order (cookie, offset, whence) is inferred from the call sites. The word offsets are those used in the decompile and match the layout used elsewhere in this packet."
+  },
+  "ble_219_0c073894": {
+    "name": "_fflush_r",
+    "summary": "_fflush_r(reent, fp): lock the stream and run __sflush_r when it has a buffer",
+    "description": "Reentrant fflush for one stream. If the stream has no buffer (word 4 is zero) it returns 0 at once. Otherwise it runs __sinit if the reent is not initialised, maps the placeholder FILE, takes the stream lock unless __SNLK or __SSTR is set, and if the flags halfword is non-zero calls __sflush_r (0x0C07378C). It releases the lock under the same condition and returns the flush result.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 on error"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c073958": {
+    "name": "__smakebuf_r",
+    "summary": "__smakebuf_r: allocate a stream buffer sized by __swhatbuf_r, else use the 1-byte inline buffer",
+    "description": "Gives a stream its buffer when none exists. If __SNBF (0x2) is clear it asks __swhatbuf_r (0x0C07390C) for the buffer size and buffering mode, and mallocs that size with _malloc_r (0x0C071080). On success it sets _p and the base to the block, sets __SMBF (0x80) and the mode bits from __swhatbuf_r, stores the size in word 5, and if the stream is a tty (checked with _isatty_r 0x0C073AB0 on its fd) switches to line buffering (__SLBF). If malloc fails and the stream is not a string stream it marks the stream unbuffered (__SNBF). In all other cases it sets _p and the base to the one-byte inline buffer at FILE+0x47 and the size to 1. The routine also writes a code address (LAB_0C0720C8) into reent+0x28 before the allocation.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reent pointer"},
+      {"name": "param_2", "type": "ptr", "description": "FILE stream pointer"}
+    ],
+    "returns": {"type": "void", "description": "no return value; the buffer fields are the output"},
+    "confidence": "high",
+    "notes": "The reent+0x28 store is a code address whose role is not known; it may be a cleanup or flush hook. The inline buffer offset 0x47 is taken from the code."
+  },
+  "ble_219_0c088128": {
+    "name": "norflash_erase_guarded",
+    "summary": "Erase a flash range under an IRQ guard: protect entry, cache hooks, erase, cache invalidate",
+    "description": "Top-level NOR flash erase. When param_1 is 0 (the outermost call) it records in DAT_200035B4 whether IRQs were enabled (only read when the mode is privileged, via isIRQinterruptsEnabled), writes the owner marker 0x0C0881AC to DAT_20003D78 and the caller's LR to DAT_20003D7C, and disables IRQs. It then runs norflash_apply_protect_entry (0x0C087CDC), the empty cache hook 0x0C086BB8, norflash_erase_checked (0x0C087464), the empty hook 0x0C086BBC and the slot operation 0x0C0873EC with code 0x7C. A non-zero result from the slot operation makes the function spin forever. The erase status is mapped as 0 to 0, 0xB to 5, 0xC to 6 and anything else to 0xC, then norflash_cache_invalidate_range (0x0C087D34) runs for the range. On the outermost call DAT_20003D78 is cleared and IRQs are re-enabled if they were on before.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nesting level: 0 for the outermost call (takes the IRQ guard)"},
+      {"name": "param_2", "type": "u32", "description": "flash address of the range"},
+      {"name": "param_3", "type": "u32", "description": "length of the range in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 5, 6 or 12 for the mapped erase errors"},
+    "confidence": "medium",
+    "notes": "Meaning of 0x7C as a slot-operation code and of the owner marker in DAT_20003D78 is inferred. The infinite loop is kept as in the code, and would be a watchdog or assert trap if the slot check fails."
+  }
+}
