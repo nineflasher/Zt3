@@ -1,0 +1,29 @@
+{
+  "vcu_g_0159_20001022": {
+    "name": "flash_record_seq",
+    "type": "u16",
+    "count": 3,
+    "size": 6,
+    "anchor": ["VCU_0159", "0x20001022"],
+    "category": "flash",
+    "description": "Sequence (generation) words of the 512-byte config record kept in flash ping-pong slots, as three u16 elements. [0] is the sequence of the record currently in RAM at 0x20001AB4: vcu_config_ab_slot_load sets it to the sequence of the copy it loaded (0, and the first halfword of the RAM record set to 0xFFFF, if both copies fail verification), and vcu_flash_record_pingpong_save increments it before each save. An even value saves to slot A (0x0801F000), an odd value to slot B (0x0801F400). [1] is the sequence of slot A, read from its last halfword at 0x0801F1FE at load time and updated by the save only after slot A was written and verified. [2] is the same for slot B (0x0801F5FE, slot B). The larger sequence is treated as the newer copy by the load function. Plain u16 comparison, no wrap handling is visible in this packet. Values persist across calls and are not reset in this packet."
+  },
+  "vcu_g_0159_20001ca8": {
+    "name": "flash_record_checksum",
+    "type": "u16",
+    "count": 2,
+    "size": 4,
+    "anchor": ["VCU_0159", "0x20001ca8"],
+    "category": "flash",
+    "description": "Checksum of the 512-byte config record, stored as two u16 halves that the code treats as one 32-bit value: [0] is the low half (0x20001CA8) and [1] the high half (0x20001CAA). vcu_flash_record_pingpong_save computes it with the sum over 256 halfwords (vcu_sum_s16_minus_trailer, 0x100 words) and stores it here before the write. vcu_config_ab_slot_load compares it with the checksum it computes over the copy it read from flash, and it never writes these words itself. Probably the expected checksum of the record in RAM, but where it is first set when no save has run yet is not shown in this packet."
+  },
+  "vcu_g_0159_20001cb2": {
+    "name": "flash_record_seq_scratch",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["VCU_0159", "0x20001cb2"],
+    "category": "flash",
+    "description": "Scratch u16 used as a temporary for flash sequence words. vcu_config_ab_slot_load reads it from 0x0801F1FE (slot A) and 0x0801F5FE (slot B) and copies it into flash_record_seq elements [1] and [2] right after each read. vcu_flash_record_pingpong_save copies the new sequence number here from flash_record_seq[0] just before the write. Its value has no meaning outside those short copies."
+  }
+}

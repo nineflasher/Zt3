@@ -1,0 +1,11 @@
+{
+  "vcu_g_0159_20001fc2": {
+    "name": "gpio_pa11_pulse_step",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["VCU_0159", "0x20001fc2"],
+    "category": "gpio",
+    "description": "Step counter of a six-call pulse on PA11, advanced by vcu_pa11_pulse_step. It stays 0 while idle. While the armed flag at 0x20001FC0 (set elsewhere, not in this packet) is 1, each call increments it: steps 1 to 5 drive PA11 high, and step 6 drives it low through gpio_bits_reset on GPIOA mask 0x800 (PA11), resets this counter to 0, clears the armed flag and returns true. Units are calls (ticks), not time. Probably used by a caller that needs a short fixed pulse on PA11, which may be shared with the USB D- and CAN1 RX pins. The caller is not in this packet."
+  }
+}
