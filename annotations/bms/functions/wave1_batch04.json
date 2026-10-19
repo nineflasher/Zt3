@@ -115,14 +115,14 @@
     "notes": "Callers: bms_4168_0800baa0, bms_4168_0800baec, bms_4168_0800bb3c, bms_4168_0800bb88, bms_4168_0800bbc4, bms_4168_0800bc20, bms_4168_0800bd88. The reuse of param_2 as the loop counter is how the decompiler shows it; check whether the caller really relies on that starting value."
   },
   "bms_4168_0800a2a0": {
-    "name": "NVIC_SystemReset",
-    "summary": "CMSIS NVIC_SystemReset: request a system reset through SCB AIRCR and spin",
-    "description": "Runs a DSB, writes 0x05FA0004 to SCB->AIRCR (VECTKEY 0x05FA in the high half and SYSRESETREQ in bit 2), runs another DSB, then loops forever while the reset takes effect. This is the standard CMSIS __NVIC_SystemReset body. It never returns.",
+    "name": "bms_nvic_system_reset_plain",
+    "summary": "CMSIS __NVIC_SystemReset body: request a system reset through SCB AIRCR and spin",
+    "description": "Runs a DSB, writes 0x05FA0004 to SCB->AIRCR (VECTKEY 0x05FA in the high half and SYSRESETREQ in bit 2), runs another DSB, then loops forever while the reset takes effect. This is the standard CMSIS __NVIC_SystemReset body without any interrupt disable. It never returns.",
     "category": "isr",
     "params": [],
     "returns": {"type": "void", "description": "does not return"},
     "confidence": "high",
-    "notes": "Callers: bms_4168_08003c3c and bms_4168_080082f0."
+    "notes": "Same routine as NVIC_SystemReset at bms_4168_08001444 (wave1_batch01), which additionally executes CPSID i first. The library name is already taken there, so this entry uses a unique name. Callers: bms_4168_08003c3c and bms_4168_080082f0."
   },
   "bms_4168_0800a2bc": {
     "name": "bms_fault_class_get",

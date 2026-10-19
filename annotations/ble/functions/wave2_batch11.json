@@ -415,9 +415,9 @@
     "notes": "Meaning of env+0x68 is unknown. Callers 0c04e398, 0c04ebc0, 0c04ec18."
   },
   "ble_219_0c06d5d4": {
-    "name": "hci_reserve_packet_buffer",
-    "summary": "Claim the HCI packet buffer by setting the env+0x170 flag, or fail if it is set",
-    "description": "A one-instruction tail jump to 0x0C066BE8, whose body is shown here: if the byte at controller env +0x170 is 0 it sets it to 1 and returns 1; otherwise it logs 'hci_reserve_packet_buffer called but buffer already reserved' (hci.c line 757) through ble_hook_invoke_indexed channel 2 and returns 0. Its release counterpart hci_release_packet_buffer clears the same byte.",
+    "name": "hci_reserve_packet_buffer_thunk",
+    "summary": "Thunk: jump to the HCI packet-buffer reserve routine at 0x0C066BE8",
+    "description": "A one-instruction tail jump to 0x0C066BE8 (hci_reserve_packet_buffer, named in wave2_batch10). The target sets the byte at controller env +0x170 to 1 and returns 1 when it was 0; otherwise it logs 'hci_reserve_packet_buffer called but buffer already reserved' (hci.c line 757) through ble_hook_invoke_indexed channel 2 and returns 0. The release counterpart is hci_release_packet_buffer_thunk at 0x0C06D5D8.",
     "category": "ble_host",
     "params": [],
     "returns": {
@@ -425,12 +425,12 @@
       "description": "1 when the buffer was claimed, 0 when it was already claimed"
     },
     "confidence": "high",
-    "notes": "The decompiled body is the target at 0x0C066BE8, not this stub; 0x0C066BE8 is not described in this packet. The flag byte at +0x170 is the one read by ll_env_get_flag_170."
+    "notes": "The decompiled body shown in the packet is the target at 0x0C066BE8, already described in wave2_batch10. The flag byte at +0x170 is the one read by ll_env_get_flag_170."
   },
   "ble_219_0c06d5d8": {
-    "name": "hci_release_packet_buffer",
-    "summary": "Release the HCI packet buffer by clearing the env+0x170 flag",
-    "description": "A one-instruction tail jump to 0x0C066C1C (ll_env_clear_flag_170), which writes 0 to the byte at controller env +0x170. It is the release side of hci_reserve_packet_buffer and performs no check.",
+    "name": "hci_release_packet_buffer_thunk",
+    "summary": "Thunk: jump to ll_env_clear_flag_170 to release the HCI packet buffer flag",
+    "description": "A one-instruction tail jump to 0x0C066C1C (ll_env_clear_flag_170), which writes 0 to the byte at controller env +0x170. It is the release side of hci_reserve_packet_buffer (0x0C066BE8) and performs no check.",
     "category": "ble_host",
     "params": [],
     "returns": {
