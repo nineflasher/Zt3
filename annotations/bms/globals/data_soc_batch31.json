@@ -1,0 +1,92 @@
+{
+  "bms_g_4168_20000e88": {
+    "name": "bms_soc_nominal_capacity",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000e88"],
+    "category": "soc",
+    "description": "Nominal (rated) full capacity of the pack in the units of the coulomb counter (probably mAh or a scaled form of it; unit not established). No store to it is visible in the analysed code, so it is probably loaded from flash or configuration at startup. bms_state_refresh_scaled multiplies it by the state factor at state +0x11C (forced to 80 when that factor is 80 or lower) into the capacity word 0x20000E30, and then by 97/100 into 0x20000E34, the usable full capacity used as the denominator of the SOC percent. bms_soc_update_from_voltage copies it into 0x20000E30 without the factor."
+  },
+  "bms_g_4168_20000e94": {
+    "name": "bms_soc_state_scale",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x20000e94"],
+    "category": "soc",
+    "description": "Unsigned 16-bit scale factor, probably a percent value (0 to 100). bms_state_refresh_scaled multiplies it with the value FUN_08001110(0x20000E50, 10), which is also stored in state +0x122, divides by 100 and stores the result in state +0x1B2. No store to it is visible in the analysed code, so it is probably a constant or configuration value loaded at startup. The meaning of the derived field at +0x1B2 is not established."
+  },
+  "bms_g_4168_20000e96": {
+    "name": "bms_soc_ir_comp_coeff",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x20000e96"],
+    "category": "soc",
+    "description": "Unsigned 16-bit coefficient of the internal-resistance voltage compensation. The compensated voltage is the measured voltage minus (value * signed current at state +0x11A) / 100; the same product is applied in bms_voltage_error_track, bms_soc_update_from_voltage, bms_soc_tick_update and bms_capacity_seed_from_voltage. In the operating modes 6 to 8 the code adds 4 to the value before using it. The unit of the product is probably milliohms (not established). No store is visible in the analysed code, so it is probably a configuration constant."
+  },
+  "bms_g_4168_20000eb6": {
+    "name": "bms_soc_ocv_table",
+    "type": "u16",
+    "count": 11,
+    "size": 22,
+    "anchor": ["BMS_4168", "0x20000eb6"],
+    "category": "soc",
+    "description": "Eleven-point open-circuit-voltage breakpoint table for the voltage-to-SOC lookup. Element i (i = 0 to 10, at 0x20000EB6 + 2*i) is the voltage at i*10 percent state of charge, probably in millivolts (unit not established); bms_soc_from_ocv_table interpolates linearly between neighbouring elements and assumes ascending order. Elements 1, 2, 3 and 10 are the headings 0x20000EB8, 0x20000EBA, 0x20000EBC and 0x20000ECA; bms_voltage_error_track uses element 3 as a threshold for the averaged voltage. bms_meas_interp_filter_dispatch reads the first and last elements. No store is visible in the analysed code, so the table is probably loaded from flash or configuration at startup."
+  },
+  "bms_g_4168_20000f00": {
+    "name": "bms_soc_ir_sample_ring",
+    "type": "s16",
+    "count": 8,
+    "size": 16,
+    "anchor": ["BMS_4168", "0x20000f00"],
+    "category": "soc",
+    "description": "Ring of eight signed 16-bit IR-compensated voltage samples, probably in the same unit as the voltage value DAT_200001F0 (not established). bms_voltage_error_track writes one sample per accumulation at the index held in the byte at 0x200001DD, which wraps at 8, and averages all eight when the voltage exceeds the threshold element 0x20000EBC (sum plus 3, divided by 8). bms_soc_update_from_voltage fills all eight entries with the current corrected voltage, so the average starts from a fresh reading after a voltage-based reset."
+  },
+  "bms_g_4168_20000ee8": {
+    "name": "bms_soc_ocv_capacity",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000ee8"],
+    "category": "soc",
+    "description": "Capacity estimate derived from the voltage-based SOC, in the units of 0x20000E34. bms_voltage_error_track sets it to 0x20000E34 times the OCV percent from bms_soc_from_ocv_table, divided by 100. bms_soc_update_from_voltage and some branches of bms_soc_tick_update reset it to the capacity word 0x20000E28, the latter branches also setting 0x20000EEC to the same value. bms_soc_main_step blends it with 0x20000EEC (weights 20 and 80) into 0x20000EF0, and bms_remaining_time_4168 uses it in the remaining-time estimate."
+  },
+  "bms_g_4168_20000eec": {
+    "name": "bms_soc_coulomb_capacity",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000eec"],
+    "category": "soc",
+    "description": "Coulomb-counted capacity estimate (remaining charge in the coulomb counter units, probably the same as 0x20000E34). bms_charge_integrate_step adds the whole-hour part of 0x20000EFC (value / 3600) to it and clamps it at zero. bms_soc_update_from_voltage and some branches of bms_soc_tick_update and bms_soc_main_step set it from the voltage-based estimate. bms_soc_main_step blends it with 0x20000EE8 (weights 80 and 20) into 0x20000EF0, and bms_remaining_time_4168 uses it."
+  },
+  "bms_g_4168_20000ef0": {
+    "name": "bms_soc_blend_capacity",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000ef0"],
+    "category": "soc",
+    "description": "Blended capacity value of the per-tick SOC step, in the units of 0x20000EEC. bms_soc_main_step sets it to 0x20000EEC times 100, or to the 80/20 blend of 0x20000EEC and 0x20000EE8, then divides it by 100 and derives the SOC percent 0x20000EF4 from blend * 100 / 0x20000E34. bms_soc_tick_update sets it to the capacity word 0x20000E2C, and bms_soc_update_from_voltage sets it to 0x20000E28."
+  },
+  "bms_g_4168_20000ef4": {
+    "name": "bms_soc_percent_internal",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000ef4"],
+    "category": "soc",
+    "description": "Integer state-of-charge percent, clamped to 0 to 100. bms_soc_main_step computes it as blend * 100 / 0x20000E34 and bms_soc_tick_update copies the 16-bit percent 0x20000E24 into it (clamped to 100); bms_soc_update_from_voltage sets it from the voltage-based percent. bms_soc_main_step compares it with the thresholds 15, 90 and 100 when it decides whether to step the reported SOC, so it is normally equal to the 16-bit percent at 0x20000E24."
+  },
+  "bms_g_4168_20000ef8": {
+    "name": "bms_soc_charge_subaccum",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000ef8"],
+    "category": "soc",
+    "description": "Sub-unit accumulator of the coulomb counter. bms_charge_integrate_step adds the scaled tick count times 10 times the signed current at state +0x11A; on its call with the second argument 1 it subtracts 35 (0x23) instead, and when the current is zero it subtracts 12 (0xC). Whenever its magnitude exceeds 10, the whole part (value / 10) is moved into 0x20000EFC and the remainder stays here. The constants probably model quiescent or self-discharge losses (guess)."
+  },
+  "bms_g_4168_20000efc": {
+    "name": "bms_soc_charge_seconds",
+    "type": "s32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000efc"],
+    "category": "soc",
+    "description": "Second-scale charge accumulator fed by the whole part of 0x20000EF8 (value / 10) in bms_charge_integrate_step. When its magnitude exceeds 3600 (0xE10), the whole hours (value / 3600) are added to the coulomb-counted capacity 0x20000EEC and the remainder stays here. The factor 3600 suggests seconds per hour, so this is probably a time-weighted charge counter (guess)."
+  }
+}

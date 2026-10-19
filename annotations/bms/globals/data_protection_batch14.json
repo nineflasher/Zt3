@@ -1,0 +1,210 @@
+{
+  "bms_g_4139_200000d0": {
+    "name": "bms_profile_set_4139_2",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4139", "0x200000d0"],
+    "category": "protection",
+    "description": "Third profile parameter set of build 4139: three 11-entry u16 curves at 0xD0 (curve_a), 0xE6 (curve_b) and 0xFC (curve_c). bms_profile_block_fill_4139 copies them to the profile block at +0x5E, +0x00 and +0x16 for the profile ids that select this set. The 4130 build has no counterpart at this address in the packets."
+  },
+  "bms_g_4148_200000dc": {
+    "name": "bms_profile_set_4148_2",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4148", "0x200000dc"],
+    "category": "protection",
+    "description": "Third profile parameter set of build 4148: three 11-entry u16 curves at 0xDC, 0xF2 and 0x108, the same layout as the other sets. Copied to the profile block by bms_profile_block_fill_4168 for the profile ids that select it."
+  },
+  "bms_g_4168_200000e4": {
+    "name": "bms_profile_set_4168_2",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4168", "0x200000e4"],
+    "category": "protection",
+    "description": "Third profile parameter set of the 4168 build: three 11-entry u16 curves at 0xE4 (curve_a), 0xFA (curve_b) and 0x110 (curve_c). bms_profile_block_fill_4168 selects it for profile ids 6, 7 and 8 (the modes that also use the 50 to 97 percent SOC band) and copies the curves to +0x5E, +0x00 and +0x16."
+  },
+  "bms_g_4168_20000126": {
+    "name": "bms_profile_set_4168_3",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4168", "0x20000126"],
+    "category": "protection",
+    "description": "Fourth profile parameter set of the 4168 build: three 11-entry u16 curves at 0x126 (curve_a), 0x13C (curve_b) and 0x152 (curve_c). bms_profile_block_fill_4168 selects it for profile ids 9 and 10 and copies the curves to +0x5E, +0x00 and +0x16."
+  },
+  "bms_g_4168_20000168": {
+    "name": "bms_profile_set_4168_4",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4168", "0x20000168"],
+    "category": "protection",
+    "description": "Fifth profile parameter set of the 4168 build: three 11-entry u16 curves at 0x168 (curve_a), 0x17E (curve_b) and 0x194 (curve_c). bms_profile_block_fill_4168 selects it for profile ids 11 and 12 and copies the curves to +0x5E, +0x00 and +0x16."
+  },
+  "bms_g_4139_20000113": {
+    "name": "bms_pb11_reply_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4139", "0x20000113"],
+    "category": "protection",
+    "description": "Byte in build 4139 written by bms_status_bit4_from_reply and cleared by bms_app_state_reset_legacy, and read by the PB11 trigger sequencer bms_pb11_trigger_sequence_step (which also reads the phase byte at 0x117). Probably a reply-seen or ready flag between the reply handler and the PB11 sequence; the exact meaning is a guess. The 4130 build has the same byte at 0xD1."
+  },
+  "bms_g_4139_20000199": {
+    "name": "bms_dwell_gate_flag_4139",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4139", "0x20000199"],
+    "category": "protection",
+    "description": "Flag byte updated by bms_protect_dwell_flags_update in build 4139 (read and written there). Probably a gate for the dwell timers of the protection latch; the family map places the 4130 counterpart at 0x14C. The meaning is not established."
+  },
+  "bms_g_4139_2000019c": {
+    "name": "bms_latch_word_4139",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4139", "0x2000019c"],
+    "category": "protection",
+    "description": "32-bit fault-latch word of bms_prot_latch_pairs_update_alt in build 4139. Latch bits set by the seven timer pairs (0x2, 0x40, 0x400, 0x4000, 0x20000, 0x80000) and by flag bits 0 and 1 of the input (0x8 and 0x1000), cleared again by the release timers. Its bits are mirrored into the status halfwords at +0x124, +0x126, +0x194 and +0x198 of the state block. The 4130 build keeps the same word at 0x150."
+  },
+  "bms_g_4139_200001a8": {
+    "name": "bms_dwell_timer_4139",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4139", "0x200001a8"],
+    "category": "protection",
+    "description": "32-bit accumulator updated by bms_protect_dwell_flags_update in build 4139 (read and written there), probably a dwell timer that is zeroed when its arming condition is not met. The 4130 counterpart is at 0x15C. The limit and the latch it controls are not established."
+  },
+  "bms_g_4168_200001ba": {
+    "name": "bms_pool_busy_timer",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x200001ba"],
+    "category": "protection",
+    "description": "Busy timer of the message pool state machine (bms_comm_pool_state_step). It is cleared when the state machine resets and by bms_status_bit4_from_reply. While the pool's gate is nonzero the elapsed time is added and the value saturates at 3000 (about 3 s if the tick is 1 ms); the not-timed-out flag at 0x1AF tracks it."
+  },
+  "bms_g_4168_200001c4": {
+    "name": "bms_limit_reserve_current",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x200001c4"],
+    "category": "protection",
+    "description": "Reserve current derived by bms_4168_080054f8 and used by bms_limit_status_update (subtracted from the working limit while flag 0x20000B57 is set) and by bms_limit_report_cmd08, which reads it as the reserve term for the command 0x08 limit payload. Unit probably the same as the limit word at 0x1C2 (0.1 A steps or similar; not established)."
+  },
+  "bms_g_4130_2000016c": {
+    "name": "bms_latch_thr_ch1_arm_4130",
+    "type": "s16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x2000016c"],
+    "category": "protection",
+    "description": "Channel 1 arming threshold of the 4130 fault-latch evaluator (bms_prot_latch_pairs_update_alt). The status record halfword at +4 is compared with it; while the value is below the threshold the channel 1 timer is cleared. Counterpart of the 4168 threshold at 0x270 and the 4139 threshold at 0x1B8."
+  },
+  "bms_g_4130_20000178": {
+    "name": "bms_latch_thr_ch1_sample_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x20000178"],
+    "category": "protection",
+    "description": "Channel 1 sample threshold of the 4130 fault-latch evaluator, compared with the u16 at sample +8 (the second sample word). The channel 1 set timer runs only while the sample is at or above this value. Counterpart of the 4168 threshold at 0x27C."
+  },
+  "bms_g_4130_2000017a": {
+    "name": "bms_latch_thr_ch1_release_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x2000017a"],
+    "category": "protection",
+    "description": "Channel 1 release threshold of the 4130 fault-latch evaluator: the clear timer of the channel 1 latch runs while the sample at +8 is at or below this value. Counterpart of the 4168 threshold at 0x27E."
+  },
+  "bms_g_4130_2000017c": {
+    "name": "bms_latch_limit_ch1_set_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x2000017c"],
+    "category": "protection",
+    "description": "Trigger time limit of channel 1 in the 4130 fault-latch evaluator: when the channel 1 set timer reaches this value the latch is set and the timer is clamped. Counterpart of the 4168 limit at 0x280 (in the same units as the timers, probably 1 ms ticks)."
+  },
+  "bms_g_4130_20000180": {
+    "name": "bms_latch_limit_ch1_clr_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x20000180"],
+    "category": "protection",
+    "description": "Release time limit of channel 1 in the 4130 fault-latch evaluator: the clear timer of the latch resets it when it reaches this value. Counterpart of the 4168 limit at 0x284."
+  },
+  "bms_g_4130_20000184": {
+    "name": "bms_latch_thr_ch2_arm_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x20000184"],
+    "category": "protection",
+    "description": "Channel 2 sample threshold of the 4130 fault-latch evaluator, compared with the u16 at sample +8; the set timer of channel 2 runs while the sample is at or above it. Counterpart of the 4168 threshold at 0x288."
+  },
+  "bms_g_4130_20000186": {
+    "name": "bms_latch_thr_ch2_release_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x20000186"],
+    "category": "protection",
+    "description": "Channel 2 release threshold of the 4130 fault-latch evaluator: the clear timer runs while the sample at +8 is at or below it. Counterpart of the 4168 threshold at 0x28A."
+  },
+  "bms_g_4130_20000188": {
+    "name": "bms_latch_limit_ch2_set_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x20000188"],
+    "category": "protection",
+    "description": "Trigger time limit of channel 2 in the 4130 fault-latch evaluator; the latch is set when the channel 2 set timer reaches it. Counterpart of the 4168 limit at 0x28C."
+  },
+  "bms_g_4130_2000018c": {
+    "name": "bms_latch_limit_ch2_clr_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x2000018c"],
+    "category": "protection",
+    "description": "Release time limit of channel 2 in the 4130 fault-latch evaluator, used by the clear timer of the channel 2 latch. Counterpart of the 4168 limit at 0x290."
+  },
+  "bms_g_4130_2000019c": {
+    "name": "bms_latch_thr_ch3_arm_4130",
+    "type": "s16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x2000019c"],
+    "category": "protection",
+    "description": "Channel 3 threshold of the 4130 fault-latch evaluator, compared with the first sample word (sample +0, u32 read as unsigned). The set timer of channel 3 runs while the sample is at or above it. The family map places the 4139 counterpart at 0x1E8 and the 4168 counterpart at 0x2A0."
+  },
+  "bms_g_4130_200001b4": {
+    "name": "bms_latch_thr_ch5_default_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x200001b4"],
+    "category": "protection",
+    "description": "Channel 5 sample threshold of the 4130 fault-latch evaluator, used when the profile class is not 6 to 8 (in that case the threshold is chosen by hysteresis from this value and the value at 0x1C0 region). Compared with the u16 at sample +4. Counterpart of the 4168 threshold at 0x2B8."
+  },
+  "bms_g_4130_200001b6": {
+    "name": "bms_latch_thr_ch5_release_4130",
+    "type": "s16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x200001b6"],
+    "category": "protection",
+    "description": "Channel 5 release threshold of the 4130 fault-latch evaluator: the clear timer runs while the sample at +4 is at or below this value. Counterpart of the 4168 threshold at 0x2BA."
+  },
+  "bms_g_4130_200001b8": {
+    "name": "bms_latch_limit_ch5_set_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x200001b8"],
+    "category": "protection",
+    "description": "Trigger time limit of channel 5 in the 4130 fault-latch evaluator; the latch is set when the channel 5 set timer reaches it. Counterpart of the 4168 limit at 0x2BC."
+  },
+  "bms_g_4130_200001bc": {
+    "name": "bms_latch_limit_ch5_clr_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4130", "0x200001bc"],
+    "category": "protection",
+    "description": "Release time limit of channel 5 in the 4130 fault-latch evaluator, used by the clear timer of the channel 5 latch. Counterpart of the 4168 limit at 0x2C0."
+  },
+  "bms_g_4130_200001cc": {
+    "name": "bms_latch_param_1cc_4130",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4130", "0x200001cc"],
+    "category": "protection",
+    "description": "16-bit parameter read by bms_prot_latch_pairs_update_alt in build 4130, after the channel 5 group. It is probably a threshold or time value of the channel 6 or 7 pairs; no 4139 or 4168 counterpart is linked by the family map, so the meaning is a guess."
+  }
+}
