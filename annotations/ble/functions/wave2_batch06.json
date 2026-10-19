@@ -1,0 +1,458 @@
+{
+  "ble_219_0c047e70": {
+    "name": "md5_update",
+    "summary": "MD5 'Update': absorb a byte string into the context, compressing full 64-byte blocks",
+    "description": "RFC 1321 MD5Update over a context laid out as ctx[0..1] = 64-bit bit count, ctx[2..5] = state A..D, 64-byte block buffer at +0x18. The current buffer fill is (count & 0x1ff) >> 3; the bit count is advanced by len*8 with carry into the high word (plus len >> 29). If the input completes a block the first part is memcpy'd into the buffer, md5_transform (ble_219_0c047710) is run on the buffer and then directly on each further whole 64-byte chunk of the input; whatever is left is memcpy'd to the start of the buffer. Shorter inputs are only appended to the buffer. Part of the md5_init / md5_update / md5_final group used by the nb_upgrade md5sum check (callers ble_219_0c03477c, 0c036868 and the final routine ble_219_0c047efc); also called from ble_219_0c0285ec.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "MD5 context: count lo/hi, state A..D, 64-byte buffer at +0x18"},
+      {"name": "param_2", "type": "ptr", "description": "input bytes"},
+      {"name": "param_3", "type": "u32", "description": "input length in bytes"},
+      {"name": "param_4", "type": "u32", "description": "unused (register pass-through to memcpy)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c047efc": {
+    "name": "md5_final",
+    "summary": "MD5 'Final': pad the message, append the bit length and write the 16-byte digest",
+    "description": "RFC 1321 MD5Final. Saves the 64-bit bit count ctx[0..1] as 8 little-endian bytes with md5_encode_le_words, computes the padding length so the buffer ends at 56 mod 64 (56-fill if fill < 56, else 120-fill), feeds the PADDING table at 0x0C0747D0 (0x80 followed by zeros) and then the 8 length bytes through md5_update (ble_219_0c047e70), and finally serialises the four state words ctx[2..5] little-endian into the 16-byte digest at param_2. The context is not zeroised afterwards. Callers: the upgrade md5sum verification (ble_219_0c03477c, 0c036868, 0c037588 'upgrade file md5sum error').",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "MD5 context (see md5_update)"},
+      {"name": "param_2", "type": "ptr", "description": "output: 16-byte digest"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c047f70": {
+    "name": "posix_event_2000f65c_init",
+    "summary": "Static constructor: initialise the RTOS event object at 0x2000F660 and store its handle in 0x2000F65C",
+    "description": "Calls ble_219_0c04281c on the static 32-byte object at 0x2000F660 (word 0 = 0, a self-linked wait list at +4..+0x10 initialised by ble_219_0c0429a4, byte +0x1c = 1 'initialised') and stores the returned pointer in DAT_2000f65c. The address 0x0C047F71 is the first of two consecutive function pointers at 0x0C073CD8 (next: ble_219_0c048260), i.e. an .init_array-style constructor table run during startup; there are no direct callers. The twin ble_219_0c048260 creates the event object that the POSIX select() emulation waits on, so this object belongs to the same /dev file-descriptor layer, but nothing in the image reads DAT_2000f65c.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Exact object type (event flags vs. semaphore) inferred from the sibling's use in select(); the constructor-table mechanism is inferred from the pointer pair at 0x0C073CD8."
+  },
+  "ble_219_0c048260": {
+    "name": "posix_select_event_init",
+    "summary": "Static constructor: initialise the RTOS event object that the fd-layer select() waits on",
+    "description": "Calls ble_219_0c04281c on the static object at 0x2000F790 (word 0 = 0, self-linked wait list at +4, byte +0x1c = 1) and stores the returned handle in DAT_2000f6d4. DAT_2000f6d4 is later passed to the blocking wait ble_219_0c042858(handle, mask, 0, 0, timeout_ms) by the select() implementation ble_219_0c04885c, which polls the /dev file-descriptor table DAT_2000f6d8 (fds 3..48). Address 0x0C048261 is the second pointer of the constructor table at 0x0C073CD8 (after ble_219_0c047f70); no direct callers.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "The object is treated as event flags because select() waits on it with a bit mask."
+  },
+  "ble_219_0c048420": {
+    "name": "_read",
+    "summary": "newlib _read syscall: stdin from the console device, fds 3..48 via the /dev driver table",
+    "description": "fd 0 is redirected to read() (ble_219_0c071abc) on the console device descriptor DAT_2000b520. fd 1 and 2 set errno (via __errno, i.e. the reent at DAT_200049a8) to 5 (EIO) and return -1. fds 3..48 index the 46-entry file table DAT_2000f6d8[fd-3]; each slot points to an open-file object whose first word is the driver ops table, and the read handler at ops+4 is tail-called with (fd, buf, len). An empty slot, missing ops or missing handler sets errno 9 (EBADF) and returns -1. Called from _read_r (ble_219_0c0734e0), which copies errno into the reent on failure. Forms the fd layer together with _write (ble_219_0c04846c), _close (ble_219_0c0484b4), open (ble_219_0c04855c, '/dev/' names) and select (ble_219_0c04885c).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_3", "type": "u32", "description": "bytes to read"}
+    ],
+    "returns": {"type": "s32", "description": "bytes read from the driver, or -1 with errno EIO/EBADF"},
+    "confidence": "high"
+  },
+  "ble_219_0c04846c": {
+    "name": "_write",
+    "summary": "newlib _write syscall: stdout/stderr to the console with CRLF translation, fds 3..48 via driver table",
+    "description": "fd 1 and 2 go to ble_219_0c035528(buf, len), which splits the buffer at '\\n' and writes each line plus \"\\r\\n\" to the console device DAT_2000b520 through write (ble_219_0c071ad0); its result is ignored and the requested length is returned. fds 3..48 look up DAT_2000f6d8[fd-3] -> open-file object -> ops table and tail-call the write handler at ops+8 with (fd, buf, len). Anything else (fd 0, empty slot, no handler) sets errno 9 (EBADF) and returns -1. Called from write()/ _write_r (ble_219_0c071ad0). Part of the /dev fd layer with _read, _close, open and select.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "source buffer"},
+      {"name": "param_3", "type": "u32", "description": "bytes to write"}
+    ],
+    "returns": {"type": "s32", "description": "len for fd 1/2, driver result for fds >= 3, -1 with errno EBADF"},
+    "confidence": "high"
+  },
+  "ble_219_0c0484b4": {
+    "name": "_close",
+    "summary": "newlib _close syscall: no-op for fds 0..2, driver close handler for fds 3..48",
+    "description": "Returns 0 immediately for fd < 3. For fd 3..48 it fetches DAT_2000f6d8[fd-3] (open-file object), its ops table (first word) and tail-calls the close handler at ops+0xC with the fd. If the slot, ops or handler is NULL, errno is set to 9 (EBADF) via __errno and -1 is returned. Has many callers throughout the app (e.g. ble_219_0c02c49c factory-test command handler, 0c02d4f8 ...), which close /dev device descriptors opened with ble_219_0c04855c. Part of the fd layer with _read, _write, open and select.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "file descriptor"}
+    ],
+    "returns": {"type": "s32", "description": "0, driver close result, or -1 with errno EBADF"},
+    "confidence": "high"
+  },
+  "ble_219_0c049288": {
+    "name": "ble_crypto_ccm_cbc_mac",
+    "summary": "AES-128 CBC-MAC over a packet (CCM B0/B1 style blocks), emitting a 4-byte MIC",
+    "description": "Builds B0 = {0x59, 12 nonce bytes from param_4, 0x00, 0x00, payload_len} where payload_len = param_3 - 3, runs aes128_key_expansion + aes128_encrypt_block on it with key param_1 (X1 = E(K,B0)), then XORs in B1 = {pkt[0], pkt[1], pkt[2], 0 x 13} (the 3 header bytes of the packet at param_2) and encrypts again. The payload starting at pkt+3 is then processed in zero-padded 16-byte chunks: X = E(K, X xor chunk). The first 4 bytes of the final X are written to param_5 as the MIC; the key schedule is recomputed before every block. Flags byte 0x59 encodes Adata=1, M=8, L=2 of CCM, but only 4 MIC bytes are output and the header bytes are used directly instead of a length-prefixed AAD block, so this is a CCM-like authentication tag rather than standard CCM. Callers: the encrypt/decrypt wrappers ble_219_0c0493d4 and 0c0496a8 of the ble_crypto vehicle-authentication group (counter-based nonce, encrypted payload + MIC).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16-byte AES-128 key"},
+      {"name": "param_2", "type": "ptr", "description": "packet: 3 header bytes then payload"},
+      {"name": "param_3", "type": "u8", "description": "total packet length; payload length = param_3 - 3"},
+      {"name": "param_4", "type": "ptr", "description": "nonce: 3 x u32 (12 bytes) copied into B0 bytes 1..12"},
+      {"name": "param_5", "type": "ptr", "description": "output: 4-byte MIC"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Whether the result is used as a CCM MIC or a plain CBC-MAC tag depends on the wrappers; byte 13 of B0 is always 0 so the effective nonce may be 13 bytes with a zero tail."
+  },
+  "ble_219_0c04a924": {
+    "name": "mbedtls_sha1_update_ret",
+    "summary": "mbedTLS SHA-1 update: absorb input, running the compression on each full 64-byte block",
+    "description": "mbedtls_sha1_context layout: total[2] (byte count, lo/hi) at +0, state[5] at +8, buffer[64] at +0x1C. Adds len to total[0] with carry into total[1]; if the buffer already holds total[0] & 0x3F bytes and the input completes it, memcpy fills the buffer and sha1_process_block (ble_219_0c049a28, = mbedtls_internal_sha1_process) is run on it; then every remaining whole 64-byte chunk is processed straight from the input, and the tail is memcpy'd into the buffer. Returns 0, or the non-zero result of the block function. Group: mbedtls_sha1_finish_ret (ble_219_0c04a9a8) and the one-shot mbedtls_sha1_ret (ble_219_0c04aa80, which seeds the standard IV 0x67452301..0xC3D2E1F0).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "mbedtls_sha1_context"},
+      {"name": "param_2", "type": "ptr", "description": "input bytes"},
+      {"name": "param_3", "type": "u32", "description": "input length in bytes"},
+      {"name": "param_4", "type": "u32", "description": "unused (register pass-through)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, else error from the block function"},
+    "confidence": "high"
+  },
+  "ble_219_0c04a9a8": {
+    "name": "mbedtls_sha1_finish_ret",
+    "summary": "mbedTLS SHA-1 finish: pad, append 64-bit big-endian bit length, output the 20-byte digest",
+    "description": "Computes high = (total[0] >> 29) | (total[1] << 3) and low = total[0] << 3 and stores them as 8 big-endian bytes on the stack. Padding length is 56-last or 120-last for last = total[0] & 0x3F. Calls mbedtls_sha1_update_ret (ble_219_0c04a924) with the sha1_padding table at 0x0C08400C (0x80 then zeros) and then with the 8 length bytes; if both return 0 the five state words at ctx+8..+0x18 are written big-endian into the 20-byte output param_2. On an error the output is left untouched and nothing is reported (the return value is void here). Caller: mbedtls_sha1_ret (ble_219_0c04aa80).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "mbedtls_sha1_context"},
+      {"name": "param_2", "type": "ptr", "description": "output: 20-byte SHA-1 digest"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ac1c": {
+    "name": "bthost_link_key_db_tlv_delete_link_key",
+    "summary": "BTstack link-key DB (TLV backend): delete the stored link key for a BD_ADDR",
+    "description": "Iterates the four slots with TLV tag 'BTL'+index (0x42544C00 | 0..3), reading each 28-byte link_key_nvm_t {u32 seq_nr; bd_addr[6] at +4; link_key[16] at +10; u16 type at +26} via the btstack_tlv get_tag function (*DAT_2000f8ac)[0] with context DAT_2000f8b0. The first slot whose bd_addr memcmp-equals param_1 is removed with delete_tag ((*DAT_2000f8ac)[2]); if none matches after 4 slots the function returns silently. Slot of the btstack_link_key_db_t vtable at 0x0C07FE88 (no direct callers), source file bthost_link_key_db_tlv.c; siblings get_link_key (ble_219_0c04ac70), put_link_key (ble_219_0c04ace4), iterator_get_next (ble_219_0c04ab90).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "bd_addr (6 bytes) to delete"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ac70": {
+    "name": "bthost_link_key_db_tlv_get_link_key",
+    "summary": "BTstack link-key DB (TLV backend): look up the link key and type for a BD_ADDR",
+    "description": "Reads TLV tags 'BTL'+0..3 (0x42544C00|i) via get_tag (*DAT_2000f8ac)[0] with context DAT_2000f8b0 into a 28-byte link_key_nvm_t on the stack. On the first entry whose bd_addr at +4 memcmp-matches param_1, the 16-byte link key at +10 is copied to param_2, the u16 link_key_type at +26 to param_3 and 1 is returned. If all four slots are empty or mismatch, 0 is returned and the outputs are untouched. Vtable entry of btstack_link_key_db_t at 0x0C07FE88 (bthost_link_key_db_tlv.c), used by hci.c on link-key requests.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "bd_addr (6 bytes)"},
+      {"name": "param_2", "type": "ptr", "description": "out: link key (16 bytes)"},
+      {"name": "param_3", "type": "ptr", "description": "out: link_key_type_t (u16)"}
+    ],
+    "returns": {"type": "u32", "description": "1 if found, 0 otherwise"},
+    "confidence": "high"
+  },
+  "ble_219_0c04ace4": {
+    "name": "bthost_link_key_db_tlv_put_link_key",
+    "summary": "BTstack link-key DB (TLV backend): store a link key, reusing the matching, an empty or the oldest slot",
+    "description": "Scans the four 'BTL'+i TLV slots (28-byte link_key_nvm_t, read with (*DAT_2000f8ac)[0] and context DAT_2000f8b0): remembers the tag whose bd_addr equals param_1, the highest seq_nr seen, a tag of an empty slot, and the tag with the lowest seq_nr (oldest). Target tag preference: matching address, else an empty slot, else the oldest entry. It then writes {seq_nr = max+1, bd_addr = param_1, link_key = param_2 (16 bytes), type = param_3} with store_tag (*DAT_2000f8ac)[1]; on failure it logs 'store link key failed' (bthost_link_key_db_tlv.c:142) through ble_hook_invoke_indexed (level 2 = error). Vtable entry of btstack_link_key_db_t at 0x0C07FE88; siblings get/delete_link_key.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "bd_addr (6 bytes)"},
+      {"name": "param_2", "type": "ptr", "description": "link key (16 bytes)"},
+      {"name": "param_3", "type": "u16", "description": "link_key_type_t"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04af00": {
+    "name": "hid_report_id_status",
+    "summary": "BTstack hid_device.c: classify a HID report ID as VALID (1), INVALID (2) or UNDECLARED (0)",
+    "description": "If the single hid_device instance (cid at DAT_2000fa10) matches param_1 and its protocol_mode byte DAT_2000fa2a is 0 (HID_PROTOCOL_MODE_BOOT), report IDs 1 (boot keyboard) and 2 (boot mouse) return HID_REPORT_ID_VALID=1, anything else HID_REPORT_ID_INVALID=2. A cid mismatch logs 'hid_device_in_boot_protocol_mode: could not find hid device instace' (hid_device.c:982) via ble_hook_invoke_indexed and falls through to report-mode handling. In report mode the HID descriptor DAT_2000fa08 of length DAT_2000fa0c is walked with btstack_hid_parse_descriptor_item: a Global item (type 1) with tag 8 (Report ID) equal to param_2 gives 1; if report IDs were declared but none matched, 2; if the descriptor declares no report ID (or is empty), 0. Caller: hid_device SET_REPORT / data handling (ble_219_0c04afcc), together with hid_report_size_valid (ble_219_0c04af54/0c04af5a).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "HID cid"},
+      {"name": "param_2", "type": "u16", "description": "report ID"}
+    ],
+    "returns": {"type": "u32", "description": "hid_report_id_status_t: 0 undeclared, 1 valid, 2 invalid"},
+    "confidence": "high"
+  },
+  "ble_219_0c04af5a": {
+    "name": "hid_report_size_valid_body",
+    "summary": "BTstack hid_report_size_valid body (entered after the size!=0 check at 0x0C04AF54)",
+    "description": "Second half of hid_device.c hid_report_size_valid(cid, report_id, report_type, report_size): Ghidra split the function at the point after the 'report_size == 0 -> false' test, so ble_219_0c04af54 is the real entry and falls into this address. In boot protocol mode (DAT_2000fa10 == cid, protocol_mode byte DAT_2000fa2a == 0) report ID 1 (keyboard) needs size >= 8 and report ID 2 (mouse) size >= 1; other IDs are invalid. A cid mismatch logs 'hid_device_in_boot_protocol_mode: could not find hid device instace' (hid_device.c:982) and continues. Otherwise btstack_hid_get_report_size_for_id (ble_219_0c065288) computes the expected size for (report_id, report_type) from the descriptor DAT_2000fa08 / DAT_2000fa0c and the size is valid only if it is non-zero and equals param_4. Group: hid_report_id_status (ble_219_0c04af00), caller ble_219_0c04afcc.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "HID cid"},
+      {"name": "param_2", "type": "s32", "description": "report ID"},
+      {"name": "param_3", "type": "u32", "description": "hid_report_type_t (1 input, 2 output, 3 feature)"},
+      {"name": "param_4", "type": "s32", "description": "report size in bytes (non-zero)"}
+    ],
+    "returns": {"type": "bool", "description": "true if the size is valid for the report"},
+    "confidence": "high",
+    "notes": "Not a standalone function in the source; it is the tail of ble_219_0c04af54."
+  },
+  "ble_219_0c04bd0c": {
+    "name": "bthost_latch_ctrl_mode_2000fb90",
+    "summary": "Store the controller/host mode byte from ble_ctrl_env_get_mode_or_4 into DAT_2000fb90",
+    "description": "One-liner: DAT_2000fb90 (u8) = ble_ctrl_env_get_mode_or_4() (env+0x58, or 4 while the override flag env+0x64 is set). Called only from the host bring-up routine ble_219_0c059230 when its argument is 2, next to other classic-BT host initialisers (ble_219_0c04bd48 which sets DAT_2000fcac = 0x10001 and registers a handler, SDP/HID setup). Nothing in the image reads DAT_2000fb90, so it is probably a leftover configuration latch; ble_219_0c04bb00 (hid_device_init-like) uses the same getter as an argument when registering L2CAP services on PSM 0x11/0x13.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Meaning of the mode byte is not established; see ble_ctrl_env_get_mode_or_4."
+  },
+  "ble_219_0c04c580": {
+    "name": "de_get_data_size",
+    "summary": "BTstack sdp_util.c: payload size of an SDP data element from its descriptor byte",
+    "description": "Asserts header != NULL (btstack_assert -> software UDF trap). The size-type field header[0] & 7 selects: 5 (DE_SIZE_VAR_8) -> header[1]; 6 (DE_SIZE_VAR_16) -> big-endian u16 at header+1 (co_read16_be); 7 (DE_SIZE_VAR_32) -> big-endian u32 at header+1; otherwise 1 << size_type (1,2,4,8,16 bytes), except that a DE_NIL element (type field header[0] >> 3 == 0) has size 0. Part of the sdp_util DE (data element) group: de_get_len, de_get_len_safe (caller ble_219_0c04c8dc), de_traverse_sequence, de_add_number/data ...",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE header byte(s)"}
+    ],
+    "returns": {"type": "u32", "description": "data size in bytes (without header)"},
+    "confidence": "high"
+  },
+  "ble_219_0c04c5b8": {
+    "name": "de_get_len",
+    "summary": "BTstack sdp_util.c: total length (header + data) of an SDP data element",
+    "description": "Returns 0 for a NULL pointer. Size types 0..4: header is 1 byte and the data is 1 << size_type bytes (0 for DE_NIL, i.e. type field header[0]>>3 == 0). DE_SIZE_VAR_8 (5): header[1] + 2; DE_SIZE_VAR_16 (6): co_read16_be(header,1) + 3; DE_SIZE_VAR_32 (7): co_read32_be(header,1) + 5. Equivalent to de_get_header_size + de_get_data_size. Used by the DE traversal and builder helpers (de_traverse_sequence, sdp_attribute_list_traverse_sequence, de_push_sequence, de_pop_sequence) and by the SDP record handling in ble_219_0c04c780/0c04c89c.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE header"}
+    ],
+    "returns": {"type": "s32", "description": "element length in bytes, 0 for NULL"},
+    "confidence": "high"
+  },
+  "ble_219_0c04c620": {
+    "name": "de_traverse_sequence",
+    "summary": "BTstack sdp_util.c: call a handler for every element of a DE sequence (DE_DES)",
+    "description": "Returns unless the element type (header[0] >> 3) is 6 (DE_DES). Skips the header (1 byte, or 1 + (1 << (size_type-5)) for the variable-length size types) and iterates from there to de_get_len(element): for each sub-element it calls handler(element+pos, type, size_type, context) and stops when the handler returns non-zero; otherwise it advances by de_get_len(sub-element). The decompiled call passes a 5th register argument that is just pass-through. Callers: SDP record attribute lookup / service search helpers ble_219_0c04c680, 0c04c780, 0c04c89c and the UUID-in-record matcher ble_219_0c04cb90 (sdp_record_contains_UUID128 style).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE_DES element"},
+      {"name": "param_2", "type": "ptr", "description": "de_traversal_callback_t handler(element, type, size, context) returning non-zero to stop"},
+      {"name": "param_3", "type": "ptr", "description": "opaque context for the handler"},
+      {"name": "param_4", "type": "u32", "description": "unused register pass-through"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04c6fc": {
+    "name": "sdp_attribute_list_traverse_sequence",
+    "summary": "BTstack sdp_util.c: walk an SDP attribute list as (UINT16 attribute id, value) pairs",
+    "description": "Requires the element to be a DE_DES (type 6); starts after its header and runs to de_get_len(element). Each attribute id must be DE_UINT (type 1) of DE_SIZE_16 (size type 1) or traversal stops; the id is read big-endian at pos+1 and pos advances by 3; if that already reaches the end the loop exits. The handler is then called as handler(attribute_id, value_element, value_type, value_size_type, context) and traversal stops when it returns non-zero, else pos += de_get_len(value). Callers: sdp_get_attribute_value_for_attribute_id style wrappers ble_219_0c04cb10 (with callback 0x0C04C780), 0c04cb48, 0c04cb6c.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "attribute list DE_DES"},
+      {"name": "param_2", "type": "ptr", "description": "sdp_attribute_list_traversal_callback_t handler(id, element, type, size, context)"},
+      {"name": "param_3", "type": "ptr", "description": "opaque context"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04c8dc": {
+    "name": "de_get_len_safe",
+    "summary": "BTstack sdp_util.c: element length bounded by the available buffer size, 0 if it does not fit",
+    "description": "Returns 0 if size == 0. Header size is 1, or 1 + (1 << (size_type-5)) for size types 5..7, and must not exceed size. Then de_get_data_size (ble_219_0c04c580, which asserts the pointer) is called; the result is header + data only if data <= size and header + data <= size, else 0. Used by the SDP server request parsers ble_219_0c04be10 (ServiceSearch), 0c04bfd0 (ServiceAttribute) and 0c04c144 (ServiceSearchAttribute) to validate the incoming search pattern / attribute id list before traversal.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE header"},
+      {"name": "param_2", "type": "u32", "description": "bytes available from header"}
+    ],
+    "returns": {"type": "u32", "description": "element length, or 0 if truncated"},
+    "confidence": "high"
+  },
+  "ble_219_0c04c914": {
+    "name": "de_get_normalized_uuid",
+    "summary": "BTstack sdp_util.c: convert a DE_UUID element (16/32/128-bit) into a 128-bit UUID",
+    "description": "Returns 0 for NULL or if the element type (header[0] >> 3) is not 3 (DE_UUID). Size type 1 (DE_SIZE_16): big-endian u16 at +1; size type 2 (DE_SIZE_32): big-endian u32 at +1; either is expanded into the Bluetooth Base UUID with uuid_add_bluetooth_prefix and 1 is returned. Size type 4 (DE_SIZE_128): the 16 bytes at +1 are copied verbatim to param_1 (four unaligned word loads) and 1 is returned. Other size types give 0. No direct callers; used through the SDP traversal callbacks (e.g. the UUID matcher ble_219_0c04c681).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "out: 16-byte UUID128"},
+      {"name": "param_2", "type": "ptr", "description": "DE_UUID element"}
+    ],
+    "returns": {"type": "u32", "description": "1 on success, 0 if not a UUID element"},
+    "confidence": "high"
+  },
+  "ble_219_0c04c9cc": {
+    "name": "de_store_descriptor_with_len",
+    "summary": "BTstack sdp_util.c: write a DE header byte plus its 8/16/32-bit length field",
+    "description": "header[0] = (type << 3) | size_type. For size type 5 (DE_SIZE_VAR_8) header[1] = len; for 6 (DE_SIZE_VAR_16) co_write16_be(header,1,len & 0xffff); for 7 (DE_SIZE_VAR_32) co_write32_be(header,1,len); fixed-size types write only the descriptor byte. Callers: the SDP server response builders ble_219_0c04bfd0 and 0c04c144 (attribute lists); the inlined equivalents appear in de_create_sequence, de_push_sequence and de_add_data.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination header"},
+      {"name": "param_2", "type": "u8", "description": "de_type_t (0 NIL,1 UINT,2 INT,3 UUID,4 STRING,5 BOOL,6 DES,7 DEA,8 URL)"},
+      {"name": "param_3", "type": "s32", "description": "de_size_t (0..4 fixed 1/2/4/8/16 bytes, 5/6/7 variable 8/16/32-bit length)"},
+      {"name": "param_4", "type": "u32", "description": "data length for variable size types"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04c9f4": {
+    "name": "de_create_sequence",
+    "summary": "BTstack sdp_util.c: start an empty DE_DES sequence with a 16-bit length field",
+    "description": "Writes header[0] = 0x36 ((DE_DES=6 << 3) | DE_SIZE_VAR_16=6) and a big-endian length of 0 at header+1 (co_write16_be), i.e. a 3-byte sequence header with no content. The length is later grown by de_add_number / de_add_data / de_pop_sequence. Called at the start of the HID SDP record builder ble_219_0c04b788 (hid_create_sdp_record: service class 0x1124, protocol list L2CAP 0x0100 / HIDP 0x0011, language base 0x656E, attributes 0x0201..0x020x).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "buffer that receives the sequence header"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ca00": {
+    "name": "de_push_sequence",
+    "summary": "BTstack sdp_util.c: open a nested DE_DES inside a sequence and return its header pointer",
+    "description": "Computes the current length of the parent element with de_get_len (ble_219_0c04c5b8), writes a new 0x36 (DE_DES, VAR_16) header with length 0 at parent + len (co_write16_be) and returns that address. The parent's own length is not changed until de_pop_sequence (ble_219_0c04ca28) is called with the returned child. Called repeatedly by the HID SDP record builder ble_219_0c04b788.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "parent DE_DES header"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the new child sequence header"},
+    "confidence": "high"
+  },
+  "ble_219_0c04ca28": {
+    "name": "de_pop_sequence",
+    "summary": "BTstack sdp_util.c: close a nested sequence by adding its length to the parent's length field",
+    "description": "child_len = de_get_len(child) (ble_219_0c04c5b8); parent_len = co_read16_be(parent,1); co_write16_be(parent, 1, parent_len + child_len). Both lengths are handled as 16-bit values. Counterpart of de_push_sequence; called from the HID SDP record builder ble_219_0c04b788 after each nested list is filled.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "parent DE_DES header"},
+      {"name": "param_2", "type": "ptr", "description": "child DE_DES header previously returned by de_push_sequence"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused register pass-through"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ca50": {
+    "name": "de_add_number",
+    "summary": "BTstack sdp_util.c: append a fixed-size numeric element (8/16/32-bit) to a DE sequence",
+    "description": "data_size = co_read16_be(seq,1). Writes the descriptor byte (type << 3) | size_type at seq+3+data_size. For size type 1 (DE_SIZE_16) the value is stored big-endian at seq+4+data_size (element size 3); size type 2 (DE_SIZE_32) stores 32 bits (element size 5); size type 0 (DE_SIZE_8) with a non-NIL type stores one byte (element size 2); any other combination (including DE_NIL) contributes only the 1-byte descriptor. Finally the sequence length at seq+1 is increased by the element size (16-bit arithmetic). Caller: the HID SDP record builder ble_219_0c04b788 (e.g. de_add_number(seq, DE_UINT, DE_SIZE_16, 0x1124), DE_UUID 0x0100, DE_BOOL values).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE_DES sequence header (VAR_16 length)"},
+      {"name": "param_2", "type": "u8", "description": "de_type_t"},
+      {"name": "param_3", "type": "s32", "description": "de_size_t: 0 = 8-bit, 1 = 16-bit, 2 = 32-bit"},
+      {"name": "param_4", "type": "u32", "description": "value"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04cab8": {
+    "name": "de_add_data",
+    "summary": "BTstack sdp_util.c: append a variable-length element (string/UUID128/etc.) to a DE sequence",
+    "description": "data_size = co_read16_be(seq,1). If size < 256 a 2-byte header (type << 3 | DE_SIZE_VAR_8, then the length byte) is written at seq+3+data_size, otherwise a 3-byte header (type << 3 | DE_SIZE_VAR_16, big-endian length). If size > 0 the data is memcpy'd right after the header. The sequence length at seq+1 is updated to cover header and data. Caller: HID SDP record builder ble_219_0c04b788 (service name string DE_STRING=4, HID descriptor blob).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE_DES sequence header"},
+      {"name": "param_2", "type": "u8", "description": "de_type_t of the new element"},
+      {"name": "param_3", "type": "u16", "description": "data length"},
+      {"name": "param_4", "type": "ptr", "description": "data bytes"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04cc74": {
+    "name": "att_iterator_fetch_next",
+    "summary": "BTstack att_db.c: decode the attribute at it->att_ptr into the iterator and advance",
+    "description": "att_iterator_t layout: att_ptr +0, size u16 +4, flags u16 +6, handle u16 +8, uuid ptr +0xC, value_len u16 +0x10, value ptr +0x14. Reads size = little-endian u16 at att_ptr; if 0 (end-of-db marker) all fields and att_ptr are cleared. Otherwise flags = u16 at +2, handle = u16 at +4, uuid = att_ptr+6; if flags & 0x200 (ATT_PROPERTY_UUID128) the value starts at +22 with value_len = size-22, else at +8 with size-8; finally att_ptr += size. Callers: the ATT request handler ble_219_0c04ceb8 and att_is_persistent_ccc (ble_219_0c04dd40). Group: att_iterator_match_uuid16/att_iterator_match_uuid, att_copy_value, att_set_db.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "att_iterator_t"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ccd4": {
+    "name": "att_copy_value",
+    "summary": "BTstack att_db.c: copy a static attribute value or fetch a dynamic one via att_read_callback",
+    "description": "If it->flags (u16 at +6) has bit 0x100 (ATT_PROPERTY_DYNAMIC) set, returns att_read_callback(con_handle, it->handle, offset, buffer, buffer_size) through the function pointer DAT_2000fcc8 (installed by att_set_read_callback). Otherwise copies co_min_u32(it->value_len - offset, buffer_size) bytes from it->value (+0x14) to buffer with memcpy and returns that count (16-bit). Caller: the ATT PDU handler ble_219_0c04ceb8 (read / read-blob / read-by-type responses).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "att_iterator_t"},
+      {"name": "param_2", "type": "u16", "description": "offset into the value"},
+      {"name": "param_3", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_4", "type": "u16", "description": "buffer size"},
+      {"name": "param_5", "type": "u16", "description": "hci_con_handle_t passed to the read callback"}
+    ],
+    "returns": {"type": "u16", "description": "bytes copied, or the read callback's result"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cd24": {
+    "name": "att_iterator_match_uuid16",
+    "summary": "BTstack att_db.c: does the iterator's attribute UUID equal a given 16-bit UUID",
+    "description": "Returns false when it->handle (+8) is 0. For a 16-bit db UUID (flags +6 without 0x200) it compares little-endian u16 at it->uuid with param_2. For a 128-bit db UUID it first checks is_Bluetooth_Base_UUID: memcmp of 12 bytes against the little-endian Bluetooth Base UUID table at 0x0C077590 (FB 34 9B 5F 80 00 00 80 00 10 00 00) and bytes 14,15 == 0; then the short UUID is the u16 at uuid+12. Callers: att_iterator_match_uuid (ble_219_0c04cd74) and the ATT handler ble_219_0c04ceb8.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "att_iterator_t"},
+      {"name": "param_2", "type": "u16", "description": "UUID16 to match"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused register pass-through"}
+    ],
+    "returns": {"type": "bool", "description": "true if the attribute's UUID is this UUID16"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cd74": {
+    "name": "att_iterator_match_uuid",
+    "summary": "BTstack att_db.c: match the iterator's attribute UUID against a 2- or 16-byte UUID",
+    "description": "Returns 0 when it->handle is 0. uuid_len == 2: delegates to att_iterator_match_uuid16 with the little-endian u16. uuid_len == 16 and the db entry is 128-bit (flags & 0x200): memcmp of 16 bytes. Input 128-bit but db 16-bit: the input must be a Bluetooth Base UUID (12-byte memcmp against the table at 0x0C077590 and bytes 14,15 zero), then its u16 at offset 12 is compared with the db UUID16; a non-base UUID returns 0. Caller: the ATT handler ble_219_0c04ceb8 (find-by-type-value, read-by-type, read-by-group-type).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "att_iterator_t"},
+      {"name": "param_2", "type": "ptr", "description": "UUID bytes (little-endian)"},
+      {"name": "param_3", "type": "u16", "description": "UUID length: 2 or 16"},
+      {"name": "param_4", "type": "u32", "description": "unused register pass-through"}
+    ],
+    "returns": {"type": "u32", "description": "1 on match, 0 otherwise"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cdf0": {
+    "name": "att_set_db",
+    "summary": "BTstack att_db.c: install the compiled GATT database after checking its version byte",
+    "description": "Ignores NULL. If db[0] != 1 (ATT_DB_VERSION) it logs 'ATT DB version differs, please regenerate .h from .gatt file or update att_db_util.c' (att_db.c:199) via ble_hook_invoke_indexed(2, ...) and keeps the old db. Otherwise the global att_db pointer DAT_2000fcb8 is set to db+1, i.e. the first attribute record (u16 size, u16 flags, u16 handle, uuid, value ...). Called from att_server_init (ble_219_0c04eb24) with the profile data at 0x20004348.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "GATT database blob starting with the version byte"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c04ce50": {
+    "name": "att_prepare_handle_value_notification",
+    "summary": "BTstack att_db.c: build an ATT Handle Value Notification (0x1B) PDU",
+    "description": "response_buffer[0] = 0x1B (ATT_HANDLE_VALUE_NOTIFICATION), the attribute handle is stored little-endian at +1, and co_min_u32(value_len, att_connection->mtu - 3) bytes of the value are memcpy'd to +3, where mtu is the u16 at att_connection+2. Returns value_len + 3 (16-bit) - note it returns the requested length, not the clipped one, unlike upstream BTstack. Caller: att_server_notify (ble_219_0c04ebc0), which sends it with l2cap_send_prepared_connectionless on the ATT channel 4.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr:att_connection", "description": "att_connection_t (mtu u16 at +2)"},
+      {"name": "param_2", "type": "u16", "description": "attribute handle"},
+      {"name": "param_3", "type": "ptr", "description": "value bytes"},
+      {"name": "param_4", "type": "u16", "description": "value length"},
+      {"name": "param_5", "type": "ptr", "description": "output PDU buffer"}
+    ],
+    "returns": {"type": "u16", "description": "PDU length = value_len + 3"},
+    "confidence": "high"
+  },
+  "ble_219_0c04ce84": {
+    "name": "att_prepare_handle_value_indication",
+    "summary": "BTstack att_db.c: build an ATT Handle Value Indication (0x1D) PDU",
+    "description": "Identical to att_prepare_handle_value_notification except for opcode byte 0x1D (ATT_HANDLE_VALUE_INDICATION): handle little-endian at +1, value memcpy'd to +3 clipped to mtu-3 (mtu = u16 at att_connection+2), return value_len + 3. Caller: att_server_indicate (ble_219_0c04ec18), which also starts the 30 s indication timeout and returns 0x90 (ATT_HANDLE_VALUE_INDICATION_IN_PROGRESS) if one is pending.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr:att_connection", "description": "att_connection_t (mtu u16 at +2)"},
+      {"name": "param_2", "type": "u16", "description": "attribute handle"},
+      {"name": "param_3", "type": "ptr", "description": "value bytes"},
+      {"name": "param_4", "type": "u16", "description": "value length"},
+      {"name": "param_5", "type": "ptr", "description": "output PDU buffer"}
+    ],
+    "returns": {"type": "u16", "description": "PDU length = value_len + 3"},
+    "confidence": "high"
+  },
+  "ble_219_0c04dd40": {
+    "name": "att_is_persistent_ccc",
+    "summary": "BTstack att_db.c: is this handle a Client Characteristic Configuration (UUID 0x2902) attribute",
+    "description": "Keeps a one-entry cache: if DAT_2000fcbc (last handle) == handle, returns DAT_2000fcbe (its UUID16) == 0x2902. Otherwise (handle != 0) it walks the db from DAT_2000fcb8 with att_iterator_fetch_next until the handle is found (false if the db ends first), stores the handle in the cache, and if the attribute has a 128-bit UUID (flags & 0x200) caches UUID 0 and returns false; else caches co_read16_le(uuid) and returns whether it is 0x2902. Caller: the att_server write callback ble_219_0c04dfb8, which persists CCC values written with offset 0 and length 2 to the TLV store under tags 'BTC'+n (0x42544300).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "attribute handle"}
+    ],
+    "returns": {"type": "bool", "description": "true if the attribute is a CCC descriptor"},
+    "confidence": "high"
+  }
+}

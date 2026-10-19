@@ -1,0 +1,420 @@
+{
+  "ble_219_0c043658": {
+    "name": "xStreamBufferSendFromISR",
+    "summary": "FreeRTOS: copy data into a stream/message buffer from an ISR and wake the waiting reader",
+    "description": "FreeRTOS stream_buffer.c xStreamBufferSendFromISR(xStreamBuffer, pvTxData, xDataLengthBytes, pxHigherPriorityTaskWoken). StreamBuffer_t layout: [0]=xTail, [1]=xHead, [2]=xLength, [3]=xTriggerLevelBytes, [4]=xTaskWaitingToReceive, [5]=xTaskWaitingToSend, [6]=pucBuffer, byte +0x1c=ucFlags (bit0 = sbFLAGS_IS_MESSAGE_BUFFER). Free space = (xTail + xLength - 1 - xHead) mod xLength. For a message buffer the whole message plus a 4-byte length header must fit, otherwise 0 is returned; the header is written first with prvWriteBytesToBuffer (0x0c0433d0). For a plain stream buffer the write is truncated to the free space. After a non-empty write, if the bytes now stored ((xHead + xLength - xTail) mod xLength) reach xTriggerLevelBytes, the sbSEND_COMPLETE_FROM_ISR step runs under rtos_enter_critical/rtos_exit_critical: xTaskGenericNotifyFromISR(xTaskWaitingToReceive, 0, eNoAction, NULL, pxHigherPriorityTaskWoken) and the waiting-task slot is cleared. No critical section protects the buffer write itself (single-writer assumption). Returns the number of payload bytes written.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "StreamBuffer_t* handle"},
+      {"name": "param_2", "type": "ptr", "description": "source data"},
+      {"name": "param_3", "type": "u32", "description": "bytes to send"},
+      {"name": "param_4", "type": "ptr", "description": "BaseType_t* pxHigherPriorityTaskWoken (may be NULL)"}
+    ],
+    "returns": {"type": "u32", "description": "bytes actually written (0 if a message did not fit)"},
+    "confidence": "high"
+  },
+  "ble_219_0c043978": {
+    "name": "prvAddNewTaskToReadyList",
+    "summary": "FreeRTOS: register a freshly created TCB with the scheduler and put it on its ready list",
+    "description": "tasks.c prvAddNewTaskToReadyList(pxNewTCB). Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c): increments uxCurrentNumberOfTasks (DAT_2000cc14); if this is the very first task it also runs prvInitialiseTaskLists inline, calling vListInitialise on the six ready lists pxReadyTasksLists[0..5] at 0x2000cb98 (20 bytes each, up to 0x2000cc10, so configMAX_PRIORITIES = 6), xDelayedTaskList1 (0x2000cc2c), xDelayedTaskList2 (0x2000cc40), xPendingReadyList (0x2000cc60), xTasksWaitingTermination (0x2000cc8c) and xSuspendedTaskList (0x2000cc78), and sets pxDelayedTaskList (DAT_2000cb90) / pxOverflowDelayedTaskList (DAT_2000cb94). pxCurrentTCB (DAT_2000cb8c) becomes the new task when it is NULL, or when the scheduler is not yet running (xSchedulerRunning DAT_2000cc74 == 0) and the new priority (TCB+0x2c) is >= the current one. uxTaskNumber (DAT_2000cc24) is incremented and stored as uxTCBNumber (TCB+0x44); uxTopReadyPriority (DAT_2000cc28) is raised if needed and the xStateListItem (TCB+4) is appended to pxReadyTasksLists[priority] with vListInsertEnd. If the scheduler is running and the new task has a strictly higher priority than pxCurrentTCB, rtos_pendsv_trigger requests a context switch. Called from xTaskCreateStatic / xTaskCreate (0x0c043cfc, 0x0c043d3c, 0x0c043e70).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* of the new task"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c043a7c": {
+    "name": "prvAddCurrentTaskToDelayedList",
+    "summary": "FreeRTOS: move the running task to the delayed, overflow-delayed or suspended list",
+    "description": "tasks.c prvAddCurrentTaskToDelayedList(xTicksToWait, xCanBlockIndefinitely). Clears ucDelayAborted (TCB+0x5e) of pxCurrentTCB (DAT_2000cb8c) and unlinks its xStateListItem (TCB+4) from the ready list with uxListRemove. If xTicksToWait == portMAX_DELAY (0xffffffff) and blocking indefinitely is allowed, the item is appended to xSuspendedTaskList (0x2000cc78). Otherwise the wake time xTickCount (DAT_2000cca0) + xTicksToWait is stored as the item value; when that addition wraps the item goes into pxOverflowDelayedTaskList (DAT_2000cb94) via the sorted vListInsert, else into pxDelayedTaskList (DAT_2000cb90) and xNextTaskUnblockTime (DAT_2000cc58) is lowered to the wake time if earlier. The caller must hold the scheduler suspended or be in a critical section. Callers: vTaskDelay (0x0c0441a8), vTaskPlaceOnEventList, vTaskPlaceOnUnorderedEventList, vTaskPlaceOnEventListRestricted and xTaskNotifyWait.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "xTicksToWait (ticks), 0xffffffff = portMAX_DELAY"},
+      {"name": "param_2", "type": "bool", "description": "xCanBlockIndefinitely"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c043ba8": {
+    "name": "prvInitialiseNewTask",
+    "summary": "FreeRTOS: fill a TCB, paint the stack and build the initial context for a new task",
+    "description": "tasks.c prvInitialiseNewTask(pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, pxCreatedTask, pxNewTCB) without the MPU xRegions argument. Fills the stack (TCB+0x30 = pxStack) with tskSTACK_FILL_BYTE 0xa5 over ulStackDepth*4 bytes, copies up to 16 characters of the name into pcTaskName (TCB+0x34) and forces pcTaskName[15] = 0, clamps the priority to configMAX_PRIORITIES-1 = 5 and stores it in uxPriority (+0x2c) and uxBasePriority (+0x4c), zeroes uxMutexesHeld (+0x50), ulRunTimeCounter (+0x54), ulNotifiedValue (+0x58), ucNotifyState (+0x5c) and ucDelayAborted (+0x5e). Both list items are initialised with vListInitialiseItem: xStateListItem (+4, owner = TCB) and xEventListItem (+0x18, owner = TCB, value = 6 - priority so that higher priorities sort first). The top of stack is pxStack + depth*4 - 4 rounded down to 8 bytes; pxTopOfStack (+0) receives rtos_task_stack_init(top, pxStack (stack limit for PSPLIM), pxTaskCode, pvParameters). If pxCreatedTask is non-NULL the TCB pointer is returned through it. Called from the task-create routines 0x0c043cfc, 0x0c043d3c, 0x0c043e70.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pxTaskCode entry function"},
+      {"name": "param_2", "type": "ptr", "description": "pcName, up to 16 chars"},
+      {"name": "param_3", "type": "u32", "description": "ulStackDepth in 32-bit words"},
+      {"name": "param_4", "type": "ptr", "description": "pvParameters passed in r0 to the task"},
+      {"name": "param_5", "type": "u32", "description": "uxPriority 0..5 (clamped)"},
+      {"name": "param_6", "type": "ptr", "description": "TaskHandle_t* pxCreatedTask output (may be NULL)"},
+      {"name": "param_7", "type": "ptr", "description": "TCB_t* pxNewTCB to initialise (pxStack already set at +0x30)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c043f48": {
+    "name": "xTaskIncrementTick",
+    "summary": "FreeRTOS: advance xTickCount, unblock expired delayed tasks and report whether to switch",
+    "description": "tasks.c xTaskIncrementTick(), called from the SysTick handler (0x0c03f674) and from xTaskResumeAll for pended ticks. If uxSchedulerSuspended (DAT_2000cc20) is non-zero it only increments uxPendedTicks (DAT_2000cc1c) and still calls the (empty) vApplicationTickHook ble_stub_nop_0c047fe8. Otherwise xTickCount (DAT_2000cca0) is incremented; on wrap to 0 the delayed lists are swapped (pxDelayedTaskList DAT_2000cb90 <-> pxOverflowDelayedTaskList DAT_2000cb94), xNumOfOverflows (DAT_2000cc5c) incremented and xNextTaskUnblockTime (DAT_2000cc58) recomputed from the new list head. When the tick reaches xNextTaskUnblockTime every task at the head of pxDelayedTaskList whose item value <= tick is removed (uxListRemove on xStateListItem, and on xEventListItem +0x18 if its container +0x28 is set), uxTopReadyPriority (DAT_2000cc28) is updated and the task appended to pxReadyTasksLists[priority] (0x2000cb98 + prio*20); xSwitchRequired is set if its priority >= that of pxCurrentTCB. With time slicing, a switch is also requested when the ready list of the current priority holds more than one task. The tick hook is only invoked when no ticks were pended. Finally xYieldPending (DAT_2000cca4) forces a pdTRUE result.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "bool", "description": "pdTRUE when a context switch should be performed"},
+    "confidence": "high"
+  },
+  "ble_219_0c0440ac": {
+    "name": "xTaskResumeAll",
+    "summary": "FreeRTOS: resume the scheduler, drain the pending-ready list and replay pended ticks",
+    "description": "tasks.c xTaskResumeAll(). Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c) decrements uxSchedulerSuspended (DAT_2000cc20). When it reaches 0 and tasks exist (uxCurrentNumberOfTasks DAT_2000cc14 != 0): every task in xPendingReadyList (0x2000cc60, head owner via +0xc) is unlinked from both its xEventListItem (+0x18) and xStateListItem (+4) and appended to pxReadyTasksLists[uxPriority] (0x2000cb98 + prio*20), raising uxTopReadyPriority (DAT_2000cc28) and setting xYieldPending (DAT_2000cca4) when the task's priority >= pxCurrentTCB->uxPriority; xNextTaskUnblockTime (DAT_2000cc58) is reset from the head of pxDelayedTaskList (DAT_2000cb90) or to portMAX_DELAY. Then uxPendedTicks (DAT_2000cc1c) ticks are replayed by calling xTaskIncrementTick that many times. If a yield is pending, rtos_pendsv_trigger is called and pdTRUE returned (the caller already switched). Pairs with vTaskSuspendAll; used by queue, timer, event-group and notification code (many callers).",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "bool", "description": "pdTRUE if a context switch was requested, else pdFALSE"},
+    "confidence": "high"
+  },
+  "ble_219_0c0441f0": {
+    "name": "vTaskPlaceOnEventList",
+    "summary": "FreeRTOS: block the current task on a sorted event list with a timeout",
+    "description": "tasks.c vTaskPlaceOnEventList(pxEventList, xTicksToWait). Inserts pxCurrentTCB->xEventListItem (DAT_2000cb8c + 0x18) into the given event list with the priority-sorted vListInsert (item value = 6 - priority, so highest priority wakes first), then calls prvAddCurrentTaskToDelayedList(xTicksToWait, pdTRUE). Must be called with the scheduler suspended; used by the queue send/receive/semaphore-take paths (0x0c042c8c, 0x0c042fa4, 0x0c0430a8, 0x0c043224) to block on xTasksWaitingToSend/Receive.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "List_t* event list to wait on"},
+      {"name": "param_2", "type": "u32", "description": "xTicksToWait (ticks)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c044210": {
+    "name": "vTaskPlaceOnUnorderedEventList",
+    "summary": "FreeRTOS: block the current task on an unordered event list (event groups)",
+    "description": "tasks.c vTaskPlaceOnUnorderedEventList(pxEventList, xItemValue, xTicksToWait). Stores xItemValue | taskEVENT_LIST_ITEM_VALUE_IN_USE (0x80000000) in pxCurrentTCB->xEventListItem.xItemValue (DAT_2000cb8c + 0x18), appends the item to the list with vListInsertEnd (FIFO, not priority ordered) and calls prvAddCurrentTaskToDelayedList(xTicksToWait, pdTRUE). The item value carries the event-group wait bits/flags and is read back by uxTaskResetEventItemValue. Single caller: the event-group wait routine 0x0c042858.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "List_t* event list"},
+      {"name": "param_2", "type": "u32", "description": "xItemValue (bits to wait for plus control flags)"},
+      {"name": "param_3", "type": "u32", "description": "xTicksToWait (ticks)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c044238": {
+    "name": "vTaskPlaceOnEventListRestricted",
+    "summary": "FreeRTOS: block the current task on an event list, optionally forever (timer task)",
+    "description": "tasks.c vTaskPlaceOnEventListRestricted(pxEventList, xTicksToWait, xWaitIndefinitely). Appends pxCurrentTCB->xEventListItem (DAT_2000cb8c + 0x18) to the list with vListInsertEnd; if xWaitIndefinitely is set the wait is forced to portMAX_DELAY, then prvAddCurrentTaskToDelayedList(xTicksToWait, xWaitIndefinitely) is called. Used only by the timer-service path (prvProcessTimerOrBlockTask, 0x0c043380, blocking on the timer command queue at +0x24 of the queue struct).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "List_t* event list"},
+      {"name": "param_2", "type": "u32", "description": "xTicksToWait (ticks)"},
+      {"name": "param_3", "type": "bool", "description": "xWaitIndefinitely"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c044264": {
+    "name": "xTaskRemoveFromEventList",
+    "summary": "FreeRTOS: wake the highest-priority task blocked on an event list",
+    "description": "tasks.c xTaskRemoveFromEventList(pxEventList). Takes the TCB owning the head entry (list +0xc -> item, item +0xc -> owner), removes its xEventListItem (+0x18). If the scheduler is running (uxSchedulerSuspended DAT_2000cc20 == 0) it also removes the xStateListItem (+4) from the delayed list, updates uxTopReadyPriority (DAT_2000cc28) and appends the task to pxReadyTasksLists[uxPriority] (0x2000cb98 + prio*20); otherwise the event item is parked on xPendingReadyList (0x2000cc60) for xTaskResumeAll. Returns pdTRUE and sets xYieldPending (DAT_2000cca4) when the woken task has a higher priority than pxCurrentTCB (DAT_2000cb8c + 0x2c). Called from the queue/semaphore code (8 callers) after data or space becomes available.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "List_t* event list (xTasksWaitingToSend/Receive)"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if the unblocked task should pre-empt the caller"},
+    "confidence": "high"
+  },
+  "ble_219_0c0442e4": {
+    "name": "vTaskRemoveFromUnorderedEventList",
+    "summary": "FreeRTOS: wake a task from an unordered event list and hand it the result value",
+    "description": "tasks.c vTaskRemoveFromUnorderedEventList(pxEventListItem, xItemValue). Writes xItemValue | 0x80000000 (taskEVENT_LIST_ITEM_VALUE_IN_USE) into the list item, fetches its owner TCB (+0xc), removes the event item and the task's xStateListItem (+4), raises uxTopReadyPriority (DAT_2000cc28) and appends the task to pxReadyTasksLists[uxPriority] (0x2000cb98 + prio*20). If the woken task outranks pxCurrentTCB (DAT_2000cb8c + 0x2c) xYieldPending (DAT_2000cca4) is set so the caller yields after resuming the scheduler. Must be called with the scheduler suspended. Single caller: the event-group set-bits routine 0x0c04291c. The extra decompiled arguments param_3/param_4 are artefacts.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ListItem_t* xEventListItem of the task to wake"},
+      {"name": "param_2", "type": "u32", "description": "xItemValue to deliver (event bits)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c04433c": {
+    "name": "vTaskSetTimeOutState",
+    "summary": "FreeRTOS: record overflow count and tick count in a TimeOut_t inside a critical section",
+    "description": "tasks.c vTaskSetTimeOutState(pxTimeOut): the public, critical-section-protected version of vTaskInternalSetTimeOutState (0x0c044360). Between vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c) it stores xNumOfOverflows (DAT_2000cc5c) in [0] (xOverflowCount) and xTickCount (DAT_2000cca0) in [1] (xTimeOnEntering). Used by the stream-buffer receive path (0x0c043554) before blocking with xTaskNotifyWait.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TimeOut_t* output {xOverflowCount, xTimeOnEntering}"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c044378": {
+    "name": "xTaskCheckForTimeOut",
+    "summary": "FreeRTOS: test whether a blocking timeout expired and adjust the remaining ticks",
+    "description": "tasks.c xTaskCheckForTimeOut(pxTimeOut, pxTicksToWait), inside vPortEnterCritical/vPortExitCritical. First checks ucDelayAborted (pxCurrentTCB DAT_2000cb8c + 0x5e): if set it is cleared and pdTRUE returned (xTaskAbortDelay support). If *pxTicksToWait == portMAX_DELAY the result is pdFALSE (wait forever). If the overflow counter changed (pxTimeOut[0] != xNumOfOverflows DAT_2000cc5c) and xTickCount (DAT_2000cca0) already passed xTimeOnEntering, the timeout is pdTRUE. Else elapsed = xTickCount - xTimeOnEntering: if elapsed < *pxTicksToWait the remaining ticks are written back, the TimeOut_t is refreshed to now and pdFALSE returned; otherwise *pxTicksToWait = 0 and pdTRUE. Callers: queue send/receive/semaphore (0x0c042c8c, 0x0c042fa4, 0x0c0430a8, 0x0c043224) and stream-buffer receive (0x0c043554).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TimeOut_t* {xOverflowCount, xTimeOnEntering}, updated"},
+      {"name": "param_2", "type": "ptr", "description": "TickType_t* ticks still to wait, updated in place"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if the timeout has expired"},
+    "confidence": "high"
+  },
+  "ble_219_0c044658": {
+    "name": "xTaskPriorityInherit",
+    "summary": "FreeRTOS: raise a mutex holder's priority to that of the current task",
+    "description": "tasks.c xTaskPriorityInherit(pxMutexHolder). Returns pdFALSE for a NULL holder. If the holder's uxPriority (+0x2c) is already >= pxCurrentTCB's, it returns whether uxBasePriority (+0x4c) < current priority (i.e. an inheritance already happened). Otherwise it inherits: if xEventListItem.xItemValue (+0x18) is not flagged in-use (bit 31 clear) it is set to 6 - current priority; if the holder sits in its ready list (xStateListItem container +0x14 == &pxReadyTasksLists[old prio]) it is moved to pxReadyTasksLists[new prio] (0x2000cb98 + prio*20, uxTopReadyPriority DAT_2000cc28 updated), otherwise only uxPriority is rewritten. Returns pdTRUE when the priority changed. Caller: the semaphore/mutex take path 0x0c0430a8 when the mutex is held by a lower-priority task.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* current mutex holder (may be NULL)"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if priority inheritance occurred"},
+    "confidence": "high"
+  },
+  "ble_219_0c0446e4": {
+    "name": "xTaskPriorityDisinherit",
+    "summary": "FreeRTOS: drop an inherited priority when the last held mutex is released",
+    "description": "tasks.c xTaskPriorityDisinherit(pxMutexHolder). Returns 0 for a NULL holder. Decrements uxMutexesHeld (+0x50); if the task runs at an inherited priority (uxPriority +0x2c != uxBasePriority +0x4c) and now holds no mutexes, it is removed from its ready list, xEventListItem.xItemValue (+0x18) is reset to 6 - base priority, uxPriority restored to the base priority, uxTopReadyPriority (DAT_2000cc28) updated and the task appended to pxReadyTasksLists[base] (0x2000cb98 + prio*20); returns pdTRUE so the caller yields. Called from the mutex give path 0x0c042a3c.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* mutex holder (may be NULL)"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if the holder's priority was lowered"},
+    "confidence": "high"
+  },
+  "ble_219_0c044744": {
+    "name": "vTaskPriorityDisinheritAfterTimeout",
+    "summary": "FreeRTOS: lower a mutex holder's priority after a waiter timed out",
+    "description": "tasks.c vTaskPriorityDisinheritAfterTimeout(pxMutexHolder, uxHighestPriorityWaitingTask). Ignores NULL. uxPriorityToUse = max(uxBasePriority +0x4c, highest waiting priority). Only acts when uxPriority (+0x2c) differs and the holder holds exactly one mutex (uxMutexesHeld +0x50 == 1): writes the new priority, updates xEventListItem.xItemValue (+0x18) to 6 - priority unless bit 31 (in-use) is set, and if the task is in its ready list (container +0x14 == &pxReadyTasksLists[old]) moves it to pxReadyTasksLists[new] (0x2000cb98 + prio*20) adjusting uxTopReadyPriority (DAT_2000cc28). Called from the semaphore take path 0x0c0430a8 when a mutex wait times out.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* mutex holder (may be NULL)"},
+      {"name": "param_2", "type": "u32", "description": "highest priority among tasks still waiting for the mutex"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0447e8": {
+    "name": "xTaskNotifyWait",
+    "summary": "FreeRTOS: wait for a task notification, clearing bits on entry and exit",
+    "description": "tasks.c xTaskNotifyWait(ulBitsToClearOnEntry, ulBitsToClearOnExit, pulNotificationValue, xTicksToWait) operating on pxCurrentTCB (DAT_2000cb8c): ulNotifiedValue at +0x58, ucNotifyState at +0x5c (0 = not waiting, 1 = waiting, 2 = notification received). First critical section (vPortEnterCritical/vPortExitCritical 0x0c03f640/0x0c03f65c): if no notification is pending, clears the entry bits, sets state = waiting and, if xTicksToWait != 0, calls prvAddCurrentTaskToDelayedList and rtos_pendsv_trigger to block. Second critical section after wake-up: optionally returns the value through pulNotificationValue, returns pdTRUE if state == received (clearing the exit bits), pdFALSE on timeout, and resets the state to not-waiting. Callers: the stream-buffer send/receive blocking paths 0x0c043554 and 0x0c0436f8.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "ulBitsToClearOnEntry"},
+      {"name": "param_2", "type": "u32", "description": "ulBitsToClearOnExit"},
+      {"name": "param_3", "type": "ptr", "description": "uint32_t* pulNotificationValue output (may be NULL)"},
+      {"name": "param_4", "type": "u32", "description": "xTicksToWait (ticks)"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if a notification was received, pdFALSE on timeout"},
+    "confidence": "high"
+  },
+  "ble_219_0c044870": {
+    "name": "xTaskGenericNotify",
+    "summary": "FreeRTOS: send a task notification from task context and unblock the target",
+    "description": "tasks.c xTaskGenericNotify(xTaskToNotify, ulValue, eAction, pulPreviousNotificationValue) inside vPortEnterCritical/vPortExitCritical. Optionally returns the old ulNotifiedValue (+0x58), remembers the old ucNotifyState (+0x5c) and sets it to 2 (received). eAction: 1 eSetBits -> value |= ulValue; 2 eIncrement -> value++; 3 eSetValueWithOverwrite -> value = ulValue; 4 eSetValueWithoutOverwrite -> value = ulValue only if no notification was pending, otherwise returns pdFAIL (0); 0 eNoAction leaves the value. If the target was waiting (old state 1) it is removed from its blocked list (xStateListItem +4), uxTopReadyPriority (DAT_2000cc28) updated, appended to pxReadyTasksLists[uxPriority] (0x2000cb98 + prio*20) and rtos_pendsv_trigger issued when it outranks pxCurrentTCB (DAT_2000cb8c + 0x2c). Returns pdPASS otherwise. Callers: stream-buffer send/receive completion (0x0c043554, 0x0c0436f8, 0x0c043830, 0x0c0438d8).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* task to notify"},
+      {"name": "param_2", "type": "u32", "description": "ulValue"},
+      {"name": "param_3", "type": "u32", "description": "eNotifyAction (0 none, 1 set bits, 2 increment, 3 overwrite, 4 no-overwrite)"},
+      {"name": "param_4", "type": "ptr", "description": "uint32_t* previous value output (may be NULL)"}
+    ],
+    "returns": {"type": "bool", "description": "pdPASS, or pdFAIL when eSetValueWithoutOverwrite found a pending notification"},
+    "confidence": "high"
+  },
+  "ble_219_0c044914": {
+    "name": "xTaskGenericNotifyFromISR",
+    "summary": "FreeRTOS: send a task notification from an ISR and flag a higher-priority wake-up",
+    "description": "tasks.c xTaskGenericNotifyFromISR(xTaskToNotify, ulValue, eAction, pulPreviousNotificationValue, pxHigherPriorityTaskWoken). Same value update as xTaskGenericNotify (eAction 1 set bits, 2 increment, 3 overwrite, 4 overwrite-only-if-idle returning pdFAIL otherwise) but protected with rtos_enter_critical/rtos_exit_critical (portSET/CLEAR_INTERRUPT_MASK_FROM_ISR). If the target was waiting (ucNotifyState +0x5c == 1): when the scheduler is running (uxSchedulerSuspended DAT_2000cc20 == 0) the task is moved from its blocked list to pxReadyTasksLists[uxPriority] (0x2000cb98 + prio*20, uxTopReadyPriority DAT_2000cc28 updated); otherwise its xEventListItem (+0x18) is parked on xPendingReadyList (0x2000cc60). If the woken task outranks pxCurrentTCB, *pxHigherPriorityTaskWoken = pdTRUE when the pointer is given, else xYieldPending (DAT_2000cca4) is set. Callers: xStreamBufferSendFromISR and the ISR send/receive-completed helpers 0x0c043830, 0x0c0438d8.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TCB_t* task to notify"},
+      {"name": "param_2", "type": "u32", "description": "ulValue"},
+      {"name": "param_3", "type": "u32", "description": "eNotifyAction (0..4)"},
+      {"name": "param_4", "type": "ptr", "description": "uint32_t* previous value output (may be NULL)"},
+      {"name": "param_5", "type": "ptr", "description": "BaseType_t* pxHigherPriorityTaskWoken (may be NULL)"}
+    ],
+    "returns": {"type": "bool", "description": "pdPASS, or pdFAIL for eSetValueWithoutOverwrite with a pending notification"},
+    "confidence": "high"
+  },
+  "ble_219_0c0449fc": {
+    "name": "xTaskNotifyStateClear",
+    "summary": "FreeRTOS: clear a pending notification state of a task (or the current task)",
+    "description": "tasks.c xTaskNotifyStateClear(xTask). A NULL handle means pxCurrentTCB (DAT_2000cb8c). Inside vPortEnterCritical/vPortExitCritical: if ucNotifyState (+0x5c) == 2 (notification received) it is reset to 0 and pdTRUE returned, otherwise pdFALSE. The notification value itself is untouched. Callers: the stream-buffer blocking paths 0x0c043554 and 0x0c0436f8 (sbRECEIVE_COMPLETED / sbSEND_COMPLETED housekeeping).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TaskHandle_t, NULL for the calling task"}
+    ],
+    "returns": {"type": "bool", "description": "pdTRUE if a pending notification was cleared"},
+    "confidence": "high"
+  },
+  "ble_219_0c044bb0": {
+    "name": "prvInsertTimerInActiveList",
+    "summary": "FreeRTOS timers: queue a software timer in the current or overflow timer list",
+    "description": "timers.c prvInsertTimerInActiveList(pxTimer, xNextExpiryTime, xTimeNow, xCommandTime). Timer_t layout: +4 xTimerListItem (xItemValue +4, pvOwner +0x10, pvContainer +0x14), +0x18 xTimerPeriodInTicks. Sets the item owner and value = expiry time. If the expiry is still in the future and the command was not issued after a tick wrap, the item is inserted (sorted) into pxCurrentTimerList (DAT_2000cca8); if the expiry already wrapped but less than one period has elapsed since the command, it goes into pxOverflowTimerList (DAT_2000ccac). In both insert cases, if the item currently sits in the third list at 0x2000ddb8 (a BES addition to the two active lists initialised in 0x0c044aa4) it is first unlinked with uxListRemove. Returns 1 (xProcessTimerNow) when the timer must be processed immediately instead. Called by the timer command processor 0x0c044ee8 (prvProcessReceivedCommands).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Timer_t* timer"},
+      {"name": "param_2", "type": "u32", "description": "xNextExpiryTime (ticks)"},
+      {"name": "param_3", "type": "u32", "description": "xTimeNow (ticks)"},
+      {"name": "param_4", "type": "u32", "description": "xCommandTime (ticks when the command was queued)"}
+    ],
+    "returns": {"type": "bool", "description": "1 if the timer has already expired and must be processed now, 0 if queued"},
+    "confidence": "high",
+    "notes": "The uxListRemove-when-in-list-0x2000ddb8 check is not in stock FreeRTOS; purpose of that list is unknown."
+  },
+  "ble_219_0c045494": {
+    "name": "hal_time_ms",
+    "summary": "BTstack run-loop port: current time in milliseconds derived from the FreeRTOS tick count",
+    "description": "Reads xTaskGetTickCount(), multiplies by 1000 as a 64-bit value and divides it by 1000 with the 64-bit divide helper 0x0c06fec0 (__udivmoddi4 wrapper), i.e. ticks * 1000 / configTICK_RATE_HZ with a 1 kHz tick, so the result equals the tick count in milliseconds. Single caller is the embedded run-loop execute routine 0x0c05d108, matching BTstack's btstack_run_loop_embedded_get_time_ms() -> hal_time_ms() hook. The decompiler shows no return but the quotient is left in r0/r1.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "u32", "description": "milliseconds since scheduler start (low word of the 64-bit quotient)"},
+    "confidence": "medium"
+  },
+  "ble_219_0c045534": {
+    "name": "hci_stream_buffer_is_empty",
+    "summary": "Return true when the 5 KB HCI stream buffer holds no bytes",
+    "description": "Calls ringbuf_used_count on the FreeRTOS stream-buffer handle DAT_2000f2b0 and returns count == 0. The handle is created in the HCI 'intersys' transport open routine 0x0c04542c with xStreamBufferGenericCreateStatic(0x1400 bytes, trigger level 1, storage 0x2000de8c) and is filled by xStreamBufferSend in 0x0c045518. Used by the transport poll routine 0x0c05d40e to decide whether a pending read callback (0x0c05d2f4) must run.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "bool", "description": "true if no HCI bytes are buffered"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04555c": {
+    "name": "hal_dma0_irq_handler",
+    "summary": "IRQ3 vector: dispatch pending channel interrupts of DMA controller 0 (0x40120000)",
+    "description": "Exception vector IRQ3_Handler. Reads the PL08x-style DMACIntStatus register at 0x40120000 (controller 0, AUDMA in BES naming) and for each of the 8 channels whose bit is set calls hal_gpdma_chan_irq_handler(0, channel), which clears the TC/error flags and runs the registered callback. Returns the last callback result or 3 if no channel was pending (value unused by the NVIC). Companion of hal_dma1_irq_handler.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "u32", "description": "last hal_gpdma_chan_irq_handler result, 3 if nothing was pending"},
+    "confidence": "high",
+    "notes": "The harness lists RAM 0x2000f4d8 (= handler table 0x2000f4cc + 3*4) as read; the decompiled body does not show it."
+  },
+  "ble_219_0c04556c": {
+    "name": "hal_dma1_irq_handler",
+    "summary": "IRQ4 vector: dispatch pending channel interrupts of DMA controller 1 (0x40130000)",
+    "description": "Exception vector IRQ4_Handler, identical to hal_dma0_irq_handler but for the second PL08x-style controller: reads DMACIntStatus at 0x40130000 (GPDMA in BES naming) and calls hal_gpdma_chan_irq_handler(1, channel) for every set bit of channels 0..7. Returns the last callback result or 4 when nothing was pending.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "u32", "description": "last hal_gpdma_chan_irq_handler result, 4 if nothing was pending"},
+    "confidence": "high",
+    "notes": "Listed RAM read 0x2000f4dc (= handler table 0x2000f4cc + 4*4) is not visible in the decompiled body."
+  },
+  "ble_219_0c04584c": {
+    "name": "hal_block_40008000_open_default",
+    "summary": "Open the 0x40008000 peripheral with the constant configuration at 0x0c081040",
+    "description": "Calls the driver open routine 0x0c0332b4 with the ROM config struct at 0x0c081040 ({u32 rate (min 0x100), u32 mode (low 2 bits used)}) and returns 0 regardless of the result. That routine enables clock/reset id 0x28, programs 0x4000810c and 0x40008130 and records the config at 0x2000aa74/0x2000aa78, guarded by the opened flag 0x2000aa70. No direct callers: probably invoked through an init table or callback.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "low",
+    "notes": "Identity of the peripheral at 0x40008000 (BES-specific) is unknown."
+  },
+  "ble_219_0c045ab0": {
+    "name": "app_get_unique_id16",
+    "summary": "Fill a 16-byte buffer with the chip/flash unique ID via the RAM-patched reader",
+    "description": "Calls the ROM-patch thunk ble_ram_patch_thunk_20000f34 with (0, param_1, 0x10) and returns 0x10. The argument pattern (device id 0, destination, 16 bytes) matches hal_norflash_get_unique_id(HAL_FLASH_ID_0, buf, 16) of the BES SDK, i.e. the 16-byte flash unique ID. The device-info builder 0x0c02b158 stores the result at 0x200091f2 next to the version word and the serial string, and the VCU-protocol dispatcher 0x0c02cca8 (command 0x2d) compares its first byte with a received byte.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16-byte destination buffer"}
+    ],
+    "returns": {"type": "u32", "description": "always 16 (bytes written)"},
+    "confidence": "medium",
+    "notes": "The patched RAM routine itself is not visible; the unique-ID interpretation is inferred from the argument shape."
+  },
+  "ble_219_0c045ac8": {
+    "name": "hal_trace_uart0_putc",
+    "summary": "Output one character on UART0 by polling (trace/console sink)",
+    "description": "Thin wrapper: hal_uart_putc_poll(0, param_1), blocking until the UART0 TX FIFO has space. No direct callers: it is installed as a character-output callback for the trace/printf path.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "character to send"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c045cc0": {
+    "name": "flash_region_0x18000_io_cb",
+    "summary": "Stream callback: access up to 64 KB at flash offset 0x18000 through a RAM-patched flash routine",
+    "description": "Context struct: +0xc current offset, +0x10 pointer to a u16 selector. If *selector == 0 the access targets the non-cacheable flash alias 0x28018000 + offset and offset + length must not exceed 0x10000 (64 KB), otherwise -22 (-EINVAL) is returned; if the selector is non-zero only a zero-length access is accepted (offset + length must be 0). Then calls ble_ram_patch_thunk_20001d38 with (flash id 0, address, param_2 buffer, length, param_4) -- the signature of the BES hal_norflash read/write routines -- advances the offset by length and returns length. No direct callers (used as a function pointer).",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "stream context: +0xc offset, +0x10 ptr to u16 selector"},
+      {"name": "param_2", "type": "ptr", "description": "data buffer"},
+      {"name": "param_3", "type": "u32", "description": "length in bytes"},
+      {"name": "param_4", "type": "u32", "description": "passed through to the flash routine"}
+    ],
+    "returns": {"type": "s32", "description": "bytes transferred, or -22 (-EINVAL) on range violation"},
+    "confidence": "low",
+    "notes": "Whether the patched routine reads or writes, and what lives at flash offset 0x18000, is unknown."
+  },
+  "ble_219_0c046290": {
+    "name": "rtos_run_time_counter_get",
+    "summary": "Thunk to RAM patch 0x20000328: read the run-time-stats counter for FreeRTOS",
+    "description": "Single tail-call thunk into the patched RAM routine at 0x20000328 (via ble_ram_patch_thunk_20000328). The scheduler's vTaskSwitchContext (0x0c0441d4) uses its result as portGET_RUN_TIME_COUNTER_VALUE(): the delta to ulTotalRunTime (DAT_2000cc10) is accumulated into pxCurrentTCB->ulRunTimeCounter (TCB+0x54); the run-time-stats formatter 0x0c044544 also calls it. The underlying counter is most likely the BES hal_sys_timer_get() tick.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "forwarded to the patched routine (unused by callers)"}
+    ],
+    "returns": {"type": "u32", "description": "free-running time counter value"},
+    "confidence": "medium"
+  },
+  "ble_219_0c046830": {
+    "name": "hal_wdt_ping",
+    "summary": "Reload watchdog 0 if the watchdog has been started",
+    "description": "If the flag/word DAT_2000aadc is non-zero, calls hal_wdt_write_load(0), which rewrites the stored timeout into the SP805-style LOAD register at 0x40082000 and thereby restarts the countdown. Always returns 0. DAT_2000aadc sits right after the timeout table at 0x2000aad4 and acts as the 'watchdog 0 started' indicator. Callers: 0x0c0362bc and 0x0c041d28 (periodic feed paths).",
+    "category": "hal_wdt",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium"
+  },
+  "ble_219_0c046884": {
+    "name": "app_boot_reason_decode",
+    "summary": "Map the BES boot flag word to a small application reset-reason code",
+    "description": "Reads bes_boot_flag_get() (DAT_20000188) and returns: 5 if bit 0 is set; else 1 if bit 1 is set; else, if byte 1 (bits 15..8) equals 1, 4 when bit 16 is set and 3 otherwise; else 0. The application init routine 0x0c0297b0 treats codes 1 and 3 ((code & 0xfd) == 1) specially by setting DAT_20008f6c = 0x13 and DAT_20008f84 = 0, i.e. a reboot caused by the previous firmware (e.g. after an upgrade or software reset) changes the start-up state.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "reset-reason code 0, 1, 3, 4 or 5"},
+    "confidence": "medium",
+    "notes": "Meaning of the individual flag bits is not documented; code values are only known from this decoder and its caller."
+  },
+  "ble_219_0c0468b4": {
+    "name": "rf_test_hci_cmd_complete_handler",
+    "summary": "Capture return parameters of RF-test HCI Command Complete events into globals",
+    "description": "HCI event packet parser used by the factory RF test: param_1[0] = 0x04 (HCI event), [1] = 0x0e (Command Complete), [2] = parameter length, [3] = Num_HCI_Command_Packets, [4..5] = opcode, [6] = status, [7..] = return parameters. For an 18-byte Command Complete whose first two return bytes are non-zero it copies 16 bytes from offset 7 (via the memcpy wrapper 0x0c03aa40) and stores the first 6 into DAT_2000f468 (u32) and DAT_2000f46c (u16) -- the vendor RX-test result that the test command builder 0x0c046a58 (vendor opcode 0xfc87) clears before starting. For a 6-byte Command Complete with a non-zero 2-byte return value (the shape of HCI_LE_Test_End: status + Number_Of_Packets) the u16 is stored in DAT_2000f464, which 0x0c046b4c (HCI_LE_Transmitter_Test, opcode 0x201e) resets before a TX test. Always returns 0; the opcode itself is not checked.",
+    "category": "factory_test",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "raw HCI event packet starting with the 0x04 indicator byte"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium"
+  },
+  "ble_219_0c046f24": {
+    "name": "NVIC_InitVectors",
+    "summary": "Relocate the vector table to SRAM 0x20000000 and point VTOR at it",
+    "description": "BES cmsis_nvic.c NVIC_InitVectors(): calls startup_copy_vector_table_to_sram to copy the flash vector table (0x0C028400) to 0x20000000, writes 0x20000000 to SCB->VTOR (0xE000ED08) and executes a DSB so later NVIC_SetVector-style patches of the RAM table take effect. Called from the early board/system init 0x0c045a34 right after .data/.bss setup.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c046f54": {
+    "name": "hal_irq_install_handler",
+    "summary": "Store a callback in the IRQ handler table at 0x2000f4cc and enable the interrupt",
+    "description": "Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c): nvic_clear_pending_irq(irq), writes param_2 into the 4-byte slot 0x2000f4cc + irq*4 of a software handler table, then nvic_set_default_priority_and_enable_irq(irq) (priority 0x60). Returns 0. The table is separate from the RAM vector table; the common IRQ trampolines look the handler up by IRQ number. Counterpart of hal_irq_remove_handler. Callers: peripheral open routines 0x0c0300d0, 0x0c0315d8 (HCI intersys), 0x0c031810, 0x0c045250, 0x0c0459d4, 0x0c046494.",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "IRQ number (NVIC external interrupt index)"},
+      {"name": "param_2", "type": "ptr", "description": "handler function pointer"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium"
+  },
+  "ble_219_0c046f7c": {
+    "name": "hal_irq_remove_handler",
+    "summary": "Disable an interrupt and clear its slot in the IRQ handler table at 0x2000f4cc",
+    "description": "Inside vPortEnterCritical/vPortExitCritical: nvic_disable_irq(irq) and writes 0 into the handler slot 0x2000f4cc + irq*4. Inverse of hal_irq_install_handler. No direct callers (used through a function pointer or by peripheral close paths).",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "IRQ number"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  }
+}

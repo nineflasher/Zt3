@@ -1,0 +1,415 @@
+{
+  "ble_219_0c03c4bc": {
+    "name": "bt_drv_rf_apply_config",
+    "summary": "Program the BT RF/analog registers 0xD0220Cxx and 0xD0350xxx from a ~0x27-byte config struct",
+    "description": "Applies a packed RF configuration structure to the undocumented BT transceiver block. With a NULL pointer it only sets bit 17 of 0xD0220C8C and returns. Otherwise: bes_analog_set_c10_field(cfg[0], cfg[1]); cfg[4] goes to bit 0 of 0xD0220C8C and selects the upper halfword of 0xD0220C0C (0x2837 if cfg[4]==0, else 0x2827); cfg[6] (0/1/other) clears bit 28 of 0xD0220C8C, sets it, or leaves it; bes_rf_synth_config_by_mode() is called; cfg[7] drives bit 31 of 0xD0220C90 and, when set together with non-zero u32 fields at +8/+0xC and cfg[6]==1, loads 0xD0220CC4 = cfg+0xC and 0xD0220CC8 = cfg+8 (otherwise 0xD0220CC8 is rewritten with its old value or cfg+0xC); cfg[5] & 0x7F goes to field [30:24] of 0xD0220C90; cfg[0x10]==0 clears bit 24 of 0xD0350228 and writes cfg[0x12] to field [7:4] of 0xD0350368, else writes cfg[0x11] & 0x7F to field [22:16] of 0xD0350228 and sets bit 24; cfg[0x14] -> bit 16 of 0xD0220C18; cfg[0x15] -> bit 14 of 0xD0220C80 plus 0xD0220C40/C44 = u32 at +0x18/+0x1C and 0xD0220C48 |= u32 at +0x20; cfg[0x24] -> bit 24 of 0xD0220C18 and field [30:24] of 0xD0220C90 = 0x66; cfg[0x25] -> clear bit 25 of 0xD0220C18 or call bes_analog_clock_mode_config(cfg[0x26]). Finally bit 17 of 0xD0220C8C is set (looks like a 'config done/latch' bit). Part of the RF bring-up group with bt_drv_rf_pre_init and bt_drv_rf_init, which builds the struct (bytes 01 04 | 00 0A 01 00 | 0 | 0 | 00 40 01 00 | 01 00 | 0 | 0 | 0 | 00 00 03).",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "RF config struct (bytes/words at the offsets listed), or NULL"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "0xD0220Cxx is the BT RF transceiver bank (0xD0220C00 low 7 bits = channel index in the VCO test and the DC calibration); the meaning of the individual fields is not documented."
+  },
+  "ble_219_0c03c930": {
+    "name": "bt_drv_rf_pre_init",
+    "summary": "First step of RF bring-up: clear/set a few 0xD0220Cxx bits, init 0xD0350xxx, write 0xCAFE0001 to 0x40080020",
+    "description": "Clears bits [22:21] of 0xD0220C04, sets field [6:0] of 0xD0220C14 to 6, sets bit 3 of 0xD03300A0 and bit 30 of 0xD0220C38, then calls bes_periph_d035_init_small. After that call it stores the magic word 0xCAFE0001 (loaded into r0 before the call and evidently preserved by the callee) into 0x40080020, sets bit 28 of 0xD0220C18 (the decompiler shows this as base-in-r1 + 0xC18, i.e. the 0xD0220000 base left over from the callee) and finally sets bit 9 of 0x400800E8. Called first in bt_drv_rf_init, before bes_periph_d035_init_main and bes_analog_init_defaults.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "The 0xCAFE0001 / 0x40080020 write and the bit-28 write rely on register contents surviving the call to 0x0c03c87c; the decompiler output is confused here, so verify against the disassembly. 0x40080000 is the same AON/CMU-like block whose bit-19 enable/disable registers guard controller register access."
+  },
+  "ble_219_0c03cdfc": {
+    "name": "bt_drv_rf_init",
+    "summary": "BT RF bring-up sequence: pre-init, 0xD0350xxx main init, analog defaults, then apply the built-in RF config",
+    "description": "Calls bt_drv_rf_pre_init, bes_periph_d035_init_main and bes_analog_init_defaults, then fills a 0x28-byte RF configuration struct on the stack and passes it to bt_drv_rf_apply_config. The struct contents are: bytes 0..1 = 0x01,0x04 (c10 field enable, value 4); word +4 = 0x00010A00 (cfg[4]=0, cfg[5]=0x0A, cfg[6]=1, cfg[7]=0); words +8/+0xC = 0; word +0x10 = 0x00014000 (cfg[0x10]=0, cfg[0x11]=0x40, cfg[0x12]=1); halfword +0x14 = 1 (cfg[0x14]=1, cfg[0x15]=0); +0x18..+0x23 = 0; halfword +0x24 = 0; cfg[0x26] = 3 (clock mode 3). Called from the controller start-up routine 0x0c03bb70 after the ROM patches have been installed. Group: RF bring-up (bt_drv_rf_pre_init / bt_drv_rf_apply_config).",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Equivalent of BES btdrv_rf_init; register semantics undocumented."
+  },
+  "ble_219_0c03cec8": {
+    "name": "bt_drv_rom_patch_apply_table",
+    "summary": "Install a BT-controller ROM patch table: copy data into BT RAM, then program 64 hardware patch slots",
+    "description": "param_1 points to a patch table (selected per metal id by bt_drv_rom_patch_init). Layout: 64 records of 3 words {type, rom_site, value} at +0; word +0x300 = number of copy records, word +0x304 = number of memset records, copy records {dst, src, len_flags} from +0x308, memset records {dst, len} after them. Phase 1 (copy records): if bit 31 of len_flags is clear, memcpy_newlib_aligned_16(dst, table + src, len) copies a blob from the table into controller RAM (0xC000xxxx as seen by the MCU); if bit 31 is set the record is an immediate of 1, 2 or 4 bytes (3 or >4 traps in an endless loop) and the src word itself is memcpy'd to dst (used e.g. to install function pointers such as 0xC0009511 at 0xC00045A4). Phase 2: memset(dst, 0, len) for each memset record. Phase 3: walks the 64 slot records and the hardware patch unit at 0xA01FFE00 (address slots) / 0xA01FFF00 (data slots), 4 bytes per slot, stopping at 0xA0200000. type 1 = code patch: address slot = (rom_site | 1) + 0x60000000 (i.e. the ROM offset with the Thumb bit) and data slot = thumb2_encode_b_w(rom_site & ~1, (value & ~1) + 0xE0200000), a B.W from the ROM site to the replacement routine in BT RAM (0xC000xxxx MCU view == 0xA02xxxxx BT-core view); type 2 = data patch: data slot = value verbatim (e.g. 0xBF00BF00 = two NOPs), address slot as above; type 0 = slot skipped. param_2 (table size) is not used. Group: ROM patching (bt_drv_rom_patch_init, thumb2_encode_b_w).",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "patch table in flash (0x0c078270 / 0x0c07ba80 / 0x0c07e0b4)"},
+      {"name": "param_2", "type": "u32", "description": "table size in bytes (unused)"},
+      {"name": "param_3", "type": "u32", "description": "unused (decompiler artifact)"},
+      {"name": "param_4", "type": "u32", "description": "unused (decompiler artifact)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": "Table A (0x0c078270, 0x3810 bytes) has 8 copy + 1 memset records; table B (0x0c07ba80) 6 + 1; table C (0x0c07e0b4) 3 + 1."
+  },
+  "ble_219_0c03cfc0": {
+    "name": "bt_drv_rom_patch_init",
+    "summary": "Select the ROM patch table by controller metal id, apply it and enable the patch unit (bit 31 of 0xA01FFE00)",
+    "description": "Reads the BT controller metal id through ble_ram_patch_thunk_20000220 (the same call steers bt_drv_reg_op_addr_table_init) and calls bt_drv_rom_patch_apply_table with table 0x0c078270 (0x3810 bytes) for id 0, 0x0c07ba80 (0x2634 bytes) for id 1, or 0x0c07e0b4 (0xFAC bytes) for any other id. Afterwards it sets bit 31 of 0xA01FFE00, the global enable of the hardware ROM patch unit. Called from the controller start-up sequence 0x0c03bb70 after a 10-unit delay (string 'BT rom: 1306: metal id=%d,patch version=%08x' elsewhere confirms the metal-id scheme).",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03d028": {
+    "name": "bt_drv_reg_op_env_bde4_clear_flags_thunk",
+    "summary": "Thunk (1 insn) to bt_drv_reg_op_env_bde4_clear_flags",
+    "description": "Single branch to 0x0c03dd9c; the decompiler inlines the target: under the controller register-access guard (enable via bes_sysreg_write_04_bit19 when nesting counter DAT_2000bd58 is 0, disable via bes_sysreg_write_08_bit19 afterwards) it zeroes byte 0 and byte 0x36 of the controller RAM structure pointed to by DAT_2000bde4 (0xC0007800 / 0xC0008444 / 0xC0009144 per metal id). Called from the two factory/RF test entry sequences 0x0c04696c and 0x0c046c7c right before bt_drv_reg_op_env_bde4_set_byte18(0).",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Identity of the structure at DAT_2000bde4 unknown (some controller environment, flags cleared when entering test mode)."
+  },
+  "ble_219_0c03d02c": {
+    "name": "bt_drv_reg_op_write_6byte_param",
+    "summary": "Copy a 6-byte constant (u32 + u16) into the controller RAM location DAT_2000bdb4 and report the elapsed time",
+    "description": "Takes a timestamp via ble_ram_patch_thunk_2000031c, then under the register-access guard (bes_sysreg_write_04_bit19 when DAT_2000bd58 == 0, bes_sysreg_write_08_bit19 at the end) writes *param_1 (u32) and *(u16*)(param_1+4) to the controller RAM address held in DAT_2000bdb4 (0xC0004284 / 0xC0004290 / 0xC00042A4 by metal id). Finally it takes a second timestamp and passes the difference to the RAM-resident routine at 0x2000061C (a timing/trace hook). The only caller, the controller configuration routine 0x0c03e314, passes the flash constant at 0x0c07691c = 28 04 20 03 90 01 (u16 view: 0x0428=1064, 0x0320=800, 0x0190=400). Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte source (u32 followed by u16)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Whether the 6 bytes are a BD address or three u16 parameters (400 and 800 also appear in the timing / RSSI parameter writers) is not known."
+  },
+  "ble_219_0c03d088": {
+    "name": "bt_drv_reg_op_addr_table_init",
+    "summary": "Fill the table of BT-controller RAM addresses (0xC000xxxx) used by the bt_drv_reg_op accessors, per metal id",
+    "description": "Sets DAT_2000bd88 = 0xC0000000 (controller RAM base as seen by the MCU) and, depending on the metal id returned by ble_ram_patch_thunk_20000220 (0, 1, other), stores about 40 absolute controller RAM addresses into the pointer block DAT_2000bd4c..DAT_2000be08. These pointers address RivieraWaves/BES environment structures inside the BT core's RAM and are dereferenced by the accessor functions in 0x0c03dd9c..0x0c03e314: e.g. DAT_2000bd68 = per-ACL-link env pointer array (RSSI read), DAT_2000bdb4 = 6-byte parameter location, DAT_2000bdc8 = RSSI/monitor parameter block, DAT_2000bde8 and DAT_2000bd74 = timing parameter blocks, DAT_2000bdec/bdfc/bdf0 = 30-byte RSSI tables, DAT_2000bdd4 = 8-byte table, DAT_2000bdac/DAT_2000be00 = patch-RAM variables (0xC000C8F4/0xC000C8F0 on id 0). Some entries only exist for certain ids (DAT_2000bdb8, DAT_2000bda0 only for id 1; DAT_2000bd78..bd84 and be08 only for ids 1 and >1), the others stay 0 so the accessors fall back to no-ops. Called first thing in the controller start-up routine 0x0c03bb70. Equivalent of the BES SDK bt_drv_reg_op global address initialisation.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": "Individual structure identities (ld_acl_env, lm_env, rwip_env ...) are inferred only from how the accessors use them."
+  },
+  "ble_219_0c03dd9c": {
+    "name": "bt_drv_reg_op_env_bde4_clear_flags",
+    "summary": "Zero byte 0 and byte 0x36 of the controller RAM structure at DAT_2000bde4 under the register-access guard",
+    "description": "If the nesting counter DAT_2000bd58 is 0 it enables controller register access with bes_sysreg_write_04_bit19 (BES BT_DRV_REG_OP_CLK_ENB equivalent), then, if DAT_2000bde4 is non-NULL (0xC0007800 / 0xC0008444 / 0xC0009144 per metal id), writes 0 to offset 0 and offset 0x36 of that structure; finally, if the counter is still 0, it releases access with bes_sysreg_write_08_bit19. Reached through the 1-instruction thunk bt_drv_reg_op_env_bde4_clear_flags_thunk from the factory/RF test entry sequences. Group: bt_drv_reg_op controller-RAM accessors (shared enable/disable pattern around DAT_2000bd58).",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Structure identity unknown."
+  },
+  "ble_219_0c03ddd8": {
+    "name": "bt_drv_reg_op_set_timing_params",
+    "summary": "Write slot-timing constants (1250, 625, 500 us, 400, 12, 20) into two controller RAM parameter blocks",
+    "description": "Under the register-access guard (bes_sysreg_write_04_bit19 / bes_sysreg_write_08_bit19 around DAT_2000bd58 == 0) it writes into the structure at DAT_2000bde8 (0xC0007874 / 0xC00084C4 / 0xC00091D8): u32 +0x1C = 0x4E2 (1250), u32 +0x20 = 0, u8 +0x24 = 12, u16 +0x26 = 0x271 (625), u32 +0x28 = 0x01F40271 (u16 625 and u16 500), u8 +0x2C = 1; and into the structure at DAT_2000bd74 (0xC0007770 / 0xC00083B4 / 0xC00090CC): u16 +4 = 400, u8 +6 = 0x14 (20). Both writes are skipped when the respective pointer is 0. The routine timestamps itself with ble_ram_patch_thunk_2000031c before and after and hands the difference to the RAM routine at 0x2000061C. Called from the controller configuration sequence 0x0c03e314. Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "625/1250 are BT slot / double-slot durations in microseconds, so this looks like sleep/wake-up or scheduling timing (rwip/lld environment); exact field names unknown."
+  },
+  "ble_219_0c03de58": {
+    "name": "bt_drv_reg_op_env_bde4_set_byte18",
+    "summary": "Store a byte at offset 0x18 of the controller RAM structure DAT_2000bde4 under the register-access guard",
+    "description": "If DAT_2000bd58 == 0 enables controller register access (bes_sysreg_write_04_bit19); if DAT_2000bde4 is non-NULL writes param_1 to byte +0x18 of that structure; if the counter is 0 releases access (bes_sysreg_write_08_bit19). Both factory/RF test entry sequences (0x0c04696c, 0x0c046c7c) call it with 0 immediately after bt_drv_reg_op_env_bde4_clear_flags_thunk. Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "value stored at +0x18 (0 from both callers)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Field meaning unknown; probably disables some controller feature for test mode."
+  },
+  "ble_219_0c03de90": {
+    "name": "bt_drv_reg_op_set_rssi_monitor_params",
+    "summary": "Fill the controller RAM parameter block DAT_2000bdc8 with RSSI thresholds (-100/-90 dBm) and window counts",
+    "description": "Under the register-access guard writes 22 fields into the structure at DAT_2000bdc8 (0xC00078CC / 0xC000851C / 0xC0009230 per metal id), skipped if the pointer is 0: u8 +0 = 1 (enable), u32 +4 = 80, u32 +8 = 100, u32 +0xC = 5, u32 +0x10 = 0x160 (352), u8 +0x14/+0x15/+0x24 = 3, u8 +0x16/+0x17/+0x25 = 0x9C (-100), u8 +0x18/+0x26 = 0, u32 +0x1C = 80, u32 +0x20 = 100, u8 +0x27/+0x2D = 0xA6 (-90), u16 +0x28 = 80, u16 +0x2A = 200, u8 +0x2C = 1, u16 +0x2E = 20, u16 +0x30 = 800. The repeated -100/-90 bytes look like signed dBm thresholds and the 80/100/200/352/800 values like sample windows or counters. Called from the controller configuration sequence 0x0c03e314. Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Possibly the AFH channel-assessment or RX AGC/RSSI monitor environment; exact structure unknown."
+  },
+  "ble_219_0c03dfac": {
+    "name": "bt_drv_vco_test_start",
+    "summary": "Start the BT VCO/synthesiser test on a channel: 0xD0220C00 = (channel & 0x7F) | 0xA0000, then delay",
+    "description": "Enables controller register access if DAT_2000bd58 == 0, increments the nesting counter, writes (param_1 & 0x7F) | 0x000A0000 to the RF channel register 0xD0220C00 (low 7 bits = channel index 0..78, bits 17 and 19 = test/enable flags), waits via ble_ram_patch_thunk_20000570(10) followed by ble_ram_patch_thunk_20000334 (RAM-resident delay pair), decrements the counter and releases access with bes_sysreg_write_08_bit19 if it is back to 0. Caller 0x0c03bd90 is the 'bt vco test start, channel[%d]' factory command handler, which also saves/modifies two RF registers (0x20C1, 0x2024) around it; bt_drv_vco_test_stop undoes it.",
+    "category": "factory_test",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "BT channel index (0..78), masked to 7 bits"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03dff4": {
+    "name": "bt_drv_vco_test_stop",
+    "summary": "Stop the BT VCO test: write 0 to RF channel register 0xD0220C00, then delay",
+    "description": "Mirror of bt_drv_vco_test_start: enables controller register access if DAT_2000bd58 == 0, increments the counter, writes 0 to 0xD0220C00 (clears the channel and the test flag bits 17/19), delays with ble_ram_patch_thunk_20000570(10) + ble_ram_patch_thunk_20000334, decrements the counter and releases access when it reaches 0. Called from 0x0c03be14, the 'bt vco test stop' factory command handler, which then restores the saved RF registers 0x20C1 and 0x2024.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03e034": {
+    "name": "bt_drv_rf_set_reg_c7c_bits13_14",
+    "summary": "Write a 2-bit value into field [14:13] of RF register 0xD0220C7C under the register-access guard",
+    "description": "If DAT_2000bd58 == 0 enables controller register access with bes_sysreg_write_04_bit19, does a read-modify-write of 0xD0220C7C setting bits [14:13] = param_1 (the value is shifted by 13 without masking), and releases access with bes_sysreg_write_08_bit19 if the counter is 0. The controller configuration sequence 0x0c03e314 calls it with 1 through the 1-instruction thunk 0x0c03be88. Part of the 0xD0220Cxx RF register group.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "2-bit field value (1 from the only caller)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Field meaning unknown."
+  },
+  "ble_219_0c03e078": {
+    "name": "bt_drv_reg_op_load_rssi_table_a",
+    "summary": "Copy the 30-byte table at 0x0c07fdc0 into the controller RAM location DAT_2000bdec",
+    "description": "Under the register-access guard (enable when DAT_2000bd58 == 0, counter incremented around the copy, release when it returns to 0) copies 0x1E bytes from flash 0x0c07fdc0 to the controller RAM address in DAT_2000bdec (0xC00043C4 / 0xC00043D0 / 0xC00043C4 per metal id) using the memcpy wrapper 0x0c03aa40; does nothing if the pointer is 0. The table is A5 A5 A8 A8 AE AE B2 B2 B8 B8 D1 D1 E2 E2 EC followed by 15 x 7F: as signed bytes -91,-91,-88,-88,-82,-82,-78,-78,-72,-72,-47,-47,-30,-30,-20 and 0x7F fillers, i.e. an ascending list of RSSI thresholds in dBm (per RX gain step). One of three sibling loaders (tables a/b/c at 0x0c07fdc0/0x0c07fde0/0x0c07fda0) called in sequence from the controller configuration routine 0x0c03e314.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Interpretation as an RX gain / RSSI threshold table is inferred from the values; which link type (BT/BLE) each of the three tables serves is unknown."
+  },
+  "ble_219_0c03e0c8": {
+    "name": "bt_drv_reg_op_load_rssi_table_b",
+    "summary": "Copy the 30-byte table at 0x0c07fde0 into the controller RAM location DAT_2000bdfc",
+    "description": "Same guarded copy as bt_drv_reg_op_load_rssi_table_a, but from flash 0x0c07fde0 to the controller RAM address in DAT_2000bdfc (0xC00043E4 / 0xC00043F0 / 0xC00043E4 per metal id). The table is AC AC AE AE B3 B3 B6 B6 BF BF D7 D7 E8 E8 EC + 15 x 7F, i.e. -84,-84,-82,-82,-77,-77,-74,-74,-65,-65,-41,-41,-24,-24,-20 dBm thresholds with 0x7F fillers. Called from 0x0c03e314 between the a and c loaders.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "See bt_drv_reg_op_load_rssi_table_a."
+  },
+  "ble_219_0c03e118": {
+    "name": "bt_drv_reg_op_load_rssi_table_c",
+    "summary": "Copy the 30-byte table at 0x0c07fda0 into the controller RAM location DAT_2000bdf0",
+    "description": "Same guarded copy as bt_drv_reg_op_load_rssi_table_a, but from flash 0x0c07fda0 to the controller RAM address in DAT_2000bdf0 (0xC00043A4 / 0xC00043B0 / 0xC00043A4 per metal id). The table is AB AB AE AE B7 B7 BB BB C1 C1 D8 D8 E9 E9 EA + 15 x 7F, i.e. -85,-85,-82,-82,-73,-73,-69,-69,-63,-63,-40,-40,-23,-23,-22 dBm thresholds with 0x7F fillers. Called from 0x0c03e314.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "See bt_drv_reg_op_load_rssi_table_a."
+  },
+  "ble_219_0c03e168": {
+    "name": "bt_drv_reg_op_load_table8_bdd4",
+    "summary": "Copy the 8-byte RAM table at 0x20003EAC into the controller RAM location DAT_2000bdd4",
+    "description": "Under the register-access guard copies 8 bytes from the .data variable at 0x20003EAC (initial contents FC 00 03 07 0B 10 10 10, loaded from flash 0x0c089afc) to the controller RAM address in DAT_2000bdd4 (0xC0004324 / 0xC0004330 / 0xC0004324 per metal id) via the memcpy wrapper 0x0c03aa40; no-op when the pointer is 0. Because the source lives in RAM it can be modified at run time (e.g. by a factory/NV setting) before the controller is configured. Called from the controller configuration routine 0x0c03e314 after the three RSSI table loaders.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Table meaning unknown (values 0xFC,0,3,7,11,16,16,16 look like a small monotonically increasing index/gain table)."
+  },
+  "ble_219_0c03e1b8": {
+    "name": "bt_drv_reg_op_get_patch_var_bdac",
+    "summary": "Read the 32-bit controller RAM variable pointed to by DAT_2000bdac (0 if unavailable)",
+    "description": "Under the register-access guard (enable when DAT_2000bd58 == 0, release afterwards) returns *DAT_2000bdac, or 0 when the pointer is NULL. The pointer is 0xC000C8F4 for metal id 0 and 0xC000C4D8 for id 1 and is not set for other ids; these addresses lie in the patch-code area of controller RAM, so the value is a variable maintained by the ROM patches. No direct callers (probably used through a table or by debug/test code). Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "u32", "description": "value of the patch variable, 0 if no pointer"},
+    "confidence": "medium",
+    "notes": "Semantic of the variable unknown."
+  },
+  "ble_219_0c03e1f0": {
+    "name": "bt_drv_reg_op_set_patch_var_be00",
+    "summary": "Write a 32-bit value to the controller RAM variable pointed to by DAT_2000be00",
+    "description": "Under the register-access guard stores param_1 to *DAT_2000be00 when that pointer is non-NULL (0xC000C8F0 for metal id 0, 0xC000C4D4 for id 1, unset otherwise). The controller start-up routine 0x0c03bb70 calls it with 1 only when the metal id is below 2, right after the controller configuration, so it acts as an enable flag for a feature implemented by the ROM patches. Group: bt_drv_reg_op controller-RAM accessors.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value written (1 from the only caller)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Which patch feature the flag enables is unknown."
+  },
+  "ble_219_0c03e264": {
+    "name": "bt_drv_reg_op_read_acl_rssi",
+    "summary": "Return the signed RSSI byte (+0x152) of the BT ACL link environment for a connection handle",
+    "description": "Under the register-access guard looks up the per-link environment pointer array at DAT_2000bd68 (0xC00057FC / 0xC000579C / 0xC0006480 per metal id), indexed by (param_1 - 0x80) * 4 (ACL connection handles start at 0x80, so this converts handle to link id), and if both the array pointer and the entry are non-NULL returns the sign-extended byte at offset 0x152 of the link structure; otherwise 0. Callers treat the result as a dBm value: the factory test command 0x2B samples it seven times and prints it, and 0x0c05a06c accumulates negative results into an RSSI sum/count pair for link-quality statistics. Companion of bt_drv_reg_op_read_ble_rssi.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "ACL connection handle (0x80 + link id)"}
+    ],
+    "returns": {"type": "s32", "description": "RSSI in dBm (sign-extended s8), 0 if not available"},
+    "confidence": "medium",
+    "notes": "No bounds check on the link id. Equivalent of BES bt_drv_reg_op_read_rssi_in_dbm; the field offset 0x152 inside ld_acl_env is not verified."
+  },
+  "ble_219_0c03e2c0": {
+    "name": "bt_drv_reg_op_read_ble_rssi",
+    "summary": "Return the signed byte at +9 of the 12-byte BLE RX-monitor entry for a BLE link index",
+    "description": "Under the register-access guard reads the table pointed to by DAT_2000bdb8 (only set for metal id 1: 0xC000C3A8, so 0 is returned on other chips) and returns the sign-extended byte at param_1 * 12 + 9; 0 if the table pointer is NULL. The caller 0x0c05a06c uses the result exactly like bt_drv_reg_op_read_acl_rssi (negative values accumulated into an RSSI sum/count for the BLE link), so this is the BLE per-connection RSSI readout. Companion of bt_drv_reg_op_read_acl_rssi.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "BLE link / activity index"}
+    ],
+    "returns": {"type": "s32", "description": "RSSI in dBm (sign-extended s8), 0 if not available"},
+    "confidence": "medium",
+    "notes": "Table identity (12-byte entries) inferred; equivalent of BES bt_drv_reg_op_read_ble_rssi_in_dbm."
+  },
+  "ble_219_0c03eb84": {
+    "name": "bt_drv_intersys_send_saved_iface",
+    "summary": "Send a buffer to the BT core over the intersys link using the interface id saved in DAT_2000be2e, type 0",
+    "description": "Forwards to the intersys transmit routine 0x0c031884(iface = DAT_2000be2e, type = 0, data = param_1, len = param_2); that routine queues the message on the per-interface list and raises the MCU-to-BT-core interrupt via 0x400000A0 (bit 2 for interface 0, bit 3 for interface 1). Used by the HCI command sender 0x0c03ac98 when the controller is not yet marked as running (DAT_2000bd06 == 0), followed by a 50-unit delay instead of waiting for a reply.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "data buffer (HCI command packet)"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "DAT_2000be2e is read as a byte/halfword; its initialisation was not seen."
+  },
+  "ble_219_0c03eb98": {
+    "name": "bt_rfcal_measure_residual_fmt14",
+    "summary": "RF calibration cost function: set two 14-bit codes in a register, trigger a measurement, average sqrt(I^2+Q^2)",
+    "description": "Repeats param_4 times: writes param_2 & 0x3FFF into bits [13:0] and param_3 & 0x3FFF into bits [27:14] of the register *param_1 (two read-modify-writes), delays 1 unit via ble_ram_patch_thunk_200005a8 + ble_ram_patch_thunk_20000334, sets bit 30 of 0xD0350334 (start capture), delays 400 units, then reads the 22-bit signed accumulators in 0xD0350338 (I) and 0xD035033C (Q): the low 22 bits are sign-extended from bit 21, rounded toward zero by adding 7 for negatives and divided by 8 (>>3). It accumulates sqrt(I^2 + Q^2) (via VSQRT, or the newlib sqrtf error path 0x0c06f288 for a negative argument) and finally returns the mean over param_4 runs as float. Used by the DC-offset/IQ calibration sweep 0x0c03f1f4 (with param_1 = 0xD0350250) and its refinement helper 0x0c03ee44, which minimise this residual over a grid of -200..200 step 50 followed by a binary search. Sibling of bt_rfcal_measure_residual_fmt16.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "register receiving the two packed 14-bit codes (e.g. 0xD0350250)"},
+      {"name": "param_2", "type": "u32", "description": "code for bits [13:0] (I offset)"},
+      {"name": "param_3", "type": "u32", "description": "code for bits [27:14] (Q offset)"},
+      {"name": "param_4", "type": "s32", "description": "number of measurements to average (1..4)"}
+    ],
+    "returns": {"type": "f32", "description": "mean residual magnitude"},
+    "confidence": "medium",
+    "notes": "Register 0xD0350334/338/33C are an undocumented capture block of the BT PHY; the 'DC offset' reading comes from the search structure of the caller."
+  },
+  "ble_219_0c03ecc8": {
+    "name": "bt_rfcal_measure_residual_fmt16",
+    "summary": "RF calibration cost function variant: 14-bit codes at [13:0]/[29:16], pulses 0xD0350250 bit 31, resets 0xD03300xx",
+    "description": "Same measurement loop as bt_rfcal_measure_residual_fmt14 but per iteration it first clears bit 31 of 0xD0350250, writes param_2 & 0x3FFF into bits [13:0] and param_3 & 0x3FFF into bits [29:16] of *param_1, delays 1 unit, writes 0xD0330058 = 0x800030, 0xD0330060 = 0xD0330064 = 0xFFFFFFFF, sets bit 31 of 0xD0350250 again and bit 30 of 0xD0350334, delays 400 units and then evaluates the I/Q accumulators 0xD0350338/0xD035033C exactly as the sibling (22-bit sign extension, /8, sqrt(I^2+Q^2)). Returns the mean over param_4 runs. Used by the per-band DC-offset calibration in 0x0c03f1f4 with param_1 = 0xD0310034 / 0xD031009C / 0xD0310104 (band entries of the 79-channel table at 0xD0310000) while 0xD0350248 and 0xD0220C00 are set to the band's frequency word and channel 13/39/65; also by the search helper 0x0c03ee44.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "register receiving the packed codes"},
+      {"name": "param_2", "type": "u32", "description": "code for bits [13:0]"},
+      {"name": "param_3", "type": "u32", "description": "code for bits [29:16]"},
+      {"name": "param_4", "type": "s32", "description": "number of measurements to average"}
+    ],
+    "returns": {"type": "f32", "description": "mean residual magnitude"},
+    "confidence": "medium",
+    "notes": "The 0xD03300xx writes look like resetting a capture/counter block before each sample."
+  },
+  "ble_219_0c03f600": {
+    "name": "vPortSetupTimerInterrupt",
+    "summary": "FreeRTOS port: program SysTick for a 1 ms tick (LOAD = clk/1000 - 1, CTRL = ENABLE|TICKINT)",
+    "description": "Writes SysTick CTRL (0xE000E010) = 0 and VAL (0xE000E018) = 0, obtains the SysTick reference clock frequency in Hz from the RAM-resident routine ble_ram_patch_thunk_20000554, sets LOAD (0xE000E014) = freq / 1000 - 1 and finally CTRL = 3 (ENABLE | TICKINT, CLKSOURCE = 0 i.e. external reference clock). Called from the scheduler start routine 0x0c043e70 (xPortStartScheduler: sets PendSV/SysTick priorities in SHPR3, computes BogoMIPS, zeroes uxCriticalNesting) just before the first task is started.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03f640": {
+    "name": "vPortEnterCritical",
+    "summary": "FreeRTOS port: raise BASEPRI, increment uxCriticalNesting (DAT_20003ec4), DSB+ISB",
+    "description": "Calls rtos_enter_critical (BASEPRI = 0x40, masking all interrupts of lower priority), increments the critical-nesting counter DAT_20003ec4 and executes DSB/ISB. Dozens of callers across the FreeRTOS task/queue/timer code (0x0c03feac, 0x0c0400cc, 0x0c0422d4 ...). Paired with vPortExitCritical; the counter is reset to 0 by xPortStartScheduler.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": "The saved BASEPRI returned by rtos_enter_critical is discarded; unlike stock FreeRTOS the interrupt mask value is 0x40."
+  },
+  "ble_219_0c03f65c": {
+    "name": "vPortExitCritical",
+    "summary": "FreeRTOS port: decrement uxCriticalNesting (DAT_20003ec4) and re-enable interrupts when it reaches 0",
+    "description": "Decrements the critical-nesting counter DAT_20003ec4; if it becomes 0 calls rtos_exit_critical to lower BASEPRI (interrupts enabled again), otherwise returns with interrupts still masked. Counterpart of vPortEnterCritical, same callers.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": "The argument passed to rtos_exit_critical is not visible in the decompile (presumably 0)."
+  },
+  "ble_219_0c03f674": {
+    "name": "SysTick_Handler",
+    "summary": "FreeRTOS xPortSysTickHandler: under BASEPRI mask call xTaskIncrementTick and pend PendSV if a switch is needed",
+    "description": "SysTick exception vector. Saves/raises BASEPRI with rtos_enter_critical, calls xTaskIncrementTick (0x0c043f48, which advances the tick count, moves expired delayed tasks to the ready lists and returns non-zero when a context switch is required); if it returns non-zero writes 0x10000000 (PENDSVSET) to ICSR (0xE000ED04), then restores BASEPRI with rtos_exit_critical. Tick period is 1 ms (see vPortSetupTimerInterrupt).",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03f790": {
+    "name": "rtos_systick_sub_tick_ns",
+    "summary": "Nanoseconds elapsed inside the current 1 ms SysTick period, +1 ms if the COUNTFLAG shows a wrap",
+    "description": "Reads SysTick LOAD and VAL, gets the reference clock frequency (Hz) from ble_ram_patch_thunk_20000554 and computes ((LOAD - VAL) * 1000000) / (freq / 1000), i.e. (LOAD - VAL) * 1e9 / freq nanoseconds (64-bit division, but the multiplication is 32-bit). It then reads CTRL and, if bit 16 (COUNTFLAG, the counter wrapped since the last read) is set, adds 1000000 ns (one tick). Used by the time-stamp helpers 0x0c03feac and 0x0c0400cc to combine the tick counter with a sub-tick fraction.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "u32", "description": "nanoseconds since the start of the current tick (0..~2,000,000)"},
+    "confidence": "medium",
+    "notes": "Unit derived from the formula; the 32-bit multiply only avoids overflow if the reference clock is a few MHz or less (the SysTick CLKSOURCE bit is 0, so an external slow reference is plausible)."
+  },
+  "ble_219_0c03f7cc": {
+    "name": "systick_measure_loop_us",
+    "summary": "Time a busy loop of param_1 iterations with SysTick and return the duration in microseconds (or -1 on wrap)",
+    "description": "Configures SysTick: CTRL = 0, VAL = 0, LOAD = 0xFFFFFF, CTRL = 1 (enable, external reference clock, no interrupt), spins param_1 iterations of a decrement loop, then reads VAL and CTRL. If COUNTFLAG (bit 16) is set the counter wrapped and 0xFFFFFFFF is returned; otherwise it returns ((~VAL & 0xFFFFFF) * 1000) / (freq / 1000) = elapsed ticks * 1e6 / freq microseconds, freq being the SysTick reference clock from ble_ram_patch_thunk_20000554. Called from the BogoMIPS calibration 0x0c035da4 ('Calculate BogoMips loop...'), which halves the loop count until no wrap occurs and stores loops-per-microsecond in DAT_20003e90 (initial .data value 0x68).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "number of loop iterations to time"}
+    ],
+    "returns": {"type": "u32", "description": "elapsed microseconds, 0xFFFFFFFF if the 24-bit counter wrapped"},
+    "confidence": "high",
+    "notes": "Leaves SysTick running with LOAD = 0xFFFFFF; vPortSetupTimerInterrupt reprograms it afterwards."
+  },
+  "ble_219_0c03f934": {
+    "name": "segger_rtt_write_no_check",
+    "summary": "SEGGER RTT _WriteNoCheck: copy param_3 bytes into an up buffer at WrOff with wrap, no free-space check",
+    "description": "param_1 is a SEGGER_RTT_BUFFER_UP (pBuffer +4, SizeOfBuffer +8, WrOff +0xC, RdOff +0x10). If the bytes fit before the end of the ring (param_3 < SizeOfBuffer - WrOff) a single memcpy to pBuffer + WrOff is done and WrOff += param_3; otherwise it copies the first SizeOfBuffer - WrOff bytes to the end, the remaining bytes to the start of the buffer, and sets WrOff to the remainder. The caller must have verified free space (SEGGER_RTT_SetTerminal 0x0c03fcfc checks RdOff/WrOff before calling it with the 2-byte terminal-switch sequence 0xFF,'0'..'F'). Matches the static _WriteNoCheck in SEGGER_RTT.c.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SEGGER_RTT_BUFFER_UP ring descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "source data"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes"},
+      {"name": "param_4", "type": "u32", "description": "unused (decompiler artifact)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03f97c": {
+    "name": "segger_rtt_write_blocking",
+    "summary": "SEGGER RTT _WriteBlocking: copy into an up buffer in chunks, spinning until all bytes are stored",
+    "description": "param_1 is a SEGGER_RTT_BUFFER_UP. Loops: computes the free contiguous space from WrOff to min(end of buffer, RdOff - 1) (handles the wrap-around when RdOff <= WrOff), copies min(remaining, space) bytes with memcpy, advances WrOff (wrapping to 0 at SizeOfBuffer), re-reads RdOff and repeats until all param_3 bytes are written; busy-waits if the host reader has not consumed enough yet. Returns the number of bytes written (= param_3). Used by SEGGER_RTT_SetTerminal when the buffer flags select blocking mode (Flags & 3 == 2, SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL). Matches the static _WriteBlocking in SEGGER_RTT.c.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SEGGER_RTT_BUFFER_UP ring descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "source data"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes"},
+      {"name": "param_4", "type": "u32", "description": "unused (decompiler artifact)"}
+    ],
+    "returns": {"type": "u32", "description": "bytes written"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03fa40": {
+    "name": "SEGGER_RTT_ReadNoLock",
+    "summary": "SEGGER RTT: read up to param_3 bytes from down buffer param_1 into param_2 without locking",
+    "description": "Lazily initialises the RTT control block (SEGGER_RTT_Init if the ID byte at 0x2000BE30 is 0). Uses the down-buffer array starting at 0x2000BFB0 (24-byte SEGGER_RTT_BUFFER_DOWN entries: pBuffer 0x2000BFB4, SizeOfBuffer 0x2000BFB8, WrOff 0x2000BFBC, RdOff 0x2000BFC0, indexed by param_1 * 6 words). If WrOff < RdOff (data wraps) it first copies min(param_3, SizeOfBuffer - RdOff) bytes from RdOff to the end, resets RdOff to 0 at the end, then copies up to WrOff bytes from the start; otherwise copies min(param_3, WrOff - RdOff) bytes. Updates RdOff and returns the number of bytes read (0 if nothing was available). Called by SEGGER_RTT_Read under the BASEPRI lock; matches SEGGER_RTT_ReadNoLock in SEGGER_RTT.c.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "down-buffer index (0 is the only configured one)"},
+      {"name": "param_2", "type": "ptr", "description": "destination"},
+      {"name": "param_3", "type": "u32", "description": "destination size"}
+    ],
+    "returns": {"type": "u32", "description": "bytes copied"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c03fb00": {
+    "name": "SEGGER_RTT_Read",
+    "summary": "SEGGER RTT: read from a down buffer under the BASEPRI 0x40 lock (wraps SEGGER_RTT_ReadNoLock)",
+    "description": "SEGGER_RTT_LOCK equivalent: if running privileged it saves BASEPRI and sets it to 0x40, calls SEGGER_RTT_ReadNoLock(param_1, param_2, param_3) and restores the saved BASEPRI. The decompiler shows only two forwarded arguments; the third (buffer size, r2) passes through untouched. No direct callers were found (probably used by a debug console / shell task through a function pointer). Matches SEGGER_RTT_Read in SEGGER_RTT.c.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "down-buffer index"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer"}
+    ],
+    "returns": {"type": "void", "description": "bytes read are returned in r0 by the callee, not visible in the decompile"},
+    "confidence": "high",
+    "notes": "Return value is really u32 (bytes read) forwarded from SEGGER_RTT_ReadNoLock."
+  }
+}

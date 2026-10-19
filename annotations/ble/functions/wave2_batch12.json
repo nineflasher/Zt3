@@ -1,0 +1,440 @@
+{
+  "ble_219_0c071a48": {
+    "name": "_strtoul_r",
+    "summary": "newlib _strtoul_r: reentrant string-to-unsigned-long with base 0/8/10/16 autodetect and ERANGE",
+    "description": "Reentrant entry of newlib's strtoul (the family heading is a 1-instruction entry; the decompiled body is the shared strtoul code it branches into). Skips leading whitespace using the ctype table at DAT_0c0862a9 (bit 3 = space), accepts an optional '-'/'+', then resolves the base: 0 -> 10 unless the text starts with '0' (8) or '0x'/'0X' (16); base 16 also tolerates a '0x' prefix. Accumulates digits (0-9, A-Z, a-z) below the base with the classic cutoff/cutlim overflow test (0xffffffff / base). On overflow sets reent->_errno = 0x22 (ERANGE) and returns 0xffffffff, otherwise returns the (possibly negated) value. If endptr (param_3) is non-NULL it is set to the first unparsed character, or to the original string when no digits were consumed. This is the conversion function _scanf_i (ble_219_0c07323c) calls at 0x0c071a49 for %u/%o/%x; _strtol_r lives at 0x0c07194c.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *; _errno is written on overflow"},
+      {"name": "param_2", "type": "ptr", "description": "nptr: NUL-terminated string to parse"},
+      {"name": "param_3", "type": "ptr", "description": "endptr: receives pointer to first unparsed char (may be NULL)"},
+      {"name": "param_4", "type": "u32", "description": "base, 0 = autodetect, 2..36"}
+    ],
+    "returns": {"type": "u32", "description": "converted value, 0xffffffff (ULONG_MAX) with errno=ERANGE on overflow"},
+    "confidence": "medium",
+    "notes": "The entry is listed as 1 instruction with callee 'strtoul'; the reentrant signature (reent, nptr, endptr, base) and its use from _scanf_i at 0x0c071a49 identify it as _strtoul_r. The name/body split between strtoul and _strtoul_r in this image is slightly uncertain."
+  },
+  "ble_219_0c071abc": {
+    "name": "read",
+    "summary": "newlib read(fd, buf, cnt): call _read_r with the global reentrancy structure",
+    "description": "Non-reentrant POSIX read wrapper from newlib's syscalls/sysread.c: forwards (fd, buf, cnt) to _read_r (ble_219_0c0734e0) with _impure_ptr (DAT_200049a8) as the struct _reent argument. The actual transfer and errno propagation happen in _read_r / _read (FUN_0c048420). Called by many application-level functions (ble_219_0c0285ec, ble_219_0c02d358 ...) that use the libc file-descriptor interface; its sibling write() is ble_219_0c071ad0.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_3", "type": "u32", "description": "byte count"}
+    ],
+    "returns": {"type": "s32", "description": "bytes read or -1 (tail-call result of _read_r)"},
+    "confidence": "medium",
+    "notes": "Identification as read (rather than write) rests on _read_r being the routine that __sread (0x0c071670, installed by std()) also calls."
+  },
+  "ble_219_0c071ad0": {
+    "name": "write",
+    "summary": "newlib write(fd, buf, cnt) with _write_r inlined: call _write and copy errno into the reent",
+    "description": "POSIX write wrapper: clears the global errno DAT_20019540, calls the low-level _write (FUN_0c04846c) with (fd, buf, cnt), and if the result is -1 and errno became non-zero copies errno into _impure_ptr->_errno (DAT_200049a8 points at the struct _reent, whose first word is _errno). This is newlib's _write_r body (reent/writer.c) merged into the non-reentrant write() entry. Called by the same application functions that call read (ble_219_0c071abc).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "source buffer"},
+      {"name": "param_3", "type": "u32", "description": "byte count"}
+    ],
+    "returns": {"type": "void", "description": "decompiler shows void; r0 still holds the _write result (bytes written or -1)"},
+    "confidence": "medium",
+    "notes": "Could be another 3-argument syscall wrapper (open/lseek); write is the most consistent sibling of read. FUN_0c04846c is the BES _write syscall."
+  },
+  "ble_219_0c071ae4": {
+    "name": "__tzcalc_limits",
+    "summary": "newlib __tzcalc_limits: compute DST/STD transition times of a year into the tzinfo rules",
+    "description": "newlib tzcalc_limits.c. Obtains the __tzinfo_type via __gettzinfo (FUN_0c0724b0); returns 0 if year < 1970 (0x7b2). Otherwise stores __tzyear and computes year_days = days from the epoch to 1 Jan of the year (365*years plus Gregorian leap corrections /4, /100, /400). For each of the two __tzrule entries (40 bytes each: ch, m, n, d, s, change(64-bit), offset) it converts the rule to a day number: 'J' = Julian day ignoring Feb 29 (adds 1 for leap years when d >= 60), 'D' = zero-based day, otherwise the 'M' month/week/day form using the __month_lengths[2][12] table (Ghidra shows it as a bogus offset into the string \"btapp_btle_connect_status_change\") and the weekday of 1 Jan ((year_days + 4) % 7). change = days * 86400 (0x15180) + s + offset, stored as a 64-bit time_t. Finally __tznorth = (rule[0].change < rule[1].change) and returns 1. Called from the tzset path (ble_219_0c070bcc) and localtime/mktime (ble_219_0c071c50).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "calendar year (e.g. 2024)"}
+    ],
+    "returns": {"type": "u32", "description": "1 on success, 0 if year is before 1970"},
+    "confidence": "high"
+  },
+  "ble_219_0c072080": {
+    "name": "std",
+    "summary": "newlib findfp.c std(): initialise a FILE as stdin/stdout/stderr with the __s* cookie functions",
+    "description": "Static helper of newlib's __sinit (findfp.c). Zeroes the FILE fields _p, _r, _w, _bf._base, _bf._size, _lbfsize and _flags2, sets _flags (offset 0xc) = param_2 and _file (offset 0xe) = param_3, memset()s the 8-byte _mbstate at offset 0x5c, sets _cookie = the FILE itself and installs the standard stdio I/O vector: _read = __sread (0x0c071670), _write = __swrite (0x0c071696), _seek = __sseek (0x0c0716ce), _close = __sclose (0x0c0716f2). Called three times by __sinit (ble_219_0c072130) for the stdin/stdout/stderr slots of the reent structure.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "FILE * to initialise"},
+      {"name": "param_2", "type": "u16", "description": "_flags (__SRD for stdin, __SWR for stdout/stderr)"},
+      {"name": "param_3", "type": "u16", "description": "_file descriptor number 0/1/2"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c072100": {
+    "name": "__sfp_lock_acquire",
+    "summary": "newlib __sfp_lock_acquire: take the recursive lock guarding the FILE pool",
+    "description": "Calls __retarget_lock_acquire_recursive on the 1-byte dummy lock object __lock___sfp_recursive_mutex at 0x2001953d (newlib lock.c declares these as 'struct __lock { char dummy; }'); the retargeted lock is a no-op in this firmware. Paired with __sfp_lock_release (ble_219_0c07210c). Both are used by __sfp (ble_219_0c0721a0) when allocating a FILE from the glue list.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c07210c": {
+    "name": "__sfp_lock_release",
+    "summary": "newlib __sfp_lock_release: release the recursive lock guarding the FILE pool",
+    "description": "Calls __retarget_lock_release_recursive on __lock___sfp_recursive_mutex at 0x2001953d, the counterpart of __sfp_lock_acquire (ble_219_0c072100). The lock stubs are no-ops here. Called from __sfp (ble_219_0c0721a0).",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c072118": {
+    "name": "__sinit_lock_acquire",
+    "summary": "newlib __sinit_lock_acquire: take the recursive lock around stdio initialisation",
+    "description": "Calls __retarget_lock_acquire_recursive on __lock___sinit_recursive_mutex, the 1-byte lock object at 0x2001953e (the neighbour of the __sfp lock at 0x2001953d and the env lock at 0x2001953c). Used by __sinit (ble_219_0c072130) before it initialises stdin/stdout/stderr via std(). No-op lock in this firmware.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c072404": {
+    "name": "_findenv_r",
+    "summary": "newlib _findenv_r: look up NAME in environ, return pointer to its value and its index",
+    "description": "newlib getenv_r.c. Takes the environment lock (__env_lock, ble_219_0c073774), then, if environ (DAT_20003e94, the pointer array `*p_environ`) is non-NULL, measures the name up to the first '=' or NUL and scans each environment entry with strncmp(entry, name, len); the first entry whose character after len is '=' matches: *offset (param_3) receives the entry index (pointer difference >> 2), the lock is released (__env_unlock, ble_219_0c073780) and a pointer to the value text after '=' is returned. Returns 0 (after unlocking) when the name is not found or environ is NULL. Callers are _getenv_r (ble_219_0c0723ec) and _setenv_r/_unsetenv_r (ble_219_0c07247c).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent * (passed to the lock helpers)"},
+      {"name": "param_2", "type": "ptr", "description": "variable name; a trailing '=...' is ignored"},
+      {"name": "param_3", "type": "ptr", "description": "int *offset: receives index of the matching environ entry"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the value string after '=' or NULL"},
+    "confidence": "high"
+  },
+  "ble_219_0c0728b0": {
+    "name": "__ssvfiscanf_r",
+    "summary": "newlib-nano string-only integer vfscanf core: parse a format and dispatch each conversion",
+    "description": "The nano vfscanf.c engine built with STRING_ONLY and INTEGER_ONLY, used by sscanf/siscanf (caller ble_219_0c071618). Builds a struct _scan_data_t on the stack (flags, base, width, nassigned, nread, ccltab pointer to a 256-byte set table, conversion code) with pfn_ungetc = _sungetc_r (LAB_0c0727fc) and pfn_refill = __ssrefill_r (0x0c072877). Walks the format: whitespace in the format skips input whitespace (ctype table DAT_0c0862a9 bit 3), literal characters must match, '%' starts a conversion: optional '*' (SUPPRESS 0x10), decimal width, a size modifier from \"hlL\" found with memchr, then the conversion letter selects the code: %[ (builds the set with __sccl, NOSKIP 0x40, CT_CCL 1), %c (CT_CHAR 0, NOSKIP), %s (CT_STRING 2), %d/%u (base 10, CT_INT 3 / CT_UINT 4), %i (base 0), %o (base 8), %x/%X/%p (base 16, flag 0x200 PFXOK, %p adds POINTER 0x20), %e/%f/%g (CT_FLOAT 5, skipped by the integer-only build), %n (stores nread as int or short). Leading input whitespace is skipped unless NOSKIP; then _scanf_chars (FUN_0c073188) or _scanf_i (ble_219_0c07323c) consumes the field. A conversion returning 1 ends the scan; 2 means input failure, giving EOF (-1) if nothing was assigned yet or if fp->_flags has __SERR (0x40).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "ptr", "description": "FILE * (string FILE: _p at [0], _r at [1], _flags at offset 0xc)"},
+      {"name": "param_3", "type": "ptr", "description": "format string"},
+      {"name": "param_4", "type": "ptr", "description": "va_list of output pointers"}
+    ],
+    "returns": {"type": "s32", "description": "number of assigned conversions, or -1 (EOF) on input failure before any assignment"},
+    "confidence": "high"
+  },
+  "ble_219_0c072f3c": {
+    "name": "_printf_i",
+    "summary": "newlib-nano _printf_i: format one integer/char/string/%n conversion and emit it",
+    "description": "nano-vfprintf_i.c. Given the per-conversion struct _prt_data_t (param_2: flags[0], prec[1], dprec[2], width[3], size[4], ret[5], code byte at 0x18, blank char at 0x19, buffer ending at 0x43, l_buf sign/prefix bytes at 0x42..0x45) and the va_list pointer param_5 it handles the conversion character: 'c' stores the char; 'd'/'i' fetch an int (short-cast when flags has 0x40), negate negatives and set the '-' sign byte; 'o'/'u' fetch unsigned (16-bit when flags has 0x40 and not 0x80), base 8 or 10; 'x'/'X'/'p' fetch unsigned, select the lower/upper hex digit table, write the 'x'/'X' prefix byte, and set the 0x20 (HEXPREFIX) flag when ALT (bit 0) is set and the value is non-zero ('p' forces 0x20); 's' takes a char pointer and limits its length to prec via memchr; 'n' writes the running count ret into an int or short. Numbers are converted right-to-left into the buffer with repeated division by the base, an octal ALT adds a leading '0'; size = digit count and a negative prec clears ZEROPAD (bit 2). It then calls _printf_common (FUN_0c072e5c) to emit sign, prefix and left padding, calls the output function param_4(reent, fp, buf, size), emits width - printed blanks when LADJUST (bit 1) is set, and returns max(width, printed) or -1 on write error. Callers: _vfiprintf_r / _svfiprintf_r (ble_219_0c0725fc, ble_219_0c072bfc).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "ptr", "description": "struct _prt_data_t * with flags/prec/width/size and conversion buffer"},
+      {"name": "param_3", "type": "ptr", "description": "FILE * (or string sink) passed to the output function"},
+      {"name": "param_4", "type": "ptr", "description": "int (*pfunc)(reent, fp, buf, len) output callback"},
+      {"name": "param_5", "type": "ptr", "description": "va_list * advanced by the consumed argument"}
+    ],
+    "returns": {"type": "s32", "description": "characters emitted for this conversion, -1 on output error"},
+    "confidence": "high"
+  },
+  "ble_219_0c07323c": {
+    "name": "_scanf_i",
+    "summary": "newlib-nano _scanf_i: read an integer field for vfscanf and convert it with _strtol_r/_strtoul_r",
+    "description": "nano-vfscanf_i.c. Chooses the conversion function: _strtol_r (0x0c07194c) when pdata->code == CT_INT (3), otherwise _strtoul_r (ble_219_0c071a48 at 0x0c071a49). Width is clamped to 349 (0x15d = BUF-1, excess width is remembered to be re-added for skipped leading zeros). Sets the SIGNOK|NDIGITS|NZDIGITS style flags (0xd00) and scans the optional prefixes using memchr on the three strings \"+-\", \"0\" and \"xX\": a leading '0' with no base selects base 8 and flag 0x200, a following 'x'/'X' switches to base 16 (flag 0x100); each accepted prefix byte is copied into pdata->buf (param_2[7]) and the input FILE (_p at param_3[0], _r at param_3[1]) is advanced, refilling through pfn_refill (param_2[0x60]) when it runs dry. With base defaulting to 10 it builds the digit set with __sccl from \"A-Fa-f8901234567]\" + (10 - base) into the ccltab and copies matching digits while skipping redundant leading zeros. If only a bare prefix was consumed it is pushed back with pfn_ungetc (param_2[0x5f]) and 1 (match failure) is returned. Unless SUPPRESS (0x10) is set the buffer is NUL-terminated, converted with the chosen function (base param_2[1]), stored into the next va_list pointer as int/short/long (flags 0x01 / 0x20) and nassigned incremented. nread is updated with the consumed length; returns 0.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "ptr", "description": "struct _scan_data_t * (flags, base, width, nassigned, nread, ccltab, code, buf[350], pfn_ungetc, pfn_refill)"},
+      {"name": "param_3", "type": "ptr", "description": "FILE * being read"},
+      {"name": "param_4", "type": "ptr", "description": "va_list * of output pointers"}
+    ],
+    "returns": {"type": "u32", "description": "0 = field consumed, 1 = matching failure (only a prefix was read)"},
+    "confidence": "high"
+  },
+  "ble_219_0c0734e0": {
+    "name": "_read_r",
+    "summary": "newlib _read_r: call _read and copy a non-zero errno into the reent on failure",
+    "description": "newlib reent/readr.c. Clears the global errno DAT_20019540, calls the platform _read (FUN_0c048420) with (fd, buf, cnt), and if it returned -1 and errno is now non-zero stores errno in ptr->_errno (first word of the struct _reent param_1). Called by __sread (0x0c071670, the stdio read cookie installed by std()) and by read (ble_219_0c071abc). Returns the _read result in r0 (decompiler shows void).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "s32", "description": "file descriptor"},
+      {"name": "param_3", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_4", "type": "u32", "description": "byte count"}
+    ],
+    "returns": {"type": "void", "description": "r0 carries the _read result (bytes read or -1)"},
+    "confidence": "high"
+  },
+  "ble_219_0c073774": {
+    "name": "__env_lock",
+    "summary": "newlib __env_lock: take the recursive lock protecting environ",
+    "description": "Calls __retarget_lock_acquire_recursive on __lock___env_recursive_mutex, the 1-byte dummy lock object at 0x2001953c (envlock.c). The lock is a no-op stub in this firmware. Used by _findenv_r (ble_219_0c072404) and the setenv/unsetenv family; released by __env_unlock (ble_219_0c073780).",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c073780": {
+    "name": "__env_unlock",
+    "summary": "newlib __env_unlock: release the recursive lock protecting environ",
+    "description": "Calls __retarget_lock_release_recursive on __lock___env_recursive_mutex at 0x2001953c, the counterpart of __env_lock (ble_219_0c073774). Called on both exit paths of _findenv_r (ble_219_0c072404).",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high"
+  },
+  "ble_219_0c07390c": {
+    "name": "__swhatbuf_r",
+    "summary": "newlib __swhatbuf_r: decide stdio buffer size and whether a FILE could be a tty",
+    "description": "newlib makebuf.c helper. If fp->_file (short at offset 0xe) is negative or _fstat_r (ble_219_0c073a8c) on it fails, *couldbetty = 0 and the buffer size is 64 (0x40) when fp->_flags (offset 0xc) has bit 7 (0x80, __SMBF) set, else 1024 (0x400, BUFSIZ). Otherwise *couldbetty = S_ISCHR(st.st_mode) ((st_mode & 0xf000) == 0x2000, st_mode being the word at offset 4 of the stack struct stat) and the size is 1024. Always returns 0 (the nano build drops the __SOPT/__SNPT seek-optimisation result). Called by __smakebuf_r (ble_219_0c073958).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "ptr", "description": "FILE *"},
+      {"name": "param_3", "type": "ptr", "description": "size_t *bufsize out"},
+      {"name": "param_4", "type": "ptr", "description": "int *couldbetty out (1 if character device)"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high",
+    "notes": "Which flag bit selects the 64-byte size (0x80 = __SMBF in newlib's flag layout) was taken from the code, not verified against the exact newlib revision."
+  },
+  "ble_219_0c073a54": {
+    "name": "raise",
+    "summary": "newlib raise(sig) with _raise_r inlined: run the installed handler or fall back to _kill",
+    "description": "newlib signal.c. Uses _impure_ptr (DAT_200049a8) as the reent. If sig >= 32 (NSIG) sets errno = 0x16 (EINVAL) and returns -1. Looks up reent->_sig_func (word at offset 0x44): when the table or the entry is NULL it performs _kill_r inline: clears the global errno DAT_20019540, calls _kill (FUN_0c036010) with (_getpid_r() via ble_219_0c073a88, sig) and copies a resulting errno into reent->_errno, returning _kill's result. SIG_IGN (1) returns 0; SIG_ERR (-1) sets errno = EINVAL and returns 1; any other handler is first reset to SIG_DFL (0) and then called with sig, returning 0. Called from abort()/the raise wrapper at ble_219_0c073764.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "signal number 0..31"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 (EINVAL) for a bad signal, 1 for SIG_ERR, or the _kill result"},
+    "confidence": "high"
+  },
+  "ble_219_0c073a88": {
+    "name": "_getpid_r",
+    "summary": "newlib _getpid_r thunk: branch to the stub at 0x0c035ff4 that always returns pid 1",
+    "description": "Single-instruction tail-call to FUN_0c035ff4, a 'return 1' stub shared (by identical-code folding) with the stub the packet calls _isatty. In raise/_raise_r (ble_219_0c073a54) its result is used as the process id handed to _kill, so this entry is newlib's _getpid_r(struct _reent *) with the errno bookkeeping optimised away. Always yields 1.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "medium",
+    "notes": "The target 0x0c035ff4 was earlier described as _isatty; both _getpid and _isatty are 'movs r0,#1; bx lr' stubs in BES syscalls so the two names may have been folded onto one address."
+  },
+  "ble_219_0c073a8c": {
+    "name": "_fstat_r",
+    "summary": "newlib _fstat_r: call _fstat and copy a non-zero errno into the reent on failure",
+    "description": "newlib reent/fstatr.c. Clears the global errno DAT_20019540, calls the platform _fstat (FUN_0c035fe8, which reports every descriptor as a character device) with (fd, struct stat *), and if the result is -1 and errno is non-zero stores it in ptr->_errno. Called by __swhatbuf_r (ble_219_0c07390c) to classify stdio descriptors. The result is returned in r0 (decompiler shows void).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "s32", "description": "file descriptor"},
+      {"name": "param_3", "type": "ptr", "description": "struct stat * output"},
+      {"name": "param_4", "type": "u32", "description": "unused (decompiler artefact)"}
+    ],
+    "returns": {"type": "void", "description": "r0 carries the _fstat result (0 or -1)"},
+    "confidence": "high"
+  },
+  "ble_219_0c073ab0": {
+    "name": "_isatty_r",
+    "summary": "newlib _isatty_r: call _isatty and copy a non-zero errno into the reent on failure",
+    "description": "newlib reent/isattyr.c. Clears the global errno DAT_20019540, calls the platform _isatty (FUN_0c035ff8) with the descriptor, and if it returned -1 with errno set stores errno in ptr->_errno. Called by __smakebuf_r (ble_219_0c073958) as _isatty_r(ptr, fp->_file) to decide whether a possible-tty stream should be line buffered (__SLBF). Result returned in r0.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct _reent *"},
+      {"name": "param_2", "type": "s32", "description": "file descriptor"}
+    ],
+    "returns": {"type": "void", "description": "r0 carries the _isatty result (1 = terminal)"},
+    "confidence": "medium",
+    "notes": "Identified from its caller __smakebuf_r; FUN_0c035ff8 is therefore the real BES _isatty stub (the packet's earlier _isatty label at 0x0c035ff4 is probably _getpid)."
+  },
+  "ble_219_0c07c04c": {
+    "name": "bt_ld_acl_clk_offset_update_patch",
+    "summary": "ROM patch: adjust an ACL link's clock offset and notify LC tasks of the new ACL/eSCO anchor phase",
+    "description": "RivieraWaves BT link-driver patch operating on the ACL link environment table at 0xC000579C (ld_acl_env[link_id], word per link). When param_6 is set it rebases the link's 28-bit clock offset (env+0xfc) by (env+0xa4 - param_4) & 0xfffffff (env+0xa4 holds the last anchor/sync clock, param_4 the new clock). If the link is in state 3 (env+0xd8) and either the global flag at FUN_0c07da60()+0x20 or env+0xd6 is clear, it allocates kernel message 0x650 (ke_msg_alloc thunk FUN_0c07d860, dest task (link_id<<8)|1, src 0xff, 2-byte payload), fills it with clk_off mod (2 * interval at env+0x104) and sends it (ke_msg_send thunk FUN_0c07de00); a zero interval triggers the assert hook FUN_0c07d840(0xc000c2aa, 0xa5). It then scans the two synchronous-link entries at 0xC00057B8 (ld_sco_env[2]) whose byte +0x5a equals link_id, rebases their 28-bit anchor (+0x40) the same way and sends message 0x651 with 4-byte payload {u8 from +0x5b, u16 anchor mod (2 * interval byte at +0x56)}. Part of the ld_acl/ld_sco patch group of the BES ROM Bluetooth controller.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "ACL link index into ld_acl_env"},
+      {"name": "param_2", "type": "ptr", "description": "forwarded to ke_msg_alloc (unused by the logic)"},
+      {"name": "param_3", "type": "u32", "description": "forwarded to ke_msg_alloc (unused by the logic)"},
+      {"name": "param_4", "type": "s32", "description": "new reference clock (half-slots) used to rebase offsets"},
+      {"name": "param_5", "type": "u32", "description": "unused"},
+      {"name": "param_6", "type": "bool", "description": "non-zero = apply the clock rebase and send notifications"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Field meanings of the ld_acl_env / ld_sco_env structures and the message ids 0x650/0x651 are inferred from the arithmetic only; the ROM thunk targets are undocumented."
+  },
+  "ble_219_0c07c7b4": {
+    "name": "bt_lc_link_setup_patch",
+    "summary": "ROM patch: record a link's 6-byte address in the 9-byte-per-link table at 0xC0004FD0 and start the ROM link setup",
+    "description": "Handler patch taking a message/parameter block: byte 0 = link index, bytes 1..6 = a 6-byte value (BD address layout: u32 + u16), u16 at +7, data at +0xc. It fills entry link*9 of the table at 0xC0004FD0: u32 at +0 and u16 at +4 copied from the block, byte +6 = 7, byte +7 = 1. Then calls FUN_0c07de30(link, &entry) and FUN_0c07dad0(link, 1, addr_lo, addr_hi, 0, 0, u16 at +7, global DAT_c0004fc2, block+0xc) (ROM thunks to 0xA000E528 / 0xA0074C98) and finally jumps into ROM code at 0xA0039830 with the link index. Invoked from the trampoline ble_219_0c07cdd8. Belongs to the BES ROM-patch group of the BT controller.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "parameter block: [0]=link index, [1..6]=address, [7..8]=u16, [0xc..]=payload"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Purpose of the 9-byte table and constants 7/1 is unknown; address 0xC0004FD0 is in the controller's RAM data area."
+  },
+  "ble_219_0c07cdd8": {
+    "name": "bt_patch_entry_0c07cdd8",
+    "summary": "Patch trampoline: call bt_lc_link_setup_patch then fall into undecodable bytes",
+    "description": "Entry stub with no direct callers (reached from a ROM patch/jump table). It calls bt_lc_link_setup_patch (ble_219_0c07c7b4) with the incoming registers and then Ghidra hits bad instruction data, i.e. the continuation is either a literal pool or a branch back into ROM that the decompiler could not follow. Treat as part of the BT controller ROM-patch group.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low"
+  },
+  "ble_219_0c07d664": {
+    "name": "bt_ld_acl_sniff_state_patch",
+    "summary": "ROM patch: on an ACL link event, promote state byte +0x16b from 1 to 2/3 based on EM control flags, then run ROM handlers",
+    "description": "Wraps its body between FUN_0c07dae0(0xd,3,8,1) and FUN_0c07dae0(0xd,3,8,0) (a diagnostic/profiling toggle in ROM, thunk 0xA0022C48). If ld_acl_env[link] (0xC000579C + link*4) exists it reads the current clock via FUN_0c07d9f0 (ROM thunk) and a 16-bit control word from exchange memory at 0xD0217892 + DAT_c0005415*0x18 (24-byte EM control-structure table indexed by a global byte). When the link's byte +0x16b == 1 and bit 0 of that word is clear, the byte becomes 2 if bits 0x42 are clear, else 3. It then calls FUN_0c07ddd0(link, clock, 1) and FUN_0c07de10(link, clock) (ROM thunks 0xA003460C / 0xA0033F74) to continue the ROM's link-driver processing. Part of the ld_acl ROM-patch group.",
+    "category": "bt_controller",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "ACL link index"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Meaning of state values 1/2/3 at env+0x16b (likely a sniff/role-switch sub-state) is a guess."
+  },
+  "ble_219_0c086754": {
+    "name": "hal_sys_timer_calc_loop_ticks",
+    "summary": "Measure timer ticks taken by a busy loop of N iterations, optionally the DWT cycle cost of a timer read",
+    "description": "Calibration helper. If param_2 is non-NULL it first calls FUN_0c089478 (thunk to 0x0c03aafc, e.g. a DWT/trace-enable check or interrupt lock), resets DWT_CYCCNT (0xE0001004) to 0, sets CYCCNTENA (bit 0 of DWT_CTRL 0xE0001000), performs one read of the hardware timer value register 0x40003004, reads CYCCNT back, clears CYCCNTENA and stores the measured cycle count in *param_2; FUN_0c089488 (thunk to 0x0c03ab18) is called when the first call returned 0 (restore). Then it waits for the timer register to change (edge alignment), spins a countdown loop of param_1 iterations and returns the difference between the timer value after the edge and after the loop (the timer counts down, so the result is positive ticks elapsed). Used to calibrate software delay loops / CPU frequency against the system timer.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "number of busy-loop iterations to time"},
+      {"name": "param_2", "type": "ptr", "description": "optional u32 * receiving DWT cycles spent on one timer read"}
+    ],
+    "returns": {"type": "s32", "description": "timer ticks elapsed during the loop"},
+    "confidence": "medium",
+    "notes": "0x40003004 is the BES system timer current-value register (down-counter), as also used by norflash_delay_us."
+  },
+  "ble_219_0c0867d0": {
+    "name": "norflash_delay_us",
+    "summary": "Busy-wait a number of microseconds on the down-counting system timer at 0x40003004",
+    "description": "Reads the timer value register 0x40003004, obtains the timer clock from ble_get_ram_var_20003540_div4 (0x20003540 >> 2, treated as Hz) and spins until (start - now) >= param_1 * (clock / 100000) / 10, i.e. param_1 microseconds of timer ticks. The timer counts down so start - now is the elapsed count. Used by the flash driver for the tRES1 wake-up (40 us after 0xAB), reset recovery (200 us after 0x99) and suspend latency (40 us after 0x75): callers ble_219_0c0883f0, ble_219_0c08856c, ble_219_0c088f20, ble_219_0c089064.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "delay in microseconds"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium"
+  },
+  "ble_219_0c086b04": {
+    "name": "analogif_reg30b7_channel_read",
+    "summary": "Sequence writes to analog register 0x30B7 to sample channel N and read the result from 0x30BE|0x30BD",
+    "description": "Drives an analog/PMU style register interface through the thunks FUN_0c0894a8 (write reg,val -> 0x0c0401b0) and FUN_0c089468 (read reg,&val -> 0x0c040290). Sequence on register 0x30B7: write 8, write 0x18, write (param_1<<6)|0x18, write (param_1<<6)|0x38 (if that write fails the final pair becomes 0x28/0x20), write (param_1<<6)|0x18 again, then read registers 0x30BE and 0x30BD and OR the two 16-bit values into *param_2 (result split over two registers). Every path ends by writing 0x30B7 = 8 (or 0x28) and then 0 (or 0x20), returning the interface to its idle setting. Each write's return value is checked and the sequence aborts to the cleanup on the first failure. Looks like a one-shot ADC/measurement trigger on channel param_1 (bits 6..); no direct callers.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "channel/selector placed in bits 6.. of register 0x30B7"},
+      {"name": "param_2", "type": "ptr", "description": "u16 * receiving (reg 0x30BE | reg 0x30BD)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "The register block 0x30xx is accessed only through the undescribed thunks; its identity (RF/PMU analog interface) and the meaning of the bit fields are guesses."
+  },
+  "ble_219_0c086c30": {
+    "name": "analogif_reg3037_3048_config",
+    "summary": "Read-modify-write analog registers 0x3037 (clear bits 7-8) and 0x3048 (set bit 13)",
+    "description": "Uses the analog register read thunk FUN_0c089468 (-> 0x0c040290) and write thunk FUN_0c0894a8 (-> 0x0c0401b0): reads 0x3037, masks with 0xFE7F (clears bits 7 and 8) and writes it back; reads 0x3048, ORs 0x2000 (bit 13) and writes it back. The decompiler drops the value argument of the writes but the modified local is passed in r1. A static configuration step of the same 0x30xx analog interface used by ble_219_0c086b04; no direct callers.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low"
+  },
+  "ble_219_0c087394": {
+    "name": "norflash_get_id",
+    "summary": "Copy up to 3 bytes of the detected JEDEC ID of flash device 0/1 into a caller buffer",
+    "description": "BES norflash_drv style accessor. Halts in an infinite loop (assert) if the flash id param_1 > 1. Clamps the length to 3 and copies via FUN_0c089498 (memcpy-like thunk: dst=param_2, src, len) from the per-device context entry at 0x20003550 + id*0x24, offset 1, where the 3-byte JEDEC id (manufacturer, memory type, capacity) was stored by the probe routine. Always returns 0. Called by ble_219_0c087d70.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash device id, 0 or 1"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer for the id bytes"},
+      {"name": "param_3", "type": "u32", "description": "bytes to copy, clamped to 3"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Assumes FUN_0c089498 is memcpy(dst, src, n); if the argument order were reversed this would be a set-id function."
+  },
+  "ble_219_0c0882a0": {
+    "name": "norflash_apply_dummy_cycles",
+    "summary": "Program the per-device dummy-cycle byte into flash-IP REG_014[23:16] if it is non-zero",
+    "description": "Selects a per-flash-id byte: (&DAT_20003904)[id] when bit 0 of the device flag word at 0x2000390c + id*4 is set, otherwise (&DAT_20003900)[id]. If the byte is zero nothing is done; otherwise norflaship_set_cfg14_byte2 (FUN_0c087838) writes it into bits 16..23 of the flash-IP config register REG_014 (the decompiler drops the argument). Part of the norflash driver state group (per-id tables at 0x200038fc..0x2000391c, reset by norflash_reset ble_219_0c08856c). Callers: ble_219_0c088350, ble_219_0c08866c, ble_219_0c0888d8, ble_219_0c088928.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flash device id, 0 or 1"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "That REG_014[23:16] is the dummy-cycle count (and that bit 0 of the flag word selects an alternate read mode) is inferred from the surrounding read-mode code, not from documentation."
+  },
+  "ble_219_0c0882cc": {
+    "name": "norflash_set_continuous_read",
+    "summary": "Enable or disable continuous (XIP mode-byte) read: program read opcode and reset the flash's mode bits",
+    "description": "param_2 != 0: norflaship_ctrl_set_bit25 (continuous-read enable), program the device's continuous-read opcode (byte +5 of the flash descriptor found via DAT_2000306c[DAT_20003908[id]]) into REG_004[11:4] with norflaship_set_ctrl_field_4_11, then norflaship_wait_idle. param_2 == 0: norflaship_ctrl_clear_bit25, program the normal read opcode (descriptor byte +6); if the device flag word 0x2000390c[id] has bit 5 (quad I/O) choose opcode 0xEB, else if bit 3 (dual I/O) 0xBB, else just wait idle and return. For quad/dual devices it clears the RX FIFO, sets the transfer length to 2 and issues the read opcode with operand 0 (norflaship_send_cmd_byte), i.e. a dummy read whose mode byte M7..M0 = 0x00 takes the flash out of continuous-read mode, then clears the RX FIFO and waits idle. Group: norflash driver read-mode control; callers ble_219_0c08866c, ble_219_0c088858, ble_219_0c088898, ble_219_0c0889d8.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flash device id"},
+      {"name": "param_2", "type": "s32", "description": "non-zero = enable continuous read, 0 = disable and reset mode bits"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "REG_004 bit 25 is assumed to be the continuous-read / mode-byte enable; descriptor byte offsets 5/6 are assumed to be the read opcodes with and without continuous mode."
+  },
+  "ble_219_0c088350": {
+    "name": "norflash_restore_read_config",
+    "summary": "Re-arm continuous read (if the device supports it), release the controller and re-apply dummy cycles",
+    "description": "Waits for the flash IP to go idle, then if bit 12 of the device flag word at 0x2000390c + id*4 is set re-enables continuous read: norflaship_ctrl_set_bit25, programs the continuous-read opcode (descriptor byte +5 via DAT_2000306c[DAT_20003908[id]]) into REG_004[11:4] and waits idle again. Then norflaship_ctrl_clear_bit0 (FUN_0c087774, ends the command phase) and norflash_apply_dummy_cycles (ble_219_0c0882a0). Returns 0. Used after a suspend/resume or a mode switch by ble_219_0c0889d8 to put the controller back into the configured read mode. Part of the norflash driver group.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flash device id"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "low",
+    "notes": "Bit 12 of the flag word is interpreted as 'continuous read currently enabled'; exact meaning not verified."
+  },
+  "ble_219_0c0883a0": {
+    "name": "norflash_status_s0_s7",
+    "summary": "Issue Read Status Register-1 (0x05) and return the status byte from the RX FIFO",
+    "description": "Clears both flash-IP FIFOs (norflaship_clear_fifos), starts a transaction with command 0x05 (Read Status Register-1), 0 extra bytes and read length 1 (norflaship_send_cmd_ext), waits until the RX FIFO level reaches 1 (norflaship_wait_fifo_level) and reads the low byte of REG_010 (norflaship_read_rxfifo_byte). Bit 0 of the returned byte is WIP (write in progress), bit 1 WEL. The decompiler shows void but r0 carries the status byte. Sibling of norflash_status_s8_s15 (ble_219_0c0883c8); caller ble_219_0c089190 (status read / write-status path).",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash device id"}
+    ],
+    "returns": {"type": "void", "description": "r0 = status register 1 byte"},
+    "confidence": "high"
+  },
+  "ble_219_0c0883c8": {
+    "name": "norflash_status_s8_s15",
+    "summary": "Issue Read Status Register-2 (0x35) and return the status byte from the RX FIFO",
+    "description": "Identical to norflash_status_s0_s7 (ble_219_0c0883a0) but sends command 0x35 (Read Status Register-2, bits S8..S15, which holds the QE quad-enable bit on Winbond/GigaDevice parts): clear FIFOs, norflaship_send_cmd_ext(id, 0x35, 0, 1), wait for 1 byte in the RX FIFO, read it from REG_010. Result in r0. Caller ble_219_0c089190.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash device id"}
+    ],
+    "returns": {"type": "void", "description": "r0 = status register 2 byte"},
+    "confidence": "high"
+  },
+  "ble_219_0c0883f0": {
+    "name": "norflash_wait_busy_or_suspend",
+    "summary": "Poll status WIP until the flash is idle; if an IRQ becomes pending, send Program/Erase Suspend (0x75)",
+    "description": "Loops reading status register 1 (clear FIFOs, command 0x05 with 1 read byte, wait FIFO level 1, read REG_010): when bit 0 (WIP) is clear returns 0. If param_2 (suspend allowed) is 0 it simply keeps polling. Otherwise, while busy it checks for pending interrupts: when the per-id flag (&DAT_2000391c)[id] is set it calls nvic_any_masked_irq_pending on the 3-word IRQ mask at 0x200038e4 + id*0xc, else ble_scb_irq_pending (any pending exception); as soon as one is pending it clears the FIFOs, issues 0x75 (Program/Erase Suspend) via norflaship_send_cmd_word, waits 40 us (norflash_delay_us(0x28), the suspend latency) and returns 1. Lets the caller service interrupts (e.g. the BT controller) during long erase/program operations. Callers ble_219_0c088474, ble_219_0c088f20, ble_219_0c089064.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flash device id"},
+      {"name": "param_2", "type": "s32", "description": "non-zero = allow suspending the operation when an IRQ is pending"}
+    ],
+    "returns": {"type": "u32", "description": "0 = operation finished, 1 = operation suspended (status bit 0 still set)"},
+    "confidence": "medium"
+  },
+  "ble_219_0c08856c": {
+    "name": "norflash_reset",
+    "summary": "Wake, soft-reset (0x66/0x99) and re-initialise a NOR flash device and clear its driver state",
+    "description": "BES norflash_drv reset sequence for device id: clear FIFOs, send 0xAB (Release Power-Down), wait 40 us; reset the flash-IP configuration (config REG_014 bits 3/4/5 cleared, REG_040 bits 2..3 cleared, REG_020[7:0] set to 0xEB via the norflaship_set_* thunks), clear ctrl bit 25 (continuous read) and wait idle; fill the TX FIFO with the 4 bytes at DAT_20003068 and send command 0xFF with length 4 (mode-bit reset / exit continuous-read in any width), clear ctrl bit 0 and the RX FIFO; send 0x66 (Enable Reset) and 0x99 (Reset Device), wait 200 us (tRST), then 0xE9 (Exit 4-byte address mode) and clear ctrl bit 0. Finally zeroes the per-id driver state: bytes (&DAT_20003900)[id], (&DAT_20003908)[id] (flash descriptor index), (&DAT_20003904)[id], (&DAT_200038fc)[id], the u32 flag word at 0x2000390c + id*4 and (&DAT_20003914)[id]. No direct callers (reached through the flash open/probe path). Head of the norflash driver state group.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flash device id, 0 or 1"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Which of the five set_cfg14/reg40/reg20 thunks receives the 0xEB argument is read from the call order (FUN_0c087944), not confirmed."
+  }
+}

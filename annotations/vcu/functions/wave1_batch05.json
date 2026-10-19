@@ -1,0 +1,653 @@
+{
+ "vcu_0159_0800c5d4": {
+  "name": "lcd_fb_set_icon_group_a",
+  "summary": "Set or clear bits 4-6 of frame-buffer bytes 0x200021c7, c9 and cb",
+  "description": "Clears bits 6:4 (mask 0x8f keeps the rest) of DAT_200021c7, DAT_200021c9 and DAT_200021cb, then, if param_1 is non-zero, ORs 0x70 back into all three so the three-bit group is all on; otherwise all three groups are off. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Each byte is the high nibble area next to a digit (the digit low nibble is written by lcd_fb_show_number_2digit); likely an icon/bar-segment group.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = turn the 0x70 bits on, zero = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c60c": {
+  "name": "lcd_fb_set_icon_group_b",
+  "summary": "Set or clear icon bits in frame-buffer bytes 0x200021cd, d4 and d5",
+  "description": "Clears bits 6:4 of DAT_200021cd, bits 7:6 of DAT_200021d4 and the low nibble of DAT_200021d5 (masks 0x8f, 0x3f, 0xf0). If param_1 is non-zero it then sets 0x70 in cd, 0xc0 in d4 and 0x0f in d5, i.e. a 3+2+4 = 9-segment group is switched on or off as a unit. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Sibling of lcd_fb_set_icon_group_a.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = all nine segments on, zero = all off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c644": {
+  "name": "lcd_fb_set_d4_bit2",
+  "summary": "Set or clear bit 2 of frame-buffer byte 0x200021d4",
+  "description": "Read-modify-write of DAT_200021d4: clears bit 2 (mask 0xfb) and sets it again when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Single-segment (icon) setter.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = segment on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c660": {
+  "name": "lcd_fb_set_d1_bit2",
+  "summary": "Set or clear bit 2 of frame-buffer byte 0x200021d1",
+  "description": "Read-modify-write of DAT_200021d1: clears bit 2 (mask 0xfb), sets it when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Single-segment (icon) setter.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = segment on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c67c": {
+  "name": "lcd_fb_set_d1_bit6",
+  "summary": "Set or clear bit 6 of frame-buffer byte 0x200021d1",
+  "description": "Read-modify-write of DAT_200021d1: clears bit 6 (mask 0xbf), sets it when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Single-segment (icon) setter; bits 0/1 of the same byte are touched by other helpers (0x200021d0/d1 are also written by the neighbouring routines at 0x0800aa9c and 0x0800be30).",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = segment on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c698": {
+  "name": "lcd_fb_set_mode_indicator",
+  "summary": "Select one of four exclusive indicator segments in frame-buffer byte 0x200021cf",
+  "description": "Clears bits 1, 2, 3 and 5 of DAT_200021cf (mask 0xd1, bits 0, 4, 6, 7 are preserved), then lights exactly one segment by value: 1 -> 0x08, 2 -> 0x04, 3 -> 0x02, 4 -> 0x20; any other value (e.g. 0) leaves all four off. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Behaves like a mutually exclusive mode / level indicator (e.g. riding mode or gear icons); the meaning of the four icons is not visible here.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "indicator index 1..4, anything else = none lit"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c6d8": {
+  "name": "lcd_fb_show_digit_units",
+  "summary": "Show one decimal digit in the units position and blank the tens position",
+  "description": "param_1 is clamped (values above 10 become 9) and reduced modulo 10, so 10 shows as 0. The tens position is blanked: DAT_200021c6=0, low nibble of DAT_200021c7=0, DAT_200021c8=0. The units position is loaded from the glyph tables: DAT_200021ca = table_A[d] (0x20001548+d), low nibble of DAT_200021cb = table_B[d] (0x20001552+d), DAT_200021cc = table_C[d] (0x2000155c+d); the upper nibble of cb is preserved because it belongs to the 0x70 icon group. The display frame buffer is the 16-byte RAM block 0x200021c6..0x200021d5 (fb[0]=0x200021c6 ... fb[15]=0x200021d5); the three digit glyph tables are 10-byte arrays at 0x20001548, 0x20001552 and 0x2000155c. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Always displays, unlike lcd_fb_show_number_2digit which has an enable flag.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "digit 0..9 (values above 10 are forced to 9, 10 wraps to 0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known. The 7-segment glyph encoding of the tables is assumed; the tables are RAM and presumably initialised at startup."
+ },
+ "vcu_0159_0800c720": {
+  "name": "lcd_fb_show_number_2digit",
+  "summary": "Render a 0..99 number as two seven-segment-style digits in the frame buffer",
+  "description": "Clamps param_1 to 99, splits it into tens and units, and clears both digit cells (tens: fb bytes c6, low nibble of c7, c8; units: ca, low nibble of cb, cc; upper nibbles of c7/cb are kept). If param_2 is non-zero, the tens cell is filled from glyph tables A/B/C (0x20001548, 0x20001552, 0x2000155c) only when the tens digit is non-zero (leading-zero suppression) and the units cell is always filled; with param_2 == 0 both cells stay blank. The display frame buffer is the 16-byte RAM block 0x200021c6..0x200021d5 (fb[0]=0x200021c6 ... fb[15]=0x200021d5); the three digit glyph tables are 10-byte arrays at 0x20001548, 0x20001552 and 0x2000155c. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Also called from vcu_0159_0800b0c4 (and the 148/153 equivalents), i.e. from outside the main display routine.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value to show, 0..99 (clamped)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "non-zero = display, zero = blank the two digits"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known. Digit glyph layout is a guess: three table bytes per digit (full byte, nibble, full byte)."
+ },
+ "vcu_0159_0800c78c": {
+  "name": "lcd_fb_set_cd_low_nibble",
+  "summary": "Set low nibble of frame-buffer byte 0x200021cd to 0xC or 0x3",
+  "description": "Keeps the upper nibble of DAT_200021cd and writes the low nibble as 0x0c when param_1 is non-zero, 0x03 when it is zero (two complementary 2-bit segment pairs). Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Paired with lcd_fb_clear_cd_low_nibble which blanks the nibble.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero selects pattern 0xC, zero selects pattern 0x3"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c7b8": {
+  "name": "lcd_fb_clear_cd_low_nibble",
+  "summary": "Clear the low nibble of frame-buffer byte 0x200021cd",
+  "description": "Masks DAT_200021cd with 0xf0, turning off the four segments set by lcd_fb_set_cd_low_nibble; the upper nibble (icon group B bits) is kept. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. The decompiler lists 0x200021c6 as address-taken only because the byte is addressed relative to the buffer base via the literal pool; it is not accessed.",
+  "category": "display",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c7c8": {
+  "name": "lcd_fb_set_c9_low2",
+  "summary": "Set or clear bits 1:0 of frame-buffer byte 0x200021c9",
+  "description": "Clears the two low bits of DAT_200021c9 (mask 0xfc) and sets both (0x03) when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Two-segment setter.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = both segments on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c7e4": {
+  "name": "lcd_fb_set_d4_low2",
+  "summary": "Set or clear bits 1:0 of frame-buffer byte 0x200021d4",
+  "description": "Clears the two low bits of DAT_200021d4 (mask 0xfc) and sets both (0x03) when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Two-segment setter.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = both segments on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c800": {
+  "name": "lcd_fb_set_d4_bits45",
+  "summary": "Set or clear bits 5:4 of frame-buffer byte 0x200021d4",
+  "description": "Clears bits 5:4 of DAT_200021d4 (mask 0xcf) and sets both (0x30) when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Two-segment setter.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = both segments on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c81c": {
+  "name": "lcd_fb_set_d3_bit3",
+  "summary": "Set or clear bit 3 of frame-buffer byte 0x200021d3",
+  "description": "Clears bit 3 of DAT_200021d3 (mask 0xf7) and sets it when param_1 is non-zero. Part of the segment/LCD frame-buffer helper group (0x0800c5d4..0x0800c81c) that is driven by the main vehicle state/display routine vcu_0159_080057ac; the group is a bit-field setter family over the 0x200021c6..0x200021d5 buffer. Single-segment setter; also called from vcu_0159_0800b0c4 and vcu_148_0800a138, i.e. from outside the main display routine.",
+  "category": "display",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "non-zero = segment on"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as an LCD/segment frame buffer is inferred from the glyph tables and nibble/bit masking; which physical icon each bit drives is not known."
+ },
+ "vcu_0159_0800c838": {
+  "name": "dma_channel_enable",
+  "summary": "Enable or disable a DMA channel (CTRL.CHEN, bit 0)",
+  "description": "AT32 SDK dma_channel_enable(): rewrites bit 0 of the channel control register pointed to by param_1 with (param_2 & 1), leaving other bits untouched. Called by the three DMA channel setup routines (vcu_0159_08001c3c, 08001f50, 08001fbc) and by 08005754 together with dma_reset/dma_init.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_channel_type* (DMAx_CHANNELy base, its CTRL register is at offset 0)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "TRUE enables, FALSE disables"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c842": {
+  "name": "dma_data_number_get",
+  "summary": "Read the remaining transfer count of a DMA channel (DTCNT)",
+  "description": "AT32 SDK dma_data_number_get(): returns the 16-bit DTCNT register (offset +4) of the DMA channel at param_1. Used by vcu_0159_08008c1c.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_channel_type*"
+   }
+  ],
+  "returns": {
+   "type": "u16",
+   "description": "remaining number of data items"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c848": {
+  "name": "dma_data_number_set",
+  "summary": "Set the transfer count of a DMA channel (DTCNT)",
+  "description": "AT32 SDK dma_data_number_set(): stores param_2 into DTCNT (offset +4) of the DMA channel at param_1. Called from 08005754 to restart a transfer; the channel should be disabled while it is written.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_channel_type*"
+   },
+   {
+    "name": "param_2",
+    "type": "u16",
+    "description": "number of data items to transfer"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c84c": {
+  "name": "dma_default_para_init",
+  "summary": "Fill a dma_init_type structure with the SDK default DMA settings",
+  "description": "AT32 SDK dma_default_para_init(): zeroes the 0x14-byte dma_init_type: peripheral_base_addr (+0), memory_base_addr (+4), direction (+8, 0 = peripheral to memory), buffer_size (+0xa), peripheral_inc_enable (+0xc), memory_inc_enable (+0xd), peripheral_data_width (+0xe, byte), memory_data_width (+0xf, byte), loop_mode_enable (+0x10) and priority (+0x11, low). Called before dma_init by the three DMA setup routines vcu_0159_08001c3c, 08001f50 and 08001fbc.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_init_type* to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c864": {
+  "name": "dma_flag_clear",
+  "summary": "Clear DMA interrupt/status flags (DMA1.CLR or DMA2.CLR)",
+  "description": "AT32 SDK dma_flag_clear(): flag values above 0x10000000 identify DMA2 flags and are written, with the marker nibble stripped (& 0x0fffffff), to DMA2.CLR (0x40020404); otherwise the value is written straight to DMA1.CLR (0x40020004). Writing a 1 clears the corresponding global/full/half/error flag.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "DMAx_GLn/FDTn/HDTn/DTERRn_FLAG mask"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c884": {
+  "name": "dma_flag_get",
+  "summary": "Test a DMA status flag (DMA1.STS or DMA2.STS)",
+  "description": "AT32 SDK dma_flag_get(): chooses DMA1.STS when param_1 <= 0x10000000, else DMA2.STS, and returns whether any bit selected by param_1 is set. (The DMA2 flag masks contain a 0x10000000 marker bit that never matches real status bits, since it is only used for selection.)",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "DMAx_xxn_FLAG mask"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if flag set"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c8a8": {
+  "name": "dma_init",
+  "summary": "Configure a DMA channel from a dma_init_type structure",
+  "description": "AT32 SDK dma_init(): masks CTRL with 0xbfef (clears DTD and M2M), ORs in the direction, then inserts priority (CTRL[13:12]), memory width ([11:10]), peripheral width ([9:8]), memory increment (bit 7), peripheral increment (bit 6) and loop mode (bit 5), and loads DTCNT (+4), PADDR (+8) and MADDR (+0xc) from buffer_size, peripheral_base_addr and memory_base_addr. The channel is not enabled here; see dma_channel_enable. Called by vcu_0159_08001c3c, 08001f50 and 08001fbc.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_channel_type* to configure"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "dma_init_type* with the settings"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800c904": {
+  "name": "dma_reset",
+  "summary": "Reset a DMA channel registers and clear its flags",
+  "description": "AT32 SDK dma_reset(): clears CTRL.CHEN, then zeroes CTRL, DTCNT, PADDR and MADDR, and ORs 0xF << (4 * channel_index) into DMA1.CLR (0x40020004) or DMA2.CLR (0x40020404) to clear that channel's four flags. The channel index is derived from the register address ((addr & 0xff) - 8) / 0x14 and the controller from (addr & 0x4ff) < 0x408 / < 0x488. Called by vcu_0159_08001c3c, 08001f50 and 08001fbc.",
+  "category": "dma",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "dma_channel_type*"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800ca84": {
+  "name": "ertc_flag_clear",
+  "summary": "Clear ERTC status flags while preserving the IMEN bit",
+  "description": "AT32 SDK ertc_flag_clear(): writes ERTC.STS = ~(param_1 | 0x80) | (STS & 0x80). The flag bits are cleared by writing 0 to them; all other bits are written as 1 (no effect) and bit 7 (init mode enable) is written back unchanged. Called from vcu_0159_08005874 (likely the RTC alarm/wakeup IRQ handler, not verified).",
+  "category": "rtc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "ERTC_xxx_FLAG mask to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800caa0": {
+  "name": "ertc_flag_get",
+  "summary": "Test an ERTC status flag",
+  "description": "AT32 SDK ertc_flag_get(): returns 1 if any bit of ERTC.STS selected by param_1 is set, else 0. Called by vcu_0159_08005874.",
+  "category": "rtc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "ERTC_xxx_FLAG mask"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if set, 0 if clear"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cb14": {
+  "name": "ertc_init_mode_exit",
+  "summary": "Leave ERTC initialisation mode",
+  "description": "AT32 SDK ertc_init_mode_exit(): writes 0xFFFFFF7F to ERTC.STS, which clears the init-mode enable bit (bit 7) and writes 1 (no effect) to all flag bits. Called at the end of the ERTC set-time/date/calendar routines (vcu_0159_0800c960, 0800c9d8, 0800ca4c, 0800cab4).",
+  "category": "rtc",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cb6c": {
+  "name": "ertc_num_to_bcd",
+  "summary": "Convert a number 0..99 to packed BCD",
+  "description": "AT32 SDK ertc_num_to_bcd(): returns (param_1 % 10) | ((param_1 / 10 & 0xf) << 4). Used by the set-time and set-date routines (vcu_0159_0800c960, 0800c9d8) before writing the ERTC TIME/DATE registers.",
+  "category": "rtc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "binary value 0..99"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "BCD byte, tens in bits 7:4"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cc98": {
+  "name": "ertc_wait_update",
+  "summary": "Wait until the ERTC calendar registers are synchronised",
+  "description": "AT32 SDK ertc_wait_update(): clears the UPDF flag (bit 5) in ERTC.STS by writing ~(UPDF | 0x80) | (STS & 0x80), then polls UPDF up to 0x6c0000 times. Returns 1 when the flag came up, 0 on timeout. Called by vcu_0159_0800c960, 0800c9d8 and 0800cb84 before reading/after writing calendar registers.",
+  "category": "rtc",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "1 = SUCCESS, 0 = timed out (ERROR)"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd38": {
+  "name": "ertc_write_protect_disable",
+  "summary": "Unlock ERTC register write protection",
+  "description": "AT32 SDK ertc_write_protect_disable(): writes the key sequence 0xCA then 0x53 to ERTC.WP (0x40002824). Called at the beginning of every ERTC write routine (vcu_0159_0800c960, 0800c9d8, 0800ca4c, 0800cab4, 0800cb24, 0800cb84, 0800ccc8, 0800cce8, 0800cd08) and paired with ertc_write_protect_enable.",
+  "category": "rtc",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd48": {
+  "name": "ertc_write_protect_enable",
+  "summary": "Lock ERTC register write protection",
+  "description": "AT32 SDK ertc_write_protect_enable(): writes 0xFF to ERTC.WP (0x40002824), re-enabling write protection of the ERTC registers. Called at the end of the ERTC configuration routines (and on timeout paths).",
+  "category": "rtc",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd54": {
+  "name": "exint_default_para_init",
+  "summary": "Set an exint_init_type to the SDK defaults",
+  "description": "AT32 SDK exint_default_para_init(): writes line_mode (+0) = 1 (EXINT_LINE_EVENT), line_select (+4) = 0 (none), line_polarity (+8) = 1 (falling edge) and line_enable (+9) = FALSE. Called before exint_init by vcu_0159_080020a4, 080021c4, 080024ec and 080026f0 (the external-interrupt line setup routines).",
+  "category": "exint",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "exint_init_type* to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd64": {
+  "name": "exint_flag_clear",
+  "summary": "Clear external-interrupt pending flags (EXINT.INTSTS)",
+  "description": "AT32 SDK exint_flag_clear(): writes param_1 to EXINT.INTSTS (0x40010414); writing a 1 clears the pending bit of that line. Called from vcu_0159_08005874, 080058ac and 080058f0 (probably EXINT/RTC interrupt handlers) and in setup routines (080020a4, 080026f0).",
+  "category": "exint",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit mask of EXINT lines (EXINT_LINE_n)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd70": {
+  "name": "exint_flag_get",
+  "summary": "Test external-interrupt pending flag(s)",
+  "description": "AT32 SDK exint_flag_get(): returns whether EXINT.INTSTS & param_1 is non-zero. Called from vcu_0159_080058ac and 080058f0 (probably EXINT interrupt handlers).",
+  "category": "exint",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit mask of EXINT lines"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if any selected line is pending"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cd88": {
+  "name": "exint_init",
+  "summary": "Configure an external-interrupt/event line",
+  "description": "AT32 SDK exint_init(): reads the exint_init_type (line_mode +0, line_select +4, line_polarity +8, line_enable +9). Always clears the selected lines in EXINT.INTEN and EXINT.EVTEN; if line_enable is set it sets them in INTEN (mode 0 = interrupt) or EVTEN (mode != 0 = event), clears them in POLCFG1/POLCFG2 and then sets POLCFG1 for rising (0), POLCFG2 for falling (1), or both for any other value. Called from vcu_0159_080020a4, 080021c4, 080024ec and 080026f0.",
+  "category": "exint",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "exint_init_type*: {u8 mode; u32 line_select@4; u8 polarity@8; u8 enable@9}"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800cdf0": {
+  "name": "exint_interrupt_enable",
+  "summary": "Enable or disable the interrupt for EXINT lines",
+  "description": "AT32 SDK exint_interrupt_enable(): if param_2 == 1 sets the bits of param_1 in EXINT.INTEN, otherwise clears them. Called by vcu_0159_080026f0 and vcu_0159_0800688c.",
+  "category": "exint",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit mask of EXINT lines"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "1 = enable, anything else = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800ce78": {
+  "name": "flash_fap_status_get",
+  "summary": "Read the flash access-protection (read-out protection) status",
+  "description": "AT32 SDK flash_fap_status_get(): returns bit 1 of FLASH.USD (0x4002201c), the FAP flag: 1 when flash access protection is active. Called once by vcu_0159_08005b90 (purpose of the caller not examined).",
+  "category": "flash",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "1 if FAP set, else 0"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800ce88": {
+  "name": "flash_flag_clear",
+  "summary": "Clear flash status flags (FLASH.STS)",
+  "description": "AT32 SDK flash_flag_clear(): writes param_1 to FLASH.STS (0x4002200c); the ODF, PRGMERR and EPPERR flags are write-1-to-clear. Called by vcu_0159_08005b40 (probably a flash program/erase routine).",
+  "category": "flash",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "FLASH_xxx_FLAG mask (ODF/PRGMERR/EPPERR)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ }
+}

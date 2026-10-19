@@ -1,0 +1,379 @@
+{
+  "vcu_0159_08001178": {
+    "name": "app_main_thunk",
+    "summary": "Tail-call thunk that jumps to the application main entry FUN_0800d858",
+    "description": "Two-instruction veneer that just calls FUN_0800d858 and returns. It is called from the C-runtime init routine (vcu_0159_080016ec, the scatter-load / __main equivalent) as the last step, so FUN_0800d858 is the application main(). Reset_Handler also calls FUN_0800d858 directly as a fallback after the runtime init returns. The one indirect call listed by the harness is the branch into main. Part of the startup group together with Reset_Handler and the runtime init.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "none (main does not normally return)"},
+    "confidence": "medium",
+    "notes": "That 0x0800d858 is main() is inferred from the call order in Reset_Handler and the runtime init, not from a string or symbol."
+  },
+  "vcu_0159_08001188": {
+    "name": "Reset_Handler",
+    "summary": "Cortex-M reset vector: system init, C runtime init, then application main",
+    "description": "Reset entry (vector slot 1). Calls FUN_08008914 (clock / system initialisation, SystemInit-like), then FUN_080016ec (C-runtime init that copies/decompresses RAM sections and calls the main thunk), then FUN_0800d858 (application main) as a fallback if the runtime init ever returns. The initial stack pointer comes from vector slot 0 so the decompiler flags that SP may have been set. Startup group: Reset_Handler -> SystemInit-like -> scatter-load runtime -> app_main_thunk -> main.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "high",
+    "notes": "The roles of FUN_08008914 as SystemInit and FUN_080016ec as scatterload/__main are inferred from order and callers."
+  },
+  "vcu_0159_080011a2": {
+    "name": "Default_Handler",
+    "summary": "Default trap for unused interrupt vectors: spins forever",
+    "description": "Single instruction infinite loop (b .). The vector table points every unused exception and IRQ slot here; the harness labels it DMA2_Channel6_7_IRQHandler only because that is one of the slots referencing it. If an unexpected interrupt fires the MCU hangs until the watchdog (if enabled) resets it. Same role as the identical loop stubs in the older builds (the BusFault_Handler variants).",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_0800120e": {
+    "name": "__aeabi_memcpy",
+    "summary": "Forward memory copy: word-wise if both pointers 4-byte aligned, else bytewise",
+    "description": "Compiler runtime memcpy (ARM EABI __aeabi_memcpy). If (dst|src)&3 is zero it copies 32-bit words while at least 4 bytes remain, then copies the remaining 0..3 bytes (or all bytes when either pointer is unaligned) one byte at a time. No overlap handling (forward copy only) and no return value. Used widely by the application (11 direct callers in this packet's callee view) for buffer and struct copies.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination"},
+      {"name": "param_2", "type": "ptr", "description": "source"},
+      {"name": "param_3", "type": "u32", "description": "byte count"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001232": {
+    "name": "__aeabi_memset",
+    "summary": "Fill a byte buffer with a constant value (dest, count, value argument order)",
+    "description": "Runtime memset helper in the ARM EABI argument order (dest, n, c), a plain byte loop that stores param_3 to param_2 consecutive bytes. The two short veneers right after it (vcu_0159_08001240 and vcu_0159_08001244) are its callers and are most likely __aeabi_memclr / __aeabi_memclr4 style wrappers that supply a zero value. No return value.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_2", "type": "s32", "description": "number of bytes to write"},
+      {"name": "param_3", "type": "u8", "description": "fill value"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001256": {
+    "name": "__aeabi_fmul",
+    "summary": "Soft-float IEEE-754 single precision multiply (no FPU)",
+    "description": "Software float multiplication. Returns 0 if either operand has a zero magnitude. Otherwise adds the biased exponents (minus 0x7F), multiplies the 24-bit mantissas (implicit 1 | 23 bits) as a 64-bit product, normalises by one bit if needed, rounds to nearest-even and sets the sign to xor of the input signs. Underflow (negative exponent) flushes to +/-0 magnitude 0; overflow, infinities, NaN and denormals are not handled specially. The code is a Keil/ARM runtime routine used because the Cortex-M4 FPU is not enabled; called by the sensor/maths routines vcu_0159_08008cc0 and vcu_0159_08009240.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "float a (raw IEEE-754 bits)"},
+      {"name": "param_2", "type": "u32", "description": "float b (raw IEEE-754 bits)"}
+    ],
+    "returns": {"type": "u32", "description": "a*b as raw float bits"},
+    "confidence": "high",
+    "notes": "Sign of a zero result is dropped to +0 because the early-out returns 0."
+  },
+  "vcu_14a_080012ba": {
+    "name": "__aeabi_i2f",
+    "summary": "Soft-float convert signed 32-bit integer to single-precision float (VCU_14a build)",
+    "description": "Takes the absolute value of the input (branch-free abs using the sign mask), normalises it with a count-leading-zeros shift, builds the exponent as 0x9D - clz (the mantissa top bit adds the final +1), packs sign, exponent and 23-bit mantissa, and rounds to nearest-even using the discarded low bits (round bit 0x80 with sticky 0x7F). Returns 0 for input 0. Exists only in the VCU_14a build; later builds use vcu_0159_080012e4 (unsigned) with a separate signed front end. Part of the soft-float runtime group.",
+    "category": "libc",
+    "params": [{"name": "param_1", "type": "s32", "description": "signed integer"}],
+    "returns": {"type": "u32", "description": "float bits"},
+    "confidence": "high"
+  },
+  "vcu_0159_080012ba": {
+    "name": "__ARM_scalbnf",
+    "summary": "Soft-float scale: add an integer to the exponent of a float (ldexpf style)",
+    "description": "If the magnitude of param_1 is non-zero, checks that the biased exponent plus param_2 stays positive (-exp < n) and returns param_1 + (param_2 << 23), i.e. multiplies by 2^param_2 by adjusting the exponent field directly. Otherwise (result would underflow) returns 0; zero input is returned unchanged. No overflow or NaN/Inf checking. Called from vcu_0159_08009240 together with the other soft-float helpers. Different function from the VCU_14a function at the same address (which is int-to-float).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "float bits"},
+      {"name": "param_2", "type": "s32", "description": "power-of-two exponent adjustment"}
+    ],
+    "returns": {"type": "u32", "description": "param_1 * 2^param_2 as float bits"},
+    "confidence": "medium",
+    "notes": "Name is a best guess among ARM library helpers (scalbnf/ldexpf); behaviour is certain."
+  },
+  "vcu_0159_080012e4": {
+    "name": "__aeabi_ui2f",
+    "summary": "Soft-float convert unsigned 32-bit integer to single-precision float",
+    "description": "Normalises the input with a count-leading-zeros shift, exponent = 0x9D - clz (+1 from the mantissa implicit bit), mantissa = top 24 bits, rounds to nearest-even from the low bits (round bit 0x80, sticky 0x7F). Returns 0 for 0. The signed wrapper (vcu_0159_080012d2, __aeabi_i2f) falls into/calls this routine after taking abs and re-applying the sign. Called from the same maths routines as the other soft-float helpers (vcu_0159_08008cc0, vcu_0159_08009240).",
+    "category": "libc",
+    "params": [{"name": "param_1", "type": "u32", "description": "unsigned integer (decompiler shows int)"}],
+    "returns": {"type": "u32", "description": "float bits"},
+    "confidence": "high"
+  },
+  "vcu_0159_080012ee": {
+    "name": "__aeabi_f2iz",
+    "summary": "Soft-float convert single-precision float to signed int, truncating toward zero",
+    "description": "Extracts the biased exponent and builds the 24-bit mantissa with implicit leading one. Exponent below 0x7F (|x| < 1) gives 0. Exponent below 0x97 shifts the mantissa right by 0x96 - exp, otherwise shifts left by exp - 0x96 (no saturation on overflow). If the sign bit is set the result is negated. Present from build 152 onward; called by vcu_0159_08009240.",
+    "category": "libc",
+    "params": [{"name": "param_1", "type": "u32", "description": "float bits"}],
+    "returns": {"type": "s32", "description": "truncated integer value"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001320": {
+    "name": "__aeabi_f2uiz",
+    "summary": "Soft-float convert float magnitude to unsigned int, truncating",
+    "description": "Same mantissa extraction and shifting as __aeabi_f2iz (right shift by 0x96 - exp for exp < 0x97, left shift otherwise, 0 if exp < 0x7F) but the sign bit is ignored, so negative inputs convert as their absolute value rather than clamping to 0. Called by vcu_0159_08009240.",
+    "category": "libc",
+    "params": [{"name": "param_1", "type": "u32", "description": "float bits"}],
+    "returns": {"type": "u32", "description": "truncated magnitude"},
+    "confidence": "high",
+    "notes": "Standard __aeabi_f2uiz would return 0 for negatives; this variant ignores the sign (may be a build-specific implementation)."
+  },
+  "vcu_0159_08001386": {
+    "name": "__aeabi_f2d",
+    "summary": "Soft-float widen single-precision float to double-precision (r0:r1 pair)",
+    "description": "Zero magnitude returns 0:0. Otherwise builds the double: sign bit kept, exponent = float exponent + 0x380 (1023-127) placed in bits 30..20 of the high word, mantissa top 20 bits (mantissa >> 3) in the high word and the low 3 mantissa bits shifted to the top of the low word (value << 29). Denormals, Inf and NaN are not special-cased. Called by vcu_0159_08008cc0.",
+    "category": "libc",
+    "params": [{"name": "param_1", "type": "u32", "description": "float bits"}],
+    "returns": {"type": "u64", "description": "double bits, low word in r0, high word in r1"},
+    "confidence": "high"
+  },
+  "vcu_0159_080013ac": {
+    "name": "__aeabi_llsl",
+    "summary": "64-bit logical shift left (lo, hi, shift)",
+    "description": "Compiler runtime helper for 64-bit shifts left. If the shift count is >= 32 the result high word is lo << (n-32) and low word 0, otherwise high = (hi << n) | (lo >> (32-n)) and low = lo << n. Used by the 64-bit/double arithmetic helpers vcu_0159_080011ac, vcu_0159_08001450 and vcu_0159_0800164e. Group: __aeabi_llsl / __aeabi_llsr / __aeabi_lasr.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "low word"},
+      {"name": "param_2", "type": "u32", "description": "high word"},
+      {"name": "param_3", "type": "s32", "description": "shift count"}
+    ],
+    "returns": {"type": "u64", "description": "shifted 64-bit value"},
+    "confidence": "high"
+  },
+  "vcu_0159_080013ca": {
+    "name": "__aeabi_llsr",
+    "summary": "64-bit logical shift right (lo, hi, shift)",
+    "description": "Compiler runtime helper. Shift >= 32: low = hi >> (n-32), high = 0. Otherwise low = (lo >> n) | (hi << (32-n)), high = hi >> n. Called by the 64-bit/double helpers vcu_0159_080011ac, vcu_0159_08001348 and vcu_0159_0800164e. Group with __aeabi_llsl and __aeabi_lasr.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "low word"},
+      {"name": "param_2", "type": "u32", "description": "high word"},
+      {"name": "param_3", "type": "s32", "description": "shift count"}
+    ],
+    "returns": {"type": "u64", "description": "shifted 64-bit value"},
+    "confidence": "high"
+  },
+  "vcu_0159_080013ec": {
+    "name": "app_get_u16_2000329e",
+    "summary": "Getter returning the 16-bit RAM variable at 0x2000329e",
+    "description": "Returns DAT_2000329e unchanged. It sits in a block of five consecutive 16-bit getters (0x2000329c..0x200032a4: vcu_0159_080017c4, 080013ec, 08001410, 080017d0, 080017dc) that expose one 16-bit slot each, which looks like an array of sampled inputs (possibly ADC/DMA results or filtered sensor values) read by the main application loops vcu_0159_08003594, 08005938, 08007ecc and 080088f4, and one build-153 caller. What the value physically measures was not determinable from this function alone.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of DAT_2000329e"},
+    "confidence": "low",
+    "notes": "Name is positional because the semantic of the variable is unknown; rename when the writer of 0x2000329e is annotated."
+  },
+  "vcu_0159_080013fc": {
+    "name": "BusFault_Handler",
+    "summary": "Bus fault exception handler: infinite loop",
+    "description": "Single b . instruction. A bus fault (bad peripheral/memory access) halts the CPU here until the watchdog or a debugger intervenes. Present in builds 152, 153 and 159, where the fault handlers are separate stubs from the default handler.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_080013fe": {
+    "name": "DebugMon_Handler_v152_159",
+    "summary": "Debug monitor exception handler: empty, returns immediately",
+    "description": "Single bx lr. The debug monitor exception is not used by the application so the handler does nothing.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001410": {
+    "name": "app_get_u16_200032a0",
+    "summary": "Getter returning the 16-bit RAM variable at 0x200032a0",
+    "description": "Returns DAT_200032a0. Member of the five-entry 16-bit getter block starting at 0x2000329c (see app_get_u16_2000329e); called by vcu_0159_08003594, 08005938, 08007ecc and 080088f4, always alongside the 0x2000329e getter. Meaning of the value (probably a sampled/filtered analog input) is not established here.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of DAT_200032a0"},
+    "confidence": "low",
+    "notes": "Positional name; rename once the producer of 0x200032a0 is known."
+  },
+  "vcu_0159_0800141c": {
+    "name": "EXINT0_IRQHandler_v152_159",
+    "summary": "External interrupt line 0 handler: empty stub",
+    "description": "Single bx lr. The interrupt is not serviced by the 152/153/159 builds, so the handler only returns. Pending flag in EXINT is not cleared, so if the line were enabled it would re-trigger; it is evidently left masked.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "vcu_14a_0800141e": {
+    "name": "BusFault_Handler_v148_14a",
+    "summary": "Bus fault handler in builds 148/14a: infinite loop",
+    "description": "Single b . trap used as the BusFault vector in the VCU_148 and VCU_14a images. It is a different physical function (different family) from the BusFault_Handler of builds 152+, which moved because the code layout shifted; behaviour is identical. Halts the CPU on a bus fault.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_0800141e": {
+    "name": "EXINT9_5_IRQHandler_v152_159",
+    "summary": "External interrupt lines 5..9 handler: empty stub",
+    "description": "Single bx lr. The shared EXTI 9..5 vector is not used by this firmware (builds 152, 153, 159), so the handler returns without clearing any pending flag.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001436": {
+    "name": "app_level_complement_7",
+    "summary": "Return 7 minus the signed byte at offset 2 of a record",
+    "description": "Reads the signed char at param_1+2 and returns 7 - that value, i.e. mirrors a 0..7 level or index (for example converting an ascending step number into a descending one). Single caller vcu_0159_080047ac. The record layout and meaning of the field are not visible from this function.",
+    "category": "app",
+    "params": [{"name": "param_1", "type": "ptr", "description": "pointer to a record whose byte +2 holds a small level value"}],
+    "returns": {"type": "s8", "description": "7 - record[2]"},
+    "confidence": "low",
+    "notes": "Purpose guessed from arithmetic only."
+  },
+  "vcu_0159_0800159e": {
+    "name": "__aeabi_lasr",
+    "summary": "64-bit arithmetic shift right (lo, hi, shift)",
+    "description": "Compiler runtime helper. Shift < 32: high = (s32)hi >> n, low = (lo >> n) | (hi << (32-n)). Shift >= 32: low = (s32)hi >> (n-32) and high is the sign fill (all ones or zeros). Called by vcu_0159_08001450 (double/64-bit arithmetic). Group with __aeabi_llsl and __aeabi_llsr.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "low word"},
+      {"name": "param_2", "type": "s32", "description": "high word"},
+      {"name": "param_3", "type": "s32", "description": "shift count"}
+    ],
+    "returns": {"type": "s64", "description": "shifted value (low word r0, high r1)"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001710": {
+    "name": "__scatterload_decompress",
+    "summary": "Decompress a packed section (literals, zero runs, back-references) into RAM",
+    "description": "Decompressor used by the Keil/ARM scatter-loader for compressed RW sections (no direct callers; it is invoked through a pointer from the load-region table, hence the indirect call). Each token starts with a header byte: low 3 bits give the literal count + 1 (if zero the next byte is the count), high nibble gives a run length (if zero the next byte supplies it). Literals are copied, then if header bit 3 is set it copies run+2 bytes from dest minus the following offset byte (LZ77 back-reference), otherwise it writes run zero bytes. Loops until dest reaches dst+size. Always returns 0.",
+    "category": "startup",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "compressed input stream"},
+      {"name": "param_2", "type": "ptr", "description": "output buffer"},
+      {"name": "param_3", "type": "u32", "description": "number of output bytes to produce"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Exact armlink compression scheme name (RLE vs LZ77 variant) not confirmed; token semantics derived directly from the code."
+  },
+  "vcu_0159_080017c4": {
+    "name": "app_get_u16_2000329c",
+    "summary": "Getter returning the 16-bit RAM variable at 0x2000329c",
+    "description": "Returns DAT_2000329c. First element of the five consecutive 16-bit getters (0x2000329c..0x200032a4). Called by vcu_0159_08003594 and vcu_0159_08005938 only. Meaning not determinable from this function; likely a sampled analog input.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of DAT_2000329c"},
+    "confidence": "low",
+    "notes": "Positional name."
+  },
+  "vcu_0159_080017d0": {
+    "name": "app_get_u16_200032a2",
+    "summary": "Getter returning the 16-bit RAM variable at 0x200032a2",
+    "description": "Returns DAT_200032a2. Part of the 0x2000329c.. array of 16-bit values. Sole caller is vcu_0159_080042f8, which also calls the next getter (0x200032a4) and the TMR2 output disable routine.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of DAT_200032a2"},
+    "confidence": "low",
+    "notes": "Positional name."
+  },
+  "vcu_0159_080017dc": {
+    "name": "app_get_u16_200032a4",
+    "summary": "Getter returning the 16-bit RAM variable at 0x200032a4",
+    "description": "Returns DAT_200032a4. Last of the five 16-bit getter functions over 0x2000329c..0x200032a4. Sole caller is vcu_0159_080042f8.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of DAT_200032a4"},
+    "confidence": "low",
+    "notes": "Positional name."
+  },
+  "vcu_0159_080017e8": {
+    "name": "app_apply_mode_limits",
+    "summary": "Load 16-bit parameter pairs into the config block according to the mode in 0x20001fa7",
+    "description": "Switch on the byte DAT_20001fa7 (modes 0..6, other values use the default). Every mode writes DAT_20001b38 = 3, DAT_20001b3a = DAT_20001b3c = 0x0505 (5,5), a pair 0x140F (20,15) or 0x190F (25,15) into DAT_20001b3e and DAT_20001b42, and a second pair into DAT_20001b40 and DAT_20001b44: 0x1919 (25,25) for modes 0 and 5/default, 0x1414 (20,20) for mode 2, 0x2828 (40,40) for mode 3, 0x2020 (32,32) for modes 4 and 6, and for mode 1 either 0x2020 or 0x1919 depending on bit 4 of DAT_20001b32. It also adjusts flag bits in DAT_20001aee: bit 3 (0x0008) is set only in mode 3 and cleared otherwise, and bit 12 (0x1000) is cleared in all modes except 0, 3, 4 and 6. Appears to select per-ride-mode limit/threshold pairs (byte pairs, units unknown); called from vcu_0159_08009da8 and vcu_0159_0800b294.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Mapping of mode numbers to ride modes and the physical meaning of the byte pairs are unconfirmed."
+  },
+  "vcu_0159_08001b14": {
+    "name": "util_hex_char_to_nibble",
+    "summary": "Convert an ASCII hex digit to its value 0..15, 0 for invalid characters",
+    "description": "Accepts '0'-'9', 'A'-'F' and 'a'-'f'. Digits subtract 0x30, upper-case letters subtract 0x37, lower-case letters subtract 0x57, result masked to 8 bits. Any other character returns 0 (no error indication). Called from vcu_0159_08006d6c, which presumably parses hex text (e.g. an ASCII command or ID string).",
+    "category": "util",
+    "params": [{"name": "param_1", "type": "u32", "description": "ASCII character"}],
+    "returns": {"type": "u32", "description": "nibble value 0..15, 0 if not a hex digit"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001b46": {
+    "name": "util_interp_linear_clamp_hi",
+    "summary": "Linear interpolation between (x0,yB) and (x1,yA), clamped to yA above x1",
+    "description": "With x=param_1, x0=param_2, x1=param_3, yA=param_4, yB=param_5: if x > x1 returns yA; otherwise returns yB - (yB - yA)*(x - x0)/(x1 - x0) using signed integer arithmetic (division truncates toward zero). So the output goes from yB at x0 to yA at x1 along a straight line, with no clamp below x0 (extrapolates). No guard against x1 == x0, which would divide by zero when x == x1. Single caller vcu_0159_08009240, a numeric sensor/mapping routine that also uses the soft-float helpers.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "x input"},
+      {"name": "param_2", "type": "s32", "description": "x0 start of ramp"},
+      {"name": "param_3", "type": "s32", "description": "x1 end of ramp"},
+      {"name": "param_4", "type": "s32", "description": "yA output at and above x1"},
+      {"name": "param_5", "type": "s32", "description": "yB output at x0"}
+    ],
+    "returns": {"type": "s32", "description": "interpolated value"},
+    "confidence": "high"
+  },
+  "vcu_0159_08001b64": {
+    "name": "app_set_state",
+    "summary": "Set the application state byte and reset its sub-step counter when it changes",
+    "description": "If param_1 differs from the state byte DAT_2000101a, stores the new value (low 8 bits) and zeroes DAT_2000101c (the sub-state / step or timer counter belonging to that state). Setting the same state again is a no-op so the counter keeps running. Called from more than a dozen state handlers (vcu_0159_0800193c, 080029f4, 08002fc0, 08003254, 080032c4, 08003444, 080038a4, 08003c5c, 080046c0, 080047ac, 080051e8, 080054ec ...), so these form the main application state machine and this is its transition primitive.",
+    "category": "app",
+    "params": [{"name": "param_1", "type": "u32", "description": "new state number"}],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Whether DAT_2000101c is a step index or a tick counter is not established (written as 0 only)."
+  },
+  "vcu_0159_08001b78": {
+    "name": "tmr2_pwm_set_frequency",
+    "summary": "Start TMR2 channel 1 PWM at a given frequency (Hz) with 3/4 compare value",
+    "description": "Clears TMR2.CTRL1.TMREN (bit 0) to stop the counter, writes period PR (0x4000002C) = 1000000 / param_1 and channel-1 compare C1DT (0x40000034) = PR - PR/4 (75% of the period), resets the counter CVAL (0x40000024) to 0 and re-enables the timer. The period arithmetic assumes the timer counts at 1 MHz (prescaler set elsewhere), so param_1 is a frequency in Hz; param_1 = 0 would divide by zero. Looks like a buzzer / tone generator; sole caller is vcu_0159_08001ba8, and vcu_0159_08001bbc switches the output off. Output enable is separate (TMR2.CCTRL).",
+    "category": "timer",
+    "params": [{"name": "param_1", "type": "u32", "description": "output frequency in Hz (timer assumed 1 MHz)"}],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Buzzer use and the 1 MHz timer clock are inferred; duty polarity depends on the TMR2 channel mode set at init."
+  },
+  "vcu_0159_08001bbc": {
+    "name": "tmr2_pwm_output_disable",
+    "summary": "Clear TMR2 capture/compare enable bit 0 to turn the channel-1 output off",
+    "description": "Read-modify-write of the register at 0x40000020 (TMR2.CCTRL): clears bit 0 (C1EN), disabling the channel 1 compare output while leaving the counter running. Counterpart of tmr2_pwm_set_frequency (the enable bit is set elsewhere, presumably in the caller of that routine). Called from vcu_0159_08002d64, 080042f8, 08006b24 and 0800a39c.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Harness decoded the register as TMR2.CCTRL; buzzer/tone output is a guess from the paired frequency routine."
+  },
+  "vcu_148_0800252e": {
+    "name": "BusFault_Handler_v148",
+    "summary": "Bus fault handler in VCU_148: infinite loop",
+    "description": "Single b . trap at 0x0800252e of the VCU_148 image, referenced by the vector table as BusFault_Handler (in this build it is a separate loop stub from the one at 0x0800141e). Hangs the CPU on any bus fault. Behaviourally identical to the BusFault handlers of other builds.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_14f_080028be": {
+    "name": "BusFault_Handler_v14b_14f",
+    "summary": "Bus fault handler in builds 14b/14e/14f: infinite loop",
+    "description": "Single b . trap at 0x080028be used as BusFault vector in VCU_14b, VCU_14e and VCU_14f. Hangs the CPU on a bus fault; identical in behaviour to the other BusFault_Handler variants, only its address and therefore family differ.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_08002998": {
+    "name": "app_verify_uid_checksum",
+    "summary": "Check that a two-word record equals the complement of sum and product of three RAM words",
+    "description": "Computes s = DAT_20001c68 + DAT_20001c6c + DAT_20001c70 and p = DAT_20001c68 * DAT_20001c6c * DAT_20001c70 (32-bit wrap) and returns 1 only if param_1[0] == ~s and param_1[1] == ~p, else 0. The three RAM words are most likely the 96-bit device-ID copied from 0x1FFFF7E8 at startup, and the 8-byte record a stored licence/pairing value, so this is an anti-copy / per-device binding check. Single caller vcu_0159_080054ec (also a state-machine step calling app_set_state).",
+    "category": "app",
+    "params": [{"name": "param_1", "type": "ptr", "description": "pointer to two u32 words: ~sum and ~product"}],
+    "returns": {"type": "u32", "description": "1 if both words match, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "That 0x20001c68..70 hold the chip UID is inferred from the brief; not verified in this packet."
+  }
+}

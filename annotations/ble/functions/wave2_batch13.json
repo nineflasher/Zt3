@@ -1,0 +1,103 @@
+{
+  "ble_219_0c088858": {
+    "name": "norflash_pre_operation",
+    "summary": "Prepare the NOR flash for a command: wait idle, apply the command clock divider, leave continuous-read mode",
+    "description": "BES hal_norflash/norflash_drv style 'pre operation' hook run before erase and program sequences (callers 0c086e08 = erase and 0c086f38 = write; the trailing arguments the decompiler shows at the call sites are register leftovers, the real signature is (id)). Calls norflaship_wait_idle, then if the per-instance byte at 0x200038fc[id] (clock divider used for command/program/erase traffic) is non-zero writes it with norflaship_set_cfg14_byte2 (REG_014[23:16]). It then reads the active op-mode word 0x2000390c[id] (bit layout of the BES HAL_NORFLASH_OP_MODE enum: bit0..5 SPI/fast/dual-out/dual-IO/quad-out/quad-IO, bit12 continuous read, bit14 high performance, bit16..18 page/dual/quad program) and if bit 12 (0x1000, continuous read mode) is set calls 0c0882cc(id, 0), which clears control bit 25, loads the chip's 'continuous read disable' mode byte (chip config +6) and issues a 0xBB/0xEB I/O read so the flash leaves its XIP/continuous-read state before plain commands are sent. Always returns 0; the matching counterpart is norflash_post_operation (0c0888d8). 0c088898 is a byte-identical duplicate used by the status-register path.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id (0 or 1); indexes 0x200038fc and 0x2000390c"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The second argument of the norflaship_set_cfg14_byte2 call is dropped by the decompiler; from the load pattern it is the byte 0x200038fc[id]. Divider interpretation of REG_014[23:16] inferred from the three per-mode divider byte arrays (0x200038fc, 0x20003900, 0x20003904)."
+  },
+  "ble_219_0c088898": {
+    "name": "norflash_pre_operation_alt",
+    "summary": "Duplicate of norflash_pre_operation: wait idle, set command clock divider, exit continuous-read mode",
+    "description": "Byte-for-byte copy of norflash_pre_operation (0c088858), emitted separately (compiler clone) for the status-register write path: its only caller is 0c0873ec, which brackets the chip status-register callback (ble_slot_invoke_callback_evt4 -> op 4) with this function and norflash_post_operation_alt (0c088928) inside an IRQ-disabled section. Sequence: norflaship_wait_idle; if the divider byte 0x200038fc[id] is non-zero program it into REG_014[23:16] via norflaship_set_cfg14_byte2; if op-mode word 0x2000390c[id] has bit 12 (0x1000, HAL_NORFLASH_OP_MODE_CONTINUOUS_READ) set call 0c0882cc(id, 0) to take the flash out of continuous-read mode (clear REG_004 bit25, send the chip's crm-disable mode byte from config +6 with a 0xBB dual-I/O or 0xEB quad-I/O read). Returns 0.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id (0 or 1); indexes 0x200038fc and 0x2000390c"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Identical code to 0c088858; kept as a separate family because it is a distinct function in the image."
+  },
+  "ble_219_0c0888d8": {
+    "name": "norflash_post_operation",
+    "summary": "Finish a NOR flash command: re-enter continuous-read mode if enabled, end command mode, restore read clock divider",
+    "description": "BES norflash_drv 'post operation' hook run after erase (0c086e08) and program (0c086f38) sequences; the extra arguments at the call sites are register leftovers, the real signature is (id). Calls norflaship_wait_idle, then if the op-mode word 0x2000390c[id] has bit 12 (0x1000, continuous read mode) set it sets REG_004 bit 25 (norflaship_ctrl_set_bit25), writes the chip's 'continuous read enable' mode byte (byte +5 of the flash config record selected via 0x20003908[id] -> pointer table 0x2000306c) into REG_004[11:4] with norflaship_set_ctrl_field_4_11, and waits idle again, so the next memory-mapped read re-arms XIP mode. It then clears REG_004 bit 0 (norflaship_ctrl_clear_bit0, leaves the explicit command/data-phase mode) and calls 0c0882a0, which restores the read-path clock divider (0x20003904[id] when op-mode bit0 standard SPI is set, else 0x20003900[id]) into REG_014[23:16]. Always returns 0. Counterpart of norflash_pre_operation; 0c088928 and 0c088350 are identical clones.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id (0 or 1); indexes 0x20003908 and 0x2000390c"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The record table at 0x2000306c is what earlier waves called the 'slot record' (ble_slot_get_* accessors); from this group it is the per-chip NOR flash config entry (3 JEDEC id bytes at +0, crm enable/disable mode bytes at +5/+6, 16-bit fields at +8/+0x0a, supported-mode mask at +0x14, callback at +0x18)."
+  },
+  "ble_219_0c088928": {
+    "name": "norflash_post_operation_alt",
+    "summary": "Duplicate of norflash_post_operation: re-enter continuous read, clear command mode, restore read divider",
+    "description": "Byte-for-byte copy of norflash_post_operation (0c0888d8); only caller is 0c0873ec, which uses it together with norflash_pre_operation_alt around the status-register callback (op 4, block protection write). Steps: norflaship_wait_idle; if 0x2000390c[id] bit 12 (continuous read mode) is set, set REG_004 bit 25, put the chip config's crm-enable mode byte (+5 of the record found via 0x20003908[id] and the pointer table 0x2000306c) into REG_004[11:4], wait idle; then norflaship_ctrl_clear_bit0 (leave command mode) and 0c0882a0 (re-program the read clock divider byte 0x20003900/0x20003904[id] into REG_014[23:16]). Returns 0.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id (0 or 1); indexes 0x20003908 and 0x2000390c"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Identical code to 0c0888d8 and 0c088350."
+  },
+  "ble_219_0c088978": {
+    "name": "norflash_write_reg",
+    "summary": "Write-enable, send a register-write command with data bytes, then poll RDSR until WIP clears",
+    "description": "Low-level SPI NOR 'write register' helper (BES norflash_drv norflash_write_reg style). If param_2 == 0 it issues opcode 0x06 (WREN, non-volatile write enable) through norflaship_send_cmd_byte, otherwise opcode 0x50 (Volatile Status Register Write Enable) through norflaship_send_cmd_word with length 0. It then resets the TX FIFO (norflaship_clear_txfifo), programs the transfer length and pushes the param_5 bytes at param_4 into the TX FIFO (norflaship_set_len_and_fill_txfifo), and starts the transaction with opcode param_3 and length param_5 (norflaship_send_cmd_word). Finally it loops: clear both FIFOs, send 0x05 (Read Status Register-1) with 1 read byte via norflaship_send_cmd_ext, wait for one RX byte, read it, and repeat while bit 0 (WIP, write in progress) is set. No timeout. Only caller is norflash_status_reg_op (0c089190), which always passes opcode 1 (0x01 Write Status Register) and 1 or 2 data bytes.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id"},
+      {"name": "param_2", "type": "u32", "description": "0 = use 0x06 WREN (non-volatile write), non-zero = use 0x50 volatile SR write enable"},
+      {"name": "param_3", "type": "u32", "description": "register write opcode sent after the write-enable (0x01 WRSR from the only caller)"},
+      {"name": "param_4", "type": "ptr", "description": "data bytes to send after the opcode"},
+      {"name": "param_5", "type": "u32", "description": "number of data bytes (1 or 2)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c088bb8": {
+    "name": "norflash_sample_delay_calib",
+    "summary": "Scan the flash-IP sample-delay settings, pick the middle of the window that reads back correctly",
+    "description": "BES-style NOR flash sample delay calibration for instance param_1. Reads the clock divider REG_014[23:16] (norflaship_get_cfg14_byte2); 0 means the controller is not set up and -1 is returned. The number of candidates is 4 when the divider is 1 (delay table 0x20003114, 4 bytes) and 11 otherwise (table 0x20003118, 11 bytes). For each candidate i it stores i in 0x20003918[id], writes table[i] into REG_014[15:12] (norflaship_set_cfg14_nibble3) and tests the link according to param_2: mode 0 sends 0x9F (JEDEC Read ID), reads 3 bytes and compares them with the 3 id bytes at the start of the chip's config record (0x2000306c[0x20003908[id]]); mode 1 (only id 0/1, otherwise an endless assert loop) clears the RX FIFO and checks that the memory-mapped word at 0x28000000 (id 0) or 0x30000000 (id 1) equals the BES boot-struct magic 0xBE57EC1C; mode 2 (id 0 only) compares 12 words read from 0x1C0030E4 against a reference pattern starting 0xF0F0F0F0 (0x20003124..0x20003150). It records the first passing index and counts consecutive passes, stopping at the first failure after a pass. With no passing index it returns 1. Otherwise the chosen index is first + count/2, except when exactly 2 passed: with divider 1 it is 1 (or first+1 if first >= 2); with divider 2 the preferred index is 4 if the flag 0x20003914[id] is set else 3, with larger dividers 5, used if it lies in [first, first+1], else first+1. The chosen index is stored in 0x20003918[id] and its table value re-applied to REG_014[15:12]. Returns 0 on success.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id (0 or 1)"},
+      {"name": "param_2", "type": "u32", "description": "verification method: 0 = JEDEC id, 1 = boot magic 0xBE57EC1C at flash start, other = 48-byte pattern at 0x1C0030E4"}
+    ],
+    "returns": {"type": "s32", "description": "0 = calibrated, 1 = no sample delay worked, -1 = clock divider is 0"},
+    "confidence": "medium",
+    "notes": "Interpretation of REG_014[15:12] as sample delay and [23:16] as divider is inferred from usage. Meaning of the flag byte 0x20003914[id] (biases the choice at divider 2) and of the 0x1C0030E4 pattern region is not established."
+  },
+  "ble_219_0c089190": {
+    "name": "norflash_status_reg_op",
+    "summary": "Chip status-register operation: raw write, quad-enable bit, security-register lock bits or block-protect bits",
+    "description": "Status register manipulation handler for the NOR flash config layer; it has no direct caller and its (id, op, value) signature matches the callback at offset 0x18 of the chip config record invoked by ble_slot_invoke_callback_evt4 (op 4, from the block-protection path 0c0873ec) and by 0c08866c (op 1, when a quad mode is selected), so it is most likely that callback. It reads the supported-mode mask (ble_slot_get_field_0x14) and treats bits 0x30 (quad output / quad IO) as 'chip has a second status register'. op 0: write value as the raw status word (1 byte, or 2 bytes when quad) with the volatile write enable. Otherwise it reads SR1 with 0x05 (0c0883a0). op 3/4: block protection - mask = ble_slot_get_u16_at_0x08 (low byte for SR1, high byte for SR2), SR1 = (SR1 & ~m) | (value & m); if quad, SR2 is read with 0x35 and merged the same way with value >> 8; op 3 uses 0x06 WREN (non-volatile), op 4 uses 0x50 (volatile). op 1: set (value != 0) or clear bit 1 of SR2 (QE, quad enable, S9) and write both bytes volatile. op 2 (and any other): lock security registers - the 16-bit field ble_slot_get_u16_at_0x0a must have bit 0 set (else return 2); its bits 11:10 select the lock-bit layout 0 = S11..S13 (value < 8), 1 = S10 (value == 1), 2 = S10..S13 (value < 16), 3 = S12..S13 (value < 4), else return 4; an out-of-range value returns 3; the bits are merged into SR2 and written with the non-volatile 0x06 enable. All writes go through norflash_write_reg with opcode 0x01 (WRSR). Returns 0 on success.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash instance id"},
+      {"name": "param_2", "type": "u32", "description": "operation: 0 raw status write, 1 quad-enable, 2 security register lock, 3 block protect (non-volatile), 4 block protect (volatile)"},
+      {"name": "param_3", "type": "u32", "description": "value: status word, QE flag, lock-bit mask or block-protect bits (SR1 low byte, SR2 high byte)"}
+    ],
+    "returns": {"type": "u32", "description": "0 ok, 2 security registers unsupported, 3 bad lock mask, 4 unknown lock layout"},
+    "confidence": "medium",
+    "notes": "Being the +0x18 config callback is inferred from the signature and the op codes seen at the indirect call sites, not from a resolved pointer. Without quad support ops 1 and 2 degrade to rewriting SR1 unchanged."
+  },
+  "ble_219_0c089498": {
+    "name": "norflash_memcpy_thunk",
+    "summary": "Tail-call veneer to newlib memcpy used by the flash-id getter",
+    "description": "Five-instruction wrapper that forwards its three register arguments unchanged to memcpy (0c0709bc) and returns. The only caller is 0c087394 (hal_norflash_get_id style: copies min(len, 3) JEDEC id bytes from the per-instance flash state at 0x20003551 + id*0x24 into the caller's buffer). Probably a long-branch veneer or patch hook between the flash driver and libc; it adds no logic. The decompiler shows one parameter, but r1 (source) and r2 (length) pass through untouched.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination buffer (r0); r1 = source, r2 = byte count are forwarded unchanged"}
+    ],
+    "returns": {"type": "void", "description": "none used (memcpy's r0 result is ignored by the caller)"},
+    "confidence": "high"
+  }
+}

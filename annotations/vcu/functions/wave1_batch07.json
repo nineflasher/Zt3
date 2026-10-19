@@ -1,0 +1,383 @@
+{
+  "vcu_0159_0800edfc": {
+    "name": "tmr_flag_get",
+    "summary": "Test whether any of the given TMR status flags is set (SDK tmr_flag_get)",
+    "description": "Matches the Artery SDK tmr_flag_get: returns true when (tmr->ists & flag) != 0, where ists is the interrupt status register at offset 0x10 of the timer block. Does not clear anything. Only caller is vcu_0159_0800898c, presumably a timer update/overflow ISR checking TMR_OVF_FLAG or similar. Part of the vendor timer driver group (tmr_*) at 0x0800ede0..0800ef0a.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TMR peripheral base (tmr_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flag mask (TMR_*_FLAG bits)"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if any masked flag bit is set"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800ee0a": {
+    "name": "tmr_interrupt_enable",
+    "summary": "Set or clear TMR interrupt-enable bits (SDK tmr_interrupt_enable)",
+    "description": "Matches the Artery SDK tmr_interrupt_enable: with param_3 == 1 ORs param_2 into the IDEN register (offset 0xC); with param_3 == 0 clears those bits; any other value leaves the register unchanged. Called from vcu_0159_0800261c, the timer init code.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TMR peripheral base (tmr_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "interrupt mask (TMR_*_INT bits)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "1 = enable, 0 = disable (confirm_state)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800ee22": {
+    "name": "tmr_output_channel_config",
+    "summary": "Configure a TMR output-compare channel from a tmr_output_config_type (SDK)",
+    "description": "Matches the Artery SDK tmr_output_channel_config. param_2 is the channel select value (0,2,4,6 for CH1..CH4, i.e. 2*channel index). param_3 points to a 7-byte tmr_output_config_type: [0] oc_mode, [1] oc_idle_state, [2] occ_idle_state, [3] oc_polarity, [4] occ_polarity, [5] oc_output_state, [6] occ_output_state. It writes the idle-state bits into CTRL2 (bits 8+ch and 9+ch), writes the OC mode (3 bits) into CM1 (offset 0x18) or CM2 (0x1C) at bit 4 or 12, and then sets polarity and enable bits in CCTRL (offset 0x20) at bit positions 2*ch..2*ch+3. Called from the PWM timer init vcu_0159_08001bca (together with tmr_output_default_para_init and tmr_output_enable).",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TMR peripheral base (tmr_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "channel select, 0/2/4/6 for CH1..CH4"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "tmr_output_config_type, 7 byte fields"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "The decompile does not clear the CxC bit (SDK sets c1c = FALSE); register masks match the SDK otherwise."
+  },
+  "vcu_0159_0800eef8": {
+    "name": "tmr_output_default_para_init",
+    "summary": "Zero all seven fields of a tmr_output_config_type (SDK)",
+    "description": "Matches the Artery SDK tmr_output_default_para_init: clears the 7 byte-wide members (oc_mode, idle states, polarities, output enables) so the struct is in the default state before the caller fills in selected fields and passes it to tmr_output_channel_config. Called from vcu_0159_08001bca.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "tmr_output_config_type to clear (7 bytes)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800ef0a": {
+    "name": "tmr_output_enable",
+    "summary": "Set or clear the TMR main output enable (BRK.OEN) bit (SDK)",
+    "description": "Matches the Artery SDK tmr_output_enable: read-modify-write of the BRK register (offset 0x44) bit 15 (OEN) with (param_2 & 1). Needed on advanced timers (TMR1) for PWM outputs to appear on the pins. Called from the PWM setup vcu_0159_08001bca.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TMR peripheral base (tmr_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "1 = enable outputs, 0 = disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800ef70": {
+    "name": "crc32_ieee_calc",
+    "summary": "Bitwise CRC-32 (IEEE 802.3, poly 0xEDB88320) over a byte buffer",
+    "description": "Standard reflected CRC-32 as used by zlib/PNG/Ethernet: starts with 0xFFFFFFFF, XORs each byte into the low bits, then shifts right 8 times applying the polynomial 0xEDB88320 when the low bit is set, and returns the bit-inverted result. No lookup table and does not use the hardware CRC peripheral. Called from vcu_0159_080054ec, likely to verify a stored/received data block (e.g. flash configuration or update image); that purpose is inferred from the caller only.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "buffer to checksum"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "CRC-32 value (check value for '123456789' is 0xCBF43926)"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800efa4": {
+    "name": "usart_data_receive",
+    "summary": "Read the USART data register (SDK usart_data_receive)",
+    "description": "Matches the Artery SDK usart_data_receive: returns the low 16 bits of the DT register (offset 0x4); reading it also clears RDBF and error flags per the hardware sequence. Called from vcu_0159_08008c98, the USART RX interrupt handler (together with usart_flag_get).",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "received data (9-bit max, normally a byte)"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800efaa": {
+    "name": "usart_dma_receiver_enable",
+    "summary": "Enable or disable USART DMA receive request (CTRL3.DMAREN)",
+    "description": "Matches the Artery SDK usart_dma_receiver_enable: writes (param_2 & 1) to bit 6 of CTRL3 (offset 0x14). Called with usart_dma_transmitter_enable, usart_transmitter_enable and usart_receiver_enable from vcu_0159_08001ee8, the USART initialisation; the group is the SDK usart driver.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "1 = enable, 0 = disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800efb4": {
+    "name": "usart_dma_transmitter_enable",
+    "summary": "Enable or disable USART DMA transmit request (CTRL3.DMATEN)",
+    "description": "Matches the Artery SDK usart_dma_transmitter_enable: writes (param_2 & 1) to bit 7 of CTRL3 (offset 0x14). Called from the USART initialisation vcu_0159_08001ee8, alongside usart_dma_receiver_enable.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "1 = enable, 0 = disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800efc8": {
+    "name": "usart_flag_get",
+    "summary": "Test whether any given USART STS flag is set (SDK usart_flag_get)",
+    "description": "Matches the Artery SDK usart_flag_get: returns 1 if (USART->sts & flag) is non-zero, else 0; the STS register is at offset 0. Called from the USART RX interrupt handler vcu_0159_08008c98 to check flags such as RDBF/IDLEF/ROERR before reading data with usart_data_receive.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flag mask (USART_*_FLAG)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 if set, 0 otherwise (flag_status)"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f03c": {
+    "name": "usart_receiver_enable",
+    "summary": "Enable or disable the USART receiver (CTRL1.REN)",
+    "description": "Matches the Artery SDK usart_receiver_enable: writes (param_2 & 1) to bit 2 (REN) of CTRL1 (offset 0xC). Called from the USART init vcu_0159_08001ee8.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "1 = enable, 0 = disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f046": {
+    "name": "usart_transmitter_enable",
+    "summary": "Enable or disable the USART transmitter (CTRL1.TEN)",
+    "description": "Matches the Artery SDK usart_transmitter_enable: writes (param_2 & 1) to bit 3 (TEN) of CTRL1 (offset 0xC). Called from the USART init vcu_0159_08001ee8.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART peripheral base (usart_type*)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "1 = enable, 0 = disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f050": {
+    "name": "util_map_range_clamp_high",
+    "summary": "Linear interpolation of x from [in_min,in_max] to [out_min,out_max], clamped at the top",
+    "description": "Integer version of the Arduino map() function. If x (param_1) is greater than in_max (param_3) it returns out_max (param_5); otherwise returns (out_max - out_min) * (x - in_min) / (in_max - in_min) + out_min using signed 32-bit division. There is no lower clamp, so x < in_min extrapolates below out_min, and in_max == in_min with x <= in_max would divide by zero. Used from several callers (vcu_0159_08009240, 0800b0c4, 0800e60c), probably to scale sensor/throttle or speed values; the exact use is not determined here.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "x, the input value"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "in_min"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "in_max (upper clamp)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "out_min"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "out_max"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "scaled value"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f0b8": {
+    "name": "wdt_counter_reload",
+    "summary": "Feed the independent watchdog (write 0xAAAA to WDT.CMD)",
+    "description": "Matches the Artery SDK wdt_counter_reload: writes WDT_CMD_RELOAD (0xAAAA) to the WDT command register, reloading the down-counter from RLD. Called from vcu_0159_080028e0 (watchdog setup) and vcu_0159_0800d858 (likely the periodic main-loop/tick routine that kicks the dog).",
+    "category": "watchdog",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f0c8": {
+    "name": "wdt_divider_set",
+    "summary": "Set the WDT clock prescaler (WDT.DIV[2:0])",
+    "description": "Matches the Artery SDK wdt_divider_set: read-modify-write of the DIV register (0x40003004) replacing bits 2:0 with (param_1 & 7); values 0..6 correspond to dividers /4../256 of the LICK clock. Part of the watchdog setup in vcu_0159_080028e0, after wdt_register_write_enable(1).",
+    "category": "watchdog",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "divider selector, 0..7 (wdt_division_type)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f0e8": {
+    "name": "wdt_register_write_enable",
+    "summary": "Unlock or lock write access to WDT DIV/RLD (WDT.CMD key)",
+    "description": "Matches the Artery SDK wdt_register_write_enable: non-zero argument writes the unlock key 0x5555 to the WDT command register so DIV and RLD can be modified; zero writes 0x0000 to lock them again. Called from watchdog setup vcu_0159_080028e0 around wdt_divider_set and wdt_reload_value_set.",
+    "category": "watchdog",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "non-zero = unlock, 0 = lock"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800f100": {
+    "name": "wdt_reload_value_set",
+    "summary": "Set the WDT reload value (write WDT.RLD)",
+    "description": "Matches the Artery SDK wdt_reload_value_set: stores param_1 into the RLD register (0x40003008); only the low 12 bits are meaningful (0..0xFFF). Must be preceded by wdt_register_write_enable(1). Called from watchdog setup vcu_0159_080028e0.",
+    "category": "watchdog",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "reload value, 0..0xFFF"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  }
+}
