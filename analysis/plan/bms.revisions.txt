@@ -1,1 +1,2 @@
 bms: bms_4130_08006830 notes cite a helper 0x0800aeac that is not a function in any build - find the intended callee (wave2_batch03)
+bms: bms_extflash_wait_ready function summary says budget word at 0x2000067c but decompile uses 0x20000628 (data_flash_batch09 agent)
