@@ -44,17 +44,6 @@
     "description": "Two bytes at 0x2000065B and 0x2000065C, both set to 2 by mcu_0160_0800b324 (start-up) in the 12b, 143, 152 and 0160 builds. Their readers are not in this packet. Probably two mode selectors of one subsystem, set to the same default at boot.",
     "count": 2
   },
-  "mcu_g_143_2000065d": {
-    "name": "mcu_b10c_state_143",
-    "type": "u8",
-    "size": 1,
-    "anchor": [
-      "MCU_143",
-      "0x2000065d"
-    ],
-    "category": "motor",
-    "description": "Build 143 and 12b only. A status or mode byte read and written by mcu_0160_0800b10c (the torque and current reference update). The bit meanings are not visible in this packet (probably flags of the reference path). The 0160 build keeps its copy in another family."
-  },
   "mcu_g_143_20000668": {
     "name": "mcu_b10c_aux_143",
     "type": "u8",
@@ -176,17 +165,6 @@
     "category": "power",
     "description": "Countdown set to 20 (0x14) in mcu_0160_08008aac and decremented on each call while non-zero. When it reaches 0 it sets DAT_20001FCB to 1. Probably a delay of 20 calls before the next power step is acknowledged."
   },
-  "mcu_g_0160_200006d5": {
-    "name": "mcu_upgrade_xfer_byte",
-    "type": "u8",
-    "size": 1,
-    "anchor": [
-      "MCU_0160",
-      "0x200006d5"
-    ],
-    "category": "upgrade",
-    "description": "Byte inside the upgrade and transfer state area (0x200006B8 to 0x200006E8) that mcu_0160_0800672c reads. Its writer is not in this packet. Probably a transfer status or a chunk-state flag."
-  },
   "mcu_g_12b_200006e0": {
     "name": "mcu_12b_cfg_once_flag",
     "type": "u8",
@@ -276,40 +254,6 @@
     "category": "adc",
     "description": "Ring buffer of five 32-bit samples. mcu_0160_0800a320 stores one new sample per control tick at index DAT_20000000 (wrapping at 5) and computes the average stored in DAT_20000860. The sample source is a call in the same routine that is not documented here (probably an ADC-derived value).",
     "count": 5
-  },
-  "mcu_g_0160_20000760": {
-    "name": "mcu_fscale_in_f32",
-    "type": "f32",
-    "size": 8,
-    "anchor": [
-      "MCU_0160",
-      "0x20000760"
-    ],
-    "category": "util",
-    "description": "Two float32 inputs copied every tick by mcu_0160_0800729c from DAT_200003C8 and DAT_200003C4. They are checked for NaN and infinity with the exponent mask 0x7F800000 and then used by the fixed-point helpers mcu_fscale_mul_div_a and mcu_fscale_mul_div_b in mcu_0160_08004db8. Probably measured or computed scale values.",
-    "count": 2
-  },
-  "mcu_g_0160_20000768": {
-    "name": "mcu_aux_q15_ref",
-    "type": "s32",
-    "size": 4,
-    "anchor": [
-      "MCU_0160",
-      "0x20000768"
-    ],
-    "category": "util",
-    "description": "Signed 32-bit value written by mcu_0160_0800729c: the float at DAT_200003D0 converted to an integer after scaling by 2^15 (Q15). Probably a reference derived from a float gain. No reader in this packet."
-  },
-  "mcu_g_0160_20000770": {
-    "name": "mcu_drive_limit_a",
-    "type": "s32",
-    "size": 4,
-    "anchor": [
-      "MCU_0160",
-      "0x20000770"
-    ],
-    "category": "motor",
-    "description": "Signed 32-bit threshold read by mcu_0160_08003f2c (drive cycle update). The check against 0x308001 and the comparison with DAT_20000780 decide a limit window. The writer is not in this packet. Probably a Q15 bound on a voltage or speed quantity."
   },
   "mcu_g_0160_200007d4": {
     "name": "mcu_gain_band_a",
@@ -495,14 +439,14 @@
   "mcu_g_0160_20000a7c": {
     "name": "mcu_speed_period_state",
     "type": "u8",
-    "size": 28,
+    "size": 4,
     "anchor": [
       "MCU_0160",
       "0x20000a7c"
     ],
     "category": "hall",
-    "description": "28-byte block shared with mcu_speed_from_period_min (mcu_0160_0800209c). Its first byte is a valid flag: when it is 0 the adde path and the status word take a fallback value. The block size is inferred from the next family at 0x20000A98, so it is probable.",
-    "count": 28
+    "description": "First four bytes of the block passed to mcu_speed_from_period_min (mcu_0160_0800209c). The first byte is a valid flag: when it is 0 the adde path and the status word take a fallback value. The next object at 0x20000A80 (protection_fb_mon) starts right after these four bytes.",
+    "count": 4
   },
   "mcu_g_12b_20000a98": {
     "name": "mcu_12b_thresh_a98",

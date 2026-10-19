@@ -1,0 +1,308 @@
+{
+  "mcu_g_0160_200000f8": {
+    "name": "drive_ctx_ptr",
+    "type": "ptr",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000f8"],
+    "category": "motor",
+    "description": "Pointer (a RAM address, not a number) to the drive context block, a struct not typed here, probably the motor drive configuration and state. Readers in this packet go through it: mcu_get_cfg_field_0x28 returns the word at +0x28, mcu_cfg_gain_108_q15 and mcu_cfg_gain_10c_q15 use the words at +0x108 and +0x10C, mcu_limiter_set_range stores a limit at +0x25C, and mcu_gain_threshold_select_q15 reads the feedback words at +0x26C and +0x270. Set outside this packet."
+  },
+  "mcu_g_0160_2000034c": {
+    "name": "pos_tracker_second_s32",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000034c"],
+    "category": "motor",
+    "description": "Second-channel state word of the position tracker filter pair (probably signed, since it is shifted arithmetically). mcu_pos_tracker_filter_pair_step passes its address to FUN_0800721A together with the scaled primary sample, so the filter updates it in place. mcu_get_var_34c_ashr_scale returns it shifted right by the scale byte at offset +0x32 of the caller's struct. Present in builds 152 and 0160. Units not confirmed."
+  },
+  "mcu_g_0160_200003b8": {
+    "name": "cmd_tick_counter_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003b8"],
+    "category": "protocol",
+    "description": "Counter bumped by the main tick mcu_0160_08007df4 until it reaches 100, then held at 100 while that tick sets other flags (for example DAT_20001FCE). While it counts, DAT_20000338 is incremented each time the count is a multiple of 10, which suggests a slower tick (probably). mcu_cmd_state_clear sets it to 0. Probably a settle window after start or after a command, not confirmed."
+  },
+  "mcu_g_0160_200003ba": {
+    "name": "cmd_pending_age_s8",
+    "type": "s8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003ba"],
+    "category": "protocol",
+    "description": "Pending-request byte. The value -1 means nothing is pending. While it is not -1, the main tick mcu_0160_08007df4 adds one on each call, so it probably counts how long a deferred request has waited. mcu_take_pending_200003ba copies it to 0x200003BB and sets it to 0. Builds 143, 152 and 0160."
+  },
+  "mcu_g_0160_200003bb": {
+    "name": "cmd_pending_taken_s8",
+    "type": "s8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003bb"],
+    "category": "protocol",
+    "description": "Copy of the pending byte at 0x200003BA, taken by mcu_take_pending_200003ba (probably the request being acted on). mcu_telemetry_group_get writes it into the high byte of the 16-bit word at 0x20000312, that is byte 0x20000313 of the shared telemetry buffer at 0x20000310 (probably the telemetry group selector). Written only by mcu_take_pending_200003ba."
+  },
+  "mcu_g_0160_200003bc": {
+    "name": "cmd_owner_id_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003bc"],
+    "category": "protocol",
+    "description": "Owner id of a shared resource, 0 when free (probably the command or telemetry owner). mcu_owner_release_if_match clears it when it equals the caller's id. mcu_track_min_nonzero_u8 keeps the smallest non-zero id seen, so it works as a simple arbiter. mcu_0160_0800e238 copies it to the byte at 0x20001FF6 (probably a status mirror)."
+  },
+  "mcu_g_0160_200003cc": {
+    "name": "drive_gain_scale_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003cc"],
+    "category": "motor",
+    "description": "Scale word of the Q15 gain helpers. It is passed as an unsigned int to FUN_080018BC and multiplied into the results of mcu_scale_by_c0_gain_q15, mcu_electrical_rpm_scale_q15, mcu_cfg_gain_108_q15 and mcu_cfg_gain_10c_q15, which divide by about 5.3. Probably a gain index or count; set outside this packet and not confirmed."
+  },
+  "mcu_g_0160_20000630": {
+    "name": "callback_slot_table",
+    "type": "ptr",
+    "count": 2,
+    "size": 8,
+    "anchor": ["MCU_0160", "0x20000630"],
+    "category": "util",
+    "description": "Two-entry table of RAM function pointers: slot 0 at +0 and slot 1 at +4. mcu_callback_slot_dispatch calls the slot it is given through mcu_0160_080089A4. The entries are filled outside this packet (probably at init)."
+  },
+  "mcu_g_0160_20000650": {
+    "name": "drive_tick_value_s32",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000650"],
+    "category": "motor",
+    "description": "32-bit value stored from FUN_0800CA8C() by mcu_0160_0800adde (the per-tick drive update, probably) and returned by mcu_get_var_650. The flag at 0x200001BC is set when this value is greater than zero. Source and units not confirmed."
+  },
+  "mcu_g_0160_20000654": {
+    "name": "drive_param_654_u16",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000654"],
+    "category": "motor",
+    "description": "16-bit parameter that mcu_0160_0800adde sets to 0x0C8B on its path and to a truncated value on another. mcu_get_param_654_q15 returns it shifted left by 15, so the code uses it as a Q15 operand (probably a limit or reference where 0x8000 is 1.0). Not confirmed."
+  },
+  "mcu_g_0160_20000658": {
+    "name": "drive_flag_658_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000658"],
+    "category": "motor",
+    "description": "Flag byte, non-zero when set. mcu_cond_658_and_not_a9a returns 1 when it is non-zero and the flag at 0x20000A9A is zero. Set outside this packet; it probably enables a drive path, not confirmed."
+  },
+  "mcu_g_0160_2000066d": {
+    "name": "snapshot_dirty_flag_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000066d"],
+    "category": "motor",
+    "description": "Dirty flag for the 7-word record snapshot. Set to 1 by mcu_cmd_ramp_update and mcu_0160_0800b10c when the command changes (probably), and cleared by mcu_snapshot_copy_if_changed after it copies. While it is non-zero the copy runs even when the record's flag byte has not changed."
+  },
+  "mcu_g_0160_2000067c": {
+    "name": "drive_ramp_value_s32",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000067c"],
+    "category": "motor",
+    "description": "Slew-limited drive value that moves toward the target at 0x20000680 by a fixed step each tick. mcu_0160_0800adde uses steps of 0x16D5 and 0x1A18, and larger steps when the distance is larger. Read by mcu_get_var_67c. Signed. Units not confirmed. Present in builds 152 and 0160."
+  },
+  "mcu_g_12b_200006e2": {
+    "name": "sel_bit4_offset_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_12b", "0x200006e2"],
+    "category": "util",
+    "description": "Byte written by mcu_12b_bit4_offset_select from a test of bit 4 of an input (probably it selects one of two offsets). Present in build 12b only. Meaning not confirmed."
+  },
+  "mcu_g_0160_200006f0": {
+    "name": "xfer_ctrl_word0_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200006f0"],
+    "category": "can",
+    "description": "Control word of the transfer table. mcu_xfer_queue_init publishes the table only when this word and xfer_ctrl_word1 are both non-zero. The address of this word is the cfg field of xfer_queue_ctx (0x200027C4), which the sender mcu_0160_0800cdcc passes to FUN_0800D10A. Probably a ready flag or a length. Set outside this packet."
+  },
+  "mcu_g_0160_200006fc": {
+    "name": "xfer_ctrl_word1_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200006fc"],
+    "category": "can",
+    "description": "Second control word of the transfer table. mcu_xfer_queue_init checks it together with xfer_ctrl_word0 before it arms the five requests. Probably a length or a second ready flag. Set outside this packet; not confirmed."
+  },
+  "mcu_g_0160_2000073c": {
+    "name": "block200_free_head_ptr",
+    "type": "ptr:McuFreeNode",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000073c"],
+    "category": "util",
+    "description": "Head pointer of the free list of the 200-byte block pool (first fit). mcu_block200_alloc sets it to the pool node at 0x200027CC on first use and then updates it as blocks are handed out."
+  },
+  "mcu_g_0160_20000740": {
+    "name": "block200_pool_ready_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000740"],
+    "category": "util",
+    "description": "Pool initialised flag. mcu_block200_alloc checks it and sets it to 1 on first use (probably meaning the pool is ready). Zero until then."
+  },
+  "mcu_g_0160_20000f60": {
+    "name": "util_word_f60_u16",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000f60"],
+    "category": "util",
+    "description": "16-bit RAM value. Only its getter mcu_get_var_f60 reads it in this packet, so the writer and the meaning are outside this packet and not confirmed."
+  },
+  "mcu_g_0160_20001880": {
+    "name": "can_tx_ring_wr_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001880"],
+    "category": "can",
+    "description": "Write index of CAN TX ring 2 (32 records). mcu_msg_ring2_push stores a record at this index and advances it, and mcu_msg_ring2_count and mcu_msg_ring2_peek read it. It is masked to 5 bits, so it wraps at 32 (probably), and it is cleared by mcu_msg_rings_init."
+  },
+  "mcu_g_0160_20001884": {
+    "name": "can_tx_ring_rd_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001884"],
+    "category": "can",
+    "description": "Read index of CAN TX ring 2. mcu_msg_ring2_tx_step advances it after it sends the head record on a free CAN1 mailbox, and mcu_msg_ring2_peek and mcu_msg_ring2_count read it. Wraps at 32 (probably)."
+  },
+  "mcu_g_0160_20001888": {
+    "name": "can_tx_ring_entries",
+    "type": "McuMsgRecord",
+    "count": 32,
+    "size": 640,
+    "anchor": ["MCU_0160", "0x20001888"],
+    "category": "can",
+    "description": "Storage of CAN TX ring 2: 32 records of 20 bytes each, from 0x20001888 up to the start of message ring 1 at 0x20001B08. mcu_msg_ring2_push writes a record, mcu_msg_ring2_tx_step sends the head record, and mcu_msg_rings_init clears all of it."
+  },
+  "mcu_g_0160_20001b08": {
+    "name": "msg_ring1_wr_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001b08"],
+    "category": "util",
+    "description": "Write index of message ring 1 (32 records). mcu_msg_ring1_push stores a record at this index and advances it, dropping the record when the ring is full. mcu_msg_ring1_pop and mcu_msg_ring1_count read it, and mcu_msg_rings_init sets it to 0."
+  },
+  "mcu_g_0160_20001b0c": {
+    "name": "msg_ring1_rd_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001b0c"],
+    "category": "util",
+    "description": "Read index of message ring 1. mcu_msg_ring1_pop removes the head record and advances it. mcu_msg_ring1_push and mcu_msg_ring1_count read it, and mcu_msg_rings_init sets it to 0."
+  },
+  "mcu_g_0160_20001b10": {
+    "name": "msg_ring1_entries",
+    "type": "McuMsgRecord",
+    "count": 32,
+    "size": 640,
+    "anchor": ["MCU_0160", "0x20001b10"],
+    "category": "util",
+    "description": "Storage of message ring 1: 32 records of 20 bytes each, from 0x20001B10 up to the block table at 0x20001D90. mcu_msg_ring1_push writes a record, mcu_msg_ring1_pop reads one out, and mcu_msg_rings_init clears all of it."
+  },
+  "mcu_g_0160_20001d90": {
+    "name": "block_table_ram",
+    "type": "McuBlockTable",
+    "count": 1,
+    "size": 544,
+    "anchor": ["MCU_0160", "0x20001d90"],
+    "category": "flash",
+    "description": "544-byte block table copied into RAM by mcu_block_table_load_verified, which checks each window against its check byte and tries up to five times. The layout is in struct McuBlockTable. The 4-byte word at 0x20001DB0 and the word at 0x20001F90 are inside this table and are read by the loader and by mcu_0160_0800b324 and mcu_0160_08009f98."
+  },
+  "mcu_g_0160_20001fc9": {
+    "name": "settings_save_req_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20001fc9"],
+    "category": "flash",
+    "description": "Request flag, set to 1 by mcu_set_request_flags. mcu_0160_0800a0b0, the service routine (probably the main loop), calls mcu_0160_08009f98 with 0x0801F000 when it is set, which is probably a flash page operation on the last page, and then clears the flag."
+  },
+  "mcu_g_0160_20001fcb": {
+    "name": "deferred_work_req_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20001fcb"],
+    "category": "util",
+    "description": "Request flag, set to 1 by mcu_set_request_flags, mcu_0160_08007df4 and mcu_0160_08008aac. While it is set, mcu_0160_0800a0b0 runs thunk_FUN_0800A7F8 and FUN_0800A258. It does not clear the flag itself, so the callees probably do."
+  },
+  "mcu_g_0160_20002026": {
+    "name": "pulse_burst_result_u8",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20002026"],
+    "category": "hall",
+    "description": "Result byte of the pulse-burst decoder. mcu_pulse_burst_sample_pc3 samples GPIOC pin 3 into the decoder state at 0x20001FFC through FUN_08006B70 and stores the result here, and mcu_get_var_2026 returns it. Probably a decoded pulse or speed bit; not confirmed."
+  },
+  "mcu_g_0160_2000212c": {
+    "name": "xfer_req_table",
+    "type": "XferReq",
+    "count": 5,
+    "size": 180,
+    "anchor": ["MCU_0160", "0x2000212c"],
+    "category": "can",
+    "description": "Five transfer request records of 36 bytes each (0x24 apart). mcu_xfer_queue_init initialises each one with FUN_0800D0E8, giving it mode 1, one 300-byte buffer from xfer_buffers, length 300 and a flag 0. The sender mcu_0160_0800cdcc walks the five entries (see xfer_queue_ctx). Field layout not decoded."
+  },
+  "mcu_g_0160_200021e0": {
+    "name": "xfer_buffers",
+    "type": "u8",
+    "count": 1500,
+    "size": 1500,
+    "anchor": ["MCU_0160", "0x200021e0"],
+    "category": "can",
+    "description": "Five 300-byte transfer buffers, buffer i at offset 300*i (buffer 0 at 0x200021E0, buffer 1 at 0x2000230C). mcu_xfer_queue_init passes buffer i to FUN_0800D0E8 for request i. Their contents are written by the transfer code and are not decoded here."
+  },
+  "mcu_g_143_200027a4": {
+    "name": "block200_pool_hdr_143",
+    "type": "McuFreeNode",
+    "count": 1,
+    "size": 8,
+    "anchor": ["MCU_143", "0x200027a4"],
+    "category": "util",
+    "description": "Free-list node header of the 200-byte block pool in build 143, used by mcu_block200_alloc. Word 0 is the size of the free region and word 1 the next free node, or 0 (probably, as in build 0160)."
+  },
+  "mcu_g_0160_200027bc": {
+    "name": "xfer_queue_ctx",
+    "type": "XferQueueCtx",
+    "count": 1,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x200027bc"],
+    "category": "can",
+    "description": "Context of the transfer queue in build 0160: the request table pointer (0x2000212C), the entry count (5) and the configuration pointer (0x200006F0). mcu_xfer_queue_init sets all three, and the sender mcu_0160_0800cdcc reads them. The third word is the heading 0x200027C4 of data_util_batch27."
+  },
+  "mcu_g_152_200027bc": {
+    "name": "block200_pool_hdr_152",
+    "type": "McuFreeNode",
+    "count": 1,
+    "size": 8,
+    "anchor": ["MCU_152", "0x200027bc"],
+    "category": "util",
+    "description": "Free-list node header of the 200-byte block pool in build 152, used by mcu_block200_alloc. Word 0 is the size of the free region and word 1 the next free node, or 0 (probably, as in build 0160)."
+  }
+}

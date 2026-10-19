@@ -1,0 +1,20 @@
+{
+  "mcu_g_12b_200027c4": {
+    "name": "block200_pool_hdr_12b",
+    "type": "McuFreeNode",
+    "count": 1,
+    "size": 8,
+    "anchor": ["MCU_12b", "0x200027c4"],
+    "category": "util",
+    "description": "Free-list node header of the 200-byte block pool in build 12b, used by mcu_block200_alloc (the first-fit allocator). Word 0 is the size of the free region and word 1 the next free node, or 0 (probably, as in build 0160). The 0160 heading 0x200027C4 is a different object, the transfer queue cfg pointer in xfer_queue_ctx."
+  },
+  "mcu_g_0160_200027cc": {
+    "name": "block200_pool_hdr_0160",
+    "type": "McuFreeNode",
+    "count": 1,
+    "size": 8,
+    "anchor": ["MCU_0160", "0x200027cc"],
+    "category": "util",
+    "description": "First free-list node of the 4088-byte block pool, used by mcu_block200_alloc. Word 0 (0x200027CC) is the size of the free region, written as 0xFF8 at pool setup, and word 1 (0x200027D0) is the next free node, written as 0. The pool head pointer is at 0x2000073C."
+  }
+}

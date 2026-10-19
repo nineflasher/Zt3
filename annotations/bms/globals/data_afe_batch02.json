@@ -1,0 +1,13 @@
+{
+  "bms_g_4168_20000602": {
+    "name": "bms_window_edge_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000602"
+    ],
+    "category": "afe",
+    "description": "Edge-detector state of bms_sample_window_process, one byte. 0 means the byte at the record's +3 offset was last seen low, 1 means it was last seen high. When the state is 0 and that byte is 1, the function increments the 16-bit counter at 0x200024D0 and sets the state to 1; when the state is 1 and the byte is 0, it sets the state back to 0. Only this function reads or writes the byte in this image."
+  }
+}
