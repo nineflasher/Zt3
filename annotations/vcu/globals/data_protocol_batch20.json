@@ -1,0 +1,470 @@
+{
+  "vcu_g_0159_20000008": {
+    "name": "ninebot_tx_read_index",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20000008"
+    ],
+    "category": "protocol",
+    "description": "Read index (0..7) of the 8-slot ring of 256-byte transmit records whose base is 0x20000008 (ring control block). vcu_ninebot_tx_queue_push fills the slot at the write index (next byte, owned by the DMA packet) and vcu_dma_tx_queue_service takes the slot at this index when DMA channel 7 is free, then advances it modulo 8. Only the read index is described here; the other ring fields belong to the DMA packet."
+  },
+  "vcu_g_0159_20001397": {
+    "name": "startup_announce_div",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001397"
+    ],
+    "category": "protocol",
+    "description": "Tick divider of the one-time startup announce burst: vcu_startup_announce_burst counts it up and acts every fifth call, so it cycles 0..4. Not reset elsewhere in this packet."
+  },
+  "vcu_g_0159_20001398": {
+    "name": "startup_announce_round",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001398"
+    ],
+    "category": "protocol",
+    "description": "Number of announce rounds sent so far (0..4). vcu_startup_announce_burst sends two frames per round and sets startup_announce_done after round 4 (value greater than 3). Not reset elsewhere in this packet."
+  },
+  "vcu_g_0159_200013cc": {
+    "name": "link_timeout_ticks",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200013cc"
+    ],
+    "category": "protocol",
+    "description": "Link-activity timeout in ticks. vcu_link_activity_heartbeat_tick reloads it to 400 whenever an activity event (link_activity_event) is seen and otherwise counts it down; at 0 the link flag at 0x20001F48 (owned by the app packet) and display_sweep_active are cleared."
+  },
+  "vcu_g_0159_200013d0": {
+    "name": "link_0x7f0_countdown",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x200013d0"
+    ],
+    "category": "protocol",
+    "description": "Countdown for the periodic 0x7F0 status record while the link is up. At 0 vcu_link_activity_heartbeat_tick reloads it to 50 (one record every 51 ticks), loads can_telemetry_holdoff with 500, sets bit 0 of can_telemetry_flags and sends an 8-byte record with tag 0x7F0 (payload from can_payload_fn(0x7F0)). Held at 0 while the link is down."
+  },
+  "vcu_g_0159_20001838": {
+    "name": "proto_tp_block",
+    "type": "ProtoTpBlock",
+    "count": 1,
+    "size": 16,
+    "anchor": [
+      "VCU_0159",
+      "0x20001838"
+    ],
+    "category": "protocol",
+    "description": "16-byte callback block used by the transport-protocol session table (its address is stored in proto_session_block_ptr). proto_sessions_init publishes the table only when both callback words are nonzero. vcu_can_tp_sender_tick sends each TP frame through the transmit callback at +0x0C. Bytes +0x04..+0x0B are not used in this packet. The second callback word at 0x20001844 is inside this object."
+  },
+  "vcu_g_0159_2000184c": {
+    "name": "can_tx_payload",
+    "type": "CanTxPayload",
+    "count": 1,
+    "size": 8,
+    "anchor": [
+      "VCU_0159",
+      "0x2000184c"
+    ],
+    "category": "can",
+    "description": "Static 8-byte CAN payload buffer. can_get_tx_payload_for_id fills it for a CAN identifier (for example 0x203, 0x301, 0x480..0x485, 0x7F0) and returns its address; the periodic scheduler then queues the frame. Stale contents are kept for identifiers the function does not handle. The other addresses of the buffer (0x2000184D..0x20001853) are inside this object."
+  },
+  "vcu_g_0159_20001854": {
+    "name": "can_telemetry_seq",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001854"
+    ],
+    "category": "can",
+    "description": "Rolling byte incremented by vcu_can_periodic_telemetry_tick when the 50-tick burst window (can_telemetry_burst_count) ends. It is sent as byte 1 of word 1 of CAN 0x301, so it acts as a sequence number (probably). Cleared in one branch of vcu_app_state_machine_tick."
+  },
+  "vcu_g_0159_2000185c": {
+    "name": "can_telemetry_flags",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000185c"
+    ],
+    "category": "can",
+    "description": "Telemetry flags. Bit 0 arms the telemetry session: set by vcu_link_activity_heartbeat_tick on each 0x7F0 record, by the firmware-update frame handler and by an 0x7F1 frame whose byte 0x0B has bit 0 set; cleared by an 0x7F1 frame with that bit clear and when can_telemetry_holdoff runs out. Bits 1 and up are not used in this packet."
+  },
+  "vcu_g_0159_2000185e": {
+    "name": "can_telemetry_holdoff",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000185e"
+    ],
+    "category": "can",
+    "description": "Hold-off countdown in scheduler ticks, reloaded to 500 by an 0x7F1 frame, by the 0x7F0 send path and by the firmware-update frame handler. While it is nonzero vcu_can_periodic_telemetry_tick only counts it down; at 0 with bit 0 of can_telemetry_flags set it clears that bit and resets the telemetry tick counter."
+  },
+  "vcu_g_0159_20001864": {
+    "name": "can_payload_fn",
+    "type": "ptr",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20001864"
+    ],
+    "category": "can",
+    "description": "Function pointer that the telemetry code calls as fn(can_id) to get the payload buffer for that identifier, which is the address of can_tx_payload. Probably set to can_get_tx_payload_for_id during init (the assignment is not in this packet)."
+  },
+  "vcu_g_0159_20001868": {
+    "name": "rx_group_a_fresh",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001868"
+    ],
+    "category": "protocol",
+    "description": "Freshness countdown for receive group A (frames 0x211, 0x212, 0x341, 0x342, 0x344, 0x401). vcu_rx_frame_dispatch reloads it to 200 for each such frame and clears bit 1 of rx_stale_flags; vcu_can_periodic_telemetry_tick counts it down and sets bit 1 at 0."
+  },
+  "vcu_g_0159_2000186a": {
+    "name": "rx_group_b_fresh",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000186a"
+    ],
+    "category": "protocol",
+    "description": "Freshness countdown for receive group B (frames 0x310, 0x311, 0x420..0x425, 0x500..0x502). Reloaded to 200 by vcu_rx_frame_dispatch on each such frame (which also clears bit 2 of rx_stale_flags); at 0 the telemetry tick sets bit 2."
+  },
+  "vcu_g_0159_2000186e": {
+    "name": "rx_stale_flags",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000186e"
+    ],
+    "category": "protocol",
+    "description": "Receive timeout flags. Bit 1 is set when no group A frame arrived for 200 ticks (rx_group_a_fresh expired) and bit 2 when no group B frame arrived for 200 ticks (rx_group_b_fresh expired). The vcu_rx_frame_dispatch handler clears them again when a frame of the matching group arrives."
+  },
+  "vcu_g_0159_20001894": {
+    "name": "ninebot_keepalive_div",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001894"
+    ],
+    "category": "protocol",
+    "description": "Tick counter for the 0x51 keep-alive that goes to peer 4 while the link is up (link flag 0x20001F48 equal to 1). It counts up each call; when the previous value was above 100 vcu_link_keepalive_0x51_tick sends the frame and restarts, so the keep-alive goes out about every 102 ticks. Held at 0 while the link is down."
+  },
+  "vcu_g_0159_20001ae4": {
+    "name": "rx_212_word_0b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ae4"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x212 (payload bytes 0x0B..0x0C, little-endian), stored on every 0x212 frame by vcu_rx_frame_dispatch. Copied to the snapshot word 0x2000339C by vcu_speed_mode_snapshot_update and compared with 0x128 (296) by vcu_drive_command_update. Unit not confirmed (probably 0.1 V)."
+  },
+  "vcu_g_0159_20001ae6": {
+    "name": "rx_421_hex_code",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ae6"
+    ],
+    "category": "protocol",
+    "description": "16-bit value decoded from received frame 0x421. Payload bytes 0x0B..0x0E each carry one ASCII hex digit (0x0B the lowest nibble, 0x0E the highest), converted by util_hex_char_to_nibble. Also copied to rx_421_hex_code_shadow. The parameter-write path of the Ninebot dispatcher copies the shadow back into this word. Meaning not resolved (probably a parameter code)."
+  },
+  "vcu_g_0159_20001b4e": {
+    "name": "can_tx_481_src_b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b4e"
+    ],
+    "category": "can",
+    "description": "Source word for CAN 0x481: its low byte becomes byte 2 and its high byte byte 3 of payload word 1 in can_get_tx_payload_for_id. Not written in this packet, so the writer was not identified (probably vehicle or app code)."
+  },
+  "vcu_g_0159_20001b8a": {
+    "name": "rx_425_temp_tenths",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b8a"
+    ],
+    "category": "protocol",
+    "description": "Value from received frame 0x425: (payload byte 0x0D minus 50) times 10, so it is an offset-corrected quantity in tenths of a unit (probably a temperature in 0.1 degC). Written by vcu_rx_frame_dispatch and reset to 0x00FA by vcu_identity_config_reload at boot."
+  },
+  "vcu_g_0159_20001c9c": {
+    "name": "rx_344_word_0b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001c9c"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x344 (payload bytes 0x0B..0x0C). Stored on each 0x344 frame and copied to the snapshot word 0x200033A2 by vcu_speed_mode_snapshot_update. Meaning not resolved."
+  },
+  "vcu_g_0159_20001cb6": {
+    "name": "can_tx_481_src_word2",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cb6"
+    ],
+    "category": "can",
+    "description": "Source value for word 2 of CAN 0x481, read by can_get_tx_payload_for_id. Not written in this packet; the writer was not identified."
+  },
+  "vcu_g_0159_20001cfe": {
+    "name": "ninebot_cmd4_colon_value",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cfe"
+    ],
+    "category": "protocol",
+    "description": "16-bit value stored by Ninebot command 4 when its sub-command byte (frame byte 4) is 0x3A (':'): the word at frame bytes 5..6. Stored only; the reply code depends on the other slot (ninebot_cmd4_space_value)."
+  },
+  "vcu_g_0159_20001d00": {
+    "name": "ninebot_cmd4_space_value",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d00"
+    ],
+    "category": "protocol",
+    "description": "16-bit value stored by Ninebot command 4 when its sub-command byte (frame byte 4) is 0x20 (space): the word at frame bytes 5..6. vcu_ninebot_rx_cmd_handle picks the reply value (2 or 3) from it."
+  },
+  "vcu_g_0159_20001d02": {
+    "name": "ninebot_cmd51_payload",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d02"
+    ],
+    "category": "protocol",
+    "description": "Payload of the 0x51 Ninebot command queued by vcu_ninebot_tx_queue_push (kind 0x16, peer 4, length 3). The queue copies three bytes from here, so the byte at 0x20001D04 (owned by the app packet) is sent as well. Set to 1 by vcu_link_keepalive_0x51_tick and to the argument by vcu_ninebot_send_cmd51_u16."
+  },
+  "vcu_g_0159_20001d08": {
+    "name": "rx_420_value_copy",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d08"
+    ],
+    "category": "protocol",
+    "description": "Copy of rx_scaled_b5e (frame 0x420 value divided by 10). Read by vcu_display_frame_render_tick, which only uses values below 100 (probably a 0..100 level such as state of charge in percent), and packed into word 1 of CAN 0x203 by can_get_tx_payload_for_id."
+  },
+  "vcu_g_0159_20001d10": {
+    "name": "ninebot_reply_state",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d10"
+    ],
+    "category": "protocol",
+    "description": "Small state word (0, 1 or 2) written by the Ninebot command handler vcu_ninebot_rx_cmd_handle. Meaning not resolved (probably which step of a multi-frame request is pending)."
+  },
+  "vcu_g_0159_20001d60": {
+    "name": "rx_421_hex_code_shadow",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d60"
+    ],
+    "category": "protocol",
+    "description": "Shadow copy of rx_421_hex_code. vcu_rx_frame_dispatch writes it together with rx_421_hex_code, and the parameter-write path of vcu_ninebot_frame_dispatch copies it back into rx_421_hex_code."
+  },
+  "vcu_g_0159_20001d62": {
+    "name": "rx_420_word_11",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d62"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x420 (payload bytes 0x11..0x12). Stored only in this packet; meaning not resolved."
+  },
+  "vcu_g_0159_20001d6a": {
+    "name": "rx_421_word_0f",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d6a"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x421 (payload bytes 0x0F..0x10). Stored only in this packet; meaning not resolved."
+  },
+  "vcu_g_0159_20001df6": {
+    "name": "rx_422_word_0b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001df6"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x422 (payload bytes 0x0B..0x0C). Stored only in this packet; meaning not resolved."
+  },
+  "vcu_g_0159_20001e28": {
+    "name": "rx_423_word_0b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e28"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x423 (payload bytes 0x0B..0x0C). Also word 0 of CAN 0x20B in can_get_tx_payload_for_id."
+  },
+  "vcu_g_0159_20001e48": {
+    "name": "rx_423_word_0d",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e48"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x423 (payload bytes 0x0D..0x0E). Its low byte is the limit that vcu_threshold_alarm_latch compares with rx_420_value_div10, and the whole word is packed into word 1 of CAN 0x20B."
+  },
+  "vcu_g_0159_20001e50": {
+    "name": "rx_310_word_11",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e50"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x310 (payload bytes 0x11..0x12). Packed into bytes 2..3 of word 1 of CAN 0x20B by can_get_tx_payload_for_id."
+  },
+  "vcu_g_0159_20001e5c": {
+    "name": "rx_420_word_0b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e5c"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x420 (payload bytes 0x0B..0x0C). Copied to snapshot word 0x2000336E by vcu_speed_mode_snapshot_update."
+  },
+  "vcu_g_0159_20001e5e": {
+    "name": "rx_420_word_0d",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e5e"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x420 (payload bytes 0x0D..0x0E). Copied to snapshot word 0x20003370 by vcu_speed_mode_snapshot_update."
+  },
+  "vcu_g_0159_20001e62": {
+    "name": "rx_420_value_div10",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e62"
+    ],
+    "category": "protocol",
+    "description": "Value of received frame 0x420 (payload bytes 0x0F..0x10, signed) divided by 10, set through rx_scaled_b5e. Compared with 100 and with the low byte of rx_423_word_0d by vcu_threshold_alarm_latch, used by vcu_drive_command_update and vcu_wheel_odometer_limit_update, and packed into word 1 of CAN 0x203. Probably a state of charge in percent."
+  },
+  "vcu_g_0159_20001e6c": {
+    "name": "rx_423_word_0f",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e6c"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x423 (payload bytes 0x0F..0x10). Stored only in this packet; meaning not resolved."
+  },
+  "vcu_g_0159_20001e6e": {
+    "name": "rx_310_word_0d",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e6e"
+    ],
+    "category": "protocol",
+    "description": "16-bit value from received frame 0x310 (payload bytes 0x0D..0x0E). Copied to snapshot word 0x20003368 by vcu_speed_mode_snapshot_update."
+  },
+  "vcu_g_0159_20001e70": {
+    "name": "rx_500_bytes",
+    "type": "u16",
+    "count": 7,
+    "size": 14,
+    "anchor": [
+      "VCU_0159",
+      "0x20001e70"
+    ],
+    "category": "protocol",
+    "description": "Payload bytes 0x0B..0x11 of received frame 0x500, each zero-extended to 16 bits: element i is payload byte 0x0B+i. Stored only in this packet (meaning not resolved). The eighth byte (0x12) is at 0x20001E7E, documented as rx_500_byte_12 in the next packet."
+  }
+}

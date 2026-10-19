@@ -1,0 +1,71 @@
+{
+  "structs": {
+    "ProtoSession": {
+      "size": 36,
+      "description": "One transport-protocol session slot (36 bytes) of the J1939 TP table; the state byte drives vcu_can_tp_sender_tick. Offsets after +0x08 are inferred from the sender code (probably).",
+      "fields": [
+        {
+          "name": "state",
+          "offset": 2,
+          "type": "u8",
+          "description": "Session state: 1 bound and idle, 3 build and send RTS, 4 wait for CTS timeout (1250 ticks), 5 send data, 6 wait for CTS, 9 wait for end-of-message ACK (probably)."
+        },
+        {
+          "name": "buffer",
+          "offset": 4,
+          "type": "ptr",
+          "description": "Pointer to the 300-byte payload buffer bound by proto_session_bind_buffer."
+        },
+        {
+          "name": "capacity",
+          "offset": 8,
+          "type": "u16",
+          "description": "Buffer capacity in bytes (300 in this build)."
+        },
+        {
+          "name": "offset",
+          "offset": 10,
+          "type": "u16",
+          "description": "Bytes already sent or received; advances by 7 for each TP.DT frame (probably)."
+        },
+        {
+          "name": "total_size",
+          "offset": 12,
+          "type": "u16",
+          "description": "Total message size in bytes (probably); the sender ends with EOM when the offset reaches it."
+        },
+        {
+          "name": "window_end",
+          "offset": 18,
+          "type": "u16",
+          "description": "End of the current CTS window in bytes (probably); the sender waits for CTS when the offset reaches it."
+        },
+        {
+          "name": "fragment_size",
+          "offset": 20,
+          "type": "s16",
+          "description": "Fragment size set by proto_session_bind_buffer; it is used as a divisor, so it must be nonzero."
+        },
+        {
+          "name": "tick_count",
+          "offset": 26,
+          "type": "u16",
+          "description": "Ticks counted towards the inter-packet interval (probably)."
+        },
+        {
+          "name": "interval",
+          "offset": 28,
+          "type": "u16",
+          "description": "Inter-packet interval in ticks (probably); zero sends several packets in one call."
+        },
+        {
+          "name": "param5",
+          "offset": 32,
+          "type": "u32",
+          "description": "Extra argument (param_5) of proto_session_bind_buffer, stored as given; meaning not resolved."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

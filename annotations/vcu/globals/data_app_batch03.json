@@ -57,26 +57,25 @@
   },
   "vcu_g_0159_20001f40": {
     "name": "rx_clock_word",
-    "type": "u32",
-    "size": 4,
+    "type": "u16",
+    "size": 2,
     "anchor": [
       "VCU_0159",
       "0x20001f40"
     ],
     "category": "clock",
-    "description": "Clock/time word whose low 16 bits are written by vcu_rx_frame_dispatch from received payload bytes 11..12. vcu_timed_window_schedule_tick reads the hour from bits 12..16 and snapshots the word to 0x20001884. Probably a packed time of day sent by the host (not confirmed); the upper half is not written in this packet."
+    "description": "Low 16-bit half of a clock word. vcu_rx_frame_dispatch writes it from received payload bytes 11..12, and vcu_timed_window_schedule_tick reads the full 32-bit word and takes the hour from bits 12..16 (snapshot in 0x20001884). Probably a packed time of day sent by the host (not confirmed). The upper half at 0x20001f42 is not a separate family in this packet and is not described here."
   },
   "vcu_g_0159_20001f44": {
     "name": "param_block_head",
     "type": "u8",
-    "size": 4,
+    "size": 1,
     "anchor": [
       "VCU_0159",
       "0x20001f44"
     ],
     "category": "app",
-    "description": "First four bytes of a 50-byte (0x32) block that vcu_0159_08009da8 zeroes at boot (bytes 0x20001f44..0x20001f75). Its address is passed to several state helpers (vcu_special_mode_gate, vcu_cycle_mode_on_request, vcu_countdown_start_handshake, vcu_toggle_special_mode, vcu_runtime_defaults_init), which suggests a parameter or state block. The flags at 0x20001f48..0x20001f73 are separate globals.",
-    "count": 4
+    "description": "First byte of a 50-byte (0x32) block that vcu_0159_08009da8 zeroes at boot (bytes 0x20001f44..0x20001f75). Its address is passed to several state helpers (vcu_special_mode_gate, vcu_cycle_mode_on_request, vcu_countdown_start_handshake, vcu_toggle_special_mode, vcu_runtime_defaults_init), which suggests a parameter or state block. Only this first byte is described; the flags at 0x20001f48..0x20001f73 are separate globals."
   },
   "vcu_g_0159_20001f48": {
     "name": "link_active_flag",
@@ -422,7 +421,7 @@
   "vcu_g_0159_200021e8": {
     "name": "flag_list",
     "type": "u8",
-    "size": 1,
+    "size": 96,
     "anchor": [
       "VCU_0159",
       "0x200021e8"

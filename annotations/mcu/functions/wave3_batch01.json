@@ -120,7 +120,7 @@
   "mcu_0160_08003178": {
     "name": "mcu_position_to_rpm_q15",
     "summary": "Scale the outlier-rejected position sample by DAT_200003C0 and about 30/pi into a Q15 product",
-    "description": "Takes the position sample from mcu_position_outlier_reject and multiplies it by the integer DAT_200003C0 (converted to double) and by the constant 0x4023193A79A4DD62, which is about 30/pi. The product is scaled by 2^15 (__ARM_scalbn) and truncated to an integer with __aeabi_d2iz. The function returns the sample times that integer, shifted right by 15 as a 64-bit product with the low 32 bits kept. The 30/pi factor suggests a rad/s to rpm conversion, but neither the unit of the input nor the meaning of DAT_200003C0 is established here.",
+    "description": "Takes the position sample from mcu_position_outlier_reject and multiplies it by the integer DAT_200003C0 (converted to double) and by the constant <redacted 16-byte constant>, which is about 30/pi. The product is scaled by 2^15 (__ARM_scalbn) and truncated to an integer with __aeabi_d2iz. The function returns the sample times that integer, shifted right by 15 as a 64-bit product with the low 32 bits kept. The 30/pi factor suggests a rad/s to rpm conversion, but neither the unit of the input nor the meaning of DAT_200003C0 is established here.",
     "category": "motor",
     "params": [],
     "returns": {"type": "u32", "description": "Q15 product of the position sample and DAT_200003C0 times about 30/pi"},
@@ -237,7 +237,7 @@
   "mcu_0160_08004a60": {
     "name": "mcu_ctx108_gain_q15",
     "summary": "Return the drive context word at +0x108 scaled by DAT_200003CC times 5.305/3.6 in Q15",
-    "description": "Reads the word at +0x108 of the drive context (through DAT_200000F8) and multiplies it by S. S is DAT_200003CC widened to double, multiplied by about 5.305 and divided by 3.6 (0x400CCCCCC0000000), then scaled by 2^15 and truncated. The result is (word times S) shifted right by 15, as a 64-bit product with the low 32 bits kept. Its only caller in this packet is mcu_ratio_pi_tracker_update.",
+    "description": "Reads the word at +0x108 of the drive context (through DAT_200000F8) and multiplies it by S. S is DAT_200003CC widened to double, multiplied by about 5.305 and divided by 3.6 (<redacted 16-byte constant>), then scaled by 2^15 and truncated. The result is (word times S) shifted right by 15, as a 64-bit product with the low 32 bits kept. Its only caller in this packet is mcu_ratio_pi_tracker_update.",
     "category": "motor",
     "params": [],
     "returns": {"type": "u32", "description": "scaled Q15 value of context word +0x108"},

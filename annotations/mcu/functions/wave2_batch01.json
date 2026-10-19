@@ -2,7 +2,7 @@
  "mcu_0160_080011ac": {
   "name": "__udivdi3",
   "summary": "Unsigned 64-bit division: 64-step restoring divider returning the quotient",
-  "description": "Unsigned 64-bit a / b, with a = (param_1 low word, param_2 high word) and b = (param_3 low word, param_4 high word). Runs 64 iterations from bit 63 down to bit 0: for each bit i it tests (a >> i) >= b as a 64-bit unsigned compare (equivalent to a >= b << i), and when true subtracts b << i from the running remainder and sets bit i of the 64-bit quotient. The shifts go through __aeabi_llsr (mcu_0160_0800192a) and __aeabi_llsl (mcu_0160_0800190c). Division by zero yields 0xFFFFFFFFFFFFFFFF because every compare succeeds. The remainder is not returned.",
+  "description": "Unsigned 64-bit a / b, with a = (param_1 low word, param_2 high word) and b = (param_3 low word, param_4 high word). Runs 64 iterations from bit 63 down to bit 0: for each bit i it tests (a >> i) >= b as a 64-bit unsigned compare (equivalent to a >= b << i), and when true subtracts b << i from the running remainder and sets bit i of the 64-bit quotient. The shifts go through __aeabi_llsr (mcu_0160_0800192a) and __aeabi_llsl (mcu_0160_0800190c). Division by zero yields <redacted 16-byte constant> because every compare succeeds. The remainder is not returned.",
   "category": "libc",
   "params": [
    {"name": "param_1", "type": "u32", "description": "dividend, low word"},

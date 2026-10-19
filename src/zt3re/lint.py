@@ -47,8 +47,10 @@ def lint_component(comp: str) -> dict:
                 warns.append(f"{fid}: placeholder wording in {k}")
             if HEX_BLOB.search(t):
                 errors.append(f"{fid}: long hex byte run in {k} (never record key/secret bytes)")
-            if KEYISH.search(t) and not re.search(r"[a-z]+_[a-z_]+", KEYISH.search(t).group(0)):
-                warns.append(f"{fid}: key-like token in {k}: review before publishing")
+            m = KEYISH.search(t)
+            if m and not re.search(r"[a-z]+_[a-z_]+", m.group(0)) and re.search(r"[a-z]", m.group(0)) \
+                    and re.search(r"[A-Z]", m.group(0)) and re.search(r"\d", m.group(0)):
+                errors.append(f"{fid}: key-like token in {k} (never record key/secret values)")
     for oid, n in data.items():
         for k, t in _text_fields(n):
             if HEX_BLOB.search(t):

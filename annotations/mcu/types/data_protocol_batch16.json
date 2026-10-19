@@ -1,0 +1,59 @@
+{
+  "structs": {
+    "FwupBlock": {
+      "size": 8,
+      "description": "One 8-byte block of firmware transfer data as two 32-bit words, as the frame handler mcu_0160_0800672c stores it. Used for the previous and the current block of the transfer (protocol_fwup_prev_block at 0x200006D4 and protocol_fwup_cur_block at 0x200006DC).",
+      "fields": [
+        {
+          "name": "word0",
+          "offset": 0,
+          "type": "u32",
+          "description": "First four bytes of the block, in the frame's byte order. Holds the raw (still encrypted) data when the block is stored."
+        },
+        {
+          "name": "word1",
+          "offset": 4,
+          "type": "u32",
+          "description": "Last four bytes of the block, in the frame's byte order. Holds the raw (still encrypted) data when the block is stored."
+        }
+      ]
+    },
+    "TelemFrameTail": {
+      "size": 7,
+      "description": "Bytes 1 to 7 of the 8-byte telemetry payload at 0x20000310. Filled by mcu_telemetry_group_get for each request ID, then queued with mcu_msg_ring2_enqueue_frames. Byte 0 is not part of this struct.",
+      "fields": [
+        {
+          "name": "byte1",
+          "offset": 0,
+          "type": "u8",
+          "description": "Payload byte 1. Its source depends on the request ID: the sensor word in 0x211, the status byte in 0x341, and the group flag in 0x343, and so on."
+        },
+        {
+          "name": "halfword2",
+          "offset": 1,
+          "type": "u16",
+          "description": "Payload bytes 2 and 3. Filled as one 16-bit write in most request IDs; the low byte comes from the first source of that ID and the high byte from the second."
+        },
+        {
+          "name": "bytes45",
+          "offset": 3,
+          "type": "u8",
+          "count": 2,
+          "description": "Payload bytes 4 and 5. No direct write line in the packet; they are written through a 32-bit packing expression in mcu_telemetry_group_get, so their exact source is per request ID."
+        },
+        {
+          "name": "byte6",
+          "offset": 5,
+          "type": "u8",
+          "description": "Payload byte 6. In frames 0x210 and 0x212 it is copied from protocol_telem_count_1ff6; in 0x342 it is the high byte of a 16-bit value."
+        },
+        {
+          "name": "byte7",
+          "offset": 6,
+          "type": "u8",
+          "description": "Payload byte 7. In frames 0x210 and 0x212 it is copied from protocol_telem_temp_a; in 0x401 it is zero."
+        }
+      ]
+    }
+  }
+}

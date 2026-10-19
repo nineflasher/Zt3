@@ -1,0 +1,3 @@
+{
+ "bms_g_4139_20000594": {"name": "bms_pb11_exti_armed", "type": "u8", "size": 1, "anchor": ["BMS_4139", "0x20000594"], "category": "isr", "description": "Armed flag for the PB11 input interrupt on EXTI line 11 (4130 and 4139 builds). bms_exti11_irq_arm sets it to 1 after routing PB11 to EXTI line 11 and enabling NVIC IRQ 7 (EXTI4_15). bms_exti11_irq_disarm clears it, and only when it was nonzero does it mask EXTI line 11 and disable IRQ 7 in NVIC, which also stops the other EXTI4_15 lines. The value is 0 or 1."}
+}

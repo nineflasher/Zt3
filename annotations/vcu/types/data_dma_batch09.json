@@ -1,0 +1,30 @@
+{
+ "structs": {
+  "VcuDmaTxRecord": {
+   "size": 256,
+   "description": "One record of the DMA1 channel 7 transmit queue: a 32-bit length word (low 16 bits used by the DMA start) and a payload area. The payload area is 252 bytes, but the enqueue accepts at most 242 bytes.",
+   "fields": [
+    {
+     "name": "len",
+     "offset": 0,
+     "type": "u16",
+     "description": "Payload length in bytes; passed to the DMA count register by vcu_dma_tx_start."
+    },
+    {
+     "name": "len_hi",
+     "offset": 2,
+     "type": "u16",
+     "description": "Upper half of the 32-bit length word written by FUN_08008bb0; not used by the DMA start."
+    },
+    {
+     "name": "payload",
+     "offset": 4,
+     "type": "u8",
+     "count": 252,
+     "description": "Payload bytes (the frame) copied to the DMA memory address by vcu_dma_tx_start."
+    }
+   ]
+  }
+ },
+ "enums": {}
+}

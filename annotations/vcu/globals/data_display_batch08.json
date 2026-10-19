@@ -1,0 +1,337 @@
+{
+ "vcu_g_0159_20001538": {
+  "name": "display_gauge_interval",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001538"
+  ],
+  "category": "display",
+  "description": "Step interval of the VCU_0159 level gauge in gauge ticks, computed as FUN_0800f050(level, 0, 100, 10) from the requested level. vcu_level_gauge_update_v0159 steps the gauge when display_gauge_tick (0x20001504) reaches it."
+ },
+ "vcu_g_0159_2000153a": {
+  "name": "display_gauge_warn_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000153a"
+  ],
+  "category": "display",
+  "description": "300-tick timer of the VCU_0159 level gauge for the warning cycling (display_gauge_warn_idx, 0x20001503). Set to 0 while no warning is active; while warnings are shown it counts 300 ticks before display_gauge_warn_idx advances."
+ },
+ "vcu_g_0159_2000153c": {
+  "name": "display_state0c_ticks",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000153c"
+  ],
+  "category": "display",
+  "description": "Step counter of display state 0x0C (display init and refresh). Below 500 each tick sends the controller init/refresh command sequence and the counter goes up by 1; from 500 it goes up by 2 until it passes 699, then it wraps to 0."
+ },
+ "vcu_g_0159_20001548": {
+  "name": "display_digit_glyphs_159",
+  "type": "VcuDigitGlyphs",
+  "size": 30,
+  "anchor": [
+   "VCU_0159",
+   "0x20001548"
+  ],
+  "category": "display",
+  "description": "Digit glyph tables of the VCU_0159 build: seg_a at 0x20001548, seg_b at 0x20001552 and seg_c at 0x2000155c, ten entries each, indexed by the decimal digit 0..9. lcd_fb_show_digit_units and lcd_fb_show_number_2digit copy them into LED frame bytes 0x200021ca/0x200021cb/0x200021cc (units digit) and 0x200021c6/0x200021c7/0x200021c8 (tens digit). Not written in this packet, so probably constant data or set once at boot."
+ },
+ "vcu_g_0159_20001566": {
+  "name": "led_pattern_idx_std",
+  "type": "VcuLedPatternRow",
+  "size": 180,
+  "anchor": [
+   "VCU_0159",
+   "0x20001566"
+  ],
+  "category": "display",
+  "description": "Index table of the LED row animation, default set (used unless display_pattern_set is 1, 2 or 5). 18 rows of 10 bytes: row r gives count (byte 0) and then up to 9 LED frame byte indices (bytes 1..9) that are ORed with the matching masks from led_pattern_mask_std. Rows 0..8 are drawn rising and 9..17 falling by led_pattern_anim_step.",
+  "count": 18
+ },
+ "vcu_g_0159_2000161a": {
+  "name": "led_pattern_mask_std",
+  "type": "VcuLedPatternRow",
+  "size": 180,
+  "anchor": [
+   "VCU_0159",
+   "0x2000161a"
+  ],
+  "category": "display",
+  "description": "Bit-mask table of the LED row animation, default set, paired with led_pattern_idx_std: entry k of row r is the bit mask ORed (or cleared) into the LED frame byte named by entry k of the index table. Byte 0 of each row is unused. 18 rows of 10 bytes.",
+  "count": 18
+ },
+ "vcu_g_0159_200016ce": {
+  "name": "led_pattern_idx_alt",
+  "type": "VcuLedPatternRow",
+  "size": 180,
+  "anchor": [
+   "VCU_0159",
+   "0x200016ce"
+  ],
+  "category": "display",
+  "description": "Index table of the LED row animation, alternate set (used when display_pattern_set is 1, 2 or 5), same layout as led_pattern_idx_std: 18 rows of count plus 9 frame byte indices.",
+  "count": 18
+ },
+ "vcu_g_0159_20001782": {
+  "name": "led_pattern_mask_alt",
+  "type": "VcuLedPatternRow",
+  "size": 180,
+  "anchor": [
+   "VCU_0159",
+   "0x20001782"
+  ],
+  "category": "display",
+  "description": "Bit-mask table of the LED row animation, alternate set, paired with led_pattern_idx_alt (same layout as led_pattern_mask_std). 18 rows of 10 bytes.",
+  "count": 18
+ },
+ "vcu_g_0159_20001cf4": {
+  "name": "display_speed_value",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001cf4"
+  ],
+  "category": "vehicle",
+  "description": "16-bit copy of the status value DAT_20001fa4 (speed or drive value), taken each tick by vcu_speed_mode_snapshot_update. Its low byte is passed to the display digit writer FUN_0800c698 by display states 3 and 8."
+ },
+ "vcu_g_0159_20001d0a": {
+  "name": "display_input_b_hold",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001d0a"
+  ],
+  "category": "input",
+  "description": "1 while input B is in the long-hold state that starts the vehicle (vcu_input_b_hold_start_tick sets it when the hold reaches state 3, and clears it otherwise). It sets bit 3 of the display flag words (display_state3_flags, display_state8_flags, display_153_flags)."
+ },
+ "vcu_g_0159_20001d26": {
+  "name": "vehicle_submode_flag",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001d26"
+  ],
+  "category": "vehicle",
+  "description": "Copy of bit 0 of the status word DAT_20001aee (drive sub-mode), taken each tick by vcu_speed_mode_snapshot_update. The display flag words use it as bit 6."
+ },
+ "vcu_g_0159_20001d36": {
+  "name": "display_countdown_state",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001d36"
+  ],
+  "category": "display",
+  "description": "Start-countdown handshake state: 0 = idle (normal display), 1 = countdown started by vcu_countdown_start_handshake, 2 = countdown finished (set by display state 3 or 8 after 400 ticks, cleared by vcu_0159_080047ac and vcu_0159_080054ec). Non-zero selects the countdown branch of the renderer."
+ },
+ "vcu_g_0159_20001f45": {
+  "name": "display_countdown_request",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f45"
+  ],
+  "category": "display",
+  "description": "Request flag for the start countdown: set to 1 by vcu_0159_080054ec and consumed (cleared) by vcu_countdown_start_handshake, which then starts the countdown display and sends the 0x7A message to peer 7 when it finishes."
+ },
+ "vcu_g_0159_20001f65": {
+  "name": "display_alert_request",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f65"
+  ],
+  "category": "display",
+  "description": "One-shot alert request: set to 1 by vcu_0159_080054ec. The renderer runs a two-step alert pulse (display_pulse_count, driven by display_state3_phase30) while it is set and clears it at the end of the pulse."
+ },
+ "vcu_g_153_20001fb2": {
+  "name": "display_indicator_gate",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001fb2"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: gate flag of the indicator/blink sequence. The sequence (display_153_blink_ticks, 0x20001522) runs while it is 1; the state-2 periodic tick sets it when the indicator state DAT_20001fa8 is set (probably), and the renderer clears it when the sequence ends. The deep-sleep restore function clears it as well."
+ },
+ "vcu_g_0159_20001fbf": {
+  "name": "display_anim_done",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fbf"
+  ],
+  "category": "display",
+  "description": "Completion flag of the LED frame sequence: set to 1 by the row animation when a sequence has finished (probably), used by display state 4, which runs the row animation while it is 0 and returns early unless it is 1 and by vcu_double_pulse_indicator_step, and cleared when a new sequence starts."
+ },
+ "vcu_g_0159_20001fc4": {
+  "name": "display_blink_active",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fc4"
+  ],
+  "category": "display",
+  "description": "1 while the state-2 blink sequence is running (display_state2_blink_ticks and display_state2_flash_ticks count it). Set by vcu_state2_periodic_tick, cleared when the sequence ends and in vcu_deep_sleep_enter_and_restore."
+ },
+ "vcu_g_0159_20001fd1": {
+  "name": "input_pb14_stage",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fd1"
+  ],
+  "category": "input",
+  "description": "Stage of the PB14 timed edge-count sequence run by vcu_pb14_timed_edge_sequence: 0 = idle, 1 = started, 2 and up = counting edges in the 200 and 700 tick windows, 6 = finished or timed out. The renderer treats stages above 2 other than 6 as an active sequence."
+ },
+ "vcu_g_0159_2000202c": {
+  "name": "display_alarm_request",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000202c"
+  ],
+  "category": "display",
+  "description": "Request flag set to 1 by vcu_state2_periodic_tick under a condition on the flags 0x20001fb4 and 0x20001f69 (not in this packet), and read and cleared by vcu_0159_080047ac. Probably an alarm request for the state-2 display."
+ },
+ "vcu_g_0159_2000202e": {
+  "name": "display_last_digit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000202e"
+  ],
+  "category": "display",
+  "description": "Copy of the digit or value in 0x2000202d from the previous state-2 render tick. A change restarts the state-2 change animation (display_state2_change_ticks). Cleared by vcu_nibble_count_snapshot."
+ },
+ "vcu_g_0159_20002050": {
+  "name": "code_entry_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20002050"
+  ],
+  "category": "display",
+  "description": "Number of digits accepted so far in the 4-digit code entry: incremented by vcu_code_digit_entry_tick each time the cursor 0x2000202d reaches it. The state-2 renderer draws 2 or 3 LED bars for the values 2 and 3. Cleared by vcu_nibble_count_snapshot."
+ },
+ "vcu_g_0159_200021c6": {
+  "name": "led_frame_image",
+  "type": "VcuLedFrame",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x200021c6"
+  ],
+  "category": "lighting",
+  "description": "16-byte LED/LCD frame image sent to the TM1640-style driver by vcu_led_tm1640_frame_commit. Two digits use three bytes each (tens: c6..c8, units: ca..cc), and the other bytes hold icon bits, channel-mask bits and indicator bits. Cleared at the start of each state and rebuilt every tick by the renderer and the helpers (layout in the VcuLedFrame struct)."
+ },
+ "vcu_g_0159_200021d6": {
+  "name": "led_anim_row",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021d6"
+  ],
+  "category": "lighting",
+  "description": "Row index of the LED row animation, 0..17: rows 0..8 are drawn rising (row = index) and 9..17 falling (row = 0x11 - index) by vcu_led_pattern_anim_step. Incremented after each drawn row and reset at the end of a sequence."
+ },
+ "vcu_g_0159_200021d8": {
+  "name": "led_anim_ticks",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200021d8"
+  ],
+  "category": "lighting",
+  "description": "Tick counter of the LED row animation: incremented each renderer tick, and the animation only advances on ticks where it is a multiple of 3."
+ },
+ "vcu_g_0159_200021da": {
+  "name": "led_anim_phase",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021da"
+  ],
+  "category": "lighting",
+  "description": "Phase of the LED row animation: 0 = draw rows 0..8 (rising), 1 = draw rows 9..17 while clearing the earlier rows, 2 = clear the remaining rows, and then the sequence completes (display_anim_done is set)."
+ },
+ "vcu_g_0159_200021de": {
+  "name": "display_anim_step",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021de"
+  ],
+  "category": "display",
+  "description": "Step counter of vcu_display_anim_step, incremented per call and wrapped at 100. In sub-mode 10 the icons are off at steps 50..99 (blink), and in sub-mode 12 the upward sweep steps when the counter is a multiple of display_sweep_up_period (0x200014f2)."
+ },
+ "vcu_g_0159_200021e2": {
+  "name": "display_sweep_div",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021e2"
+  ],
+  "category": "display",
+  "description": "Tick counter of the downward segment sweep (vcu_display_sweep_down_step): incremented each call and reset when the sweep is off. The sweep steps when it is a multiple of display_sweep_period (0x200014f0)."
+ },
+ "vcu_g_0159_200021e6": {
+  "name": "warn_list_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021e6"
+  ],
+  "category": "diagnostics",
+  "description": "Number of valid entries in the active warning list at 0x20002248 (0..64). Rebuilt by vcu_warning_list_rebuild from the four 16-bit warning bitmap words 0x200022ce, 0x200022d0, 0x200022d2 and 0x200022d4 (copies of 0x20001cd8..0x20001cde), and also reset to 0 by the renderer in several display states."
+ },
+ "vcu_g_0159_20002248": {
+  "name": "warn_list",
+  "type": "u8",
+  "size": 64,
+  "anchor": [
+   "VCU_0159",
+   "0x20002248"
+  ],
+  "category": "diagnostics",
+  "description": "Active warning code list. Bit i of word k adds the entry 10+i (word 0), 26+i (word 1), 42+i (word 2) or 58+i (word 3), so a list entry is a code number in the 10..73 range. Count in warn_list_count (0x200021e6), read by the display states 1, 3, 8 and 0x0B and by the VCU_0159 level gauge. Sized to the 64 possible entries; the bytes 0x2000224a..0x20002256 are also families of other packets (not accessed directly here).",
+  "count": 64
+ },
+ "vcu_g_0159_200022dd": {
+  "name": "led_display_ctrl",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200022dd"
+  ],
+  "category": "lighting",
+  "description": "TM1640 display-control byte passed to vcu_led_tm1640_frame_commit. The 0x80 bit switches the display on and the low three bits set the brightness; the init path sends 0x87 (on, brightness 7). lighting_fade_step ramps it through 0x81..0x86 (probably dimming)."
+ }
+}

@@ -78,7 +78,7 @@
    "0x200020dc"
   ],
   "category": "crypto",
-  "description": "16-byte key used to decrypt each 8-byte update block, probably XTEA. vcu_crypto_key_load loads it from flash 0x08001440 or the built-in default. vcu_fw_update_frame_handler adds the block index to one byte of it every 1 KiB. The key bytes are secret and are deliberately not recorded here.",
+  "description": "16-byte key used to decrypt each 8-byte update block, probably XTEA. vcu_crypto_key_load loads it from flash 0x08001440 or the built-in default. vcu_fw_update_frame_handler adds the block index to one byte of it every 1 KiB. The key bytes are secret and are deliberately not recorded here. Words 1 to 3 are written only by vcu_crypto_key_load (from the built-in default or the flash key record); no routine reads them alone, because vcu_fw_update_frame_handler always uses the 16-byte key as a whole for the block decrypt.",
   "count": 16
  },
  "vcu_g_0159_200020ec": {

@@ -444,7 +444,7 @@
  "ble_219_0c0714d4": {
   "name": "rand",
   "summary": "Newlib rand: advance the 64-bit LCG state and return bits 32 to 62",
-  "description": "Newlib rand() on the global reent. The 64-bit state at reent+0x38 block+0x10 is advanced as state = state * 0x5851F42D4C957F2D + 1, the Knuth MMIX multiplier, computed as 32-bit partial products with the carry from the low word folded into the high word. The result is the high word of the new state masked to 31 bits. If the state block does not exist yet it is created as in srand, with state 1.",
+  "description": "Newlib rand() on the global reent. The 64-bit state at reent+0x38 block+0x10 is advanced as state = state * <redacted 16-byte constant> + 1, the Knuth MMIX multiplier, computed as 32-bit partial products with the carry from the low word folded into the high word. The result is the high word of the new state masked to 31 bits. If the state block does not exist yet it is created as in srand, with state 1.",
   "category": "libc",
   "params": [],
   "returns": {

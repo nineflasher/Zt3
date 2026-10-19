@@ -1,0 +1,47 @@
+{
+  "structs": {
+    "CanTxPayload": {
+      "size": 8,
+      "description": "8-byte CAN payload buffer built by can_get_tx_payload_for_id: three little-endian words (u16, u32, u16). The bytes are CAN data bytes 0..7 in order.",
+      "fields": [
+        {
+          "name": "word0",
+          "offset": 0,
+          "type": "u16",
+          "description": "Data bytes 0..1 of the frame (little-endian), from the first source value of the identifier."
+        },
+        {
+          "name": "word1",
+          "offset": 2,
+          "type": "u32",
+          "description": "Data bytes 2..5 of the frame (little-endian), usually two or three packed source values."
+        },
+        {
+          "name": "word2",
+          "offset": 6,
+          "type": "u16",
+          "description": "Data bytes 6..7 of the frame (little-endian), from the last source value; zero for identifiers that send no third word."
+        }
+      ]
+    },
+    "ProtoTpBlock": {
+      "size": 16,
+      "description": "Callback block of the J1939 transport-protocol session table. Only the callback words at +0x00 and +0x0C are used in this packet.",
+      "fields": [
+        {
+          "name": "accept_callback",
+          "offset": 0,
+          "type": "ptr",
+          "description": "Accept callback word (probably the receive-side hook). Must be nonzero for proto_sessions_init to publish the session table."
+        },
+        {
+          "name": "tx_callback",
+          "offset": 12,
+          "type": "ptr",
+          "description": "Transmit callback used by vcu_can_tp_sender_tick to send each TP frame (RTS, DT, EOM)."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

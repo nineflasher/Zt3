@@ -330,8 +330,8 @@
   },
   "mcu_0160_08006ae0": {
     "name": "mcu_state_reset_load_key16",
-    "summary": "Reset 17 state fields and write the 16-byte ASCII constant AQ5GoxXTs8j3BG2Q to 0x20002054",
-    "description": "Zeroes 17 RAM fields: nine byte flags and counters at 0x200006B8..0x200006C0, and eight words at 0x200006C4..0x200006E0. It then writes four 32-bit constants to 0x20002054, 0x20002058, 0x2000205C and 0x20002060, which in memory order spell the 16-byte ASCII string AQ5GoxXTs8j3BG2Q. The string looks like a fixed key, password or seed, but this function does not show its use. Called from mcu_0160_0800665c and mcu_0160_0800672c. Present only in the 0160 build.",
+    "summary": "Reset 17 state fields and write the 16-byte ASCII constant <redacted 16-byte constant> to 0x20002054",
+    "description": "Zeroes 17 RAM fields: nine byte flags and counters at 0x200006B8..0x200006C0, and eight words at 0x200006C4..0x200006E0. It then writes four 32-bit constants to 0x20002054, 0x20002058, 0x2000205C and 0x20002060, which in memory order spell the 16-byte ASCII string <redacted 16-byte constant>. The string looks like a fixed key, password or seed, but this function does not show its use. Called from mcu_0160_0800665c and mcu_0160_0800672c. Present only in the 0160 build.",
     "category": "protocol",
     "params": [],
     "returns": {
