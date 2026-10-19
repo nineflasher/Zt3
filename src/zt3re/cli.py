@@ -110,10 +110,36 @@ def cmd_plan(args) -> int:
     from . import plan
 
     for comp in args.component or sorted(config.COMPONENTS):
-        paths = plan.make_waves(comp, wave=args.wave, force=args.force)
+        paths = plan.make_waves(comp, wave=args.wave, force=args.force, replan=args.replan)
         print(f"{comp}: {len(paths)} work packets")
         for p in paths:
             print("  ", p.relative_to(config.REPO_ROOT))
+    return 0
+
+
+def cmd_lint(args) -> int:
+    from . import lint
+
+    bad = 0
+    for comp in args.component or sorted(config.COMPONENTS):
+        r = lint.lint_component(comp)
+        print(json.dumps({k: v for k, v in r.items() if k not in ("errors", "warnings")}))
+        for e in r["errors"]:
+            print("ERROR", e)
+        shown = r["warnings"] if args.warnings else r["warnings"][:5]
+        for w in shown:
+            print("warn ", w)
+        if not args.warnings and len(r["warnings"]) > 5:
+            print(f"warn  ... {len(r['warnings']) - 5} more (use --warnings)")
+        bad += bool(r["errors"])
+    return 1 if bad else 0
+
+
+def cmd_issue(args) -> int:
+    from . import plan
+
+    plan.mark_issued(args.component, args.packet)
+    print(f"{args.component}: {len(plan.issued(args.component))} packets issued")
     return 0
 
 
@@ -243,8 +269,20 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("plan", help="write annotation work packets (markdown) for subagents")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
     s.add_argument("-w", "--wave", type=int)
-    s.add_argument("--force", action="store_true")
+    s.add_argument("--force", action="store_true", help="also re-emit functions that are already annotated")
+    s.add_argument("--replan", action="store_true",
+                   help="ignore existing packets (DANGEROUS while agents work on them)")
     s.set_defaults(fn=cmd_plan)
+
+    s = sub.add_parser("lint", help="style/hygiene lint of annotation text (errors fail)")
+    s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))
+    s.add_argument("--warnings", action="store_true", help="show every warning")
+    s.set_defaults(fn=cmd_lint)
+
+    s = sub.add_parser("issue", help="mark work packets as handed to an agent (protects them from re-planning)")
+    s.add_argument("component", choices=sorted(config.COMPONENTS))
+    s.add_argument("packet", nargs="+", help="e.g. wave2_batch03")
+    s.set_defaults(fn=cmd_issue)
 
     s = sub.add_parser("check", help="coverage gate: everything described?")
     s.add_argument("-c", "--component", action="append", choices=sorted(config.COMPONENTS))

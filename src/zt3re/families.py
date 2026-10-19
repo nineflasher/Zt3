@@ -188,7 +188,28 @@ def _infer_by_delta(fams: dict, names: list[str], order: dict[str, int]) -> int:
     return merged
 
 
+def _remap_stable(new: dict, prev_section: dict | None) -> dict:
+    """Keep previously issued family ids: a family inherits the id its members had in the last build."""
+    if not prev_section:
+        return new
+    node_prev = {(n, a): fid for fid, f in prev_section.items() for n, a in f["members"].items()}
+    out: dict = {}
+    used: set[str] = set()
+    for fid, f in sorted(new.items(), key=lambda kv: -len(kv[1]["members"])):
+        votes = Counter(node_prev[(n, a)] for n, a in f["members"].items() if (n, a) in node_prev)
+        chosen = next((c for c, _ in votes.most_common() if c not in used), None)
+        if chosen is None:
+            chosen = fid
+            while chosen in used or chosen in prev_section:
+                chosen += "x"
+        used.add(chosen)
+        out[chosen] = f
+    return out
+
+
 def build(comp: str) -> dict:
+    prev_path = config.ANALYSIS_DIR / "families" / f"{comp}.json"
+    prev = json.loads(prev_path.read_text()) if prev_path.exists() else {}
     exp_dir = config.ANALYSIS_DIR / "export" / comp
     imgs = sorted(exp_dir.glob("*.json"), key=lambda p: int(p.stem.split("_")[1], 16))
     exports = {p.stem: _load(p) for p in imgs}
@@ -268,6 +289,7 @@ def build(comp: str) -> dict:
         fid = f"{comp}_{ver}_{anchor:08x}"
         families[fid] = {"anchor": [anchor_img, anchor], "members": mem}
 
+    families = _remap_stable(families, prev.get("functions"))
     node_to_fam = {(n, a): fid for fid, f in families.items() for n, a in f["members"].items()}
 
     # --- globals / tables aligned through matched functions -------------------------------------
@@ -329,6 +351,8 @@ def build(comp: str) -> dict:
 
     for out in (out_globals, out_tables):
         _infer_by_delta(out, names, order)
+    out_globals = _remap_stable(out_globals, prev.get("globals"))
+    out_tables = _remap_stable(out_tables, prev.get("tables"))
 
     newest = names[-1]
     cov = {n: round(100.0 * sum(1 for a in funcs[n] if len(families[node_to_fam[(n, a)]]["members"]) > 1) / len(funcs[n]), 1)

@@ -178,3 +178,17 @@ def validate_all(comp: str) -> list[str]:
             names[nm] = k
     errs += validate_types(types)
     return errs
+
+
+FID_RE = re.compile(r"\b(?:ble|vcu|mcu|bms)_(?:[gt]_)?[0-9a-f]{3,5}_[0-9a-f]{8}\b")
+
+
+def expand_refs(text: str, names: dict[str, str]) -> str:
+    """Replace raw family ids mentioned in prose by the documented names (`fid` -> `name`)."""
+    return FID_RE.sub(lambda m: names.get(m.group(0), m.group(0)), text or "")
+
+
+def name_map(comp: str) -> dict[str, str]:
+    out = {fid: n["name"] for fid, n in load_functions(comp).items()}
+    out.update({oid: n["name"] for oid, n in {**load_globals(comp), **load_tables(comp)}.items()})
+    return out

@@ -78,15 +78,16 @@ def build_types(prog, types: dict) -> dict:
     return made
 
 
-def _plate(n: dict) -> str:
-    lines = [n["summary"].strip(), "", n["description"].strip()]
+def _plate(n: dict, names: dict[str, str] | None = None) -> str:
+    ex = (lambda t: ann.expand_refs(t, names)) if names else (lambda t: t)
+    lines = [ex(n["summary"].strip()), "", ex(n["description"].strip())]
     if n.get("params"):
         lines += ["", "Parameters:"] + [f"  {p['name']} ({p['type']}): {p['description']}" for p in n["params"]]
     r = n.get("returns")
     if r and r.get("type") and r["type"] != "void":
         lines += ["", f"Returns ({r['type']}): {r['description']}"]
     if n.get("notes"):
-        lines += ["", "Notes: " + n["notes"].strip()]
+        lines += ["", "Notes: " + ex(n["notes"].strip())]
     lines += ["", f"[confidence: {n['confidence']}] [module: {n['category']}]"]
     return "\n".join(lines)
 
@@ -103,16 +104,27 @@ def apply_image(prog, comp: str, image: str, fam: dict, funcs: dict, globals_res
     made = build_types(prog, types) if types.get("structs") or types.get("enums") else {}
 
     node = {(n, a): fid for fid, f in fam["functions"].items() for n, a in f["members"].items()}
+    names = ann.name_map(comp)
     gns = prog.getGlobalNamespace()
+    stats["name_conflicts"] = 0
     for f in fm.getFunctions(True):
         fid = node.get((image, f.getEntryPoint().getOffset()))
         n = funcs.get(fid)
         if not n:
             continue
-        f.setName(n["name"], SourceType.USER_DEFINED)
-        ns = symtab.getOrCreateNameSpace(gns, n["category"], SourceType.USER_DEFINED)
-        f.setParentNamespace(ns)
-        f.setComment(_plate(n))
+        try:
+            ns = symtab.getOrCreateNameSpace(gns, n["category"], SourceType.USER_DEFINED)
+            f.setParentNamespace(ns)
+        except Exception as e:
+            log.warning("%s namespace %s: %s", image, n["category"], e)
+        for candidate in (n["name"], f"{n['name']}_{f.getEntryPoint().getOffset():08x}"):
+            try:
+                f.setName(candidate, SourceType.USER_DEFINED)
+                break
+            except Exception as e:                   # DuplicateNameException / InvalidInputException
+                stats["name_conflicts"] += 1
+                log.warning("%s %#x: cannot name %s: %s", image, f.getEntryPoint().getOffset(), candidate, e)
+        f.setComment(_plate(n, names))
         params = n.get("params") or []
         if params and f.getParameterCount() == len(params):
             for p, gp in zip(params, f.getParameters()):
@@ -120,7 +132,7 @@ def apply_image(prog, comp: str, image: str, fam: dict, funcs: dict, globals_res
                     gp.setName(p["name"], SourceType.USER_DEFINED)
                     gp.setComment(p["description"])
                     stats["params"] += 1
-                except Exception as e:                    # name clashes etc. are non-fatal
+                except Exception as e:               # name clashes etc. are non-fatal
                     log.debug("param %s: %s", p["name"], e)
         stats["functions"] += 1
 
@@ -132,17 +144,26 @@ def apply_image(prog, comp: str, image: str, fam: dict, funcs: dict, globals_res
                 continue
             a = ghidra_boot.addr(prog, start)
             try:
-                end = a.add(n["size"] - 1)
                 dt = _data_type(n, made)
-                if dt is not None and dt.getLength() > 0:
-                    listing.clearCodeUnits(a, a.add(max(dt.getLength(), 1) - 1), False)
+                length = dt.getLength() if dt is not None else n["size"]
+                end = a.add(max(length, 1) - 1)
+                if _has_instructions(listing, a, end):
+                    log.warning("%s %s @%#x overlaps code - label only", image, n["name"], start)
+                elif dt is not None and dt.getLength() > 0:
+                    listing.clearCodeUnits(a, end, False)
                     listing.createData(a, dt)
                 symtab.createLabel(a, n["name"], SourceType.USER_DEFINED)
-                listing.setComment(a, CodeUnit.PLATE_COMMENT, n["description"])
+                listing.setComment(a, CodeUnit.PLATE_COMMENT, ann.expand_refs(n["description"], names))
                 stats["data"] += 1
             except Exception as e:
                 log.warning("%s %s @%#x: %s", image, n["name"], start, e)
     return stats
+
+
+def _has_instructions(listing, start, end) -> bool:
+    from ghidra.program.model.address import AddressSet
+
+    return listing.getInstructions(AddressSet(start, end), True).hasNext()
 
 
 def _data_type(n: dict, made: dict):

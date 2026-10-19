@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -16,13 +17,65 @@ def _load_inputs(comp: str):
     fam = json.loads((config.ANALYSIS_DIR / "families" / f"{comp}.json").read_text())
     exports = {}
     decomps = {}
+    strings = {}
     for fid, f in fam["functions"].items():
         img = f["anchor"][0]
         if img not in exports:
-            exports[img] = {x["addr"]: x for x in json.loads(
-                (config.ANALYSIS_DIR / "export" / comp / f"{img}.json").read_text())["functions"]}
+            ex = json.loads((config.ANALYSIS_DIR / "export" / comp / f"{img}.json").read_text())
+            exports[img] = {x["addr"]: x for x in ex["functions"]}
+            strings[img] = {x["addr"]: x for x in ex["strings"]}
             decomps[img] = json.loads((config.ANALYSIS_DIR / "decomp" / comp / f"{img}.json").read_text())
-    return fam, exports, decomps
+    return fam, exports, decomps, strings
+
+
+_HEAD = re.compile(r"^## `([\w]+)`", re.M)
+
+
+def _issued_path(comp: str) -> Path:
+    return config.ANALYSIS_DIR / "work" / comp / "issued.txt"
+
+
+def issued(comp: str) -> set[str]:
+    p = _issued_path(comp)
+    return set(p.read_text().split()) if p.exists() else set()
+
+
+def mark_issued(comp: str, packets: list[str]) -> None:
+    """Record packets as handed to an agent: they are never regenerated or re-assigned."""
+    _issued_path(comp).parent.mkdir(parents=True, exist_ok=True)
+    allp = sorted(issued(comp) | set(packets))
+    _issued_path(comp).write_text("\n".join(allp) + "\n")
+
+
+def packeted(comp: str) -> set[str]:
+    """Family ids contained in issued work packets (a re-plan must not hand them out again)."""
+    out: set[str] = set()
+    for name in issued(comp):
+        p = config.ANALYSIS_DIR / "work" / comp / f"{name}.md"
+        if p.exists():
+            out |= set(_HEAD.findall(p.read_text()))
+    return out
+
+
+def drop_unissued(comp: str, wave: int | None) -> int:
+    """Delete generated-but-never-issued packets so they can be regenerated with fresh context."""
+    done = issued(comp)
+    n = 0
+    for p in (config.ANALYSIS_DIR / "work" / comp).glob("wave*_batch*.md"):
+        if p.stem in done:
+            continue
+        if wave is None or p.stem.startswith(f"wave{wave}_"):
+            p.unlink()
+            n += 1
+    return n
+
+
+def next_batch_index(comp: str, wave: int) -> int:
+    pat = re.compile(rf"wave{wave}_batch(\d+)")
+    idx = [int(m.group(1)) for d, ext in ((config.ANALYSIS_DIR / "work" / comp, "*.md"),
+                                           (config.ANNOTATIONS_DIR / comp / "functions", "*.json"))
+           for f in d.glob(ext) if (m := pat.search(f.name))]
+    return max(idx, default=0) + 1
 
 
 def call_depths(fam: dict, exports: dict) -> tuple[dict[str, int], dict[str, list[str]], dict[str, list[str]]]:
@@ -105,11 +158,11 @@ def wave_of(depth: int) -> int:
     return len(WAVE_BOUNDS)
 
 
-def make_waves(comp: str, wave: int | None = None, force: bool = False) -> list[Path]:
+def make_waves(comp: str, wave: int | None = None, force: bool = False, replan: bool = False) -> list[Path]:
     from .config import COMPONENTS
 
     cobj = COMPONENTS[comp]
-    fam, exports, decomps = _load_inputs(comp)
+    fam, exports, decomps, strings = _load_inputs(comp)
     depth, callees, callers = call_depths(fam, exports)
     done = annotations.load_functions(comp)
     hw = hwmap.get(cobj.chip)
@@ -122,8 +175,10 @@ def make_waves(comp: str, wave: int | None = None, force: bool = False) -> list[
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     waves = defaultdict(list)
+    drop_unissued(comp, wave)
+    handed_out = set() if replan else packeted(comp)
     for fid in fam["functions"]:
-        if fid in done and not force:
+        if (fid in done and not force) or fid in handed_out:
             continue
         waves[wave_of(depth[fid])].append(fid)
     for w, fids in sorted(waves.items()):
@@ -141,7 +196,8 @@ def make_waves(comp: str, wave: int | None = None, force: bool = False) -> list[
             cur_chars += c
         if cur:
             batches.append(cur)
-        for bi, batch in enumerate(batches, 1):
+        first = 1 if replan else next_batch_index(comp, w)
+        for bi, batch in enumerate(batches, first):
             p = out_dir / f"wave{w}_batch{bi:02d}.md"
             lines = [f"# {comp.upper()} wave {w} batch {bi:02d}  ({len(batch)} functions)\n",
                      f"Component: **{cobj.title}** - {cobj.role}. Chip: `{cobj.chip}`.\n",
@@ -167,6 +223,10 @@ def make_waves(comp: str, wave: int | None = None, force: bool = False) -> list[
                         lines.append(f"  - {label(c)}" + (f": {n['summary']}" if n else " (not yet described)"))
                     if len(callees[fid]) > 14:
                         lines.append("  - ...")
+                refs = [strings[img][a] for a in fx.get("strings", []) if a in strings[img]]
+                if refs:
+                    lines.append("- string literals referenced: " + "; ".join(
+                        json.dumps(r["text"][:90]) for r in refs[:8]))
                 if fx["indirect_calls"]:
                     lines.append(f"- indirect calls (function pointers): {fx['indirect_calls']}")
                 if fx["periph"]:
