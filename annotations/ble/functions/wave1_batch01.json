@@ -1,0 +1,708 @@
+{
+ "ble_219_0c028790": {
+  "name": "uart_disp_get_channel_ctx",
+  "summary": "Return the UART dispatcher context for channel 0, else NULL",
+  "description": "Returns &DAT_20003db8 when param_1 == 0 and NULL for any other value; the dispatcher has only a single channel. Called from the 'Uart dispatcher: start service' routine (0x0c02e420) and three sibling routines in the same module, which pass the returned block (+8) to a registration call. The structure layout is not visible in this function.",
+  "category": "uart_bridge",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "channel index; only 0 is valid"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the channel-0 context at 0x20003db8 or NULL"
+  },
+  "confidence": "medium",
+  "notes": "Context struct contents unknown; role inferred from the callers' strings ('Uart dispatcher', '/dev/uart2')."
+ },
+ "ble_219_0c0291fc": {
+  "name": "app_ble_rx_pre_hook_stub",
+  "summary": "Empty hook that returns 0, called at the start of the BLE data-receive handler",
+  "description": "Stub that returns 0 with no side effects. It is called first by the BLE application receive handler (0x0c029df8) before the packet is decrypted/dispatched, apparently a placeholder for an optional pre-processing hook; the return value is ignored by the caller.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c029738": {
+  "name": "app_hook_noop",
+  "summary": "Empty function (single return)",
+  "description": "Contains only a return instruction. Called once from 0x0c02a8f8 as a do-nothing callback/hook slot; no state is touched.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c029ca8": {
+  "name": "app_ble_cmd_fe_rx_stats_update",
+  "summary": "Count received 5A A5 ... FE 02 frames and accumulate their byte length",
+  "description": "Checks that the packet in param_1 starts with the Ninebot frame header 0x5A 0xA5 and that byte[5] (command) == 0xFE and byte[6] == 0x02. On a match it increments DAT_20008f5c (total frames) and DAT_20008f58 (frames in the current burst) and adds param_2 (packet length) to DAT_20008f60 (total bytes). The BLE receive handler (0x0c029df8) then compares DAT_20008f58 with an expected count (DAT_20008f54) parsed from a request and, when equal, sends an 'FE' reply frame and resets DAT_20008f58, so this looks like a BLE throughput/packet-count test helper.",
+  "category": "app",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "decrypted BLE/UART frame (byte[0]=0x5A, byte[1]=0xA5, byte[5]=cmd, byte[6]=sub-cmd)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "frame length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Purpose (throughput test) inferred from the counter comparison in the caller, not from strings."
+ },
+ "ble_219_0c02a464": {
+  "name": "app_get_scooter_state",
+  "summary": "Return pointer to the application state block at 0x20009288",
+  "description": "Returns the constant address &DAT_20009288. The returned block is used by the BLE connection-status callback (0x0c0287ac), which sets/clears bit 0 (BLE connected) and bit 3 (classic BT connected) of the word at offset 0x3c, and by four other app routines.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the app state structure (DAT_20009288)"
+  },
+  "confidence": "medium",
+  "notes": "Only the +0x3c connection flags field is seen in this packet's callers."
+ },
+ "ble_219_0c02a46c": {
+  "name": "app_set_default_cfg_ptr",
+  "summary": "Store the pointer to a constant table (0x0c082508) into DAT_20009480",
+  "description": "Writes the flash address 0x0c082508 into the RAM pointer DAT_20009480. It is called from the application init routines (0x0c02973c and 0x0c0297b0). Note that the CRC32 table built by crc32_make_table lives at 0x20009484, immediately after this pointer, so the pointer and the table are adjacent globals. The pointed-to data is not interpreted here.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "What 0x0c082508 contains (default configuration / token table?) was not examined."
+ },
+ "ble_219_0c02b14c": {
+  "name": "app_fill_hdr_19_02",
+  "summary": "Write the two bytes 0x19, 0x02 into the buffer passed in",
+  "description": "Stores 0x19 at param_1[0] and 0x02 at param_1[1]. Called once from the app init routine (0x0c0297b0) with a 4-byte stack buffer. The pair equals 0x0219 little-endian, which matches the image tag BLE_219, so it may be a 2-byte firmware/protocol version, but this is a guess.",
+  "category": "app",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination buffer of at least 2 bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of 0x0219 is speculative (possibly firmware version 2.19)."
+ },
+ "ble_219_0c02c3fc": {
+  "name": "crc32_make_table",
+  "summary": "Build the 256-entry reflected CRC-32 lookup table for a given polynomial",
+  "description": "First bit-reverses param_1 over 32 bits (turning e.g. 0x04C11DB7 into the reflected form 0xEDB88320). Then for i = 0..255 computes the classic table entry: eight iterations of c = (c & 1) ? poly ^ (c >> 1) : c >> 1, starting from c = i. Entries are stored at 0x20009484 + 4*i (the loop pre-increments the pointer that starts at DAT_20009480, so the table ends at 0x20009880). Called from the CRC init routine (0x0c02c454), which is used by the firmware-upgrade/verification code.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "CRC-32 polynomial in normal (MSB-first) form, e.g. 0x04C11DB7"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c02e57c": {
+  "name": "uart_disp_get_channel_fd",
+  "summary": "Return the /dev/uart2 file descriptor for channel 0, else -1",
+  "description": "Returns -1 if param_1 != 0. Otherwise returns DAT_20009d10 (the descriptor stored by the UART dispatcher start routine 0x0c02e420 after opening '/dev/uart2'), or -1 if that value is not positive (port never opened). No direct callers; it is used as a callback/ops-table entry.",
+  "category": "uart_bridge",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "channel index; only 0 is valid"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "file descriptor (>0) or -1"
+  },
+  "confidence": "medium",
+  "notes": "Used via function pointer, so the exact consumer is unknown."
+ },
+ "ble_219_0c02ecd8": {
+  "name": "hal_pmu_get_saved_status_nibble",
+  "summary": "Return the status nibble saved from register 0x40080038",
+  "description": "Returns the byte DAT_20003ce4, which hal_pmu_save_and_clear_status_nibble (0x0c02ece4) filled with the low 4 bits of register 0x40080038 at boot. The chip-init routine 0x0c03a038 tests bit 0 and bit 1 of it to choose DAT_20003d6c (2 when bit0, 4 when bit1, otherwise a value derived from a PMU register read), so it behaves like a reset/boot-cause indicator.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "saved low nibble of 0x40080038"
+  },
+  "confidence": "medium",
+  "notes": "Semantics (reset cause vs wake source) inferred from how 0x0c03a038 uses it."
+ },
+ "ble_219_0c02ece4": {
+  "name": "hal_pmu_save_and_clear_status_nibble",
+  "summary": "Save low 4 bits of reg 0x40080038 to DAT_20003ce4 and write 1s back to them",
+  "description": "Reads 0x40080038, stores (value & 0xf) in DAT_20003ce4, then reads the register again and writes value | 0xf back. Setting the nibble with a read-modify-write is consistent with write-1-to-clear status bits, so this captures and acknowledges the boot/reset-cause flags. Called early from the platform init routine 0x0c03ab80.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "0x40080038 is an undocumented BES register; write-1-to-clear behaviour is an assumption."
+ },
+ "ble_219_0c02ed04": {
+  "name": "hal_cache_enable",
+  "summary": "Enable the cache controller at 0x07FFA000 (id 0), or pend a request if already on",
+  "description": "Only acts when param_1 == 0. If bit 0 of the word at 0x07FFA000 is clear it writes 1 to 0x07FFA004 and then 1 to 0x07FFA000 (init/invalidate then enable); if the cache is already enabled it writes 1 to 0x07FFA038 instead. Always returns 0. Called from the platform init routine 0x0c03ab80 together with two return-0 stubs.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "cache id, only 0 is handled"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "low",
+  "notes": "Identification as the cache enable is a guess from the address (BES cache block) and the enable/kick sequence."
+ },
+ "ble_219_0c02ed24": {
+  "name": "hal_init_stub_ret0_a",
+  "summary": "Stub returning 0, called from the platform init routine",
+  "description": "Returns 0 and does nothing. It is called from 0x0c03ab80 in the same sequence as hal_cache_enable and its twin stub at 0x0c02ed28, apparently placeholder init steps (e.g. unused cache/feature setup) whose result is not checked.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Original purpose unknown (empty implementation in this build)."
+ },
+ "ble_219_0c02ed28": {
+  "name": "hal_init_stub_ret0_b",
+  "summary": "Second stub returning 0, called from the platform init routine",
+  "description": "Returns 0 and does nothing; twin of hal_init_stub_ret0_a (0x0c02ed24). Called only from 0x0c03ab80.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Original purpose unknown (empty implementation in this build)."
+ },
+ "ble_219_0c02ed5c": {
+  "name": "hal_chip_select_cfg_word",
+  "summary": "Select one of two 32-bit constants from a ROM table into DAT_20003540",
+  "description": "Masks param_1 to a single bit if it is greater than 1, then loads the 32-bit word at 0x0c08607c + 4*param_1 into the global DAT_20003540. The caller (chip init 0x0c03a038) passes the top two bits of a byte read from the PMU/analog chip, so the value is a variant/revision selector choosing one of two configuration constants. The constants are not decoded here.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "variant selector (0 or 1; larger values are masked with 1)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of the table values and of DAT_20003540 is unknown."
+ },
+ "ble_219_0c02ed78": {
+  "name": "hal_cmu_get_crystal_freq",
+  "summary": "Return the nominal crystal frequency, 24000000 Hz",
+  "description": "Returns the constant 24,000,000. The chip init routine 0x0c03a038 compares it with a measured value from 0x0c073c50 and, if different, computes a ratio against 24000000 and calls a trimming routine.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "crystal frequency in Hz (24 MHz)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c02eecc": {
+  "name": "hal_gpdma_chan_irq_handler",
+  "summary": "Service one GPDMA channel interrupt: clear TC/error flags and invoke the user callback",
+  "description": "param_1 selects one of two PL080-style DMA controllers (base pointers table at 0x0c080a00, i.e. 0x40120000 and 0x40130000) and param_2 the channel (0..7). Builds mask = 1<<channel; if the terminal-count status (ctrl+4) bit is set it writes the bit to the TC-clear register (ctrl+8); reads the error status (ctrl+0xc) and, when set, writes it to the error-clear register (ctrl+0x10). Then fetches the callback from the table at 0x2000a5a0[param_1*8+param_2] and, if non-NULL, calls it with (channel id = param_2 | param_1<<4, remaining transfer size = channel control reg (+0x10c) & 0xfff, error flag, current LLI pointer (+0x108)). Called from the DMA IRQ vector wrappers (IRQ3_Handler 0x0c04555c and the next handler 0x0c04556c).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "DMA controller index (0 or 1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "channel number 0..7 within the controller"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Register offsets match the ARM PrimeCell PL080 layout; the BES SDK name is hal_gpdma.c (hal_gpdma_irq_handler)."
+ },
+ "ble_219_0c02ef3c": {
+  "name": "hal_gpdma_init_desc",
+  "summary": "Fill a 4-word GPDMA linked-list descriptor from a channel configuration",
+  "description": "param_2 is the HAL DMA channel config. The function validates it (transfer size at +2 must be <= 0xfff, bits 3..5 of the type byte at +8 must be 0, otherwise returns 1) and builds a PL080 LLI: word0 = source address, word1 = destination address, word2 = param_3 (next descriptor pointer), word3 = control = size[11:0] | src burst (+6)<<12 | dst burst (+7)<<15 | src width (+4)<<18 | dst width (+5)<<21 | transfer-type bits from the ROM table at 0x0c074588 | 0x4000000 (src increment, cfg bit6) | 0x8000000 (dst increment, cfg bit7) | 0x80000000 if param_4 (terminal-count interrupt). For a peripheral source/destination (type not memory) the address is looked up by the peripheral id at cfg+9 / cfg+10 in two ROM id tables and then in the FIFO address table at 0x0c080bd8; otherwise the plain addresses at cfg+0xc / cfg+0x10 are used. Returns the invalid-bit check result (0 on success). Called from several DMA users (0x0c02f330, 0x0c032954, 0x0c0336b0, 0x0c033e04).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output descriptor (4 x u32)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "HAL_DMA_CH_CFG-style channel configuration"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "next descriptor address (0 for last)"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "non-zero to raise a terminal-count interrupt for this descriptor"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, non-zero (1 or the invalid type bits) on a bad config"
+  },
+  "confidence": "medium",
+  "notes": "Mirrors BES hal_gpdma_init_desc. The two peripheral-id lookup loops are decompiled poorly (they scan a byte table that overlaps a string literal), so which peripheral ids map to which FIFO address is not decoded."
+ },
+ "ble_219_0c02f098": {
+  "name": "hal_gpdma_sg_start",
+  "summary": "Program a GPDMA channel with a descriptor and config, then start it",
+  "description": "param_1 is the first LLI (4 words), param_2 the channel config (byte0 = channel id: bit4 selects the controller, low 3 bits the channel; bytes 9/10 = source/dest peripheral ids; +0x14 = completion callback; +0x18 = optional start callback), param_3/param_4 optional 2-D (source/destination) rectangle descriptors. Asserts (infinite loop) on an invalid channel id or a peripheral that does not belong to the channel's controller. If the channel was allocated (DAT_2000a548 flag) and is not already enabled (ctrl+0x1c), it stores the callback in 0x2000a5a0, clears pending TC/err flags, writes the LLI to channel regs +0x100..+0x10c, builds the config word at +0x110 (interrupt enables 0xc000 if a callback exists, src periph<<1, dst periph<<6, flow control<<11, bit 19 if cfg byte1 != 0), programs the optional 2-D registers at +0x200..+0x20c and flags in +0x210, calls the start callback with the channel id under a BASEPRI critical section, and finally sets the enable bit (+0x110 |= 1). Returns 0 on success, 1 if the channel is unallocated or busy.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "first linked-list descriptor (src, dst, next, control)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "channel configuration structure"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "optional source 2-D config (4 x s16) or NULL"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "optional destination 2-D config (4 x s16) or NULL"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 = started, 1 = channel not allocated or already busy"
+  },
+  "confidence": "medium",
+  "notes": "Mirrors BES hal_gpdma_sg_start; the meaning of config bit 19 and of the 2-D registers (offsets 0x200-0x210) is inferred only from the code."
+ },
+ "ble_219_0c02f354": {
+  "name": "hal_gpdma_cancel",
+  "summary": "Stop a GPDMA channel and clear its pending interrupt flags",
+  "description": "param_1 is a channel id (bit4 = controller 0/1, low 3 bits = channel; ids >= 0x20 or with bit 3 set hang in an assert loop). Clears the enable bit (bit 0) of the channel config register at ctrl + ch*0x20 + 0x110, then writes the channel bit to the TC-clear (+8) and error-clear (+0x10) registers of the controller. Does not release the channel allocation flag.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "channel id: controller<<4 | channel"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c02f41c": {
+  "name": "hal_gpdma_get_chan",
+  "summary": "Allocate a free GPDMA channel for a peripheral",
+  "description": "param_2 > 2 hangs (assert); param_1 == 0 returns 0xff. The peripheral id param_1 is mapped to a controller (ids 1..3: controller = (id == 2); other ids are looked up in two ROM byte tables, assert if absent). The channel range of that controller comes from the byte tables 0x0c080738 (first) and 0x0c08073c (count). Under a BASEPRI critical section it scans the range: policy 0 ascending (lowest channel first), policy 1 descending, policy 2 descending but only the top two channels. A channel is taken when its flag in DAT_2000a548[ctrl*8+ch] is 0 and its enable bit in ctrl+0x1c is clear; it then sets the flag, ORs (1<<ch)<<12 into the controller config register (+0x30), and records the caller's LR in the table at 0x2000a558. Returns controller<<4 | channel or 0xff when none is free.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "peripheral/request id (0 = none)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "channel selection policy 0..2"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "channel id (controller<<4 | channel) or 0xff if none"
+  },
+  "confidence": "medium",
+  "notes": "Policy meanings derived from the scan order; the BES enum (HAL_DMA_HIGH_PRIO etc.) names were not checked."
+ },
+ "ble_219_0c02f5dc": {
+  "name": "hal_gpdma_chan_busy",
+  "summary": "Return whether a GPDMA channel is currently enabled/running",
+  "description": "param_1 is a channel id (controller<<4 | channel; invalid values hang in an assert loop). Reads the controller's enabled-channels register (ctrl+0x1c) and returns true if the channel's bit is set.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "channel id"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the channel is active"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c02f610": {
+  "name": "hal_gpdma_get_sg_remain_size",
+  "summary": "Return the total number of units still to transfer on a GPDMA channel",
+  "description": "For channel id param_1, starts from the remaining count in the channel control register (+0x10c & 0xfff), then follows the linked list beginning at the LLI pointer in +0x108, adding the size field (word3 & 0xfff) of every descriptor until the next pointer is NULL or loops back to the first descriptor. Called from the DMA consumers 0x0c033530, 0x0c033610 and 0x0c033bd8 to compute remaining/received length.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "channel id"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "sum of remaining transfer sizes (units of the channel's transfer width)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c02f6a4": {
+  "name": "hal_gpdma_init",
+  "summary": "One-time initialisation of both GPDMA controllers",
+  "description": "If DAT_2000a59c is 0: for each controller (0x40120000 and 0x40130000) writes 0xffffffff to the TC-clear (+8) and error-clear (+0x10) registers, sets the config register (+0x30) to (old & 0x7ff00ff0) | 9, then zeroes the eight channel config registers (+0x110 + n*0x20). Marks DAT_2000a59c = 1 and clears the four words 0x2000a548..0x2000a554 (the 16 channel-allocated flags). Called from the platform init routine 0x0c0459d4.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c030198": {
+  "name": "hal_i2c_task_done_handler",
+  "summary": "I2C completion handler: invoke the callback of the finished task and advance the 2-entry task ring",
+  "description": "param_1 is the I2C instance (0/1; per-instance state stride 0x70, registers from table 0x0c081abc). Uses a 2-entry ring of 0x30-byte task slots indexed by DAT_2000a6f2[inst]. If the current slot has the stop flag (DAT_2000a708) or a non-zero DAT_2000a71c, it clears the controller's interrupt-mask register (+0x30) and clears the enable bit of IC_ENABLE (+0x6c bit 0). If bit 0 of the slot flag byte (DAT_2000a6e5) is set it only marks the next slot ready (DAT_2000a6e4 = 1); otherwise it calls the slot's callback (DAT_2000a720) with (inst, next buffer pointer, 3 stored fields and two products of the 16-bit fields at +0x18/+0x1a/+0x1c). Finally it decrements the pending-task count DAT_2000a6f3 (infinite-loop assert if already 0) and toggles the ring index. No direct callers (called from the I2C ISR path).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "I2C instance index (0 or 1)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Register identification (DesignWare-style I2C: +0x30 INTR_MASK, +0x6c ENABLE) is solid; the exact slot/task field meanings and callback signature are inferred."
+ },
+ "ble_219_0c0302b4": {
+  "name": "hal_i2c_check_tx_abort",
+  "summary": "Check I2C raw error status and prepare the controller to recover from a TX abort",
+  "description": "param_1 is the I2C register base. Reads the raw interrupt status at +0x34; if none of bits 0,1,3,6 (0x4b: RX_UNDER, RX_OVER, TX_OVER, TX_ABRT) is set it returns 0. Otherwise reads TX_ABRT_SOURCE (+0x80); if bit 9 (SBYTE_NORSTRT, start byte sent while restart disabled) is set it sets IC_CON bit 5 (restart enable, reg +0), clears TAR bits 10 and 11 (reg +4, GC_OR_START/SPECIAL) and reads IC_CLR_TX_ABRT (+0x54) to clear the abort. Returns the abort source with bit 29 (0x20000000) added when RX_UNDER/RX_OVER/TX_OVER was flagged. Callers are 0x0c0302f4, 0x0c030ab0 and 0x0c030cb8.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "I2C controller register base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "unused (only echoed in the high word of the 64-bit decompiler return)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 if no error, else TX_ABRT_SOURCE value with bit 29 marking FIFO over/under-run"
+  },
+  "confidence": "medium",
+  "notes": "Decompiler shows a 64-bit return; only the low word looks meaningful. Register names assume a Synopsys DesignWare I2C core."
+ },
+ "ble_219_0c030368": {
+  "name": "hal_i2c_calc_scl_cnt",
+  "summary": "Compute SCL high/low counts for an I2C bus speed from timing minima",
+  "description": "Works in clock ticks: min_high = ceil(param_5*param_2/1000) forced to at least param_4+8, min_low = ceil(param_5*param_3/1000) forced to at least 2*param_4+11 (param_4 looks like the spike-filter length). If the total period param_1 is smaller than min_high+min_low the high count is min_high-1; otherwise the spare time is shared so that both phases get at least half the period rounded up (balancing toward the shorter one). Outputs *param_6 = high count - 1 and *param_7 = low count - param_4 - 6; a result that does not fit in 16 bits hangs in an assert loop. Called from 0x0c0458a6 (I2C speed setup).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "total SCL period in input-clock ticks"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "minimum SCL high time (ns)"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "minimum SCL low time (ns)"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "spike suppression/filter length in ticks"
+   },
+   {
+    "name": "param_5",
+    "type": "u16",
+    "description": "input clock rate (MHz) used to convert ns to ticks"
+   },
+   {
+    "name": "param_6",
+    "type": "ptr",
+    "description": "out: SCL high count (u16)"
+   },
+   {
+    "name": "param_7",
+    "type": "ptr",
+    "description": "out: SCL low count (u16)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Units of param_2/3/5 (ns and MHz) inferred from the divide-by-1000 rounding; register field names assume a DesignWare I2C core."
+ },
+ "ble_219_0c03171c": {
+  "name": "hal_sysipc_close",
+  "summary": "Release one user of an IPC channel and shut the channel down when unused",
+  "description": "param_1 is the channel (0 or 1; otherwise returns 1), param_2 the per-channel user/type bit. Clears the user bit in the mask DAT_2000a990[ch] and zeroes the user's slot in the callback arrays at 0x2000a9bc and 0x2000aa54. When the mask becomes 0 it disables both NVIC interrupt lines taken from the tables 0x0c083e1c and 0x0c0857ec (writes to ICER, 0xe000e180 area, followed by DSB/ISB), writes the channel's clear bits (0x2000 then 0x8000 for ch0; 0x4000 then 0x10000 for ch1) to register 0x400000a4, and resets the queue heads and state (0x2000aa4c, 0x2000a9cc, 0x2000a9a8, 0x2000a998). Returns 0 on success.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "IPC channel index (0 or 1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "user/message-type bit index (0 or 1)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 for an invalid channel"
+  },
+  "confidence": "low",
+  "notes": "Identification as the BES inter-core IPC (hal_sysipc) is inferred from the TX-queue/mailbox pattern with registers 0x400000a0 (set) / 0x400000a4 (clear); register semantics unverified."
+ },
+ "ble_219_0c031848": {
+  "name": "hal_sysipc_rx_irq_disable",
+  "summary": "Disable the NVIC interrupt of an IPC channel",
+  "description": "Returns 1 if param_1 > 1. Otherwise looks up the IRQ number in the signed byte table at 0x0c083e1c[param_1] and, if it is non-negative, writes 1 << (irq & 31) to the NVIC ICER word (0xe000e180 + 4*(irq>>5)) followed by DSB and ISB. Returns 0. Called from 0x0c03bfbc.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "IPC channel index (0 or 1)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if the channel is invalid"
+  },
+  "confidence": "low",
+  "notes": "Same IPC-module identification caveat as hal_sysipc_close."
+ },
+ "ble_219_0c031978": {
+  "name": "hal_sysipc_rx_irq_setup",
+  "summary": "Enable the IPC channel interrupt and (channel 1) install its vector and priority",
+  "description": "Stores param_2 in DAT_2000a984, then enables the NVIC interrupt number from the byte table 0x0c083e1c[param_1] (write to ISER). For param_1 == 1 additionally writes 10 to register 0x400000a4, reads VTOR (0xe000ed08) and stores the handler address 0x0c0314bc at vector offset 0xcc (IRQ 35), issues a DSB, sets that interrupt's priority byte (0xe000e423) to 0xa0 and writes 0x4000 to 0x400000a0. Returns 0. Called from 0x0c03bb70, which also calls hal_sysipc_close.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "IPC channel index"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "value saved in DAT_2000a984 (callback or context)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "low",
+  "notes": "Purpose of the DAT_2000a984 value and of the 0x400000a0/a4 bit patterns is not confirmed."
+ },
+ "ble_219_0c0319dc": {
+  "name": "hal_hwsem_try_lock",
+  "summary": "Read hardware semaphore register n (0..3) at 0x400000C0",
+  "description": "If param_1 < 4 returns the word at 0x40000000 + (param_1 + 0x30)*4 (= 0x400000C0 + 4*n), else 0. The TRNG read routine 0x0c033328 polls it with index 1 until it returns non-zero before touching the TRNG block, then releases it with hal_hwsem_unlock, so a non-zero read means the lock was acquired.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "semaphore index 0..3"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "register value (non-zero = acquired) or 0 for an invalid index"
+  },
+  "confidence": "medium",
+  "notes": "Take-on-read semantics inferred from the polling loop in the caller."
+ },
+ "ble_219_0c0319f0": {
+  "name": "hal_hwsem_unlock",
+  "summary": "Write 1 to hardware semaphore register n (0..3) at 0x400000C0 to release it",
+  "description": "If param_1 < 4 writes 1 to 0x40000000 + (param_1 + 0x30)*4; otherwise does nothing. Called by the TRNG routine 0x0c033328 on exit (index 1).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "semaphore index 0..3"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Counterpart of hal_hwsem_try_lock."
+ },
+ "ble_219_0c031c40": {
+  "name": "pm_busy_mask_set_bit",
+  "summary": "Set bit n in the global bitmask DAT_2000aa6c (n < 32)",
+  "description": "If param_1 < 32, sets bit param_1 of the 32-bit mask DAT_2000aa6c inside a BASEPRI critical section and returns 0; otherwise returns 1 without changes. Counterpart of pm_busy_mask_clear_bit (0x0c031c90). Called by the IPC send path (0x0c031884) and the platform init (0x0c03ac44, which sets bit 0x1f). The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is restored afterwards).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit index 0..31"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if the index is out of range"
+  },
+  "confidence": "low",
+  "notes": "Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain."
+ },
+ "ble_219_0c031c90": {
+  "name": "pm_busy_mask_clear_bit",
+  "summary": "Clear bit n in the global bitmask DAT_2000aa6c (n < 32)",
+  "description": "If param_1 < 32, clears bit param_1 of the 32-bit mask DAT_2000aa6c inside a BASEPRI critical section and returns 0; otherwise returns 1 without changes. Counterpart of pm_busy_mask_set_bit (0x0c031c40). Called by the I2C bit-release path (0x0c030268, bit 2) and the IPC ISR (0x0c0314f0, bit 0). The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is restored afterwards).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit index 0..31"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if the index is out of range"
+  },
+  "confidence": "low",
+  "notes": "Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain."
+ },
+ "ble_219_0c031cdc": {
+  "name": "pm_wake_mask_set_bit",
+  "summary": "Set bit n in the global bitmask DAT_2000aa68 (n < 32)",
+  "description": "If param_1 < 32, sets bit param_1 of the 32-bit mask DAT_2000aa68 inside a BASEPRI critical section and returns 0; otherwise returns 1 without changes. Counterpart of pm_wake_mask_clear_bit (0x0c031d2c). Called by 0x0c02f73c when the first user of a shared resource (tracked in DAT_2000a60c) is added. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is restored afterwards).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit index 0..31"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if the index is out of range"
+  },
+  "confidence": "low",
+  "notes": "Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain."
+ },
+ "ble_219_0c031d2c": {
+  "name": "pm_wake_mask_clear_bit",
+  "summary": "Clear bit n in the global bitmask DAT_2000aa68 (n < 32)",
+  "description": "If param_1 < 32, clears bit param_1 of the 32-bit mask DAT_2000aa68 inside a BASEPRI critical section and returns 0; otherwise returns 1 without changes. Counterpart of pm_wake_mask_set_bit (0x0c031cdc). Called by 0x0c02f73c when the last user is removed. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is restored afterwards).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit index 0..31"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if the index is out of range"
+  },
+  "confidence": "low",
+  "notes": "Name/role of the mask is a guess (looks like a set of activity/sleep-veto flags); only the bit manipulation is certain."
+ }
+}

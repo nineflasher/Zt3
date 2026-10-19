@@ -1,0 +1,815 @@
+{
+  "ble_219_0c05d4ac": {
+    "name": "wc_AesEncrypt",
+    "summary": "AES single-block encrypt using the 4 x 1 KB T-tables (wolfSSL wc_AesEncrypt)",
+    "description": "Encrypts one 16-byte block. The Aes context holds the expanded round keys as u32 key[60] at offset 0 and the round count at offset 0xF0 (param_1[0x3c]); the loop runs rounds/2 double-iterations and is skipped entirely when rounds/2 is not in 1..7. Input words are byte-swapped (big-endian load) and XORed with the first round key, then each round does Te0[s0>>24]^Te1[(s1>>16)&ff]^Te2[(s2>>8)&ff]^Te3[s3&ff]^rk using the table at 0x0c075844 (first entry 0xc66363a5, the standard AES Te0). The final round extracts S-box bytes by masking the same tables (0xff, 0xff00, 0xff0000, 0xff000000), adds the last round key and byte-swaps the four result words into the output block. Used by the AES-GCM code (CTR keystream and H computation).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "aes",
+        "type": "ptr",
+        "description": "wolfSSL Aes context: expanded encryption key schedule (u32[60]) followed by the round count at +0xF0"
+      },
+      {
+        "name": "in_block",
+        "type": "ptr",
+        "description": "16-byte plaintext block"
+      },
+      {
+        "name": "out_block",
+        "type": "ptr",
+        "description": "16-byte ciphertext output block"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none; no error indication"
+    },
+    "confidence": "high",
+    "notes": "Signature matches wolfSSL wc_AesEncrypt(Aes*, const byte*, byte*); table layout verified against firmware bytes at 0x0c075844."
+  },
+  "ble_219_0c05d828": {
+    "name": "GMULT",
+    "summary": "GF(2^128) multiply for GHASH: X = X * Y (bitwise, R = 0xE1)",
+    "description": "Implements the GCM field multiplication from NIST SP 800-38D in the simple shift-and-add form (wolfSSL's static GMULT). Z starts at 0 and V is a copy of X; for each of the 16 bytes of Y, MSB first, if the bit is set Z ^= V, then V is shifted right by one bit across all 16 bytes and, if the bit shifted out (LSB of byte 15) was 1, byte 0 is XORed with the reduction constant 0xE1. After 128 iterations Z is written back over X. Called from the GHASH block update of the AES-GCM implementation.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "x",
+        "type": "ptr",
+        "description": "16-byte GHASH accumulator, multiplicand and result (in place)"
+      },
+      {
+        "name": "y",
+        "type": "ptr",
+        "description": "16-byte multiplier (hash subkey H)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05e338": {
+    "name": "wc_AesInit",
+    "summary": "Initialise an Aes context: store heap pointer (device id unused)",
+    "description": "If the context pointer is NULL returns BAD_FUNC_ARG (-173); otherwise stores param_2 at offset 0x134 of the 312-byte Aes structure (aes->heap) and returns 0. The caller passes heap = 0 and devId = INVALID_DEVID (-2), which this non-async build ignores. Called right before the AES-GCM key is set in the pairing/session encryption helpers (0c05bf00, 0c05c13c).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "aes",
+        "type": "ptr",
+        "description": "Aes context (0x138 bytes) to initialise"
+      },
+      {
+        "name": "heap",
+        "type": "ptr",
+        "description": "heap hint stored at aes+0x134 (NULL in all callers)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 (BAD_FUNC_ARG) if aes is NULL"
+    },
+    "confidence": "high",
+    "notes": "Third argument (devId = 0xfffffffe) is passed by the caller but not used by this build."
+  },
+  "ble_219_0c05e34c": {
+    "name": "wc_AesFree",
+    "summary": "Free an Aes context (empty in this build)",
+    "description": "Empty function (single return). In wolfSSL wc_AesFree only releases async/hardware resources, which are not compiled in here, so nothing needs to be cleared. Called after AES-GCM encrypt/decrypt in the pairing helpers 0c05bf00 and 0c05c13c, mirroring wc_AesInit.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "aes",
+        "type": "ptr",
+        "description": "Aes context (argument ignored)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The callers pass the Aes context in r0; the function ignores it."
+  },
+  "ble_219_0c05e350": {
+    "name": "GetLength_ex",
+    "summary": "Parse an ASN.1 DER length field (wolfSSL GetLength_ex)",
+    "description": "Reads the length octet at input[*inOutIdx]. Short form (<0x80) is the length itself; long form (0x80|n) reads n big-endian bytes (n <= 4, result must be non-negative). Advances *inOutIdx past the length bytes and stores the length in *len (0 when zero). If check is non-zero it also requires inOutIdx + length <= maxIdx. Error codes: -132 (BUFFER_E) when running past maxIdx, -140 (ASN_PARSE_E) for n > 4 or a negative result. The indefinite-length form (0x80) returns 0 after advancing one byte. Used by the DER decoders of the ECC key/signature code.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "input",
+        "type": "ptr",
+        "description": "DER buffer"
+      },
+      {
+        "name": "inOutIdx",
+        "type": "ptr",
+        "description": "in/out: u32 index into the buffer; advanced past the length field"
+      },
+      {
+        "name": "len",
+        "type": "ptr",
+        "description": "out: s32 decoded length (0 if length is zero)"
+      },
+      {
+        "name": "maxIdx",
+        "type": "u32",
+        "description": "size of the buffer (upper index bound)"
+      },
+      {
+        "name": "check",
+        "type": "s32",
+        "description": "non-zero: also verify the content fits within maxIdx"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "decoded length (>= 0) or negative wolfSSL error (-132 BUFFER_E, -140 ASN_PARSE_E)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05e7fc": {
+    "name": "wc_ecc_set_curve",
+    "summary": "Select ECC curve parameters for a key by key size or curve id",
+    "description": "Validates the arguments (keysize <= 0 together with curve_id < 0 gives -173 BAD_FUNC_ARG; keysize > 66 gives -170 ECC_BAD_ARG_E) and returns 0 early if the key already uses a custom curve (key->idx == -1). Otherwise it clears key->idx (+4) and key->dp (+0x10) and scans the ecc_sets table at 0x0c080a18 (stride 0x34 bytes; entry fields size at +0 and curve id at +4; terminated by size == 0; the table holds secp224r1 (28 bytes, id 14) and secp256r1 (32 bytes, id 7)). With curve_id > 0 the entry whose id matches is chosen, otherwise the first entry whose size >= keysize. On a match key->idx is the table index and key->dp points at the entry. No match gives -172 (ECC_CURVE_OID_E).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "wolfSSL ecc_key (idx at +4, dp at +0x10)"
+      },
+      {
+        "name": "keysize",
+        "type": "s32",
+        "description": "wanted key size in bytes (<= 66), or <= 0 to select by id"
+      },
+      {
+        "name": "curve_id",
+        "type": "s32",
+        "description": "ecc_curve_id (e.g. 7 = secp256r1, 14 = secp224r1), or <= 0 to select by size"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173/-170/-172 on error"
+    },
+    "confidence": "high",
+    "notes": "Table contents (28/14, 32/7 entries) verified from firmware bytes; the Find My code uses P-224, the pairing code P-256."
+  },
+  "ble_219_0c060bd4": {
+    "name": "wc_ecc_set_rng",
+    "summary": "Attach a random number generator to an ECC key",
+    "description": "If key is NULL returns -173 (BAD_FUNC_ARG); otherwise stores param_2 at key+0x1b8 (key->rng) and returns 0. The stored RNG is used for blinding/timing resistance and for key generation inside the ECC routines. Called once from the ECDH key-agreement helper 0c05c13c right after generating the ephemeral key.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "key",
+        "type": "ptr",
+        "description": "wolfSSL ecc_key"
+      },
+      {
+        "name": "rng",
+        "type": "ptr",
+        "description": "WC_RNG state to store at key+0x1b8"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 (BAD_FUNC_ARG) if key is NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c060ce0": {
+    "name": "wc_HashGetDigestSize",
+    "summary": "Digest size in bytes for a wolfSSL hash type",
+    "description": "Maps a wc_HashType enum value to its digest length. Only type 6 (WC_HASH_TYPE_SHA256) is compiled in and returns 32 (0x20). Types 1-5 and 7-15 (MD2, MD4, MD5, SHA, SHA-224, SHA-384/512, SHA-3 ...) are known but not built into this image and return -232 (HASH_TYPE_E); anything else returns -173 (BAD_FUNC_ARG). Called by the HKDF wrapper 0c060be8.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "hash_type",
+        "type": "u32",
+        "description": "wc_HashType enum value (6 = SHA-256)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "32 for SHA-256, -232 for unsupported hash types, -173 for invalid types"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c060d0c": {
+    "name": "wc_HashInit",
+    "summary": "Initialise a wolfSSL hash context for a given hash type (SHA-256 only)",
+    "description": "Returns -173 for a NULL context. For hash type 6 (SHA-256) it loads the eight SHA-256 initial values (0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19) into words 0..7, clears the buffer length / length-low / length-high words (indexes 0x18..0x1a) and word 0x1b (heap), and returns 0. Types 3,4,5,7,8,10,11,12,13 return -232 (HASH_TYPE_E, not built in); other types return -173.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "hash",
+        "type": "ptr",
+        "description": "wc_HashAlg union / Sha256 context to initialise"
+      },
+      {
+        "name": "hash_type",
+        "type": "u32",
+        "description": "wc_HashType (6 = SHA-256)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 or -232 on error"
+    },
+    "confidence": "high",
+    "notes": "This is the wc_InitSha256 body inlined into the type switch."
+  },
+  "ble_219_0c061500": {
+    "name": "wc_RNG_TestSeed",
+    "summary": "Continuous test on RNG seed: reject repeated adjacent 4-byte blocks",
+    "description": "Implements the NIST SP 800-90B style continuous test used by wolfSSL's Hash_DRBG. It walks the seed in 4-byte blocks and compares each block with the next one using an OR-accumulated XOR (constant-time compare); if any two adjacent blocks are identical, or a block has zero length, the result becomes 3 (DRBG_CONT_FIPS_E). Returns 0 when seedSz <= 4 or no repetition was found. Called by the DRBG instantiate/reseed routines (0c061688, 0c061834).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "seed",
+        "type": "ptr",
+        "description": "seed/entropy buffer"
+      },
+      {
+        "name": "seed_size",
+        "type": "u32",
+        "description": "buffer length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 = ok (DRBG_SUCCESS), 3 = DRBG_CONT_FIPS_E (repeated block detected)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c061db0": {
+    "name": "wc_InitSha256",
+    "summary": "Initialise a SHA-256 context",
+    "description": "Returns -173 (BAD_FUNC_ARG) when the context is NULL. Otherwise loads the SHA-256 IV into digest[0..7] (6a09e667 bb67ae85 3c6ef372 a54ff53a 510e527f 9b05688c 1f83d9ab 5be0cd19), zeroes buffLen, loLen, hiLen (words 0x18..0x1a) and word 0x1b (heap), and returns 0. Called by HMAC, HKDF and DRBG code before hashing.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "sha256",
+        "type": "ptr",
+        "description": "wolfSSL Sha256 context (digest[8], buffer[16], buffLen, loLen, hiLen, heap)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 if sha256 is NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c061e10": {
+    "name": "wc_Sha256Free",
+    "summary": "Free a SHA-256 context (empty in this build)",
+    "description": "Empty function (single return). wolfSSL's wc_Sha256Free only has work to do for hardware/async back ends, none of which are built here. Called after each SHA-256 use by HMAC/HKDF/DRBG code.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "sha256",
+        "type": "ptr",
+        "description": "Sha256 context (argument ignored)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Shared empty free hook; could equally be another trivial free function used with SHA-256 contexts."
+  },
+  "ble_219_0c061e14": {
+    "name": "fp_cmp_mag_ct",
+    "summary": "Constant-time magnitude compare of two fp_int digit arrays",
+    "description": "Compares the lowest n digits of two fp_int values from the most significant digit downwards without data-dependent branches (a mask register tracks 'all higher digits equal so far'). Returns 1 if a > b, 0xFFFFFFFF (-1) if a < b and 0 if equal. Pointers start at dp[n-1] (word index n+1) and walk down. Used inside the Montgomery reduction / modular subtraction (callers 0c0625a0, 0c062654) to avoid timing leaks.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "first fp_int"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "second fp_int"
+      },
+      {
+        "name": "len",
+        "type": "s32",
+        "description": "number of 32-bit digits to compare"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 (a > b), -1 (a < b), 0 (equal); 0 if len <= 0"
+    },
+    "confidence": "medium",
+    "notes": "Name from wolfSSL tfm.c fp_cmp_mag_ct; semantics verified by tracing the mask logic."
+  },
+  "ble_219_0c062168": {
+    "name": "fp_mul_d",
+    "summary": "Multiply a big integer by a single 32-bit digit: c = a * b",
+    "description": "Copies a's used count and sign to c, then multiplies each digit of a by b with a 64-bit accumulator, storing the low 32 bits and carrying the high word. A final non-zero carry extends c by one digit; if the result would exceed 24 digits (FP_SIZE) it returns -1 (FP_VAL). Digits of c above the new length up to its old length are zeroed, trailing zero digits are trimmed (clamp) and a zero result is forced to a positive sign. wolfSSL TFM fast-math big integer (fp_int): s32 used digit count at +0, s32 sign at +4 (0 = positive, 1 = negative), 32-bit digits dp[24] at +8 (0x68 bytes total, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "source fp_int"
+      },
+      {
+        "name": "b",
+        "type": "u32",
+        "description": "32-bit multiplier digit"
+      },
+      {
+        "name": "c",
+        "type": "ptr",
+        "description": "destination fp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (FP_OKAY) or -1 (FP_VAL) on overflow of the 24-digit buffer"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0628b4": {
+    "name": "fp_cmp",
+    "summary": "Signed comparison of two big integers",
+    "description": "Returns 1 (FP_GT), 0 (FP_EQ) or -1 (FP_LT). If signs differ the positive operand is greater; if both are negative the magnitudes are compared in reverse order; otherwise the magnitudes are compared by digit count first and then digit by digit from the most significant down (fp_cmp_mag). Identical in code to the mp_cmp wrapper at 0x0c0640f8; this copy is used by the fp-level routines 0c062fe4/0c0635ac. wolfSSL TFM fast-math big integer (fp_int): s32 used digit count at +0, s32 sign at +4 (0 = positive, 1 = negative), 32-bit digits dp[24] at +8 (0x68 bytes total, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "first fp_int"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "second fp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 if a > b, 0 if equal, -1 if a < b"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c062c20": {
+    "name": "fp_to_unsigned_bin_at_pos",
+    "summary": "Append a big integer's bytes (least significant first) at an offset",
+    "description": "Writes b[x++] for every byte of t in little-endian order: for all but the top digit it emits 4 bytes (shift 0,8,16,24), then for the most significant digit it emits bytes until the digit becomes zero. Nothing is written for zero. Returns the new offset x. The caller (0c062c84, fp_to_unsigned_bin) then reverses the buffer to get big-endian output. (Decompiled parameter order is x, t, b.)",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "x",
+        "type": "u32",
+        "description": "starting offset into the output buffer"
+      },
+      {
+        "name": "t",
+        "type": "ptr",
+        "description": "source fp_int"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "output byte buffer"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "offset after the last byte written (x + number of bytes)"
+    },
+    "confidence": "high",
+    "notes": "The decompiler shows the first and third arguments swapped/typed as pointers; semantics follow wolfSSL's fp_to_unsigned_bin_at_pos(int x, fp_int*, unsigned char*)."
+  },
+  "ble_219_0c063fd4": {
+    "name": "mp_forcezero",
+    "summary": "Zero a big integer (used = 0, sign = +, all 96 digit bytes cleared)",
+    "description": "Sets used = 0 and sign = 0, then clears the 24-digit dp array byte by byte with an explicit loop (wolfSSL ForceZero style, not optimised to memset) so secret values do not remain on the stack. Called on temporaries holding ECC scalars/keys (callers 0c05f8c4, 0c0600c0, 0c0601d0). wolfSSL TFM fast-math big integer (fp_int): s32 used digit count at +0, s32 sign at +4 (0 = positive, 1 = negative), 32-bit digits dp[24] at +8 (0x68 bytes total, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "fp_int to wipe"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Could be fp_zero; the byte-wise loop and the use after secret-dependent computations suggest the ForceZero variant."
+  },
+  "ble_219_0c064000": {
+    "name": "mp_clear",
+    "summary": "Release a big integer (empty in this build)",
+    "description": "Empty function (single return). With the static TFM fp_int there is no heap storage to free, and the actual wiping is done separately by the forcezero function at 0x0c063fd4. Called after each mp temporary in the ECC scalar multiplication (0c05f8c4).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "fp_int (argument ignored)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Could be mp_clear or mp_free; both are no-ops for static fp_int."
+  },
+  "ble_219_0c0640f8": {
+    "name": "mp_cmp",
+    "summary": "Signed comparison of two big integers (mp_cmp wrapper)",
+    "description": "Same algorithm as fp_cmp: differing signs decide immediately; two negatives compare reversed; otherwise compare used digit counts and then digits from the most significant end. Returns 1 (MP_GT), 0 (MP_EQ), -1 (MP_LT). Heavily used by the ECC point/modular arithmetic (8 callers: 0c05eb00, 0c05f218, 0c05f8c4, 0c05fd18, 0c05ff44 ...). wolfSSL TFM fast-math big integer (fp_int): s32 used digit count at +0, s32 sign at +4 (0 = positive, 1 = negative), 32-bit digits dp[24] at +8 (0x68 bytes total, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "first mp_int"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "second mp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 if a > b, 0 if equal, -1 if a < b"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064184": {
+    "name": "mp_cmp_d",
+    "summary": "Compare a big integer with a single digit",
+    "description": "If a is zero (used == 0) the result is 0 when b == 0, else -1. If a is negative it is less (-1). If a has more than one digit it is greater (1). Otherwise dp[0] is compared with b giving 1, 0 or -1. Used by ECC code to test values against 1 (e.g. in 0c05f8c4). wolfSSL TFM fast-math big integer (fp_int): s32 used digit count at +0, s32 sign at +4 (0 = positive, 1 = negative), 32-bit digits dp[24] at +8 (0x68 bytes total, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int"
+      },
+      {
+        "name": "b",
+        "type": "u32",
+        "description": "digit to compare with"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 if a > b, 0 if equal, -1 if a < b"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0641b8": {
+    "name": "mp_unsigned_bin_size",
+    "summary": "Number of bytes needed for the big integer's magnitude",
+    "description": "Computes ceil(bit_length / 8) where the bit length is (used-1)*32 plus the position of the highest set bit in the top digit (the loop shifts the top digit right until zero). Returns 0 for used == 0. This is fp_unsigned_bin_size(a) = (fp_count_bits(a)+7)/8 with fp_count_bits inlined. Called from 0c05fb10.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "size in bytes"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0641f4": {
+    "name": "mp_to_unsigned_bin_len",
+    "summary": "Write a big integer as fixed-length big-endian bytes",
+    "description": "Writes exactly n bytes, filling the output from the last byte backwards: byte k (counting from the least significant) is (dp[k/4] >> (8*(k%4))) & 0xff, so the value is zero-padded on the left. It does not check that the value fits in n bytes (digits above used are zero). Always returns 0. Used to export ECC coordinates/scalars (callers 0c05ba6c, 0c05baf0, 0c05bbcc, 0c05bd30, 0c05c13c).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "source mp_int"
+      },
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "output buffer of n bytes"
+      },
+      {
+        "name": "n",
+        "type": "s32",
+        "description": "number of bytes to write"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06425c": {
+    "name": "mp_iszero",
+    "summary": "Test whether a big integer is zero",
+    "description": "Returns true when the used-digit count (first word) is 0. Used throughout the ECC arithmetic (callers 0c05eb00, 0c05f218, 0c05fd18 ...).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if a == 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064268": {
+    "name": "mp_count_bits",
+    "summary": "Bit length of a big integer",
+    "description": "Returns 0 for used == 0, otherwise (used-1)*32 plus the number of significant bits in the top digit (loop shifting right until zero). Used in ECC (0c05f338, 0c05f8c4, 0c0601fc) for size checks.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of significant bits"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064458": {
+    "name": "mp_montgomery_setup",
+    "summary": "Compute the Montgomery constant rho = -1/m mod 2^32",
+    "description": "Takes dp[0] (at offset 8) of the modulus; if it is even returns -1 (FP_VAL). Otherwise it starts from x = (((b+2)&4)<<1)+b (correct to 4 bits) and applies two Newton iterations x *= 2 - b*x to reach 16 bits, and a further step folded into the final expression to reach 32 bits, then stores rho = -x (mod 2^32) to *rho. Callers are the ECC modular multiply/scalar-mult routines.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "modulus",
+        "type": "ptr",
+        "description": "mp_int modulus (must be odd)"
+      },
+      {
+        "name": "rho",
+        "type": "ptr",
+        "description": "out: u32 Montgomery reduction digit"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -1 if the modulus is even"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0644c0": {
+    "name": "get_digit_count",
+    "summary": "Number of used digits in a big integer (NULL-safe)",
+    "description": "Returns the first word (used) of the mp_int, or 0 when the pointer is NULL. wolfSSL's get_digit_count.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int or NULL"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of used digits, 0 for NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0644c8": {
+    "name": "get_digit",
+    "summary": "Read digit n of a big integer (0 when out of range)",
+    "description": "Returns a->dp[n] (word n+2) if a is non-NULL and 0 <= n < used, else 0. wolfSSL's get_digit, used by mp_cond_copy-style constant-time code.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "mp_int or NULL"
+      },
+      {
+        "name": "n",
+        "type": "s32",
+        "description": "digit index"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "digit value or 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0644e0": {
+    "name": "mp_cond_copy",
+    "summary": "Constant-time conditional copy of a big integer: if (copy) b = a",
+    "description": "Builds mask = -copy (all ones or zero). Returns -173 if either pointer is NULL. For each digit of a, b->dp[i] is replaced with (a->dp[i] ^ b->dp[i]) & mask ^ b->dp[i] (digits of b above a's used count are masked likewise), and b->used = used_b ^ (mask & (used_a ^ used_b)). No branch depends on the copy flag, which makes it safe for secret-dependent selection in the ECC scalar multiplication (called from 0c05f338 and 0c05f8c4 on the x, y and z coordinates of a point). Sign is not copied.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "source mp_int"
+      },
+      {
+        "name": "copy",
+        "type": "s32",
+        "description": "0 or 1: whether to copy"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "destination mp_int"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 (BAD_FUNC_ARG) on NULL argument"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06458c": {
+    "name": "ad_iterator_init",
+    "summary": "Initialise an advertising-data (AD structure) iterator",
+    "description": "Stores the data pointer at +0, the total length at +5 and clears the current offset at +4 (BTstack ad_context_t { const uint8_t *data; uint8_t offset; uint8_t length; }). Used to walk the length-type-value elements of an advertising / scan response payload.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t to fill"
+      },
+      {
+        "name": "ad_len",
+        "type": "u8",
+        "description": "total length of the AD data in bytes"
+      },
+      {
+        "name": "ad_data",
+        "type": "ptr",
+        "description": "AD data buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064598": {
+    "name": "ad_iterator_has_more",
+    "summary": "Check whether a valid AD element remains at the current offset",
+    "description": "Returns true if offset+1 < length, the length byte data[offset] is non-zero and data[offset] + offset + 1 <= length (the element fits inside the buffer). Otherwise false. BTstack ad_iterator_has_more.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t { u8 *data; u8 offset; u8 length; }"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if another well-formed element is available"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0645b8": {
+    "name": "ad_iterator_next",
+    "summary": "Advance the AD iterator to the next element",
+    "description": "offset += data[offset] + 1, i.e. skip the length byte and its payload (length + type + data). BTstack ad_iterator_next.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t { u8 *data; u8 offset; u8 length; }"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0645c8": {
+    "name": "ad_iterator_get_data_len",
+    "summary": "Length of the current AD element's data (excluding type)",
+    "description": "Returns data[offset] - 1: the element length byte minus the one-byte AD type. BTstack ad_iterator_get_data_len.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t { u8 *data; u8 offset; u8 length; }"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "payload length in bytes"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0645d4": {
+    "name": "ad_iterator_get_data_type",
+    "summary": "AD type of the current element",
+    "description": "Returns data[offset + 1], the AD type byte (e.g. 0x09 complete local name, 0xFF manufacturer data). BTstack ad_iterator_get_data_type.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t { u8 *data; u8 offset; u8 length; }"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "AD type"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0645e0": {
+    "name": "ad_iterator_get_data",
+    "summary": "Pointer to the current AD element's payload",
+    "description": "Returns data + offset + 2, i.e. the address after the length and type bytes. BTstack ad_iterator_get_data.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "BTstack ad_context_t { u8 *data; u8 offset; u8 length; }"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "pointer to AD payload"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c065144": {
+    "name": "stub_return_zero_0c065144",
+    "summary": "Stub that always returns 0",
+    "description": "Two-instruction function that returns 0 (constant). Called once from 0c051ef0 (a command/packet handler); looks like an unimplemented optional callback or query that is compiled to a constant.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c065190": {
+    "name": "btstack_hid_parse_descriptor_item",
+    "summary": "Parse one HID report-descriptor item (short or long)",
+    "description": "Fills a hid_descriptor_item_t (item_value u32 at +0, item_size u16 at +4, item_type u8 at +6, item_tag u8 at +7, data_size u8 at +8) from the byte stream. The prefix byte gives the data size via the table {0,1,2,4}[b&3], the item type from bits 3:2 and the tag from bits 7:4. A prefix of 0xFE (type 3, tag 15) is a long item: data size and tag come from the next two bytes and the header is 3 bytes. The little-endian data value is assembled into item_value; for global items (type 1) with tags 1..4 (logical/physical minimum/maximum) the value is sign-extended. If the buffer is shorter than the item, or a long item has more than 4 data bytes, the function returns without completing. Called by the HID device code (0c04af00 and 0c065288/0c0653a0).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "item",
+        "type": "ptr",
+        "description": "out: hid_descriptor_item_t (value u32, size u16, type u8, tag u8, data_size u8)"
+      },
+      {
+        "name": "hid_descriptor",
+        "type": "ptr",
+        "description": "HID report descriptor bytes at the current position"
+      },
+      {
+        "name": "hid_descriptor_len",
+        "type": "u32",
+        "description": "bytes remaining"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Matches BTstack btstack_hid_parse_descriptor_item."
+  }
+}
