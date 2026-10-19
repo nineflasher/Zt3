@@ -283,6 +283,15 @@ def make_data_waves(comp: str, kind: str = "globals") -> list[Path]:
     covered = {fid for r in objects.resolve(comp, notes, kind)[0].values() for fid in r["covers"]}
     handed = packeted(comp)
     acc = _accessors(fam, exports, kind)
+    table_meta: dict[str, dict[int, dict]] = {}
+    firmware: dict[str, bytes] = {}
+    if kind == "tables":
+        for img in fam["versions"]:
+            ex = json.loads((config.ANALYSIS_DIR / "export" / comp / f"{img}.json").read_text())
+            table_meta[img] = {t["addr"]: t for t in ex["tables"]}
+            bin_path = next((i.path for i in config.discover_images([comp]) if i.name == img), None)
+            if bin_path:
+                firmware[img] = bin_path.read_bytes()
     todo = [oid for oid in fam[kind] if oid not in covered and oid not in handed]
     # group by dominant category of the accessing functions, then by address
     def category(oid: str) -> str:
@@ -319,12 +328,28 @@ def make_data_waves(comp: str, kind: str = "globals") -> list[Path]:
                 lines.append("- accessed by: " + ", ".join(
                     f"`{funcs[fn]['name']}`[{m}]" if fn in funcs else f"`{fn}`[{m}]" for fn, m in acc.get(oid, [])[:12])
                              + (" ..." if len(acc.get(oid, [])) > 12 else ""))
-                # evidence: decompiled lines mentioning the address, from up to 3 accessors
+                needles = [f"{addr:08x}"]
+                if kind == "tables":                     # flash: show bytes, Ghidra's type, folded constants
+                    meta = table_meta.get(img, {}).get(addr)
+                    raw = firmware.get(img, b"")
+                    off = addr - cobj.base
+                    chunk = raw[off:off + 48] if 0 <= off < len(raw) else b""
+                    if meta:
+                        lines.append(f"- Ghidra data type: `{meta.get('type')}` size {meta.get('size')}")
+                    if chunk:
+                        words = [int.from_bytes(chunk[i:i + 4], "little") for i in range(0, min(len(chunk), 16), 4)]
+                        lines.append("- first bytes: `" + chunk.hex(" ", 4) + "`")
+                        lines.append("- as u32 LE: " + ", ".join(f"{w:#x}" for w in words)
+                                     + "  as u16 LE: " + ", ".join(f"{int.from_bytes(chunk[i:i+2],'little'):#x}" for i in range(0, min(len(chunk), 16), 2)))
+                        needles += [f"{w:x}" for w in words[:2] if w > 0xff]
+                        s_ascii = bytes(b if 32 <= b < 127 else 46 for b in chunk).decode()
+                        lines.append(f"- ascii: `{s_ascii}`")
+                # evidence: decompiled lines mentioning the address (or, for tables, its folded constants)
                 shown = 0
                 for fn, _ in acc.get(oid, [])[:3]:
                     fimg, faddr = fam["functions"][fn]["anchor"]
                     c = decomps.get(fimg, {}).get(f"{faddr:#x}", {}).get("c") or ""
-                    hits = [ln.strip() for ln in c.splitlines() if f"{addr:08x}" in ln.lower()]
+                    hits = [ln.strip() for ln in c.splitlines() if any(n in ln.lower() for n in needles)]
                     for ln in hits[:3]:
                         lines.append(f"  - `{funcs[fn]['name'] if fn in funcs else fn}`: `{ln[:140]}`")
                         shown += 1
