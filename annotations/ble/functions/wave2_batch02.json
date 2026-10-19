@@ -1,0 +1,440 @@
+{
+  "ble_219_0c032954": {
+    "name": "hal_spi_dma_rx_start",
+    "summary": "Start a GPDMA receive of N bytes into a buffer on SPI instance 1, async or blocking",
+    "description": "Receives param_2 bytes into the buffer param_1 on SPI instance 1 through GPDMA. The frame width comes from the chip-select record at DAT_20003920 + DAT_2000391E*0x14 (bits 16..20 of its first word plus 1 select 1, 2 or 4 bytes per unit); address and length must be multiples of that width, otherwise -1 or -2. The transfer is split into descriptors of at most 0xFFF units built in the static LLI pool at 0x20003970 (hal_gpdma_init_desc) and started with hal_gpdma_sg_start_linear, or hal_gpdma_start for a single descriptor. The RX channel is taken from peripheral request 0x10 (hal_gpdma_get_chan) and kept in byte 1 of DAT_20003D18, which is hard-wired to instance 1; the completion callback is hal_spi_dma_rx_done_handler and param_3 is stored in DAT_20003D0C. The body holds the object at DAT_20003D05 (RAM-patch thunks 0x200007F4 and 0x2000081C) and refuses to start while GPDMA status 0x40007000 bit 7 and 0x4000700C bit 4 are both set. When param_3 is zero it busy-waits on 0x40007004 bit 1 and channel busy, then frees the channel and returns 0.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "destination buffer address, aligned to the frame width"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes, a multiple of the frame width"},
+      {"name": "param_3", "type": "u32", "description": "nonzero = asynchronous (completion via callback), zero = wait until done"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success or async start; -1 length not aligned, -2 buffer not aligned, -4 GPDMA not ready, -5 RX channel already active, -6 no free channel, -7 start failed, -31 lock not obtained"},
+    "confidence": "medium",
+    "notes": "Receive direction and the sync/async meaning of param_3 are inferred from the callback and the wait loop. Instance 1 is hard-wired in the code (byte 1 of DAT_20003D18)."
+  },
+  "ble_219_0c032c04": {
+    "name": "bes_cmu_request_sysclk",
+    "summary": "Record one user's system-clock level request (0..7) and apply the new effective level",
+    "description": "Stores the requested level param_2 for user index param_1 (0..36) in the byte table at 0x20003D24 and keeps the index of the maximum requester in DAT_20003544 (37 means none). A request of 0 counts as 3, and the effective level is the larger of the maximum request and the floor byte DAT_20003545. When the effective level changes, bes_cmu_set_sysclk_cfg (0x0C040BC8) applies it; RAM-patch hook 0x20000738 runs before that call when the clock rises and after it when the clock falls. If the previous maximum holder lowers its request the table is rescanned over indices 0..36 for the new maximum. The update runs in a BASEPRI critical section and is the write side of bes_cmu_get_sysclk_request and bes_cmu_get_sysclk_effective.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "user index 0..36"},
+      {"name": "param_2", "type": "u32", "description": "requested level 0..7 (0 counts as 3)"}
+    ],
+    "returns": {"type": "u32", "description": "0 ok, 1 user index above 36, 2 level above 7"},
+    "confidence": "medium",
+    "notes": "RAM-patch thunk 0x20000934 supplies the value when no holder is recorded; its meaning is not identified."
+  },
+  "ble_219_0c032d18": {
+    "name": "bes_cmu_get_sysclk_request",
+    "summary": "Return the raw clock-level request of the current maximum holder",
+    "description": "Returns the table value of the current maximum holder (DAT_20003544 indexes the byte table at 0x20003D24) without the zero-to-3 mapping or the floor. When no holder is recorded (index 37) it returns the value of RAM-patch thunk 0x20000934 instead. It takes no lock and is the read side of bes_cmu_request_sysclk.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "u32", "description": "raw level request 0..7 of the holder, or the thunk value when there is none"},
+    "confidence": "high"
+  },
+  "ble_219_0c032d34": {
+    "name": "bes_cmu_get_sysclk_effective",
+    "summary": "Return the effective system-clock level: holder request (0 as 3) raised to the floor",
+    "description": "When a holder is recorded it takes that holder's request from the table at 0x20003D24, maps 0 to 3, and returns the larger of the result and the floor byte DAT_20003545. With no holder (index 37) it returns the RAM-patch thunk 0x20000934 value unchanged. This is the level that bes_cmu_request_sysclk compares and applies through bes_cmu_set_sysclk_cfg.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "u32", "description": "effective system clock level"},
+    "confidence": "high"
+  },
+  "ble_219_0c032ee8": {
+    "name": "bes_cmu_init_periph_pair",
+    "summary": "Bring up two peripheral blocks at 0x40002000 and 0x40003000 and set AON bit 18",
+    "description": "Clears bit 9 of CMU register 0x4000005C (bes_cmu_reg5c_clear_bit9), writes 0x82 to 0x40002008, sets bit 10 of 0x4000005C (bes_cmu_reg5c_set_bit10), writes 0x82 to 0x40003008, and then sets bit 18 of 0x4008001C inside a BASEPRI critical section. The 0x82 control value and the two blocks are not documented in this packet, so their purpose is inferred from the sequence as a clock or reset release for two sub-blocks. The only caller in the packet is ble_219_0c03ab80.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium"
+  },
+  "ble_219_0c032f0c": {
+    "name": "bes_clk_measure_hz",
+    "summary": "Estimate a clock frequency in Hz by timing a counter window of param_1 ms",
+    "description": "Reads two rates from RAM-patch thunks (0x2000022C into uVar3 and 0x20000238 into uVar4) and forms the reference count uVar4 * ms / 1000 for a window of param_1 ms, where 0 means 10 ms. It runs a timed count through thunk 0x200002CC inside a BASEPRI section with count argument (ms * (uVar3 >> 2)) / 1000 and flag 0x40, then returns (uVar3 / measured) * reference, clamped at zero, using VFP float math. With param_2 == 0 the estimate is rounded to the nearest 1 MHz; with param_2 != 0 the raw estimate is returned, refined through a 64-bit product and helper 0x0C06FEC0 when the timer produced a second count. The meaning of the two thunk rates is inferred from the arithmetic (a 24 MHz class clock and a 32 kHz class reference are plausible but not confirmed).",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "measurement window in ms (0 means 10)"},
+      {"name": "param_2", "type": "u32", "description": "0 = round to MHz, nonzero = raw or refined estimate"}
+    ],
+    "returns": {"type": "u32", "description": "estimated frequency in Hz"},
+    "confidence": "low",
+    "notes": "Thunk targets and helper 0x0C06FEC0 are not named. The 1 MHz rounding is literal in the code."
+  },
+  "ble_219_0c03324c": {
+    "name": "hal_block_40008000_set_run",
+    "summary": "Start or stop the 0x40008000 block: reload mode and rate when ready, set run register",
+    "description": "Clears control word 0x4000812C, writes 0x0F to 0x40008108 and reads status 0x40008104. If status bit 1 is set it writes 1 to 0x40008140, the mode bits 0x4000810C from DAT_2000AA74 & 3 and the rate 0x40008130 from DAT_2000AA78, and calls RAM-patch thunks 0x20000570 and 0x20000334. It then writes 1 to 0x400081BC and 0x4000812C, and writes 0x0F (param 0, start) or 0 (nonzero, stop) to the run register 0x40008100. The two cached words are the ones stored by hal_block_40008000_open. The only caller in the packet is ble_219_0c033328.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "0 = start (run register 0x0F), nonzero = stop (0)"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium",
+    "notes": "The identity of the 0x40008000 block is not documented anywhere in the packet."
+  },
+  "ble_219_0c0332b4": {
+    "name": "hal_block_40008000_open",
+    "summary": "Open the 0x40008000 block: enable clock and reset 0x28, program rate and mode, cache both",
+    "description": "Takes a config record of two words {rate, mode}. A NULL record returns -1, and an already open block (DAT_2000AA70 set) returns 0 without changes. Otherwise it sets DAT_2000AA70, raises the rate to at least 0x100, passes (rate >> 4) * 10 to RAM-patch thunk 0x20000570 and keeps the result in DAT_20003E24 (purpose not identified), enables clock id 0x28 (hal_cmu_clock_enable) and clears its reset (hal_cmu_reset_clear). It writes mode & 3 to 0x4000810C and the rate to 0x40008130, and caches the mode word in DAT_2000AA74 and the rate in DAT_2000AA78 for hal_block_40008000_set_run. It returns 0 on every open path.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "config record: u32 rate (min 0x100), u32 mode (low 2 bits used)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on open or already open, -1 for a NULL config"},
+    "confidence": "high"
+  },
+  "ble_219_0c0334c8": {
+    "name": "hal_uart_set_baud_divisor",
+    "summary": "Program PL011 IBRD and FBRD of a UART instance for a baud rate, 16x or 8x oversampling",
+    "description": "For UART instance param_1 (0..2) the register block comes from the 12-byte instance table at 0x0C085890 (stride 12: +0 PL011 base pointer, +4 NVIC IRQ number with 0x4C as sentinel, +5 and +6 module ids for reset and clock, +7 TX DMA request, +8 RX DMA request). The instance's clock path is selected by one of three CMU helpers (0x0C040D58, 0x0C040DB0, 0x0C040E08 for instances 0, 1, 2). The peripheral clock comes from RAM-patch thunk 0x2000022C and clk/16 is the base, switching to clk/8 when the baud rate is above clk/16. The divisor is a 6-bit fixed-point value (baud/2 + base*64) / baud; its integer part goes to register +0x24 (IBRD) and the fraction to +0x28 (FBRD). A divisor outside 1..0xFFFE traps in an infinite loop. LCR_H is not written, so the caller must rewrite it, as hal_uart_set_baud_rate does. This is part of the UART group with hal_uart_set_baud_rate, hal_uart_apply_line_config, hal_uart_close_internal, hal_uart_tx_dma_start_sg and hal_uart_rx_dma_start.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "UART instance 0..2"},
+      {"name": "param_2", "type": "u32", "description": "baud rate in Hz"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "high",
+    "notes": "PL011 register layout is the basis for the offsets. The clock selector helpers are inferred from their names and the instance order."
+  },
+  "ble_219_0c033530": {
+    "name": "hal_uart_tx_dma_complete",
+    "summary": "GPDMA completion callback for UART TX: free the channel and report bytes sent",
+    "description": "GPDMA callback with (channel id, remaining, error flag). Under a BASEPRI section it finds the UART instance whose TX channel slot (DAT_2000AA8C, DAT_2000AA8D or DAT_2000AA8E) matches and, for mode 0, clears that slot. Outside the section, mode 0 reads the remaining count (hal_gpdma_get_sg_remain_size), frees the channel (hal_gpdma_free_chan) and calls the user callback at DAT_2000AAAC[inst] with bytes sent = DAT_2000AA94[inst] minus remaining (0 if negative). Modes 1 to 3 keep the channel: mode 1 reports half the total and the other modes report 0. The user callback receives (instance, count, error flag, 0), where the error flag is the third argument of this callback. The total in DAT_2000AA94 is the first segment's length (see hal_uart_tx_dma_start_sg), so the reported count is exact only for single-segment transfers.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id (controller << 4 | channel)"},
+      {"name": "param_2", "type": "u32", "description": "remaining units from the IRQ, not used (recomputed from the channel)"},
+      {"name": "param_3", "type": "u32", "description": "error flag, forwarded to the user callback"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium",
+    "notes": "The multi-segment accuracy caveat is from reading the code, not from a test."
+  },
+  "ble_219_0c033610": {
+    "name": "hal_uart_rx_dma_complete",
+    "summary": "GPDMA completion callback for UART RX: free the channel and report bytes received",
+    "description": "GPDMA callback with (channel id, remaining, error flag). It finds the UART instance whose RX channel slot (DAT_2000AAB8..BA) holds the channel and clears that slot under a BASEPRI section. Outside the section it reads the remaining count (hal_gpdma_get_sg_remain_size), frees the channel (hal_gpdma_free_chan) and, when a callback is set at DAT_2000AAC8[inst], calls it as (instance, received, error flag), where received = DAT_2000AABC[inst] minus remaining (0 if negative). Unknown channels are ignored. This is the counterpart of hal_uart_rx_dma_start.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id (controller << 4 | channel)"},
+      {"name": "param_2", "type": "u32", "description": "remaining units from the IRQ, not used (recomputed from the channel)"},
+      {"name": "param_3", "type": "u32", "description": "error flag, forwarded to the user callback"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "high"
+  },
+  "ble_219_0c0336b0": {
+    "name": "hal_uart_tx_dma_start_sg",
+    "summary": "Start a UART TX DMA from a segment list, chunked as linear, ping-pong, ring or scatter",
+    "description": "Builds and starts a GPDMA transmit on UART instance param_1 from param_3 segments of three words {address, length, flags}, with param_8 as the maximum chunk size (1..0xFFF). Mode param_7 selects the split: 0 linear chunks, 1 two equal halves (the length must divide exactly), 2 a ring of at least two equal pieces, 3 scatter-gather with chunks for every segment. When param_4 is NULL and param_5 is set it only reports the descriptor count in *param_5 (1 is reported as 0). Otherwise it fills the LLI list (caller buffer, or a 16-byte stack buffer for one descriptor) with hal_gpdma_init_desc. Under a BASEPRI section it takes a GPDMA channel from request byte +7 of the instance record (hal_gpdma_get_chan) and records it in DAT_2000AA8C[inst], the mode in DAT_2000AA90[inst], the first segment length in DAT_2000AA94[inst] and the optional user word param_6 in DAT_2000AAA0[inst]. It writes 0x40 to the PL011 ICR (+0x44) to clear the RX-timeout interrupt and starts the list with hal_gpdma_sg_start_linear. The completion callback 0x0C033530 is installed in the descriptors. The function traps if the instance IRQ byte is 0x4C or DMACR bit 0 is clear.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "UART instance 0..2"},
+      {"name": "param_2", "type": "ptr", "description": "segment array, three u32 per entry: address, length, flags"},
+      {"name": "param_3", "type": "u32", "description": "number of segments"},
+      {"name": "param_4", "type": "ptr", "description": "LLI descriptor buffer (16 bytes each), NULL for query or stack buffer"},
+      {"name": "param_5", "type": "ptr", "description": "in/out descriptor count, may be NULL"},
+      {"name": "param_6", "type": "ptr", "description": "optional user word stored per instance, may be NULL"},
+      {"name": "param_7", "type": "u8", "description": "mode: 0 linear, 1 ping-pong halves, 2 ring, 3 scatter-gather"},
+      {"name": "param_8", "type": "u32", "description": "maximum chunk size in bytes (1..4095)"}
+    ],
+    "returns": {"type": "u32", "description": "0 started or count reported; 1 TX already active; 2 descriptor build failed; 3 slot taken meanwhile; 4 no free GPDMA channel; 5 start failed; 0xFFFFFFFF no segments; 0xFFFFFFFE chunk size out of range; 0xFFFFFFFD NULL segment address; 0xFFFFFFFC zero length; 0xFFFFFFFB ping-pong split not exact; 0xFFFFFFFA ping-pong count above length; 0xFFFFFFF9 ring overflow; 0xFFFFFFF5 descriptor buffer needed; 0xFFFFFFF4 descriptor buffer too small"},
+    "confidence": "medium",
+    "notes": "Only the first segment length is stored in DAT_2000AA94, which feeds hal_uart_tx_dma_complete. Modes 2 and 3 are read from the split arithmetic, not from a test."
+  },
+  "ble_219_0c033acc": {
+    "name": "hal_uart_close_internal",
+    "summary": "Close a UART instance: disable its NVIC IRQ, free its DMA channels, reset and gate its clocks",
+    "description": "Writes the NVIC clear-enable register (ICER, 0xE000E180 region, word n/32) for the instance IRQ byte unless it is the 0x4C sentinel or negative. If the UART DMA layer is initialised (DAT_2000AA7C), it cancels and frees the TX channel (DAT_2000AA8C) and the RX channel (DAT_2000AAB8) under a BASEPRI section and sets both slots to 0xFF. It then clears UARTEN (CR bit 0) and the FIFO enable (LCR_H bit 4), asserts the resets of module ids +6 and +5 of the instance record (hal_cmu_reset_set) and gates their clocks off (hal_cmu_clock_disable). It always returns 0; the open side is hal_uart_apply_line_config.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "UART instance 0..2"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c033bd8": {
+    "name": "hal_uart_tx_dma_stop",
+    "summary": "Stop the UART TX DMA of an instance, free its channel and return the bytes not sent",
+    "description": "Under a BASEPRI section it clears the TX channel slot DAT_2000AA8C[inst] to 0xFF and keeps the old value. If a channel was held it stops it with hal_gpdma_stop, reads the remaining units with hal_gpdma_get_sg_remain_size, frees it with hal_gpdma_free_chan and returns that remaining count. With no active TX it returns 0. The user TX callback is not called for an aborted transfer.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "UART instance 0..2"}
+    ],
+    "returns": {"type": "u32", "description": "units not yet sent; 0 when no TX was active"},
+    "confidence": "high"
+  },
+  "ble_219_0c033ca8": {
+    "name": "hal_uart_set_baud_rate",
+    "summary": "Change the baud rate of a running UART: disable, reprogram divisor, relatch LCR_H, enable",
+    "description": "Requires the instance clock (module id +6 of the record, when below 0x9A) to be on and the UART to be enabled (CR bit 0); otherwise it returns 1. If the transmitter is not busy (FR bit 3 clear) it clears CR bit 0, programs the divisor with hal_uart_set_baud_divisor, rewrites LCR_H to latch the new IBRD and FBRD (PL011 requires this), and sets CR bit 0 again, returning 0. If the UART is busy it returns 2 and changes nothing. Instance numbers above 2 trap.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "UART instance 0..2"},
+      {"name": "param_2", "type": "u32", "description": "baud rate in Hz"}
+    ],
+    "returns": {"type": "u32", "description": "0 changed, 1 clock off or UART disabled, 2 transmitter busy"},
+    "confidence": "high"
+  },
+  "ble_219_0c033e04": {
+    "name": "hal_uart_rx_dma_start",
+    "summary": "Start a UART RX DMA into a buffer, chaining descriptors in 0xFFF-byte pieces",
+    "description": "Receives param_3 bytes from UART instance param_1 into the buffer param_2 by GPDMA, with completion callback hal_uart_rx_dma_complete. The length is split into ceil(len / 0xFFF) descriptors. When param_4 is zero and param_5 is set it only reports the count in *param_5 (1 reported as 0) and returns 0. Lengths above 0x1FFD need param_4 (a descriptor buffer) and an output count at least as large. Otherwise it takes a channel from request byte +8 of the instance record (hal_gpdma_get_chan, policy 0), records it in DAT_2000AAB8[inst] and the length in DAT_2000AABC[inst], builds the descriptors with hal_gpdma_init_desc and starts them with hal_gpdma_start (one descriptor) or hal_gpdma_sg_start_linear. Zero length returns 0 without starting, and any start failure frees the channel. It traps when DMACR bit 1 is clear or the IRQ byte is 0x4C.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "UART instance 0..2"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_3", "type": "s32", "description": "length in bytes"},
+      {"name": "param_4", "type": "u32", "description": "0 = report descriptor count only (with param_5), nonzero = start"},
+      {"name": "param_5", "type": "ptr", "description": "in/out descriptor count, may be NULL"}
+    ],
+    "returns": {"type": "s32", "description": "0 started, zero-length or count reported; 1 RX already active; 2 no free GPDMA channel; 3 descriptor build or start failed; -1 large request without descriptor buffer; -2 descriptor buffer too small"},
+    "confidence": "medium"
+  },
+  "ble_219_0c03418c": {
+    "name": "hal_uart_apply_line_config",
+    "summary": "Apply a UART line configuration (LCR_H, DMACR, FIFO levels, flow control, baud) and enable it",
+    "description": "On the first call it sets all TX and RX DMA channel slots to 0xFF and marks the DMA layer initialised (DAT_2000AA7C). It reads a config record: byte 0 (0..4) indexes a five-word ROM table at 0x0C074574 used as the base LCR_H value (probably the parity bits), byte 1 (0 or 1) sets STP2 (LCR_H bit 3), byte 2 (0..3) sets the word length (5 to 8 bits, LCR_H bits 6:5), byte 3 (0..3) sets hardware flow control (CR bit 14 RTS and/or bit 15 CTS), and byte 12 selects DMACR bits 0, 1 and 2, with bit 0 also setting LCR_H bit 15. Bytes 4 and 5 give the RX and TX FIFO levels for IFLS (0x34), and the word at +8 is the baud rate. After waiting for BUSY it disables the UART and FIFO, masks and clears interrupts, writes LCR_H, DMACR, the BES register +0x54 = 3 and the baud (hal_uart_set_baud_divisor), then IFLS, and finally CR = flow bits + 0x301 (RXE, TXE, UARTEN). It always returns 0 and traps on out-of-range config fields.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "UART instance 0..2"},
+      {"name": "param_2", "type": "ptr", "description": "config record: byte 0 parity index, byte 1 stop bits, byte 2 data bits, byte 3 flow control, byte 4 RX FIFO level, byte 5 TX FIFO level, u32 baud at +8, byte 12 DMA flags"},
+      {"name": "param_3", "type": "u32", "description": "not used"},
+      {"name": "param_4", "type": "u32", "description": "not used"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The parity meaning of the ROM table at 0x0C074574 is a guess; the other field meanings follow from the PL011 offsets used."
+  },
+  "ble_219_0c034290": {
+    "name": "hal_uart_tx_dma_busy",
+    "summary": "Return 1 while the UART TX DMA channel of an instance is running",
+    "description": "Returns 0 when no TX channel is held for instance param_1 (slot DAT_2000AA8C is 0xFF). Otherwise it returns the result of hal_gpdma_chan_busy for that channel.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "UART instance 0..2"}
+    ],
+    "returns": {"type": "u32", "description": "1 busy, 0 idle or no channel"},
+    "confidence": "high"
+  },
+  "ble_219_0c0342a4": {
+    "name": "hal_uart_rx_dma_busy",
+    "summary": "Return 1 while the UART RX DMA channel of an instance is running",
+    "description": "Returns 0 when no RX channel is held for instance param_1 (slot DAT_2000AAB8 is 0xFF). Otherwise it returns the result of hal_gpdma_chan_busy for that channel.",
+    "category": "hal_uart",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "UART instance 0..2"}
+    ],
+    "returns": {"type": "u32", "description": "1 busy, 0 idle or no channel"},
+    "confidence": "high"
+  },
+  "ble_219_0c034328": {
+    "name": "hal_wdt_start",
+    "summary": "Start the watchdog: unlock, reload, enable reset and interrupt, lock, set started flag",
+    "description": "Reloads the counter with hal_wdt_write_load first. Then, under a BASEPRI section, it writes the SP805 unlock key 0x1ACCE551 to WDOGLOCK (0x40082C00), writes 3 (INTEN and RESEN) to WDOGCONTROL (0x40082008), writes 1 to WDOGINTCLR (0x4008200C) and writes 1 to 0x40082C00 to lock again. It sets the started flag DAT_2000AADC to 1 and returns the lock register read-back in the high word with 0 in the low word.",
+    "category": "hal_wdt",
+    "params": [],
+    "returns": {"type": "u64", "description": "lock register read-back in bits 63..32, zero in bits 31..0"},
+    "confidence": "high"
+  },
+  "ble_219_0c0343f8": {
+    "name": "hal_wdt_set_reload_slot",
+    "summary": "Store watchdog reload slot param_1 as RAM-patch ticks minus one, minimum 1",
+    "description": "Passes param_2 to RAM-patch thunk 0x20000570 and stores the result minus one into the reload table DAT_2000AAD4[param_1] (32-bit slots), or 1 when the result is 0 or 1. hal_wdt_write_load copies that slot into the LOAD register (0x40082000) on every reload. Called from ble_219_0c046838 (not described in this packet).",
+    "category": "hal_wdt",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "reload slot index (table has two slots)"},
+      {"name": "param_2", "type": "u32", "description": "time argument converted by the RAM-patch routine"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium"
+  },
+  "ble_219_0c034468": {
+    "name": "nb_upgrade_verify_raw",
+    "summary": "Verify a RAW or RAW4 firmware container: magic, size bound and payload CRC32",
+    "description": "Checks the header param_2: magic 0x20574152 ('RAW ') or 0x34574152 ('RAW4') at +0, payload size at +0xC (at most 0x1D8000), expected CRC32 at +0x10 and payload offset at +0x18 from the header. For RAW the reflected CRC32 (polynomial 0xEDB88320, crc32_reflected_table at 0x0C0476A0) is computed over the whole payload in one call. For RAW4 with payload end above 0x1000 the code streams the first 0x1000 bytes, then one byte per 4 KB page boundary, then the tail, all through the same routine. It returns 0 when the CRC matches, -8 on mismatch and -5 for a bad magic or an oversize image, and writes the payload address to *param_1 when that pointer is given.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "optional output: payload start address"},
+      {"name": "param_2", "type": "ptr", "description": "image header record"}
+    ],
+    "returns": {"type": "s32", "description": "0 valid; -8 CRC mismatch; -5 bad magic or size"},
+    "confidence": "medium",
+    "notes": "The RAW4 streaming path passes 0x1000 as the fourth argument of its first call, and the decompiler drops the fourth argument of the in-loop calls. Which bytes the RAW4 CRC covers is therefore uncertain (low confidence on that branch)."
+  },
+  "ble_219_0c034548": {
+    "name": "nb_upgrade_verify_staged_image",
+    "summary": "Verify the staged image described by DAT_20003E2C and copy out four header words",
+    "description": "Upgrade-module wrapper. If the descriptor at DAT_20003E2C has a size (+0xC) of at most 0x1D8000 it calls nb_upgrade_verify_raw on it (0x0C034468), passing param_1 through, and when param_2 is non-NULL it copies descriptor words +4, +8, +0xC and +0x10 into param_2[0..3]. An oversize descriptor returns -5 and copies nothing. Parameters param_3 and param_4 are not used in the body.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "passed through as the payload-address output of the verifier"},
+      {"name": "param_2", "type": "ptr", "description": "output: four u32 copied from the staged descriptor"},
+      {"name": "param_3", "type": "u32", "description": "not used"},
+      {"name": "param_4", "type": "u32", "description": "not used"}
+    ],
+    "returns": {"type": "s32", "description": "verifier result, or -5 for an oversize descriptor"},
+    "confidence": "medium"
+  },
+  "ble_219_0c035528": {
+    "name": "console_write_crlf",
+    "summary": "Write a buffer to the console converting each LF to CRLF; return bytes consumed",
+    "description": "Writes param_2 bytes of param_1 to console device DAT_2000B520 through the device write routine 0x0C071AD0. Text between newlines goes out in one call, and each newline is written as the two bytes CR LF and counted as one input byte. It returns the number of input bytes consumed, a negative write error, or -5 when a CRLF write is short. Used by _write for fds 1 and 2 (0x0C04846C).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "input buffer"},
+      {"name": "param_2", "type": "s32", "description": "length in bytes"}
+    ],
+    "returns": {"type": "s32", "description": "input bytes consumed, or a negative error"},
+    "confidence": "high"
+  },
+  "ble_219_0c0356dc": {
+    "name": "trace_fmt_unsigned",
+    "summary": "Format an unsigned integer in a base with minimum digits, field width and pad flags",
+    "description": "Emits unsigned param_2 in base param_3 through hal_trace_buf_putc (0x0C035684). Argument param_4 is the minimum digit count, param_5 the field width, and param_6 the flags, with bit 0 for left justification and bit 1 for zero padding (space when a precision is given). It counts the digits, pads on the left to the field width, then emits the digits from the highest place value using the characters 0123456789ABCDEF. It returns the number of characters emitted or the sink's negative error. Called by trace_fmt_signed and by the trace printf path at 0x0C035900.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "output context for hal_trace_buf_putc"},
+      {"name": "param_2", "type": "u32", "description": "value"},
+      {"name": "param_3", "type": "u32", "description": "base, 2..16"},
+      {"name": "param_4", "type": "u32", "description": "minimum digit count"},
+      {"name": "param_5", "type": "u32", "description": "field width"},
+      {"name": "param_6", "type": "u32", "description": "flags: bit 0 left justify, bit 1 zero pad"}
+    ],
+    "returns": {"type": "s32", "description": "characters emitted, or the sink's negative error"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0357b8": {
+    "name": "trace_fmt_signed",
+    "summary": "Format a signed decimal integer with sign, width and zero-padding flags",
+    "description": "Formats signed decimal param_2. The digit count of the magnitude, raised to the precision param_3, gives the width. The sign is then emitted: '-' for negative values through hal_trace_buf_putc, and '+' for non-negative values when flag bit 2 is set. Padding follows the flags (bit 0 left justify, bit 1 zero pad), and the magnitude is printed through trace_fmt_unsigned (0x0C0356DC) in base 10. It returns the number of characters written or a negative error.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "output context for hal_trace_buf_putc"},
+      {"name": "param_2", "type": "s32", "description": "signed value"},
+      {"name": "param_3", "type": "u32", "description": "minimum digit count (precision)"},
+      {"name": "param_4", "type": "u32", "description": "field width"},
+      {"name": "param_5", "type": "u32", "description": "flags: bit 0 left justify, bit 1 zero pad, bit 2 force plus sign"}
+    ],
+    "returns": {"type": "u32", "description": "characters written, or a negative error"},
+    "confidence": "medium"
+  },
+  "ble_219_0c035cb8": {
+    "name": "console_getc",
+    "summary": "Blocking read of one console byte; retries on zero-length reads, -1 on error",
+    "description": "Reads one byte from console device DAT_2000B520 through the read routine 0x0C071ABC, retrying while the read returns 0 bytes, and returns the byte value 0..255. A negative read result returns -1. There are no direct callers in the packet.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "s32", "description": "byte 0..255, or -1 on error"},
+    "confidence": "high"
+  },
+  "ble_219_0c035ce8": {
+    "name": "console_putc",
+    "summary": "Write one raw byte to the console device without newline translation",
+    "description": "Writes the byte param_1 to console device DAT_2000B520 through write routine 0x0C071AD0 as a one-byte write. The result is ignored. Unlike console_write_crlf it performs no LF to CRLF translation.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "byte to write"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "high"
+  },
+  "ble_219_0c035ff8": {
+    "name": "console_isatty_fd",
+    "summary": "Report whether fd 0..2 is the console; otherwise set errno EBADF and return 0",
+    "description": "Returns 1 for file descriptors 0, 1 and 2, which are the console. Otherwise it sets errno to 9 (EBADF) through __errno (0x0C0701F8) and returns 0. The caller is ble_219_0c073ab0 (_isatty_r). The name _isatty is already attached to 0x0C035FF4, a different return-1 stub (see the wave2_batch12 notes), so this entry uses a distinct name.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "file descriptor"}
+    ],
+    "returns": {"type": "u32", "description": "1 for a console fd, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "This may be the real _isatty behind _isatty_r. Its EBADF error differs from newlib's ENOTTY."
+  },
+  "ble_219_0c036010": {
+    "name": "_kill",
+    "summary": "newlib _kill stub: set errno to EINVAL and return -1",
+    "description": "Ignores its arguments, sets errno to 0x16 (EINVAL) through __errno (0x0C0701F8) and returns -1, so no signal is ever delivered. It is the fallback called by raise (0x0C073A54) when no handler is installed.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "s32", "description": "always -1"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0362bc": {
+    "name": "hal_wdt_task_checkin",
+    "summary": "Mark the running task in the check-in mask; ping the watchdog once all required tasks ran",
+    "description": "Called from RTOS paths at 0x0C02DC50, 0x0C02EB60, 0x0C0599D4 and 0x0C05D108. It takes the current TCB from xTaskGetCurrentTaskHandle (0x0C04462C). If monitoring is on (DAT_2000BAA4 nonzero) and the TCB lies in the static task table at 0x20004A18..0x20004B99, it sets bit (offset / 0x60) in DAT_2000BAA8. When every required task bit in DAT_2000BAAC is set (tasks in DAT_2000BAB0 are excluded), it calls hal_wdt_ping (0x0C046830) and clears DAT_2000BAA8, so the watchdog is fed only after all monitored tasks have run. The 0x60-byte stride is inferred from the division.",
+    "category": "hal_wdt",
+    "params": [],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0385fc": {
+    "name": "bes_otp_load_variant",
+    "summary": "Load a 2-bit hardware variant from OTP word 0xC into DAT_20003D64",
+    "description": "If bes_sysreg_read_80000_hi16 (0x0C0413E4) returns zero and the sticky flag DAT_20003D65 is clear, it reads OTP field 0xC through RAM-patch thunk 0x2000067C into a 16-bit local. It then stores bits 7..8 in DAT_20003D64 when that 2-bit value is 0, 1 or 2; the value 3 leaves the variable unchanged. Otherwise it sets DAT_20003D65 (when the sysreg value is nonzero) and forces DAT_20003D64 to 3. The meaning of the variant is not identified in this packet.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium"
+  },
+  "ble_219_0c03a1b0": {
+    "name": "bes_calib_get_trim_pair",
+    "summary": "Return two 16-bit calibration words: defaults, or OTP trims plus 12000 and 16200",
+    "description": "If DAT_2000BCD2 is zero it stores the defaults 0x32F0 (12528) to *param_1 and 0x4330 (17200) to *param_2. Otherwise it reads OTP fields 3 and 4 through RAM-patch thunk 0x2000067C (via 0x0C073C80) into the two outputs, keeps the low 11 bits of each, and adds 12000 (0x2EE0) and 16200 (0x3F48). The meaning of the two values (oscillator or RF calibration) is not established in this packet.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "output: first 16-bit calibration word"},
+      {"name": "param_2", "type": "ptr", "description": "output: second 16-bit calibration word"},
+      {"name": "param_3", "type": "u32", "description": "passed to the OTP read"},
+      {"name": "param_4", "type": "u32", "description": "passed to the OTP read"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "medium"
+  },
+  "ble_219_0c03aa40": {
+    "name": "ble_mem_copy",
+    "summary": "Wrapper around memcpy that returns 0",
+    "description": "Calls newlib memcpy (0x0C0709BC) as memcpy(param_1, param_3, param_4) and returns 0. param_2 is unused. Eight BLE host and controller callers use it as a copy helper. Its status is always 0, even for zero length.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination"},
+      {"name": "param_2", "type": "u32", "description": "not used"},
+      {"name": "param_3", "type": "ptr", "description": "source"},
+      {"name": "param_4", "type": "u32", "description": "size in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c03aa50": {
+    "name": "ble_mem_fill",
+    "summary": "Wrapper around memset that returns 0",
+    "description": "Calls newlib memset (0x0C070A0A) as memset(param_1, param_3, param_4) and returns 0. param_2 is unused. Its only caller in the packet is ble_219_0c03c070.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination"},
+      {"name": "param_2", "type": "u32", "description": "not used"},
+      {"name": "param_3", "type": "u32", "description": "byte value"},
+      {"name": "param_4", "type": "u32", "description": "size in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c03be88": {
+    "name": "bes_rf_set_mode_bits",
+    "summary": "Set the 2-bit field at bits 13..14 of RF register 0xD0220C7C, bracketed by sysreg gates",
+    "description": "Thunk for ble_219_0c03e034, which is not described in this packet. When DAT_2000BD58 is zero it calls bes_sysreg_write_04_bit19 (0x0C0413F0) first. It then replaces bits 13..14 of the word at 0xD0220C7C with param_1 << 13 and, if the flag is still zero, calls bes_sysreg_write_08_bit19 (0x0C041430). The register block is identified only by its address.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "2-bit field value 0..3"}
+    ],
+    "returns": {"type": "void", "description": "no return value"},
+    "confidence": "low"
+  }
+}
