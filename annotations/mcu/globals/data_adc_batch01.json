@@ -4,7 +4,10 @@
     "type": "u8",
     "count": 1,
     "size": 1,
-    "anchor": ["MCU_0160", "0x20000070"],
+    "anchor": [
+      "MCU_0160",
+      "0x20000070"
+    ],
     "category": "adc",
     "description": "Hold mode of the phase-current sampler. mcu_pwm_trigger_and_clamp_select writes it (values 0, 1 and 2 appear in this packet, as described in that function) and mcu_phase_current_from_adc reads it. Value 0 restores the previous phase samples from the history words at 0x200002E4 and up. Value 1 keeps the freshly measured phase or phases chosen by adc_phase_fresh_select and restores the others. The value is an enum, with no unit. It is probably rewritten on every PWM update, and nothing in this packet resets it."
   },
@@ -13,7 +16,10 @@
     "type": "u8",
     "count": 1,
     "size": 1,
-    "anchor": ["MCU_0160", "0x20000071"],
+    "anchor": [
+      "MCU_0160",
+      "0x20000071"
+    ],
     "category": "adc",
     "description": "Code of the current ADC sampling window: 0x11, 0x22 or 0x33. Each code names which two of the three phase inputs were measured in this window, so the third phase is derived from them. mcu_pwm_trigger_and_clamp_select writes it from the smallest of its p4, p5 and p6 inputs (0x11 for p4, 0x22 for p5, 0x33 for p6). mcu_phase_current_read passes it to mcu_phase_current_from_adc as the mode. mcu_0160_0800a49c also reads it and passes it to FUN_08002548. It is probably rewritten once per PWM period."
   },
@@ -22,7 +28,10 @@
     "type": "u8",
     "count": 1,
     "size": 1,
-    "anchor": ["MCU_0160", "0x20000072"],
+    "anchor": [
+      "MCU_0160",
+      "0x20000072"
+    ],
     "category": "adc",
     "description": "Selector for which phase keeps its fresh sample in hold mode 1. mcu_pwm_trigger_and_clamp_select writes the values 0, 1, 2 and 3, following the order of its arguments (see that function). mcu_phase_current_from_adc tests it for 1 and for 2 to decide which phase stays fresh and which is restored from history. No unit. Probably rewritten with adc_phase_hold_mode on every PWM update, and nothing in this packet resets it."
   },
@@ -31,7 +40,10 @@
     "type": "s32",
     "count": 8,
     "size": 32,
-    "anchor": ["MCU_0160", "0x200002e4"],
+    "anchor": [
+      "MCU_0160",
+      "0x200002e4"
+    ],
     "category": "adc",
     "description": "Eight 32-bit working words of mcu_phase_current_from_adc, in address order, that hold the raw and intermediate phase currents between calls. Element 0 (0x200002E4) takes the first measured value from param_1 and is probably phase A, in Q15 with 0 at zero current. Element 1 (0x200002E8) is probably phase C, recomputed as minus (phase A plus element 2), so the three phases sum to zero. Element 2 (0x200002EC) is probably phase B, reloaded either from param_1[1] or from element 7 in hold mode. Element 3 (0x200002F0) is the scale K = ((adc_current_scale_num << 15) / adc_current_gain_q15), recomputed on every call. Elements 4 and 5 (0x200002F4, 0x200002F8) hold per-call phase values. Element 6 (0x200002FC) is a phase value minus the offset at 0x2000114C. Element 7 (0x20000300) is the derived third phase. Values are kept across calls for the hold mode and are not reset in this packet."
   },
@@ -40,7 +52,10 @@
     "type": "u8",
     "count": 1,
     "size": 1,
-    "anchor": ["MCU_0160", "0x200003d7"],
+    "anchor": [
+      "MCU_0160",
+      "0x200003d7"
+    ],
     "category": "adc",
     "description": "Flag, zero or non-zero. When it is non-zero, mcu_phase_current_read replaces its second output with minus (first output plus second output), so the pair satisfies Kirchhoff's current law. mcu_phase_current_from_adc and mcu_0160_08009a8c also test it. The packet only reads it. The value is set elsewhere, probably by a configuration or mode setting, and the writer is not in this packet."
   },
@@ -49,7 +64,10 @@
     "type": "u16",
     "count": 1,
     "size": 2,
-    "anchor": ["MCU_0160", "0x200003f0"],
+    "anchor": [
+      "MCU_0160",
+      "0x200003f0"
+    ],
     "category": "adc",
     "description": "Numerator of the phase-current scale. mcu_phase_current_from_adc shifts it left by 15 and divides by adc_current_gain_q15 on every call to obtain the scale K. Its meaning is probably the sensor or ADC full-scale constant, in an integer unit that is not decoded. The packet only reads it, and the writer is not in this packet. It is unsigned, 16 bits wide (probably)."
   },
@@ -58,34 +76,22 @@
     "type": "u32",
     "count": 1,
     "size": 4,
-    "anchor": ["MCU_0160", "0x20000a60"],
+    "anchor": [
+      "MCU_0160",
+      "0x20000a60"
+    ],
     "category": "adc",
     "description": "Gain of the phase-current scale in Q15, where 0x8000 means 1.0. mcu_phase_current_from_adc clamps it to the range 0x6666 to 0xA666 (about 0.8 to 1.3, probably) and divides by it on every call. mcu_fault_monitor_update passes its address to a limiter FUN_0800721A together with the neighbouring field at 0x20000A5C, which is not in this packet, and sets it to 0x8000 in one branch. The value persists between calls. It is probably set at startup, which is outside this packet."
-  },
-  "mcu_g_0160_20001130": {
-    "name": "adc_median_scratch",
-    "type": "u16",
-    "count": 2,
-    "size": 4,
-    "anchor": ["MCU_0160", "0x20001130"],
-    "category": "adc",
-    "description": "Two 16-bit words, at 0x20001130 and 0x20001132, that belong to the DMA median pass mcu_adc_dma_median5. The access list gives the address as taken and read by that function, but no decompiled line names them, so their use is not decoded. They are probably scratch or index values for the five-sample median. Probably rewritten on every pass of the control tick."
-  },
-  "mcu_g_0160_2000113a": {
-    "name": "adc_dma_median_word",
-    "type": "u16",
-    "count": 1,
-    "size": 2,
-    "anchor": ["MCU_0160", "0x2000113a"],
-    "category": "adc",
-    "description": "16-bit word read by mcu_adc_dma_median5. No decompiled line names it, so it is reached through a pointer or base register. It is probably a companion value to the median scratch words at 0x20001130 and 0x20001132 (a count or channel index, probably). Its meaning is not decoded."
   },
   "mcu_g_0160_20001144": {
     "name": "adc_phase_zero_offset",
     "type": "s32",
     "count": 3,
     "size": 12,
-    "anchor": ["MCU_0160", "0x20001144"],
+    "anchor": [
+      "MCU_0160",
+      "0x20001144"
+    ],
     "category": "adc",
     "description": "Three 32-bit zero-current offsets, one per phase, in address order: element 0 at 0x20001144, element 1 at 0x20001148, element 2 at 0x2000114C. mcu_0160_0800226c (the calibration routine) sets each one to 0, then adds (12-bit ADC sample AND 0xFFF) times 128 for each sample, so the result is a sum of samples in scaled units that are not fully decoded. mcu_phase_current_from_adc subtracts each element from the matching phase value on every call. The values are probably recalculated during calibration, and the packet does not show a reset outside that routine."
   }

@@ -1,0 +1,191 @@
+{
+  "mcu_g_0160_20000310": {
+    "name": "can_telemetry_reply",
+    "type": "u8",
+    "count": 8,
+    "size": 8,
+    "anchor": ["MCU_0160", "0x20000310"],
+    "category": "can",
+    "description": "8-byte shared reply buffer for telemetry. mcu_telemetry_group_get fills it with the value group for one request ID (0x211, 0x212, 0x341 to 0x344, 0x401 and others) and returns its address. The caller passes that address to mcu_can_frame_enqueue, which sends the 8 bytes as one classic CAN frame. The periodic tick mcu_0160_0800dc08 asks for 0x212, 0x211 and 0x343 every 10 ticks, for 0x341, 0x342 and 0x344 every 20 ticks, and for 0x401 every 50 ticks, through a function pointer at 0x20000328 (probably mcu_telemetry_group_get). Each request overwrites the buffer, and nothing resets it."
+  },
+  "mcu_g_0160_20000320": {
+    "name": "can_link_flags",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000320"],
+    "category": "can",
+    "description": "Link flags. Bit 1 (0x0002) is the link-down hold. mcu_0160_0800672c sets it together with a 500-tick countdown in 0x20000322. While it is set, mcu_0160_0800dc08 counts that countdown down and returns early, and when the countdown reaches 0 it clears bit 1 and resets 0x2000030C. mcu_msg_ring2_enqueue_frames drops every outgoing frame while bit 1 is set. mcu_can_rx_command_dispatch clears bit 1 when a command frame arrives and reloads 0x20000322 with 200. The 0x7F0 and 0x7F1 frames copy bit 1 of their first payload byte into it. The countdown of 0x2000032E runs only while bit 1 is clear. No startup value is seen in this packet."
+  },
+  "mcu_g_0160_20000322": {
+    "name": "can_link_holdoff",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000322"],
+    "category": "can",
+    "description": "Countdown in ticks for the link-down hold of bit 1 in 0x20000320. mcu_0160_0800672c loads it with 500 and mcu_can_rx_command_dispatch loads it with 200 when a command frame arrives. While bit 1 is set, mcu_0160_0800dc08 decrements it once per tick until it reaches 0. The tick period is not decoded in this packet, and the value is an unsigned count."
+  },
+  "mcu_g_0160_2000032c": {
+    "name": "can_timeout_a",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x2000032c"],
+    "category": "can",
+    "description": "Frame timeout A, in ticks. mcu_can_rx_command_dispatch reloads it to 200 on the command frames that feed it (three reload sites). mcu_0160_0800dc08 decrements it once per tick while it is non-zero. When it is already 0, that function sets bit 0 (0x01) of 0x2000033C, meaning timeout A has expired. The frame IDs are not named in this packet."
+  },
+  "mcu_g_0160_2000032e": {
+    "name": "can_hold_countdown",
+    "type": "s16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x2000032e"],
+    "category": "can",
+    "description": "Signed countdown present in the 0160 build only. mcu_can_rx_command_dispatch sets it to 1000 on one frame and to 0 on another. mcu_0160_08007df4 decrements it while bit 1 of 0x20000320 is clear. When it goes from 1 to 0, that function sets the byte at 0x20000330 to 1, and the next call of that function then runs a one-shot action (GPIO writes and a clock call, not decoded in full). The unit is probably the call period of mcu_0160_08007df4, which is not decoded."
+  },
+  "mcu_g_0160_20000332": {
+    "name": "can_timeout_b",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000332"],
+    "category": "can",
+    "description": "Frame timeout B, in ticks. mcu_can_rx_command_dispatch reloads it to 200 (two sites). mcu_0160_0800dc08 decrements it once per tick while it is non-zero. When it is already 0, that function sets bit 2 (0x04) of 0x2000033C, meaning timeout B has expired. The frame IDs are not named in this packet."
+  },
+  "mcu_g_0160_2000033c": {
+    "name": "can_timeout_flags",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000033c"],
+    "category": "can",
+    "description": "Timeout status bits. mcu_0160_0800dc08 sets bit 0 (0x01) when timeout A (0x2000032C) expires and bit 2 (0x04) when timeout B (0x20000332) expires. mcu_can_rx_command_dispatch clears bit 0 whenever a command frame arrives. Bit 2 is not cleared anywhere in this packet. When bits 0 and 2 are both set and bit 1 of 0x20000320 is clear, the tick counts 0x20000336 up. Once that counter passes 5, the tick sets 0x2000031F, which schedules a CAN1 re-initialisation about 51 ticks later (per the body of mcu_0160_0800dc08)."
+  },
+  "mcu_g_0160_20000340": {
+    "name": "can_oversize_drop_count",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000340"],
+    "category": "can",
+    "description": "Number of outgoing CAN payloads longer than 8 bytes that mcu_can_frame_enqueue refused, because a classic CAN frame carries at most 8 data bytes. The counter goes up by one for each refused call, and nothing else in this packet changes it. mcu_telemetry_group_get packs its bytes into telemetry replies for request IDs 0x341 and 0x344. It counts from boot, with no reset in this packet."
+  },
+  "mcu_g_152_200003b5": {
+    "name": "can_152_state_b5",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_152", "0x200003b5"],
+    "category": "can",
+    "description": "One byte at 0x200003B5, present in the 12b, 143 and 152 builds. No decompiled line names it. It is reached through a pointer in mcu_can_rx_command_dispatch (read and written) and is read by mcu_0160_08008a14. Its meaning is not decoded. It is probably a CAN command-state byte, and it is probably part of a larger block whose size is not known from this packet."
+  },
+  "mcu_g_0160_200003be": {
+    "name": "can_rx_event_count",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003be"],
+    "category": "can",
+    "description": "Saturating event counter, 0160 build only. mcu_can_rx_command_dispatch clears it to 0 on one path and adds 1 on another path, stopping at 255. mcu_0160_08008a14 reads whether it is above 5. It probably counts received frames or errors since the last clear. The exact event is not decoded."
+  },
+  "mcu_g_152_20000620": {
+    "name": "can_152_state_620",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_152", "0x20000620"],
+    "category": "can",
+    "description": "One byte at 0x20000620, present in the 152 build only. No decompiled line names it. It is read and written through a pointer in mcu_can_rx_command_dispatch. Its meaning is not decoded, and it is probably a CAN receive-state byte."
+  },
+  "mcu_g_0160_20000628": {
+    "name": "can_heartbeat_count",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000628"],
+    "category": "can",
+    "description": "Heartbeat counter, 0160 build only. Each 0x7F0 or 0x7F1 frame that mcu_can_rx_command_dispatch handles adds 1, and the counter stops at 10 (the code tests it for less than 10 before the add). The dispatch also sets it to 0 on one path, whose trigger is not decoded here. The counter is a plain unsigned value and is probably used for a link-health check."
+  },
+  "mcu_g_0160_2000062c": {
+    "name": "can_cmd_frame_count",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000062c"],
+    "category": "can",
+    "description": "32-bit count of 0x100 command frames received. mcu_can_rx_command_dispatch adds 1 each time it handles one of those frames, and it splits the new value into the two halfwords at 0x20001F1C and 0x20001F1E. It counts from boot, with no reset in this packet, and it wraps at 2^32."
+  },
+  "mcu_g_0160_20000f4c": {
+    "name": "can_cmd_float_pair",
+    "type": "f32",
+    "count": 2,
+    "size": 8,
+    "anchor": ["MCU_0160", "0x20000f4c"],
+    "category": "can",
+    "description": "Two IEEE-754 single-precision floats, written by mcu_can_rx_command_dispatch from the 0x485 command frame. Element 0 (0x20000F4C) is the u16 at frame offset +0x0F divided by 32768, so it is a fraction. mcu_0160_080054fc copies it to 0x2000012C only when its bit pattern lies between 0x00800000 and 0x3F800000, which is roughly the positive normal range up to 1.0. Element 1 (0x20000F50) is the byte at frame offset +0x11 divided by 10. mcu_0160_08003f2c limits it, probably to the range 1.0 to 25.0. The values persist until the next 0x485 frame. The 12b, 143, 152 and 0160 builds all use this layout."
+  },
+  "mcu_g_0160_20001858": {
+    "name": "can_ring2_stage_id",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001858"],
+    "category": "can",
+    "description": "Identifier word of the CAN frame that is staged for outgoing message ring 2. It is the first field of a 20-byte ring record, and the CAN1 transmit path reads that record. mcu_msg_ring2_enqueue_frames writes it before each 8-byte chunk is pushed. mcu_msg_ring2_tx_step passes the record to the CAN1 transmit call, which uses a free mailbox. The identifier is probably an 11-bit standard ID held in the low bits. The remaining record fields lie at higher addresses and are described in other packets."
+  },
+  "mcu_g_0160_20001f1c": {
+    "name": "can_frame_count_halves",
+    "type": "s16",
+    "count": 2,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001f1c"],
+    "category": "can",
+    "description": "Two signed halfwords that hold the low and high 16-bit halves of the 32-bit command counter at 0x2000062C. mcu_can_rx_command_dispatch rewrites both on each increment of that counter. Element 0 is the low half, at 0x20001F1C, and element 1 is the high half, at 0x20001F1E. The 152 and 0160 builds both have this object. Nothing resets it in this packet."
+  },
+  "mcu_g_0160_20001fe2": {
+    "name": "can_cmd_ctrl_word",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001fe2"],
+    "category": "can",
+    "description": "Control word copied by mcu_can_rx_command_dispatch from frame offset +0x0D (payload bytes 2 and 3). The frame ID is not named in this packet. Bit 1 (0x0002) clear lets mcu_0160_08003d2c take its high-value branch when 0x20000F30 is above 0x19998. Bit 2 (0x0004) is one of the allow conditions in mcu_update_inhibit_latch_1fcd. Bit 2 also enables the command path in mcu_0160_08003f2c, which then uses the value at 0x20001FE4 when that value is non-zero."
+  },
+  "mcu_g_0160_20001fe4": {
+    "name": "can_cmd_value_word",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001fe4"],
+    "category": "can",
+    "description": "Command value. Only its low byte is written, from frame offset +0x12 (payload byte 7), by mcu_can_rx_command_dispatch. It is a unitless value from 0 to 255, probably a percentage or a fraction of full scale. When it is non-zero and bit 2 of 0x20001FE2 is set, mcu_0160_08003f2c shifts it left by 15 to get a Q15 amount. mcu_cmd_ramp_update uses it in the same way as the target 0x20000684, unless the bits of 0x20001FD6 are clear."
+  },
+  "mcu_g_0160_20001fe6": {
+    "name": "can_cmd_byte0",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20001fe6"],
+    "category": "can",
+    "description": "Byte copied by mcu_can_rx_command_dispatch from frame offset +0x0B (payload byte 0). mcu_0160_0800b10c passes it to FUN_080013E4, probably an integer-to-float helper. The meaning of the byte is not decoded in this packet, and it is probably a mode or index value from the command frame. It is present in the 143, 152 and 0160 builds."
+  },
+  "mcu_g_0160_20001fe8": {
+    "name": "can_cmd_u32",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001fe8"],
+    "category": "can",
+    "description": "Four bytes copied by mcu_can_rx_command_dispatch from frame offset +0x0B (payload bytes 0 to 3). Only the low 16 bits are compared, against 0x14B (331), in mcu_cmd_ramp_update and mcu_0160_0800b10c. The field is therefore probably a 16-bit quantity stored in a 32-bit slot, and its unit and meaning are not decoded. It is present in the 143, 152 and 0160 builds."
+  },
+  "mcu_g_0160_20001fec": {
+    "name": "can_cmd_payload_bytes",
+    "type": "u8",
+    "count": 2,
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001fec"],
+    "category": "can",
+    "description": "Two payload bytes copied by mcu_can_rx_command_dispatch, 0160 build only. Element 0 (0x20001FEC) is frame offset +0x0B (payload byte 0), and element 1 (0x20001FED) is frame offset +0x0C (payload byte 1). Nothing in this packet reads them, so their meaning is not decoded. They are probably values for a 0160-only command handler."
+  }
+}

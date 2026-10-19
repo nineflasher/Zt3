@@ -1,0 +1,662 @@
+{
+ "vcu_g_148_2000144f": {
+  "name": "display_148_level",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x2000144f"
+  ],
+  "category": "display",
+  "description": "Displayed level (0..100 %) of the VCU_148 level gauge. vcu_level_gauge_update_v148 moves it toward the requested level in steps of +5 when the flag bit DAT_20001a20 bit 2 is set (a step that overshoots 109 or goes below the target is replaced by the target); otherwise it jumps to the target. Passed to FUN_0800b0f4 to draw the bar and digits."
+ },
+ "vcu_g_148_20001450": {
+  "name": "display_148_tick",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20001450"
+  ],
+  "category": "display",
+  "description": "Tick counter of the VCU_148 level gauge: incremented on every call of vcu_level_gauge_update_v148 and reset to 0 when it reaches the step interval display_148_interval (0x20001482). The gauge only steps when the counter has reached that interval."
+ },
+ "vcu_g_148_20001451": {
+  "name": "display_148_status_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20001451"
+  ],
+  "category": "display",
+  "description": "Index into the 2-byte-stride status table at base+0x12 of the struct returned by the status helper (wrap count at base+0x0e). Used on the idle branch when group B of the status flags (display_148_flags bit 5) is active; advances every 300 ticks (display_148_status_period) and wraps at the count. Probably a cycling status indicator."
+ },
+ "vcu_g_148_20001452": {
+  "name": "display_148_bar_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20001452"
+  ],
+  "category": "display",
+  "description": "Index into the 2-byte-stride table at base+0x72 (wrap count at base+0x10) used when group A of the status flags (display_148_flags bit 0) is active. Advances every 300 ticks (display_148_bar_period) and wraps at the count; probably selects the bar/segment step shown while group A is active."
+ },
+ "vcu_g_148_20001482": {
+  "name": "display_148_interval",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20001482"
+  ],
+  "category": "display",
+  "description": "Step interval of the VCU_148 level gauge in gauge ticks, computed as FUN_0800e02c(level, 0, 100, 10) from the requested level (0..100 %), so it spans a 0..10 range. display_148_tick is compared with it on every update."
+ },
+ "vcu_g_148_20001484": {
+  "name": "display_148_status_period",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_148",
+   "0x20001484"
+  ],
+  "category": "display",
+  "description": "300-tick period counter of the VCU_148 status cycling (display_148_status_idx). Incremented on each status-path update, the index advances when it exceeds 300, and the counter is then reset to 0."
+ },
+ "vcu_g_148_20001486": {
+  "name": "display_148_bar_period",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_148",
+   "0x20001486"
+  ],
+  "category": "display",
+  "description": "300-tick period counter of the VCU_148 bar cycling (display_148_bar_idx), same behaviour as display_148_status_period but used on the group-A path."
+ },
+ "vcu_g_148_20001488": {
+  "name": "display_148_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_148",
+   "0x20001488"
+  ],
+  "category": "display",
+  "description": "Status flag word of the VCU_148 gauge. Bit 0 is set while any of the counters at 0x20001c0c, 0x20001c0e, 0x20001c10, 0x20001c12 is non-zero (group A active); bit 5 is set while any of 0x20001c14, 0x20001c16, 0x20001c18 is non-zero (group B active). Selects the cycling path and is passed to FUN_0800b990 as the LED group bits."
+ },
+ "vcu_g_148_20001494": {
+  "name": "display_digit_glyphs_148",
+  "type": "VcuDigitGlyphs",
+  "size": 30,
+  "anchor": [
+   "VCU_148",
+   "0x20001494"
+  ],
+  "category": "display",
+  "description": "Digit glyph tables of the VCU_148 build: seg_a at 0x20001494, seg_b at +0x0a and seg_c at +0x14, ten entries each, indexed by the decimal digit 0..9. FUN_0800b84c (VCU_148 units writer) copies them to LED frame bytes 0x200021d2 (seg_a), 0x200021d3 (low nibble, seg_b) and 0x200021d4 (seg_c). Not written by the code in this packet, so probably constant data or set once at boot."
+ },
+ "vcu_g_153_200014ef": {
+  "name": "display_153_blink30",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014ef"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: 30-tick period counter (wraps at 0x1e) of the VCU_153 display renderer FUN_08005648. Each wrap advances the blink/pulse sub-phases; the same role as display_state1_phase30 (0x200014fb) in VCU_0159."
+ },
+ "vcu_g_0159_200014f0": {
+  "name": "display_sweep_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014f0"
+  ],
+  "category": "display",
+  "description": "Period (ticks per step) of the downward segment sweep: vcu_display_sweep_down_step steps when its counter display_sweep_div (0x200021e2) is a multiple of this value. Its address is taken by lighting_brightness_percent_set, which probably sets it; it is not written in the functions of this packet."
+ },
+ "vcu_g_153_200014f0": {
+  "name": "display_153_seq_idx_a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f0"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: index into the segment-sequence table at 0x200021d8 (VCU_153 layout), read as (&table)[index] by FUN_08005648 and bounded by the count at 0x200021d4. Advances on the 153 renderer's period and wraps at the count; the 153 counterpart of display_seq_idx."
+ },
+ "vcu_g_0159_200014f1": {
+  "name": "display_sweep_mirror",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014f1"
+  ],
+  "category": "display",
+  "description": "Offset of the mirrored segment in the downward sweep: vcu_display_sweep_down_step lights segment (display_sweep_pos - offset) in the second segment group. Read only in this packet; probably a fixed sweep width set elsewhere."
+ },
+ "vcu_g_153_200014f1": {
+  "name": "display_153_seq_idx_b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f1"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: index into the table at 0x20002238 (the VCU_153 warning list, 16 bytes below the VCU_0159 position 0x20002248), read as (&table)[index] and bounded by the count at 0x200021d6. Advances on the 153 renderer's period; the 153 counterpart of display_warn_idx."
+ },
+ "vcu_g_0159_200014f2": {
+  "name": "display_sweep_up_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014f2"
+  ],
+  "category": "display",
+  "description": "Divider (ticks per step) of the upward segment sweep in vcu_display_anim_step (sub-mode 12): the sweep steps when display_anim_step (0x200021de) is a multiple of this value. Not written in this packet."
+ },
+ "vcu_g_153_200014f2": {
+  "name": "display_153_pulse_phase",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f2"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: 0..3 sub-phase counter of the alert pulse in the 153 renderer; it counts up and saturates at 3 once it reaches 2, like display_state3_phase (0x200014fe) in VCU_0159."
+ },
+ "vcu_g_0159_200014f3": {
+  "name": "display_sweep_band",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014f3"
+  ],
+  "category": "display",
+  "description": "Width (in segments) of the moving band of the upward sweep (vcu_display_anim_step sub-mode 12). Positions below the width light a segment; positions up to twice the width move the band by lighting one segment and clearing the one behind it; then the sweep restarts. Not written in this packet."
+ },
+ "vcu_g_153_200014f3": {
+  "name": "display_153_pulse_flag",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f3"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: 0..1 wrap counter of the alert pulse in the 153 renderer (resets to 0 after 1), the counterpart of display_pulse_count (0x200014ff) in VCU_0159."
+ },
+ "vcu_g_153_200014f6": {
+  "name": "display_153_level",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f6"
+  ],
+  "category": "display",
+  "description": "Displayed level (0..100 %) of the VCU_14A..VCU_153 level gauge (vcu_level_gauge_update_v14a_153). Moved +5 toward the requested level on each update and passed to FUN_0800bf18 to draw the bar and digits."
+ },
+ "vcu_g_153_200014f7": {
+  "name": "display_153_tick",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014f7"
+  ],
+  "category": "display",
+  "description": "Tick counter of the VCU_14A..VCU_153 level gauge: incremented on each update of vcu_level_gauge_update_v14a_153 and reset to 0 when it reaches the step interval display_153_gauge_interval (0x2000152a)."
+ },
+ "vcu_g_0159_200014f9": {
+  "name": "display_state6_blink",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014f9"
+  ],
+  "category": "display",
+  "description": "40-tick blink counter of display state 6 in vcu_display_frame_render_tick: incremented on every tick, the segments are on while it is below 20, off from 20 to 39, and it wraps to 0 at 40."
+ },
+ "vcu_g_0159_200014fa": {
+  "name": "display_state0b_warn_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014fa"
+  ],
+  "category": "display",
+  "description": "Index into the active warning list (0x20002248) shown by display state 0x0B. It advances about every 300 ticks (display_state0b_timer, 0x20001516) and wraps when it reaches the warning count 0x200021e6."
+ },
+ "vcu_g_0159_200014fb": {
+  "name": "display_state1_phase30",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014fb"
+  ],
+  "category": "display",
+  "description": "30-tick phase counter of display state 1 in vcu_display_frame_render_tick. It wraps at 0x1e; at each wrap the alert pulse (display_pulse_count, display_alert_request) advances, or the pulse state is reset and the state-1 digit is redrawn."
+ },
+ "vcu_g_0159_200014fc": {
+  "name": "display_seq_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014fc"
+  ],
+  "category": "display",
+  "description": "Index into the 96-byte sequence table at 0x200021e8 (count in 0x200021e4), used by display state 3 to pick the next segment group to show. Advanced by the period counter display_state3_seq_period (0x2000151a) and reset to 0 when it reaches the count."
+ },
+ "vcu_g_0159_200014fd": {
+  "name": "display_warn_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014fd"
+  ],
+  "category": "display",
+  "description": "Index into the active warning list (0x20002248) shown by display state 3 when a warning is active. Advanced by the period counter display_state3_warn_period (0x2000151c) and wrapped at the warning count 0x200021e6."
+ },
+ "vcu_g_0159_200014fe": {
+  "name": "display_state3_phase",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014fe"
+  ],
+  "category": "display",
+  "description": "0..3 pulse sub-phase counter of the alert pulse in display state 1 (counts up and saturates at 3 once it reaches 2). Steps 0 and 1 drive the first flash and 2 and 3 the second."
+ },
+ "vcu_g_0159_200014ff": {
+  "name": "display_pulse_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014ff"
+  ],
+  "category": "display",
+  "description": "0..1 counter of the two-step alert pulse requested by display_alert_request (0x20001f65): it advances on each 30-tick wrap of display_state1_phase30; after the second step the request is cleared and FUN_08001b64(4) is called (probably an indicator or beep)."
+ },
+ "vcu_g_0159_20001500": {
+  "name": "display_state8_seq_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001500"
+  ],
+  "category": "display",
+  "description": "Index into the sequence table at 0x200021e8 (count 0x200021e4) used by display state 0x08 in its non-countdown branch. Advanced every 300 ticks by display_state8_seq_timer (0x20001524) and wrapped at the count."
+ },
+ "vcu_g_0159_20001501": {
+  "name": "display_state8_warn_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001501"
+  ],
+  "category": "display",
+  "description": "Index into the active warning list (0x20002248) shown by display state 0x08 when a warning is active. Advanced every 300 ticks by display_state8_warn_timer (0x20001526) and wrapped at the warning count 0x200021e6."
+ },
+ "vcu_g_0159_20001502": {
+  "name": "display_gauge_level",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001502"
+  ],
+  "category": "display",
+  "description": "Displayed level (0..100 %) of the VCU_0159 level gauge (vcu_level_gauge_update_v0159). Moves toward the requested level in steps of +5 when the flag bit DAT_20001aec bit 2 is set (overshoot is replaced by the target); passed to FUN_0800bf84."
+ },
+ "vcu_g_0159_20001503": {
+  "name": "display_gauge_warn_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001503"
+  ],
+  "category": "display",
+  "description": "Index into the active warning list (0x20002248) cycled by the VCU_0159 level gauge while a warning is active. Advanced every 300 ticks by display_gauge_warn_timer (0x2000153a) and wrapped at the warning count 0x200021e6."
+ },
+ "vcu_g_0159_20001504": {
+  "name": "display_gauge_tick",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001504"
+  ],
+  "category": "display",
+  "description": "Tick counter of the VCU_0159 level gauge: incremented on each update and reset when it reaches display_gauge_interval (0x20001538), after which the gauge steps."
+ },
+ "vcu_g_0159_20001508": {
+  "name": "display_last_state",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001508"
+  ],
+  "category": "display",
+  "description": "Copy of the display state DAT_2000123e from the previous renderer tick. When the state changes the renderer clears the LED frame image and restarts the state's sequences."
+ },
+ "vcu_g_0159_2000150a": {
+  "name": "display_sweep_pos",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000150a"
+  ],
+  "category": "display",
+  "description": "Position of the downward segment sweep, starting at 20 and counting down to 0 in vcu_display_sweep_down_step. Each step lights the mirrored segment at (position - display_sweep_mirror) and clears the segment at the position; when it reaches 0 the sweep starts again at 20."
+ },
+ "vcu_g_0159_2000150c": {
+  "name": "display_anim_submode",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000150c"
+  ],
+  "category": "display",
+  "description": "Sub-mode of vcu_display_anim_step, set from the caller's argument when the step counter display_anim_step is 0. Values: 0 and 9 = icons on, 10 = icon blink (off at step 50, reset at 100), 11 = idle, 12 = upward segment sweep, 13 = icons on."
+ },
+ "vcu_g_153_2000150c": {
+  "name": "display_153_seq_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000150c"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: period counter for the 0x200021d8 sequence table, wrapping at the count held at 0x200021d4 (counterpart of display_state3_seq_period in VCU_0159)."
+ },
+ "vcu_g_0159_2000150e": {
+  "name": "display_anim_band_pos",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000150e"
+  ],
+  "category": "display",
+  "description": "Position of the moving band in the upward sweep (vcu_display_anim_step sub-mode 12). Runs from 0 to twice display_sweep_band, then restarts at 0."
+ },
+ "vcu_g_153_2000150e": {
+  "name": "display_153_warn_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000150e"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: period counter for the VCU_153 warning-list index display_153_seq_idx_b, wrapping at the count from 0x200021d6 (counterpart of display_state3_warn_period in VCU_0159)."
+ },
+ "vcu_g_153_20001510": {
+  "name": "display_153_countdown_ticks",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20001510"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: countdown tick counter of the start countdown (0..400 ticks). The digit 3, 2, 1, 0 is chosen at 100, 200, 300 and 400 ticks and the handshake is marked complete at the end (counterpart of display_state3_countdown)."
+ },
+ "vcu_g_153_20001512": {
+  "name": "display_153_countdown_digit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001512"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: countdown digit shown during the start countdown (3, 2, 1, then 0), drawn with FUN_0800c6b4 (counterpart of display_state3_digit in VCU_0159)."
+ },
+ "vcu_g_153_20001514": {
+  "name": "display_153_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20001514"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: packed display flag word. Each tick it is assembled from the input-hold bit (display_input_b_hold, bit 3), the drive sub-mode bit (vehicle_submode_flag, bit 6), the warning and speed-state bits and bit 1 from DAT_20001d04, then it drives the segment helper calls (same role as display_state3_flags in VCU_0159)."
+ },
+ "vcu_g_0159_20001516": {
+  "name": "display_state0b_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001516"
+  ],
+  "category": "display",
+  "description": "300-tick timer of display state 0x0B: incremented each tick, and each time it exceeds 300 the warning index display_state0b_warn_idx advances."
+ },
+ "vcu_g_0159_20001518": {
+  "name": "display_state0b_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001518"
+  ],
+  "category": "display",
+  "description": "Flag word of display state 0x0B: bit 0 is set while any of the four warning bitmap words 0x20001cd8, 0x20001cda, 0x20001cdc, 0x20001cde is non-zero, and this bit drives FUN_0800c81c."
+ },
+ "vcu_g_0159_2000151a": {
+  "name": "display_state3_seq_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000151a"
+  ],
+  "category": "display",
+  "description": "Period counter of display state 3 for the sequence index display_seq_idx (0x200014fc). Counts ticks and advances the index when it passes the threshold returned by the helper call."
+ },
+ "vcu_g_0159_2000151c": {
+  "name": "display_state3_warn_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000151c"
+  ],
+  "category": "display",
+  "description": "Period counter of display state 3 for the warning index display_warn_idx (0x200014fd); same behaviour as display_state3_seq_period, with the threshold returned by a different helper."
+ },
+ "vcu_g_0159_2000151e": {
+  "name": "display_state3_countdown",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000151e"
+  ],
+  "category": "display",
+  "description": "Countdown tick counter of display state 3 (the start countdown shown while display_countdown_state is non-zero). It runs 0..400: the digit changes at 100, 200, 300 and 400 ticks; at 300 the 0x7A message is sent to peer 7 via FUN_0800d018; at 400 display_countdown_state is set to 2."
+ },
+ "vcu_g_0159_20001520": {
+  "name": "display_state3_digit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001520"
+  ],
+  "category": "display",
+  "description": "Countdown digit shown in display state 3 during the start countdown: 3 until 100 ticks, then 2, 1 and 0 (drawn by FUN_0800c720)."
+ },
+ "vcu_g_0159_20001522": {
+  "name": "display_state3_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001522"
+  ],
+  "category": "display",
+  "description": "Packed display flag word of display state 3, assembled each tick from the input-hold bit (display_input_b_hold, bit 3), the drive sub-mode bit (vehicle_submode_flag, bit 6), status bits 0x20001cf6, 0x20001d06, 0x20001cd8..0x20001cde and 0x20001ce0..0x20001ce4, and bit 1 from 0x20001d14. The bit fields are split by the segment helpers (FUN_0800c698, FUN_0800c78c, FUN_0800c660, FUN_0800c7c8, FUN_0800bf04 and others)."
+ },
+ "vcu_g_153_20001522": {
+  "name": "display_153_blink_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001522"
+  ],
+  "category": "display",
+  "description": "VCU_153 build: 150-tick sequence counter for the indicator/blink sequence gated by display_indicator_gate (0x20001fb2). Each 30-tick step toggles one blink phase (thresholds 0x1e, 0x3c, 0x5a, 0x78, 0x96), and the sequence ends and clears the gate at 0x96. Counterpart of display_state2_blink_ticks in VCU_0159."
+ },
+ "vcu_g_0159_20001524": {
+  "name": "display_state8_seq_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001524"
+  ],
+  "category": "display",
+  "description": "300-tick timer of display state 0x08 for the sequence index display_state8_seq_idx: each time it exceeds 300 the index advances and the timer restarts at 0."
+ },
+ "vcu_g_0159_20001526": {
+  "name": "display_state8_warn_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001526"
+  ],
+  "category": "display",
+  "description": "300-tick timer of display state 0x08 for the warning index display_state8_warn_idx (same behaviour as display_state8_seq_timer, used only while a warning is active)."
+ },
+ "vcu_g_0159_20001528": {
+  "name": "display_state8_countdown",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001528"
+  ],
+  "category": "display",
+  "description": "Countdown tick counter of display state 0x08 (start countdown), counting 0..400: the digit changes at 100, 200, 300 and 400 ticks and display_countdown_state is set to 2 at the end. Counterpart of display_state3_countdown."
+ },
+ "vcu_g_0159_2000152a": {
+  "name": "display_state8_digit",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000152a"
+  ],
+  "category": "display",
+  "description": "Countdown digit shown in display state 0x08 during the start countdown (3, 2, 1, 0)."
+ },
+ "vcu_g_153_2000152a": {
+  "name": "display_153_gauge_interval",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000152a"
+  ],
+  "category": "display",
+  "description": "Step interval of the VCU_14A..VCU_153 level gauge in gauge ticks, computed as FUN_0800eee0(level, 0, 100, 10) (same role as display_gauge_interval in VCU_0159). vcu_level_gauge_update_v14a_153 steps the gauge when display_153_tick reaches it."
+ },
+ "vcu_g_0159_2000152c": {
+  "name": "display_state8_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000152c"
+  ],
+  "category": "display",
+  "description": "Packed display flag word of display state 0x08, built like display_state3_flags (bit 3 from display_input_b_hold, bit 6 from vehicle_submode_flag, plus the status bits), and split by the segment helpers FUN_0800c7b8, FUN_0800c800, FUN_0800c7e4, FUN_0800c660, FUN_0800c7c8."
+ },
+ "vcu_g_0159_2000152e": {
+  "name": "display_state2_change_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000152e"
+  ],
+  "category": "display",
+  "description": "Tick counter of the state-2 change animation. It is restarted to 0 when the digit value 0x2000202d changes, then counts 0..19 with the segment helper FUN_0800c57c and 20..29 with FUN_0800c720(0)."
+ },
+ "vcu_g_0159_20001530": {
+  "name": "display_state2_blink_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001530"
+  ],
+  "category": "display",
+  "description": "Tick counter of the state-2 blink sequence while display_blink_active (0x20001fc4) is set: 0..29 on, 30..59 off, 60..89 on, 90..119 off, 120..149 on and then the sequence ends and clears the flag. Probably the alarm/blink pattern of the state-2 display."
+ },
+ "vcu_g_0159_20001532": {
+  "name": "display_state9_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001532"
+  ],
+  "category": "display",
+  "description": "Tick counter of display state 0x09 for the change animation after the value 0x2000202d changes: 0..19 uses FUN_0800c57c, 20..29 uses FUN_0800c720(0) (same pattern as display_state2_change_ticks)."
+ },
+ "vcu_g_0159_20001534": {
+  "name": "display_state2_flash_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001534"
+  ],
+  "category": "display",
+  "description": "Tick counter of the state-2 flash: 0..19 on (FUN_0800c81c(1) and FUN_08001b64(3)), 20..39 off, then it resets to 0 and clears display_blink_active when the blink is in its last phase."
+ },
+ "vcu_g_0159_20001536": {
+  "name": "display_state2_period",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001536"
+  ],
+  "category": "display",
+  "description": "Period counter of the state-2 display, wrapping at 0x50 (80). At multiples of 40 the segment bits of the state-2 digit are refreshed from the stored value and at multiples of 80 the digit-select bits are cleared."
+ }
+}

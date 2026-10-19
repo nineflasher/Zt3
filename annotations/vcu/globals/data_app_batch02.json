@@ -24,14 +24,25 @@
   "vcu_g_0159_20001034": {
     "name": "variant_option_words",
     "type": "u16",
-    "size": 8,
+    "size": 6,
     "anchor": [
       "VCU_0159",
       "0x20001034"
     ],
     "category": "app",
-    "description": "Four 16-bit variant option words (word 0 at 0x20001034, word 1 at 0x20001036, word 2 at 0x20001038, word 3 at 0x2000103a). vcu_apply_variant_config builds them from the variant index in 0x20001fa7 with fixed per-variant masks and writes them back; word 0 is mirrored at 0x20001aea and words 1..3 at 0x20001b14..0x20001b18. Word 3 exists only in builds 152, 153 and 0159. The meaning of each bit is not named in the code.",
-    "count": 4
+    "description": "Three 16-bit variant option words: word 0 at 0x20001034, word 1 at 0x20001036, word 2 at 0x20001038. vcu_apply_variant_config builds them from the variant index in 0x20001fa7 with fixed per-variant masks and writes them back; word 0 is mirrored at 0x20001aea and words 1..2 at 0x20001b14 and 0x20001b16. Word 3 is variant_option3. In builds 148..14f these words sit 8 bytes lower (0x2000102c..0x20001030); the meaning of each bit is not named in the code.",
+    "count": 3
+  },
+  "vcu_g_0159_2000103a": {
+    "name": "variant_option3",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000103a"
+    ],
+    "category": "app",
+    "description": "Fourth 16-bit variant option word, present in builds 152, 153 and 0159 only. vcu_apply_variant_config builds it from the variant index and mirrors it at 0x20001b18. It is a separate object because the other option words sit at different addresses in builds 148..14f, where this word has no counterpart."
   },
   "vcu_g_0159_20001aea": {
     "name": "variant_option0_shadow",

@@ -306,7 +306,7 @@
    "0x200013c6"
   ],
   "category": "motor",
-  "description": "Four-byte copy of the model code the model code at 0x20001ad9 (owned by vehicle_config_block in data_vehicle_batch29), taken each tick by vcu_drive_command_update. The code compares the two 16-bit halves as ASCII digit pairs (for example 0x3532 is \"25\") to choose the drive profile flag 0x20001fdb. The upper half, family 0159 200013c8, is inside this object."
+  "description": "Four-byte copy of the four characters at 0x20001ad9, which are part of the 14-character serial_string (data_app_batch02). vcu_drive_command_update copies them each tick and compares the two 16-bit halves as ASCII digit pairs (for example 0x3532 is \"25\") to choose the drive profile flag 0x20001fdb. The upper half, family 0159 200013c8, is inside this object."
  },
  "vcu_g_153_200013d0": {
   "name": "motor_mode_table_b153",
@@ -529,5 +529,16 @@
   ],
   "category": "motor",
   "description": "Output word. Its low byte is the output value 0..255, computed as (motor_duty_ramp times the mode limit) >> 6, or set to 0x14 (20) when the derate path is active. can_get_tx_payload_for_id copies that low byte into payload byte 2 of frame 0x20c."
+ },
+ "vcu_g_0159_20001f8e": {
+  "name": "motor_tx_word_184",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f8e"
+  ],
+  "category": "motor",
+  "description": "16-bit field of CAN frame 0x184. vcu_drive_command_update sets it each tick from FUN_080012ee() (probably a measured value) or from the override at 0x200020a6. can_get_tx_payload_for_id places it in payload bytes 4 and 5. The byte at 0x20001f8c is a separate field (vehicle_state_word_f8c, data_vehicle_batch30)."
  }
 }
