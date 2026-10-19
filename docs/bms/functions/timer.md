@@ -1,6 +1,6 @@
 # BMS - `timer` functions
 
-20 functions.
+21 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -23,6 +23,7 @@
 | [`bms_tim6_tim7_stop`](#bms_tim6_tim7_stop) | 0x0800A4B4 | Stop TIM6 and TIM7, reset both timers and disable IRQ 18 |
 | [`bms_tim6_tim7_stop_reset`](#bms_tim6_tim7_stop_reset) | (removed) | Stop and reset TIM6 and TIM7: counter disable, then peripheral reset |
 | [`bms_tim6_update_flag_poll`](#bms_tim6_update_flag_poll) | 0x0800A3C8 | Return true if TIM6 has an update flag pending, and clear it |
+| [`bms_timeout_arm_from_record`](#bms_timeout_arm_from_record) | 0x08005710 | Arm the 0x2000067E countdown from the record at 0x2000133C; set state 0x20001340 from bit 12 |
 | [`bms_timer10_poll`](#bms_timer10_poll) | 0x08008254 | Poll a 10-tick periodic timer and arm it when the request byte at 0x20000020 is set |
 
 ## LL_TIM_DeInit
@@ -235,7 +236,7 @@ Returns the u32 at RAM 0x20000678. Many callers use it as a time stamp, and bms_
 **Notes:** Callers in the packet include bms_4139_0800c950, bms_4139_0800cd7c, bms_4139_0800cebc and about a dozen bms_4168 functions; the packet's caller list is truncated.
 
 - Addresses by version: 4130: 0x080092E8, 4139: 0x080097E8, 4148: 0x0800A034, 4168: 0x0800A348
-- Called by: `bms_4168_080056b4`, `bms_4168_080062f0`, `bms_4168_080064a0`, `bms_4168_08006514`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_4168_0800ddb0` ...
+- Called by: `bms_event_capture_on_match`, `bms_proto_build_reply`, `bms_nibble_debounce_1s`, `bms_rtc_reset_with_snapshot`, `bms_seq_restart_stamp`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_4168_0800ddb0` ...
 - Confidence: medium
 
 ## bms_tick_timeout_check
@@ -255,7 +256,7 @@ Computes an elapsed time from the 32-bit time base at 0x20000678 and the start s
 **Notes:** The wrap case subtracts one more than a plain unsigned subtraction. This may be a decompiler artifact of a borrow idiom or a real off-by-one; check the disassembly. Callers: bms_4139_0800cd7c, bms_4168_080064a0, bms_4168_08007f48, bms_4168_08008254, bms_4168_080082f0, bms_4168_0800868c, bms_4168_0800b9a8, bms_4168_0800b9f2, bms_4168_0800ddb0, bms_4168_0800e2c8, bms_4168_0800f8b4, bms_4168_0800fabc.
 
 - Addresses by version: 4130: 0x08009490, 4139: 0x080099C8, 4148: 0x0800A214, 4168: 0x0800A528
-- Called by: `bms_4168_080064a0`, `bms_4168_08007f48`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800ddb0`, `bms_can_status_frame_rx`, `bms_4168_0800f8b4`, `bms_fault_record_service`
+- Called by: `bms_nibble_debounce_1s`, `bms_4168_08007f48`, `bms_timer10_poll`, `bms_4168_080082f0`, `bms_counter_1000_tick`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800ddb0`, `bms_can_status_frame_rx`, `bms_4168_0800f8b4`, `bms_fault_record_service`
 - Confidence: medium
 
 ## bms_tim6_tim7_start
@@ -311,6 +312,18 @@ Checks and clears the TIM6 update flag. It calls bms_request_is_done with the TI
 - Called by: `bms_4168_080082f0`
 - Calls: `bms_request_reset`, `bms_request_is_done`
 - Confidence: high
+
+## bms_timeout_arm_from_record
+
+**Arm the 0x2000067E countdown from the record at 0x2000133C; set state 0x20001340 from bit 12**
+
+If the record pointer at 0x2000133C is set, it checks the byte at record +1. Value 5 selects a 10000-tick timeout and any other value a 1500-tick one. The value is written as two bytes at 0x2000062A and 0x2000062B (through bms_byte_20000628_addr) and loaded into the countdown at 0x2000067E with bms_u16_2000067e_set. The TIM7 handler, bms_4168_0800367c, decrements that countdown, so the timeout runs at the TIM7 update rate. Then it sets 0x20001340 to 2 when bit 12 of the status word at +0x196 is set, and to 1 otherwise.
+
+**Notes:** The record type and the reason for the 5 versus other choice are not in the packet. The state values 1 and 2 are only set here.
+
+- Addresses by version: 4130: 0x08004EAC, 4139: 0x080050C8, 4148: 0x080055C4, 4168: 0x08005710
+- Calls: `bms_u16_2000067e_set`, `bms_byte_20000628_addr`, `bms_ram_20000bdc_addr`
+- Confidence: medium
 
 ## bms_timer10_poll
 

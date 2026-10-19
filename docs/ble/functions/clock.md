@@ -27,7 +27,7 @@ Reads two rates from RAM-patch thunks (0x2000022C into uVar3 and 0x20000238 into
 **Notes:** Thunk targets and helper 0x0C06FEC0 are not named. The 1 MHz rounding is literal in the code.
 
 - Addresses by version: 219: 0x0C032F0C
-- Called by: `ble_219_0c0399b4`
+- Called by: `ble_rf_osc_trim_calibrate`
 - Calls: `__udivdi3`, `ble_ram_patch_thunk_20000238`, `ble_ram_patch_thunk_200002cc`, `ble_ram_patch_thunk_2000022c`
 - Confidence: low
 
@@ -40,7 +40,7 @@ When a holder is recorded it takes that holder's request from the table at 0x200
 **Returns** `u32`: effective system clock level
 
 - Addresses by version: 219: 0x0C032D34
-- Called by: `ble_219_0c0399b4`
+- Called by: `ble_rf_osc_trim_calibrate`
 - Calls: `ble_ram_patch_thunk_20000934`
 - Confidence: high
 

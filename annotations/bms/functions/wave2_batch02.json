@@ -1,0 +1,381 @@
+{
+  "bms_4168_08003570": {
+    "name": "bms_rtc_wait_synchro",
+    "summary": "Wait for the RTC register-sync flag (RSF) with a 1000-tick timeout; returns 0 or 3",
+    "description": "Waits until the RTC shadow registers are synchronised, the same job as HAL_RTC_WaitForSynchro. param_1 is a handle whose first word is the RTC register base, so RTC_ICSR is at base+0x0C and RTC_CR at base+0x18. The routine clears ICSR bit 7 (INIT) on every call, then clears RSF (ICSR bit 5, a write-0-to-clear flag) and polls until hardware sets it again. Polling is timed against the counter returned by bms_get_ram_word_200006a0; more than 1000 ticks elapsed means timeout, the handle's status byte at +0x29 becomes 3 and the function returns 3. When CR bit 5 is set it is cleared for the wait and set again afterwards, on both the success and timeout paths.",
+    "category": "rtc",
+    "params": [{"name": "handle", "type": "ptr", "description": "param_1; word 0 is the RTC register base, byte +0x29 receives the status code"}],
+    "returns": {"type": "u32", "description": "0 when RSF was seen, 3 on timeout"},
+    "confidence": "high",
+    "notes": "Bit names follow the ST RTC layout (ICSR.INIT, ICSR.RSF, CR.BYPSHAD); the code shows only the bit positions, so those labels are medium confidence. The 1000 limit is in counter ticks; whether a tick is 1 ms depends on the SysTick setup, which is not in this packet."
+  },
+  "bms_4168_08003614": {
+    "name": "RTC_TAMP_IRQHandler",
+    "summary": "RTC/TAMP vector: passes the pointer slot at 0x20005D00 to bms_4168_08002542",
+    "description": "Vector handler for the RTC and tamper interrupt. It has no logic of its own: it passes the address of the RAM slot at 0x20005D00 to bms_4168_08002542 (not yet described) and returns. The same slot holds a pointer that bms_nibble_debounce_1s dereferences, so the interrupt most likely services the object that slot points to.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Vector name from the STM32G0 IRQ table; the handler is entered only through the vector."
+  },
+  "bms_4168_08003662": {
+    "name": "SysTick_Handler",
+    "summary": "SysTick vector: calls bms_counter_accumulate to advance the 32-bit counter at 0x200006A0",
+    "description": "Core SysTick exception handler. It calls bms_counter_accumulate (bms_4168_080021b4), which adds the step word at 0x20000698 into the 32-bit counter at 0x200006A0. That counter is the one bms_get_ram_word_200006a0 returns, and bms_rtc_wait_synchro uses it for its 1000-tick timeout. It is a separate time base from the TIM7-driven tick at 0x20000678.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800367c": {
+    "name": "TIM7_LPTIM2_IRQHandler",
+    "summary": "TIM7 update vector: clear the flag, advance the 0x20000678 tick, count down two timers",
+    "description": "Runs on each TIM7 update. It tests a status word with bms_request_is_done, passing &TIM7, and if it is set clears it with bms_request_reset (writes 0xFFFFFFFE at offset 0x10). It then increments the 32-bit tick at 0x20000678, which bms_tick_get returns, and decrements the 16-bit countdowns at 0x2000067C and 0x2000067E toward zero. The 0x2000067E countdown is the one bms_timeout_arm_from_record loads, so those timeouts run at the TIM7 update rate.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The wave-1 summaries describe bms_request_is_done and bms_request_reset as request-block helpers, but this call passes &TIM7 and offset 0x10 is TIM7.SR in the timer layout, so the test is most likely SR bit 0 (UIF). Re-check those two helpers against that reading. The width of 0x2000067C is not shown here."
+  },
+  "bms_4168_080036d0": {
+    "name": "USART3_4_5_6_LPUART1_IRQHandler",
+    "summary": "USART3 vector: on RXNE clear ORE and pass the byte to bms_4168_08007c10; on IDLE clear it",
+    "description": "Reads USART3.ISR. If RXNE (bit 5) is set it writes 8 to USART3.ICR, reads one byte from USART3.RDR and passes it to bms_4168_08007c10 (not yet described). The ICR write happens on every RXNE, not only after an overrun. Otherwise, if IDLE (bit 4) is set, it writes 0x10 to ICR to clear IDLE and returns. The handler only moves bytes and clears the two flags; frame assembly must be in bms_4168_08007c10.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "ICR bit meanings (ORECF = bit 3, IDLECF = bit 4) follow the ST layout."
+  },
+  "bms_4168_0800379c": {
+    "name": "bms_banded_offset_compute",
+    "summary": "Compute a 0-501 offset from banded tables on the u16 at +0x18 and the s16 at +0x08",
+    "description": "Starts from bms_udiv32(u16 at +0x06, 3) + 50. It compares the u16 at +0x18 with five ascending bounds (20, 50, 80, 95, 100) and adds 1, 5, 10, 50 or 125 for the first bound it does not exceed. The signed s16 at +0x08 adds a second term: 4 when it is 0 or below, 5, 6, 6 or 10 for the bands (0,15], (15,30], (30,45] and (45,60], and 100 at 60 or above. The sum is clamped to 501 (0x1F5). Both tables are constants in the function's own frame, so the result depends only on the three input fields.",
+    "category": "util",
+    "params": [{"name": "ctx", "type": "ptr", "description": "param_1; reads u16 +0x06, s16 +0x08 and u16 +0x18"}],
+    "returns": {"type": "u16", "description": "offset clamped to 0..501"},
+    "confidence": "medium",
+    "notes": "The packet gives no unit or quantity. The sole caller, bms_4168_0800e3bc, is outside it. The band bounds look like percentages (100 at the top), which is an inference."
+  },
+  "bms_4168_08003868": {
+    "name": "bms_throughput_accumulate",
+    "summary": "Integrate |sample| x 10 and return whole 3600-scaled units to add to a total",
+    "description": "param_1 is a record: byte +0x00 is a step added to the sample counter at 0x20000603, byte +0x02 is an enable flag, and s16 +0x14 is a signed sample. When enabled it adds |sample| x 10 to the running total at 0x2000060C and adds the step to the counter. Once the counter reaches 10 it divides the total by counter x 3600 with bms_udiv32, keeps the remainder in 0x2000060C, resets the counter and returns the quotient added to param_2. Below 10 it returns param_2 unchanged and both accumulators keep running. When the enable flag is clear it zeroes the total and the counter.",
+    "category": "soc",
+    "params": [
+      {"name": "rec", "type": "ptr", "description": "param_1; byte +0x00 step, byte +0x02 enable, s16 +0x14 sample"},
+      {"name": "acc", "type": "s32", "description": "param_2; value the whole units are added to"}
+    ],
+    "returns": {"type": "s32", "description": "param_2 plus any whole units flushed this call"},
+    "confidence": "medium",
+    "notes": "The 3600 divisor suggests a seconds-to-hours scale, so this is probably charge throughput in ampere-hours. The sample's unit and source are not in the packet."
+  },
+  "bms_4168_080039e8": {
+    "name": "bms_logical_addr_map",
+    "summary": "Map a logical record number to a device address for mode 0 or 1; other modes pass through",
+    "description": "param_1 selects the mapping. Mode 0 divides (DAT_20001348 - param_2) by 5, multiplies the quotient by 0x1000, adds the remainder times 0x294 and DAT_2000134C, and folds results at or above 0x268000 by subtracting it and adding 0x10000. Mode 1 splits param_2 into a page part (param_2 >> 6, times 0x1000) and a slot part (param_2 & 0x3F, times 0x40), adds DAT_20001358, and folds results at or above 0x390000 by subtracting it and adding 0x280000. Any other mode returns param_1 unchanged. The windows and strides suggest a logical-to-physical translation into a remapped store, but the packet does not show that store.",
+    "category": "util",
+    "params": [
+      {"name": "mode", "type": "u32", "description": "param_1; 0 or 1 select a mapping, other values are returned as they are"},
+      {"name": "record", "type": "u32", "description": "param_2; logical record number"}
+    ],
+    "returns": {"type": "u32", "description": "physical address or offset"},
+    "confidence": "low",
+    "notes": "The mode-0 remainder is read from the second return word of bms_udiv32 (the decompiler shows a 64-bit return), but the wave-1 summary says only the quotient is returned. This needs checking. Net effect of the folds: -0x258000 in mode 0 and -0x110000 in mode 1."
+  },
+  "bms_4168_08003fcc": {
+    "name": "bms_fault_timers_step",
+    "summary": "Advance the fault-timer accumulators by one step; return 1 when one passes its limit",
+    "description": "param_1 is the elapsed time added to each active accumulator. It reads the BMS status object at DAT_2000002C (u16 at +0x124 status bits, s16 at +0x11A, u16 at +0x19C, bit 0 of the byte at +0x194) and the object from bms_u32_20000dec_addr (u16 at +0x04). Five accumulators run while their conditions hold and clear when they fail: 0x20000048 and 0x2000004C for the +0x19C count below 10 and below 20 (limits 60,480,000 and 120,960,000); 0x20000058 for the count below 3 (limit 3,600,000), where the 0x124 bits 1 and 2 and the s16 below -49 decide resets; 0x20000054 while 0x124 bits 1 and 2 are clear and the object value is 3000 or less (limit 30,000); and 0x20000050 while 0x124 bit 4 is set and bit 2 is clear (limit 6,000). An accumulator that passes its limit is clamped and makes the function return 1. The 0x2000005C timer runs only while bit 3 of the byte at *DAT_20000030 is set: it drives PA15 low through gpio_pa15_reset and returns 1 after 200, and this function never resets it.",
+    "category": "protection",
+    "params": [{"name": "elapsed", "type": "u32", "description": "param_1; time added to every active accumulator this step"}],
+    "returns": {"type": "bool", "description": "1 when a timer has expired, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "The limits read as milliseconds if the step is 1 ms (3600000 is one hour); that is an inference. The fields at +0x124, +0x194 and +0x19C are not labelled in the packet."
+  },
+  "bms_4168_080040e4": {
+    "name": "bms_index_debounce_step",
+    "summary": "Debounce a 0-7 index from bms_4168_08008f50 into the 1-based field at status +0x1A",
+    "description": "Samples an index with bms_4168_08008f50 (not described here). The status field at DAT_2000002C+0x1A holds the index plus one, so the routine compares the stored value minus one with the new sample. While the state byte at 0x20000021 is 1 and the sample differs, a sample of 8 or more is ignored, a sample below 8 is counted in 0x20000022, and the field is written only when that count reaches 2. In every other case (state not 1, or the sample equals the stored index) the field is written at once and the state is set to 1. A single noisy sample therefore cannot move the stored index.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The counter at 0x20000022 is not cleared when samples agree, so the two differing samples need not be consecutive. The index's source and meaning are not in the packet; a slot or cell index is an inference from the 0-7 limit. The BMS_4139 image has a different body at the same address (bms_4139_080040e4); the packet lists both, so check the family map."
+  },
+  "bms_4139_080040e4": {
+    "name": "bms_profile_block_fill_4139",
+    "summary": "Fill the 4139 parameter block for profile id 0x20000016 (nine cases, default otherwise)",
+    "description": "Chooses one parameter set from the profile id at DAT_20000016: ids 0, 2, 3, 4, 5, 6, 7 and 8 each have their own values, and every other id (including 1) takes the default set. The set supplies a capacity-like constant (values 5100 to 19200), used directly and divided by 10 into DAT_2000001C+0x26, several 16-bit limits (values such as 255, 765, 800 and 1200), and smaller fields stored into the block returned by FUN_0800C0D0 at offsets 0x2C, 0x30, 0x34, 0x38, 0x3A, 0x3C, 0x3E, 0x74, 0x76 and 0x7D. It copies three 11-entry u16 tables from RAM into the block at +0x00, +0x16 and +0x5E, chosen by id group (0-4, 6-8, or other). Fixed bytes go to +0x80 to +0x8F; only +0x81 and +0x87 differ between the 6-8 group and the rest.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The values are constants from this code, not measurements, and the units of the capacity-like value and of the block are not in the packet. Sibling fills: bms_profile_block_fill_4168, bms_profile_table_fill_4130 and bms_profile_table_fill_4139, which have different record layouts."
+  },
+  "bms_4168_08004128": {
+    "name": "bms_profile_block_fill_4168",
+    "summary": "Fill the 4168 parameter block for profile id 0x20000026 (13 ids, default set otherwise)",
+    "description": "Picks one of nine sets from the profile id at DAT_20000026: ids 4 and 12 share a set, 3 and 11 share one (differing only in the byte at +0x3E, 7 or 6), 2 and 10 share one (byte at +0x3E 8 or 2), and 9, 0, 8, 6, 5 and 7 each have their own; any other id takes the default. Each set supplies a capacity-like value (5100 to 19200, used directly and divided by 10 into DAT_2000002C+0x26), 16-bit limits and small fields at +0x2C, +0x34, +0x38, +0x3A, +0x3C, +0x3E, +0x74 and +0x7D of the block returned by FUN_0800CE5C. It copies three 11-entry u16 tables for the id group (0-4, 6-8, 9-10, 11-12, or other) into +0x00, +0x16 and +0x5E. Fixed bytes go to +0x80 to +0x8F; +0x81, +0x82, +0x83 and +0x87 differ between the 6-8 group and the rest.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Same role as bms_profile_block_fill_4139 for the 4168 build, with a different id-to-set mapping and different fixed bytes. The meaning of the capacity-like value is not in the packet."
+  },
+  "bms_4130_08004208": {
+    "name": "bms_profile_table_fill_4130",
+    "summary": "Write the 4130 table of 12-byte limit records and set the thresholds for profile id 0x20000014",
+    "description": "Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fifteen of them (1, 2, 3, 5, 7, 9, 10, 0x0C, 0x0F, 0x16, 0x18, 0x1D, 0x1F, 0x21 and 0x0A pair layouts) are fixed u16 pairs with u32 words of 4000 or 10000, while records 0x11, 0x2B and 0x30 are derived from the status block. The profile id at DAT_20000014 selects threshold values stored in the status block: +0x52 and +0x86/+0x88 for id 5 or other ids, and +0x6C/+0x70/+0x76 for groups (4-5), (3), (2), (0) and other. Record 0x11 copies +0x86 and +0x88, record 0x2B takes +0x6C and +0x6C-2, and record 0x30 takes -(+0x70) and 2-(+0x70). The routine only writes.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The purpose of individual records is not stated in the packet. The 4000 and 10000 words are probably limits or durations, which is an inference. The 4139 counterpart is bms_profile_table_fill_4139, which writes its threshold to +0x192 rather than +0x52."
+  },
+  "bms_4139_08004388": {
+    "name": "bms_profile_table_fill_4139",
+    "summary": "Fill the 4139 record table and threshold bytes for profile id 0x20000014",
+    "description": "Fills 18 records through bms_record12_addr for the 4139 build (its accessor is FUN_0800C0B0). Records 2 and 3 take 4000 as the second word for ids 6, 7 and 8 and 0x1004 otherwise; record 0x12 copies +0x86 and +0x88; records 0x2C and 0x31 are derived from the status block; the rest are fixed pairs with u32 words of 4000 or 10000. The profile id at DAT_20000014 sets +0x86 and +0x88 and the threshold at +0x192 (0x17C for id 5, 400 otherwise), and sets +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. Records 0x2C and 0x31 take +0x6C and -(+0x70) as in the 4130 table.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Same structure as bms_profile_table_fill_4130 with different ids, record numbers and offsets. The purpose of individual records is not stated in the packet."
+  },
+  "bms_4130_08004410": {
+    "name": "bms_remaining_time_4130",
+    "summary": "Update the minutes-like estimate at status +0x128 with hold and hysteresis (BMS_4130)",
+    "description": "Per-tick estimator for the value at status +0x128. The status object comes from the BMS_4130 accessor (bms_ram_20000bdc_addr in this build), and bit 2 of its u16 at +0x124 gates everything. While the bit is set it samples the s16 at +0x11A into 0x20000116 when the value is 1 to 1399, and after ten counts latches it into 0x20000114. The estimate is ((u16 +0x104 x DAT_20000CDC / 100) - (DAT_20000D94 x 0x50 + DAT_20000D90 x 0x14) / 100) x 1000 / reference x 60 / 10000, with 30 added when +0x104 exceeds 95. Above 0x1503 on +0x118 the estimate loses one unit every 600 ticks, and a hold in 0x20000118 with a switch-over rule decides what reaches +0x128, which is written only inside range checks (499). When the gate bit is clear the holds are reset.",
+    "category": "soc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The x60 and /10000 scaling suggests minutes, which is an inference. The reference 0x20000116 and the RAM terms 0x20000CDC, 0x20000D90 and 0x20000D94 are not identified in this packet. Helper bms_4168_0800113c is not yet described."
+  },
+  "bms_4168_08004488": {
+    "name": "bms_profile_table_fill_4168",
+    "summary": "Fill the 4168 record table and threshold bytes for profile id 0x20000024",
+    "description": "Fills 18 records through bms_record12_addr for the 4168 build (accessor FUN_0800CE3C). The record at index 1 takes 0x35 for id 5 and 0x2D otherwise, and record 2 takes 0xFD2 for id 5 and 0x1036 otherwise; record 0x12 copies +0x86 and +0x88, records 0x2B and 0x31 are derived from the status block, and records 6, 7, 8, 0x0B, 0x0D and 0x10 are fixed pairs. The profile id at DAT_20000024 sets +0x86, +0x88 and +0x192 (0x17C for id 5, 400 for other ids) and +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. The routine only writes records and status fields.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Sibling of bms_profile_table_fill_4139 and bms_profile_table_fill_4130 with a different id mapping and record set. The purpose of each record is not stated in the packet."
+  },
+  "bms_4139_08004618": {
+    "name": "bms_remaining_time_4139",
+    "summary": "Update the minutes-like estimate at status +0x128 with hold and hysteresis (BMS_4139)",
+    "description": "Estimator of the same family as bms_remaining_time_4130 for BMS_4139, using the RAM terms DAT_20000D38, DAT_20000DEC and DAT_20000DF0 and the reference DAT_20000158. Bit 2 of the u16 at +0x124 gates it: when set it samples the s16 at +0x11A into the holds at 0x20000156..0x2000015C, latching after ten counts, and when clear it resets the holds. The estimate is ((u16 +0x104 x DAT_20000D38 / 100) - (DAT_20000DF0 x 0x50 + DAT_20000DEC x 0x14) / 100) x 1000 / reference x 60 / 10000, clamped at zero. A one-shot flag at 0x2000014C enables a band correction on +0x118 above 0x1503, and a count of 599 steps lowers the held value by one. The result is written to +0x128 inside a range check of 499.",
+    "category": "soc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The minutes reading and the meaning of the RAM terms are inferences, as for bms_remaining_time_4130. Helper bms_4168_0800113c is not yet described."
+  },
+  "bms_4168_08004de8": {
+    "name": "bms_comm_request_dispatch",
+    "summary": "Pick the next queued link request (0x16, 0x1E, 0x18) and send it, else count the queue down",
+    "description": "Part of the host-link request layer, with bms_comm_send_frame, bms_comm_req_cmd02/04/06 and bms_comm_await_reply_cmd03. When the pending-count byte at +0x101 is zero it sets the state byte at +0xF9 to 9 and returns. Otherwise it bumps the retry byte at +0xFB, zeroes the reply timer word at +0x00 and checks three request flags in order: +0xFC sends command 0x16 with no payload, +0xFE sends command 0x1E with one payload word (the byte at +0xFF, also stored at +0x3C), and +0xFD sends command 0x18 with no payload. Each send sets state +0xF9 to 0x0C. With no request pending it decrements the count at +0x101 and returns.",
+    "category": "protocol",
+    "params": [
+      {"name": "unused", "type": "u32", "description": "param_1; not read by the routine"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context: state +0xF9, retry +0xFB, timer +0x00, flags +0xFC..+0xFE, count +0x101"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Command meanings 0x16, 0x18 and 0x1E are not identified in the packet. The state values 9 and 0x0C are the ones this function sets."
+  },
+  "bms_4168_08004fec": {
+    "name": "bms_auth_verify_response",
+    "summary": "Check a 16-byte reply (cmd 0x1D, type 4) against a value computed from the object at 0x20000BCC",
+    "description": "Timer-driven check of a challenge reply in the host-link layer. param_1 (elapsed time) is added to the reply timer at +0x00 of the context; past 200 the state at +0xF9 becomes 5 (retry) while fewer than four retries have been used, and 0x0D (fault) otherwise. When a frame is pending (flag 0x200001AD) and its header is command 0x1D with type nibble 4, the four 32-bit words at 0x2000092C..0x2000093B are gathered and bms_4168_080106c8 (not described) computes a 16-byte value from the object at 0x20000BCC. That value is repacked into four 32-bit words and compared with the reply. A match clears the retry byte at +0xFB and sets state +0xF9 to 7. The pending flag is cleared on every pass.",
+    "category": "protocol",
+    "params": [
+      {"name": "elapsed", "type": "u32", "description": "param_1; time added to the reply timer"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context with state +0xF9, retry +0xFB and timer +0x00"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "This is the authentication core of the link, and the algorithm in bms_4168_080106c8 is not in this packet, so the nature of the 16-byte value (MAC, cipher output or hash) is unknown. The byte-swap repacking is decompiled awkwardly and should be checked against the source."
+  },
+  "bms_4168_08005128": {
+    "name": "bms_comm_send_frame",
+    "summary": "Build and send a framed message on USART3: magic, command, count and sequence, payload, CRC-16",
+    "description": "Builds the outgoing host-link frame and sends it with bms_usart3_send_bytes. Byte 0 is a magic, 0x5A when DAT_200001AE is 1 and 0xA5 otherwise. Byte 1 is the command (the low byte of param_1). Byte 2 holds the payload word count in its high nibble and the 4-bit sequence number from the context at +0xFA in its low nibble. Then come param_3 payload words, each sent big-endian, then the CRC-16/USB (bms_4168_08004da4) over bytes 1 to the end of the payload, high byte first. The sequence number at +0xFA advances mod 8 after each frame. The header and payload are also mirrored into globals 0x20000904 to 0x2000090E (payload stored little-endian there), with the CRC bytes at 0x20000927-0x20000928.",
+    "category": "protocol",
+    "params": [
+      {"name": "cmd", "type": "u32", "description": "param_1; command code, used as its low byte"},
+      {"name": "words", "type": "ptr", "description": "param_2; payload array of 32-bit words"},
+      {"name": "count", "type": "u32", "description": "param_3; number of payload words"},
+      {"name": "ctx", "type": "ptr", "description": "param_4; link context whose +0xFA byte holds the sequence number"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Frame layout is read from the stores and the CRC length (count x 4 + 2). The CRC algorithm is in the wave-1 summary of bms_4168_08004da4. The receive side of the same protocol is in bms_proto_build_reply and bms_auth_verify_response."
+  },
+  "bms_4168_08005228": {
+    "name": "bms_comm_req_cmd02",
+    "summary": "Send command 0x02 with no payload, reset the reply timer, and enter state 2",
+    "description": "Request step of the host-link layer. It increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x02 with no payload through bms_comm_send_frame, and sets the state byte at +0xF9 to 2. The reply is collected by bms_comm_await_reply_cmd03 and timed through the reply timer.",
+    "category": "protocol",
+    "params": [
+      {"name": "unused", "type": "u32", "description": "param_1; not read by the routine"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The meaning of command 0x02 is not in the packet."
+  },
+  "bms_4168_0800525c": {
+    "name": "bms_comm_await_reply_cmd03",
+    "summary": "Wait for the command-03 reply: accept into ctx+0x08, retry after 200 ticks, fault after 11 retries",
+    "description": "Timer step of the host-link layer for requests such as bms_comm_req_cmd02. It adds param_1 to the reply timer at +0x00; past 200 it sets state +0xF9 to 1 (retry) while the retry byte at +0xFB is below 11, and to 0x0D (fault) otherwise. When a frame is pending (flag 0x200001AD) whose header byte at 0x2000092A is 3 and whose high nibble at 0x2000092B is 1, it stores the four payload bytes at 0x2000092C as a little-endian word into ctx+0x08, clears the retry byte, sets state +0xF9 to 3 (reply received), and sets bit 4 of the u16 at +0x194 of the status object from the 0x20000BDC accessor. The pending flag is cleared on every pass.",
+    "category": "protocol",
+    "params": [
+      {"name": "elapsed", "type": "u32", "description": "param_1; time added to the reply timer"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context with reply word at +0x08, state +0xF9, retry +0xFB"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The state values 1 and 3 are only set here, and the packet does not show what the caller does with them."
+  },
+  "bms_4168_080052e0": {
+    "name": "bms_comm_req_cmd06",
+    "summary": "Send command 0x06 with no payload, reset the reply timer, and enter state 8",
+    "description": "Request step of the host-link layer, the same shape as bms_comm_req_cmd02: it increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x06 with no payload through bms_comm_send_frame and sets the state byte at +0xF9 to 8. The reply is handled by bms_comm_await_reply_cmd03.",
+    "category": "protocol",
+    "params": [
+      {"name": "unused", "type": "u32", "description": "param_1; not read by the routine"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The meaning of command 0x06 is not in the packet."
+  },
+  "bms_4168_080053c8": {
+    "name": "bms_comm_req_cmd04",
+    "summary": "Send command 0x04 with no payload, reset the reply timer, and enter state 4",
+    "description": "Request step of the host-link layer, the same shape as bms_comm_req_cmd02: it increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x04 with no payload through bms_comm_send_frame and sets the state byte at +0xF9 to 4. The reply is handled by bms_comm_await_reply_cmd03.",
+    "category": "protocol",
+    "params": [
+      {"name": "unused", "type": "u32", "description": "param_1; not read by the routine"},
+      {"name": "ctx", "type": "ptr", "description": "param_2; link context"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The meaning of command 0x04 is not in the packet."
+  },
+  "bms_4168_080056b4": {
+    "name": "bms_event_capture_on_match",
+    "summary": "When the watch object at 0x200006D8 reports an event, latch its code and time, set status bit 8",
+    "description": "Calls bms_4168_0800b91c (not described) with the object at 0x200006D8. If it returns non-zero, it stores the low byte of that value at 0x200008F5, takes a timestamp from bms_tick_get into 0x200008E8, sets bit 8 of the u16 at +0x196 of the status object whose pointer is at 0x200008F0, and sets the flag byte 0x200008F4 to 1. Nothing happens on a zero return.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The layout of the object at 0x200006D8 and the meaning of the returned code are not in the packet."
+  },
+  "bms_4168_08005710": {
+    "name": "bms_timeout_arm_from_record",
+    "summary": "Arm the 0x2000067E countdown from the record at 0x2000133C; set state 0x20001340 from bit 12",
+    "description": "If the record pointer at 0x2000133C is set, it checks the byte at record +1. Value 5 selects a 10000-tick timeout and any other value a 1500-tick one. The value is written as two bytes at 0x2000062A and 0x2000062B (through bms_byte_20000628_addr) and loaded into the countdown at 0x2000067E with bms_u16_2000067e_set. The TIM7 handler, bms_4168_0800367c, decrements that countdown, so the timeout runs at the TIM7 update rate. Then it sets 0x20001340 to 2 when bit 12 of the status word at +0x196 is set, and to 1 otherwise.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The record type and the reason for the 5 versus other choice are not in the packet. The state values 1 and 2 are only set here."
+  },
+  "bms_4139_08005964": {
+    "name": "bms_status_timeout_latch_4139",
+    "summary": "Set a status flag after 2000 units of a low-value condition (4139 switch case body)",
+    "description": "This is a case body of a switch (decompiler label switchD_0800c0e2::caseD_2); the dispatcher is not in this packet. It reads the status object from the 0x20000BDC accessor. When byte +0x194 bit 5 is set and the s16 at +0x11A is 4 or less, it adds param_1 to the accumulator at 0x20000D18 and returns until that accumulator reaches 2000; if the s16 is above 4 it clears the accumulator and returns. When bit 5 is clear, or the accumulator reaches 2000, it clears bit 2 and sets bit 0 of the u16 at +0x124 and sets 0x20000D24 to 1. The result is a latched status flag after a sustained condition.",
+    "category": "protection",
+    "params": [{"name": "elapsed", "type": "s32", "description": "param_1; time added to the accumulator"}],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Because the decompiled structure runs the flag set when bit 5 is clear, the delay applies only in the bit-5-set case. The switch dispatcher and the meaning of bit 0 of +0x124 are not in the packet."
+  },
+  "bms_4168_08005ab0": {
+    "name": "bms_status_event_snapshot",
+    "summary": "Maintain the status-flag byte at 0x2000056B and snapshot the state when a flag rises",
+    "description": "Keeps a flag byte at 0x2000056B that mirrors status bits with hysteresis. Bits 0 and 1 form a two-bit state for the 0x124 bit 2 condition (armed by DAT_20000DDC and s16 +0x11A of at least 10); bit 2 mirrors 0x124 bit 4, bit 3 mirrors 0x124 bit 3, bit 4 mirrors 0x124 bits 7 to 10 and 12, bit 5 mirrors 0x124 bits 5 and 6 and 0x126 bit 2, bit 6 mirrors 0x124 bits 13 and 14, and bit 7 mirrors 0x126 bits 4, 7, 8 and 12. When any flag rises and the pending slot DAT_20000568 is clear, it writes a snapshot at 0x200010A8: the flag byte, a 32-bit timestamp from bms_4168_08009d84, the u16 at +0x118, the s16 at +0x11A, a byte from the object at 0x20000DFC, the u16 words at +0xB4 and +0xB6, and the 0x124/0x126 pair as one word.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The bit mapping is read from the shift tests, so the status-bit names are not given in the packet. The snapshot layout is as stored and the field meanings are inferred."
+  },
+  "bms_4168_08005cdc": {
+    "name": "bms_history_ring_commit",
+    "summary": "Fill the history ring on first call; later calls commit staged blocks and queue a snapshot",
+    "description": "Two-pass history routine for the buffers at 0x200010A8 to 0x200012FC. The first call (flag at 0x20000569 clear) sets the flag and fills ten 64-byte history records at stride 0x40 from 0x200010A8. Each holds a timestamp from bms_4168_08009d84, 13 u16 words from status +0x140, the s16 at +0x11A, six low bytes from the u16 words at +0x12C, +0x12E, +0x130, +0x134, +0x136 and +0x138, the bytes at +0x11E and +0x19C, the 0x124/0x126 and 0x194/0x196 words, and the words at +0x13C, +0x13E, +0x180 and +0x1D2. Later calls copy nine 64-byte blocks from 0x200010FC to 0x200010BC, store a current snapshot at 0x200012FC to 0x20001331 in the same field order, and count DAT_2000056A. After five counts with a pending snapshot it clears DAT_20000568 and hands the snapshot at 0x200010A8 to bms_slot_pool_register with tag 5.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The record layout is inferred from the stores. The first-call records overlap the snapshot written by bms_status_event_snapshot at 0x200010A8, and the packet does not show how the two layouts line up. Tag 5 is not identified."
+  },
+  "bms_4168_080062f0": {
+    "name": "bms_proto_build_reply",
+    "summary": "Build the 0x5A 0xA5 reply frame for a received message and set the reply state",
+    "description": "Reads the received message through the pointer at DAT_20002608; its +4 field points to a frame whose byte 0 is the command, bytes 1 to 3 are header bytes, byte 8 is the payload length, and +4 points at the payload. A command is accepted only if it is 1, 2, 7 to 10, 0x2A, 0x2C or 0xB5 and byte 2 equals 6; otherwise the error flag 0x20002611 is set and the state at 0x2000260D becomes 4. Commands 7 to 10 also record bms_tick_get in 0x20002604. The reply is written at 0x200024E4 as 0x5A, 0xA5, the length, bytes 1 to 3, the reply command and the copied payload. Command 1 is answered with 0x2A, command 2 with 0x2C, 0x2A and 0x2C echo themselves, other commands echo the received byte, and command 10 only clears the pending flag 0x20002610.",
+    "category": "protocol",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 0x5A 0xA5 magic matches bms_comm_send_frame, but the reply carries the length as a plain byte instead of a count nibble. The meaning of the commands is not in the packet. The routine has no direct caller in the packet."
+  },
+  "bms_4168_080064a0": {
+    "name": "bms_nibble_debounce_1s",
+    "summary": "Once per 1000 ticks, debounce the low nibble of a pointed byte; latch after equal samples",
+    "description": "Samples the low nibble of the byte that the pointer at 0x20005D00 refers to (bms_indirect_nibble_get) once every 1000 ticks of the time base (bms_tick_timeout_check on 0x20001C78). Its gating bytes sit in the object at 0x2000068F. When byte +1 is zero and byte +2 is also zero, the sample is latched at 0x20001C88, state 0x20001C8A becomes 2, and the function returns 1. When byte +1 is set, a sample equal to the latched one counts up at 0x20001C89, and after three matches the state becomes 1 and the function returns 1; a different sample re-latches and clears the count. Shares state byte 0x20001C8A with bms_rtc_reset_with_snapshot, which sets 3.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "bool", "description": "1 when the state changes, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "The meaning of states 1 and 2 and of the gating bytes is not in the packet. The byte at 0x20005D00 is the same slot passed by RTC_TAMP_IRQHandler."
+  },
+  "bms_4168_08006514": {
+    "name": "bms_rtc_reset_with_snapshot",
+    "summary": "Snapshot the RTC time, reset the RTC backup domain and LSE, and set shared state to 3",
+    "description": "Calls bms_4168_08009d84 to store a time value at 0x20001C84, calls bms_rtc_backup_reset_lse_on, which pulses the backup-domain reset and turns LSE on, takes a time-base stamp from bms_tick_get into 0x20001C80, and sets the shared state byte 0x20001C8A to 3. It always returns 0.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The reason this path runs is not in the packet. State byte 0x20001C8A is shared with bms_nibble_debounce_1s, which uses values 1 and 2."
+  },
+  "bms_4168_0800660c": {
+    "name": "bms_session_state_reset",
+    "summary": "Reset the session RAM variables and write four 32-bit constants at 0x20001C68",
+    "description": "Clears a group of RAM variables (0x20000584 to 0x20000598, 0x200005A0 to 0x200005B4 and related words), then calls bms_4168_08001246 (not described) on the 0x800-byte block at 0x20001468. It writes four fixed 32-bit constants to 0x20001C68, 0x20001C6C, 0x20001C70 and 0x20001C74: 0xB21C80FE, 0xA641EFD1, 0xF53117A4 and 0xF02468A0. These four words look like a 128-bit key or seed and are not identified in this packet.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 128-bit reading of the constants is an inference from their count and size. The meaning of bms_4168_08001246 is not in the packet; the 0x800 size suggests a memory-clear or copy helper."
+  },
+  "bms_4168_08006674": {
+    "name": "bms_soc_from_ocv_table",
+    "summary": "Piecewise-linear 0-100 percent lookup from an 11-point table at 0x20000EB6",
+    "description": "Maps a value (param_1) through an 11-point table of ascending u16 breakpoints at 0x20000EB6 + 2k, k = 0 to 10. It returns 0 at or below the first breakpoint and 100 at or above the last (at 0x20000ECA). Between them it finds the segment k where the value is at most T[k], and returns 10 x (k-1) plus 10 times the position inside that segment, computed with bms_4168_0800113c as (x - T[k-1]) x 10 / (T[k] - T[k-1]). The result is stored at 0x200001DC and returned.",
+    "category": "soc",
+    "params": [{"name": "x", "type": "u32", "description": "param_1; compared with the breakpoints at 0x20000EB6..0x20000ECA"}],
+    "returns": {"type": "u8", "description": "0 to 100 percent"},
+    "confidence": "medium",
+    "notes": "The OCV-to-SOC reading comes from the 0-100 range in ten-percent segments; the unit of the input (probably a cell voltage) and the table source are not shown in the packet. Callers bms_4130_08005d2c and bms_4168_0800708c, 080071c8 and 08007348 are outside it."
+  },
+  "bms_4168_080066dc": {
+    "name": "bms_table_interp_permille",
+    "summary": "Piecewise-linear lookup over the table at 0x20000E58: 0 below, 1000 above, linear between",
+    "description": "Same segment-interpolation pattern as bms_soc_from_ocv_table, over a different table. At or below the first input breakpoint (0x20000E58) it returns 0, and at or above the top input breakpoint (0x20000E6C) it returns 1000. In between it finds the segment where the input is at most breakpoint k and returns Y[k-1] + (Y[k] - Y[k-1]) x (x - X[k-1]) / (X[k] - X[k-1]), dividing with bms_4168_0800113c. The result is u16 on a 0 to 1000 scale.",
+    "category": "util",
+    "params": [{"name": "x", "type": "u32", "description": "param_1; compared with the breakpoints at 0x20000E58..0x20000E6C"}],
+    "returns": {"type": "u32", "description": "0 to 1000"},
+    "confidence": "low",
+    "notes": "The quantity is not identified. The exact stride of the interleaved input and output tables is not resolved by the packet, so the table layout is medium-low. Callers bms_4168_0800746c and bms_4168_080076b4 are outside the packet."
+  }
+}

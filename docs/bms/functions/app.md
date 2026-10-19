@@ -164,7 +164,7 @@ Returns &DAT_20000628 so the caller can read or write the byte through the point
 **Returns** `ptr`: address of the RAM byte at 0x20000628
 
 - Addresses by version: 4130: 0x0800AB7C, 4139: 0x0800B0B4, 4148: 0x0800B7D0, 4168: 0x0800BAE4
-- Called by: `bms_4168_08005710`, `bms_4168_08005768`
+- Called by: `bms_timeout_arm_from_record`, `bms_4168_08005768`
 - Confidence: medium
 
 ## bms_byte_2000063e_addr
@@ -348,7 +348,7 @@ Returns &DAT_2000068f so the caller can read or write the byte through the point
 **Notes:** Width and role unknown; the decompiler shows an untyped pointer.
 
 - Addresses by version: 4130: 0x08008D0C, 4139: 0x0800920C, 4148: 0x08009A58, 4168: 0x08009D6C
-- Called by: `bms_4168_080064a0`, `bms_fault_record_service`
+- Called by: `bms_nibble_debounce_1s`, `bms_fault_record_service`
 - Confidence: medium
 
 ## bms_ram_20000bdc_addr
@@ -362,7 +362,7 @@ Returns &DAT_20000bdc. The object's width and role are not shown, since the deco
 **Notes:** Callers include bms_4130_08004410, bms_4130_08005d2c, bms_4130_08006830 and bms_4139_08004618, among others; the packet's list is truncated.
 
 - Addresses by version: 4130: 0x0800AEAC, 4139: 0x0800B3E4, 4148: 0x0800BB00, 4168: 0x0800BE14
-- Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_4168_0800525c`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_4168_08005710`, `bms_4168_08005768`, `bms_4168_08005ab0`, `bms_4168_08005cdc`, `bms_4168_08005fc4`, `bms_state_refresh_scaled`, `bms_4168_080068e8` ...
+- Called by: `bms_4168_08004774`, `bms_4168_08004a40`, `bms_comm_await_reply_cmd03`, `bms_4168_0800549c`, `bms_4168_080054f8`, `bms_timeout_arm_from_record`, `bms_4168_08005768`, `bms_status_event_snapshot`, `bms_history_ring_commit`, `bms_4168_08005fc4`, `bms_state_refresh_scaled`, `bms_4168_080068e8` ...
 - Confidence: medium
 
 ## bms_record_queue_flush
@@ -393,7 +393,7 @@ Dequeues one record. The queue has 256 slots of 24 bytes at 0x20002C18, which en
 **Notes:** The length byte is not clamped to 8 before memcpy, so a corrupted slot can copy more than the payload field holds. The producer is not in this packet.
 
 - Addresses by version: 4130: 0x0800A9B4, 4139: 0x0800AEEC, 4148: 0x0800B608, 4168: 0x0800B91C
-- Called by: `bms_4168_080056b4`
+- Called by: `bms_event_capture_on_match`
 - Calls: `memcpy`
 - Confidence: medium
 
@@ -465,7 +465,7 @@ Stores param_1 as a 16-bit value at RAM 0x2000067E, the halfword read by bms_u16
 | `param_1` | `u16` | value to store |
 
 - Addresses by version: 4130: 0x08009484, 4139: 0x080099BC, 4148: 0x0800A208, 4168: 0x0800A51C
-- Called by: `bms_4168_08005710`
+- Called by: `bms_timeout_arm_from_record`
 - Confidence: medium
 
 ## bms_u16_20000dfc_addr
@@ -477,7 +477,7 @@ Returns &DAT_20000dfc as a 16-bit pointer so the caller can read or write the ha
 **Returns** `ptr`: address of the u16 at 0x20000DFC
 
 - Addresses by version: 4130: 0x0800B684, 4139: 0x0800BBDC, 4148: 0x0800C3C0, 4168: 0x0800C6D4
-- Called by: `bms_4168_08005ab0`, `bms_4168_08007a0c`, `bms_4168_080082f0`
+- Called by: `bms_status_event_snapshot`, `bms_4168_08007a0c`, `bms_4168_080082f0`
 - Confidence: medium
 
 ## bms_u16x5_block_store
@@ -515,7 +515,7 @@ Returns &DAT_20000dec as a 32-bit pointer so the caller can read or write the wo
 **Returns** `ptr`: address of the RAM word at 0x20000DEC
 
 - Addresses by version: 4130: 0x0800B7B4, 4139: 0x0800BD0C, 4148: 0x0800C4F0, 4168: 0x0800C804
-- Called by: `bms_4168_08003fcc`
+- Called by: `bms_fault_timers_step`
 - Confidence: medium
 
 ## bms_u32_20001348_get

@@ -162,7 +162,7 @@ Software timers (all created by `FUN_0c044c7c`, `xTimerCreate`):
 
 ### 2.4 BLE and BT threads
 
-`bt stack` (entry `0x0C05B678`, disassembled): calls `btstack_run_loop_init` (`0x0C065AEC`), `bthost_tlv_get_instance`, `ll_env_init` (`0x0C066DFC`), `ble_ctrl_env_set_callbacks_and_notify`, `bthost_link_key_db_tlv_get_instance` (`0x0C04ADE0`), `ble_ctrl_env_set_iface_and_init` and `le_device_db_tlv_configure` (`0x0C04F034`). It then enters the BTstack run loop at `0x0C065AE0`.
+`bt stack` (entry `0x0C05B678`, disassembled): the entry is a tail jump to `0x0C065AE0`, which loads a function pointer from RAM `0x200190B0` and jumps to its `+0x20` slot. The BTstack and controller main loop is therefore installed at run time (M). The BTstack initialisation is `FUN_0c05b67c`, called from `FUN_0c0592a4`. It calls `btstack_run_loop_init` (`0x0C065AEC`), `bthost_tlv_get_instance`, `ll_env_init` (`0x0C066DFC`), `bthost_link_key_db_tlv_get_instance` (`0x0C04ADE0`) and `le_device_db_tlv_configure` (`0x0C04F034`).
 
 `bts_task` (`FUN_0c0599d4`): feeds the watchdog (`hal_wdt_task_checkin`) and waits on its message queue for up to 100 ms (`FUN_0c042858`). It then calls `FUN_0c05af1c`, `ble_ring_dispatch_pending` (`0x0C048B00`) and `FUN_0c059948`. A registered hook at `0x20014608` runs after that. Messages come from the ring buffers written by `FUN_0c05ae14` (§5, §4).
 
@@ -228,7 +228,7 @@ Module boundaries come from the source-file strings, annotation categories and n
 
 - The VCU link is `/dev/uart2`, channel 0 of the UART dispatcher (`FUN_0c02e420`). The dispatcher context is `0x20003DB8` (`uart_disp_get_channel_ctx`). The VCU link is serviced by `nb uart disp` (§2).
 - `/dev/uart1` is used by the factory path, with the string `only UART1 support half duplex` (`0x0C0859A8`).
-- The baud rate is set during `FUN_0c02e420` and was not traced in this pass (L).
+- The baud rate was not traced in this pass (L).
 
 ### 4.2 Frame formats (verified in `FUN_0c02e5a4` and `FUN_0c02e7d8`)
 
@@ -271,23 +271,23 @@ Table A, exact match on (SRC, DEST, CMD). Entries are 8 bytes at `0x0C073EC8`..`
 
 | SRC | DEST | CMD | Handler | Meaning (evidence) |
 |---|---|---|---|---|
-| 0x3D | 0x23 | 0x41 | `FUN_0c02cca8` | Factory command set; logs `index error`. |
+| 0x3D | 0x23 | 0x41 | `FUN_0c02cca8` | Factory-side command; logs `index error` (L on the meaning). |
 | 0x3D | 0x23 | 0x42 | `FUN_0c02c49c` | Factory and RF test commands (§9). |
-| 0x3D | 0x23 | 0x01 | `FUN_0c02d128` | Single-UART test (`d1x`). |
-| 0x3D | 0x23 | 0x02 | `FUN_0c02d16c` | Single-UART test (`d1x`). |
-| 0x3D | 0x23 | 0x7E | `FUN_0c02d1b0` | Single-UART test (`d1x`). |
+| 0x3D | 0x23 | 0x01 | `FUN_0c02d128` | Wrapper that calls the FMNA status routine `FUN_0c02a8f8` (M). |
+| 0x3D | 0x23 | 0x02 | `FUN_0c02d16c` | Wrapper that calls the FMNA status routine `FUN_0c02a8f8` (M). |
+| 0x3D | 0x23 | 0x7E | `FUN_0c02d1b0` | Wrapper that calls `FUN_0c02b264` (MTU and token, §4.5). |
 
 Table B, masked match on (DEST, CMD) with SRC ignored. Entries are 12 bytes at `0x0C073EF0`..`0x0C073FCC` (mask word, key word, handler):
 
 | DEST | CMD | Handler | Meaning |
 |---|---|---|---|
 | 0x04, 0x0D, 0x0E, 0x0F | 0x07, 0x08, 0x09, 0x0A | `FUN_0c0285ec` | Firmware upgrade (IAP) receiver (§7). |
-| 0x3E family (masked) | — | `FUN_0c029f68` | Masked catch-all (L). |
-| 0x04 family (masked) | 0x00 | `FUN_0c02bd18` | Masked catch-all (L). |
+| DEST bits masked by 0x3E | any | `FUN_0c029f68` | Range-style masked entry (L). |
+| DEST 0x04 | any | `FUN_0c02bd18` | Masked catch-all for the BLE module (L). |
 
 ### 4.4 Transmit paths
 
-- BLE-originated frames to the VCU are built by `FUN_0c02c124(dir, src, dest, cmd, index, len, data)`. It fills a 256-byte frame buffer and calls `FUN_0c02e758`, which does `write()` on `/dev/uart2`, guarded by a semaphore with a 100 ms timeout. Typical call: `FUN_0c02c124(1, 4, 0x16, cmd, index, …)`. Here SRC = 0x04 (BLE module) and DEST = 0x16 (VCU).
+- BLE-originated frames to the VCU are built by `FUN_0c02c124(dir, src, dest, cmd, index, data)`. It fills a 256-byte frame buffer and calls `FUN_0c02e758`, which does `write()` on `/dev/uart2`, guarded by a semaphore with a 100 ms timeout. Typical call: `FUN_0c02c124(1, 4, 0x16, cmd, index, data)`. Here SRC = 0x04 (BLE module) and DEST = 0x16 (VCU). The length comes from the header, and the first argument is a direction or priority flag whose meaning is not confirmed.
 - Replies to the phone are built by `FUN_0c02c338` (frame header `0x5A`). They are queued with `FUN_0c05ae14(type, len, buf)` into a BTstack ring buffer. Type 2 uses ring `0x20015538`, and type 3 is used for response frames. `bts_task` then sends them as ATT notifications (`att_prepare_handle_value_notification` `0x0C04CE50`, `att_prepare_handle_value_indication` `0x0C04CE84`).
 - `FUN_0c02e5a4` is the dispatcher's own send path. It takes a block with a type character (`e` for the short form, anything else for the standard form), then the header fields, then the data. It logs `Uart dispatcher: send sem timeout` when it cannot get the send semaphore.
 
@@ -299,7 +299,7 @@ Phone or app → BLE module (SRC 0x3E, DEST 0x04). These keys come from the BLE-
 |---|---|---|
 | 0x00 | `0x0C029E4C` | Registry entry. |
 | 0x01, 0x02, 0x7E | `FUN_0c02b42c` → `FUN_0c02b264` (for 0x7E) | `FUN_0c02b264` handles link MTU and parameters (`mtu=%d`), checks a token CRC (`save token err!recv crc=…`) and stores the token through `FUN_0c05c8a8` into nvdata partition 2 record 0x1389 (§6.9, §8). |
-| 0x07 … 0x0A | `0x0C02A724` | Registry entries. Upgrade-related. |
+| 0x07 … 0x0A | `0x0C02A724` (not recovered by Ghidra; in a gap) | Registry entries. Role not verified (L). |
 | 0x58, 0x80 | `0x0C02A128` | Registry entries. CMD 0x58 is also seen as `act off` from the VCU. |
 | 0x5B, 0x5C, 0x5D | `0x0C029FB0` | Registry entries. |
 | 0x6F | `0x0C029EF8` | Registry entry. |
@@ -311,7 +311,7 @@ VCU → BLE module (`FUN_0c02b480`, responses with SRC 0x16). The switch is on C
 | CMD | Meaning (evidence) |
 |---|---|
 | 0x58 | `act off`. |
-| 0x5E | Command path that writes the 16-byte serial-number buffer and the 474-byte config block (§6.9). |
+| 0x5E | Command path that writes the 474-byte config block to nvdata partition 2 through `FUN_0c05b0a8` (§6.5). |
 | 0x5F, 0x75 | `ver ack`. |
 | 0x7A, 0x7B | Unlock status: `VCU unlock status is allow` or `disallow`. `Insufficient conditions of unlock` (index 3 or 4). |
 | 0x51 | `Power off`. |
@@ -351,7 +351,7 @@ BLE → VCU queries (`FUN_0c02c124`, SRC 0x04, DEST 0x16):
 - registers the HCI event handler and other BTstack hooks;
 - stores the write-path handler `FUN_0c04dfb8` at `0x2000FCCC`.
 
-The device name and advertising text come from `FUN_0c05ada4`, which holds the strings `Segway-Ninebot` and `KickScooter`.
+The second argument `0x0C05ADA4` is a callback. Its body (`FUN_0c05ada4`) holds the strings `Segway-Ninebot` and `KickScooter`, which are the advertised name candidates (M).
 
 The database is in `.data` at RAM `0x20004348`. The flash source is `0x0C089F98` (file offset `0x61F98`). It has 72 records.
 
@@ -440,7 +440,7 @@ Bonding for BLE links is handled by BTstack (§6.8).
 ### 6.2 Vehicle serial number
 
 - `ble_crypto_set_serial_number` (`FUN_0c05c888`) copies up to 16 bytes into `0x20004980`.
-- The VCU reads back its SN through BLE → VCU query (CMD 0x01, INDEX 0x10). `FUN_0c02b480` then calls `FUN_0c02a2e0`, which returns 1 if the SN starts with a code from the ROM or RAM prefix list. Otherwise the firmware logs `vehicle sn is invalid, use default sn` and uses a placeholder SN (`FUN_0c0292f0`, `FUN_0c029414`).
+- The BLE module reads the SN from the VCU with a BLE → VCU query (CMD 0x01, INDEX 0x10, logged as `read vcu sn`). The reply is handled in `FUN_0c02b480`. It is validated with `FUN_0c02a2e0`, which returns 1 if the SN starts with a code from the ROM or RAM prefix list. The SN is then stored (`DEBUG:set sn`), or `not need set sn` is logged if it is already set. If the SN is invalid, the firmware logs `vehicle sn is invalid, use default sn` and uses a placeholder SN (`FUN_0c0292f0`, `FUN_0c029414`).
 - Strings name the SN path `set vehicle sn to[%s]` and `set vehicle sn length error` (factory path, §9).
 
 ### 6.3 Session state (`0x200092EC`)

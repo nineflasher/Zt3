@@ -76,5 +76,5 @@ Copies param_3 bytes from param_2 to param_1 in increasing address order. If bot
 **Notes:** Named after the C library routine by behaviour; the implementation is custom and not newlib's.
 
 - Addresses by version: 4130: 0x08001214, 4139: 0x08001214, 4148: 0x08001214, 4168: 0x08001214
-- Called by: `bms_4168_08005cdc`, `bms_4168_08008060`, `bms_memcpy_args_swap`, `bms_4168_08008de8`, `bms_record_queue_pop`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_txq_enqueue`, `bms_4168_0800e8dc`, `bms_4168_0800e930`, `bms_4168_0800e988` ...
+- Called by: `bms_history_ring_commit`, `bms_4168_08008060`, `bms_memcpy_args_swap`, `bms_4168_08008de8`, `bms_record_queue_pop`, `bms_frame_send_when_ready`, `bms_record_send_multiframe`, `bms_4168_0800d76c`, `bms_txq_enqueue`, `bms_4168_0800e8dc`, `bms_4168_0800e930`, `bms_4168_0800e988` ...
 - Confidence: high

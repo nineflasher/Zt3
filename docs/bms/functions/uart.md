@@ -59,7 +59,7 @@ For each of the param_2 bytes it polls USART3_ISR bit 6 (TC, transmission comple
 
 - Addresses by version: 4130: 0x0800971C, 4139: 0x08009C54, 4148: 0x0800A3BC, 4168: 0x0800A6D0
 - Peripheral registers: `USART3.ISR_FIFO_ENABLED` (R), `USART3.TDR` (W)
-- Called by: `bms_4168_08005128`
+- Called by: `bms_comm_send_frame`
 - Confidence: high
 
 ## bms_usart3_stop

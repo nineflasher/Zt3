@@ -1,6 +1,6 @@
 # BMS - `isr` functions
 
-13 functions.
+17 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
@@ -9,7 +9,11 @@
 | [`LL_EXTI_Init`](#ll_exti_init) | 0x08002B0C | Programs EXTI line masks, edge triggers and interrupt or event mode from an init record |
 | [`NVIC_SetPriority`](#nvic_setpriority) | 0x08003724 | CMSIS NVIC_SetPriority: set the 2-bit priority of an IRQ or system exception |
 | [`PendSV_Handler`](#pendsv_handler) | 0x0800343C | PendSV exception handler: returns immediately, does no work |
+| [`RTC_TAMP_IRQHandler`](#rtc_tamp_irqhandler) | 0x08003614 | RTC/TAMP vector: passes the pointer slot at 0x20005D00 to bms_4168_08002542 |
 | [`SVC_Handler`](#svc_handler) | 0x08003624 | SVCall exception handler: returns immediately, does no work |
+| [`SysTick_Handler`](#systick_handler) | 0x08003662 | SysTick vector: calls bms_counter_accumulate to advance the 32-bit counter at 0x200006A0 |
+| [`TIM7_LPTIM2_IRQHandler`](#tim7_lptim2_irqhandler) | 0x0800367C | TIM7 update vector: clear the flag, advance the 0x20000678 tick, count down two timers |
+| [`USART3_4_5_6_LPUART1_IRQHandler`](#usart3_4_5_6_lpuart1_irqhandler) | 0x080036D0 | USART3 vector: on RXNE clear ORE and pass the byte to bms_4168_08007c10; on IDLE clear it |
 | [`__NVIC_DisableIRQ`](#__nvic_disableirq) | 0x08002278 | Disables a device interrupt by writing its bit to NVIC ICER at 0xE000E180 |
 | [`__NVIC_EnableIRQ`](#__nvic_enableirq) | 0x08002298 | Enables a device interrupt by writing its bit to NVIC ISER at 0xE000E100 |
 | [`__NVIC_SetPriority`](#__nvic_setpriority) | 0x080022B0 | Sets the 2-bit priority of a device interrupt (NVIC IPR) or a system exception (SHPR) |
@@ -88,6 +92,19 @@ Vector-table entry for the PendSV system exception (exception number -2). The bo
 - Vector: `PendSV_Handler`
 - Confidence: high
 
+## RTC_TAMP_IRQHandler
+
+**RTC/TAMP vector: passes the pointer slot at 0x20005D00 to bms_4168_08002542**
+
+Vector handler for the RTC and tamper interrupt. It has no logic of its own: it passes the address of the RAM slot at 0x20005D00 to bms_4168_08002542 (not yet described) and returns. The same slot holds a pointer that bms_nibble_debounce_1s dereferences, so the interrupt most likely services the object that slot points to.
+
+**Notes:** Vector name from the STM32G0 IRQ table; the handler is entered only through the vector.
+
+- Addresses by version: 4130: 0x08003614, 4139: 0x08003614, 4148: 0x08003614, 4168: 0x08003614
+- Vector: `RTC_TAMP_IRQHandler`
+- Calls: `bms_4168_08002542`
+- Confidence: high
+
 ## SVC_Handler
 
 **SVCall exception handler: returns immediately, does no work**
@@ -96,6 +113,45 @@ Vector-table entry for the SVCall system exception (exception number -5). The bo
 
 - Addresses by version: 4130: 0x08003624, 4139: 0x08003624, 4148: 0x08003624, 4168: 0x08003624
 - Vector: `SVC_Handler`
+- Confidence: high
+
+## SysTick_Handler
+
+**SysTick vector: calls bms_counter_accumulate to advance the 32-bit counter at 0x200006A0**
+
+Core SysTick exception handler. It calls bms_counter_accumulate (bms_4168_080021b4), which adds the step word at 0x20000698 into the 32-bit counter at 0x200006A0. That counter is the one bms_get_ram_word_200006a0 returns, and bms_rtc_wait_synchro uses it for its 1000-tick timeout. It is a separate time base from the TIM7-driven tick at 0x20000678.
+
+- Addresses by version: 4130: 0x08003662, 4139: 0x08003662, 4148: 0x08003662, 4168: 0x08003662
+- Vector: `SysTick_Handler`
+- Calls: `bms_counter_accumulate`
+- Confidence: high
+
+## TIM7_LPTIM2_IRQHandler
+
+**TIM7 update vector: clear the flag, advance the 0x20000678 tick, count down two timers**
+
+Runs on each TIM7 update. It tests a status word with bms_request_is_done, passing &TIM7, and if it is set clears it with bms_request_reset (writes 0xFFFFFFFE at offset 0x10). It then increments the 32-bit tick at 0x20000678, which bms_tick_get returns, and decrements the 16-bit countdowns at 0x2000067C and 0x2000067E toward zero. The 0x2000067E countdown is the one bms_timeout_arm_from_record loads, so those timeouts run at the TIM7 update rate.
+
+**Notes:** The wave-1 summaries describe bms_request_is_done and bms_request_reset as request-block helpers, but this call passes &TIM7 and offset 0x10 is TIM7.SR in the timer layout, so the test is most likely SR bit 0 (UIF). Re-check those two helpers against that reading. The width of 0x2000067C is not shown here.
+
+- Addresses by version: 4130: 0x0800367C, 4139: 0x0800367C, 4148: 0x0800367C, 4168: 0x0800367C
+- Vector: `TIM7_LPTIM2_IRQHandler`
+- Peripheral registers: `TIM7.CR1` (A)
+- Calls: `bms_request_reset`, `bms_request_is_done`
+- Confidence: medium
+
+## USART3_4_5_6_LPUART1_IRQHandler
+
+**USART3 vector: on RXNE clear ORE and pass the byte to bms_4168_08007c10; on IDLE clear it**
+
+Reads USART3.ISR. If RXNE (bit 5) is set it writes 8 to USART3.ICR, reads one byte from USART3.RDR and passes it to bms_4168_08007c10 (not yet described). The ICR write happens on every RXNE, not only after an overrun. Otherwise, if IDLE (bit 4) is set, it writes 0x10 to ICR to clear IDLE and returns. The handler only moves bytes and clears the two flags; frame assembly must be in bms_4168_08007c10.
+
+**Notes:** ICR bit meanings (ORECF = bit 3, IDLECF = bit 4) follow the ST layout.
+
+- Addresses by version: 4130: 0x080036D0, 4139: 0x080036D0, 4148: 0x080036D0, 4168: 0x080036D0
+- Vector: `USART3_4_5_6_LPUART1_IRQHandler`
+- Peripheral registers: `USART3.CR1_FIFO_ENABLED` (A), `USART3.ISR_FIFO_ENABLED` (R), `USART3.ICR` (W), `USART3.RDR` (R)
+- Calls: `bms_frame_parse_legacy_4168`
 - Confidence: high
 
 ## __NVIC_DisableIRQ

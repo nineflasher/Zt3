@@ -1,12 +1,44 @@
 # BLE - `factory_test` functions
 
-3 functions.
+5 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
+| [`bt_drv_vco_test_session_start`](#bt_drv_vco_test_session_start) | 0x0C03BD90 | Start a factory VCO test session on one channel, saving and overriding two analog registers |
+| [`bt_drv_vco_test_session_stop`](#bt_drv_vco_test_session_stop) | 0x0C03BE14 | End the factory VCO test session and restore the saved analog registers |
 | [`bt_drv_vco_test_start`](#bt_drv_vco_test_start) | 0x0C03DFAC | Start the BT VCO/synthesiser test on a channel: 0xD0220C00 = (channel & 0x7F) \| 0xA0000, then delay |
 | [`bt_drv_vco_test_stop`](#bt_drv_vco_test_stop) | 0x0C03DFF4 | Stop the BT VCO test: write 0 to RF channel register 0xD0220C00, then delay |
 | [`rf_test_hci_cmd_complete_handler`](#rf_test_hci_cmd_complete_handler) | 0x0C0468B4 | Capture return parameters of RF-test HCI Command Complete events into globals |
+
+## bt_drv_vco_test_session_start
+
+**Start a factory VCO test session on one channel, saving and overriding two analog registers**
+
+Part of the factory VCO test pair with bt_drv_vco_test_session_stop. It returns at once if DAT_2000BD10 is already set; otherwise it sets DAT_2000BD10, saves analog register 0x20C1 into DAT_2000BD0E and 0x2024 into DAT_2000BD0C. It then calls bt_drv_vco_test_start with the channel, clears bit 11 of 0x20C1 and writes bits 7:4 of 0x2024 to 1001b (0x90). The stop function restores the saved values.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `u32` | BT channel index, 0..78 |
+
+**Notes:** Called from the factory command handler at 0x0C02C49C, which is outside this packet.
+
+- Addresses by version: 219: 0x0C03BD90
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_vco_test_start`, `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: high
+
+## bt_drv_vco_test_session_stop
+
+**End the factory VCO test session and restore the saved analog registers**
+
+Second half of the factory VCO test pair. If DAT_2000BD10 is set it clears it, calls bt_drv_vco_test_stop to zero RF word 0xD0220C00, and writes the values saved by bt_drv_vco_test_session_start back to analog registers 0x20C1 and 0x2024. It does nothing when no session is active.
+
+**Notes:** Called from 0x0C02C49C, which is outside this packet.
+
+- Addresses by version: 219: 0x0C03BE14
+- Called by: `ble_219_0c02c49c`
+- Calls: `bt_drv_vco_test_stop`, `hal_analogif_reg_write`
+- Confidence: high
 
 ## bt_drv_vco_test_start
 
@@ -19,7 +51,7 @@ Enables controller register access if DAT_2000bd58 == 0, increments the nesting 
 | `param_1` | `u32` | BT channel index (0..78), masked to 7 bits |
 
 - Addresses by version: 219: 0x0C03DFAC
-- Called by: `ble_219_0c03bd90`
+- Called by: `bt_drv_vco_test_session_start`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: high
 
@@ -30,7 +62,7 @@ Enables controller register access if DAT_2000bd58 == 0, increments the nesting 
 Mirror of bt_drv_vco_test_start: enables controller register access if DAT_2000bd58 == 0, increments the counter, writes 0 to 0xD0220C00 (clears the channel and the test flag bits 17/19), delays with ble_ram_patch_thunk_20000570(10) + ble_ram_patch_thunk_20000334, decrements the counter and releases access when it reaches 0. Called from 0x0c03be14, the 'bt vco test stop' factory command handler, which then restores the saved RF registers 0x20C1 and 0x2024.
 
 - Addresses by version: 219: 0x0C03DFF4
-- Called by: `ble_219_0c03be14`
+- Called by: `bt_drv_vco_test_session_stop`
 - Calls: `bes_sysreg_write_04_bit19`, `bes_sysreg_write_08_bit19`, `ble_ram_patch_thunk_20000570`, `ble_ram_patch_thunk_20000334`
 - Confidence: high
 

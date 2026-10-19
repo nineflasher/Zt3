@@ -1,6 +1,6 @@
 # BLE - `libc` functions
 
-84 functions.
+85 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -55,6 +55,7 @@
 | [`_write`](#_write) | 0x0C04846C | newlib _write syscall: stdout/stderr to the console with CRLF translation, fds 3..48 via driver table |
 | [`atol`](#atol) | 0x0C0701E0 | Parse a base-10 integer from a string, saturating and setting ERANGE on overflow |
 | [`clock_gettime`](#clock_gettime) | 0x0C03FEAC | POSIX clock_gettime built on the FreeRTOS tick: CLOCK_MONOTONIC (4) raw, CLOCK_REALTIME (1) plus epoch offset |
+| [`clock_settime`](#clock_settime) | 0x0C03FF68 | POSIX clock_settime: accept CLOCK_REALTIME only and store the epoch offset |
 | [`console_getc`](#console_getc) | 0x0C035CB8 | Blocking read of one console byte; retries on zero-length reads, -1 on error |
 | [`console_isatty_fd`](#console_isatty_fd) | 0x0C035FF8 | Report whether fd 0..2 is the console; otherwise set errno EBADF and return 0 |
 | [`console_putc`](#console_putc) | 0x0C035CE8 | Write one raw byte to the console device without newline translation |
@@ -375,7 +376,7 @@ Returns the 32-bit value stored in the RAM pointer cell DAT_200049a8, which hold
 **Notes:** Name chosen from usage (errno pointer used by strtoul); in newlib the symbol is __errno().
 
 - Addresses by version: 219: 0x0C0701F8
-- Called by: `console_isatty_fd`, `_kill`, `ble_219_0c03ff68`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_219_0c04885c`, `ble_219_0c06f220`, `w_sqrtf` ...
+- Called by: `console_isatty_fd`, `_kill`, `clock_settime`, `ble_219_0c046e04`, `ble_219_0c0482e4`, `ble_219_0c048380`, `_read`, `_write`, `_close`, `ble_219_0c04885c`, `ble_219_0c06f220`, `w_sqrtf` ...
 - Confidence: medium
 
 ## __get_current_locale
@@ -608,7 +609,7 @@ Divides the unsigned (param_1, param_2) by (param_3, param_4). A zero divisor re
 **Notes:** The decompile shows the __udivmoddi4 call without its remainder pointer argument.
 
 - Addresses by version: 219: 0x0C06FEC0
-- Called by: `bes_clk_measure_hz`, `ble_219_0c037b58`, `ble_219_0c038df8`, `ble_219_0c03a038`, `ble_219_0c044b14`, `hal_time_ms`, `ble_219_0c062fe4`, `__divdi3`
+- Called by: `bes_clk_measure_hz`, `ble_rf_synth_retune`, `ble_rf_synth_set_freq_ratio`, `ble_analog_chip_init`, `ble_219_0c044b14`, `hal_time_ms`, `ble_219_0c062fe4`, `__divdi3`
 - Calls: `__udivmoddi4`
 - Confidence: high
 
@@ -974,9 +975,28 @@ Fills a struct timespec with 64-bit tv_sec (param_2[0] low, param_2[1] high) and
 **Notes:** The overflow test uses '>' rather than '>=' 1e9. 0x0c03f790 is assumed to return the elapsed nanoseconds within the current tick.
 
 - Addresses by version: 219: 0x0C03FEAC
-- Called by: `ble_219_0c03ff38`, `ble_219_0c03ff68`, `ble_219_0c04014c`, `ble_event_window_expire`, `ble_219_0c058520`, `ble_link_param_monitor_step`, `ble_219_0c05a224`
+- Called by: `ble_219_0c03ff38`, `clock_settime`, `ble_clock_realtime_offset_update`, `ble_event_window_expire`, `ble_219_0c058520`, `ble_link_param_monitor_step`, `ble_219_0c05a224`
 - Calls: `vPortEnterCritical`, `vPortExitCritical`, `rtos_systick_sub_tick_ns`, `xTaskGetTickCount`
 - Confidence: high
+
+## clock_settime
+
+**POSIX clock_settime: accept CLOCK_REALTIME only and store the epoch offset**
+
+Accepts only CLOCK_REALTIME (1); any other id sets errno to EINVAL (22) through __errno and returns -1. For CLOCK_REALTIME it reads CLOCK_MONOTONIC (clock 4) through clock_gettime and computes the offset REALTIME minus MONOTONIC from the caller's timespec into the 64-bit words DAT_2000C5E0 and DAT_2000C5E4. It then reads the monotonic clock again, adds one second when its tv_nsec exceeds 500 ms and passes the 64-bit result to 0x0C03FEA8. The offset in DAT_2000C5E0 and DAT_2000C5E4 is the stored state; the final call goes to a zero-return stub with no visible effect. The function returns 0 on success.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | clock id; only CLOCK_REALTIME (1) is accepted |
+| `param_2` | `ptr` | const struct timespec with the new time |
+
+**Returns** `s32`: 0 on success, -1 with errno set to EINVAL.
+
+**Notes:** The nanosecond borrow in the offset calculation is simplified. 0x0C03FEA8 is util_return_zero_u32 by its own annotation (medium confidence on the stub reading).
+
+- Addresses by version: 219: 0x0C03FF68
+- Calls: `util_return_zero_u32`, `clock_gettime`, `__errno`
+- Confidence: medium
 
 ## console_getc
 

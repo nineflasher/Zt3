@@ -1,6 +1,6 @@
 # BLE - `util` functions
 
-63 functions.
+64 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -10,6 +10,7 @@
 | [`SEGGER_RTT_SetTerminal`](#segger_rtt_setterminal) | 0x0C03FCFC | SEGGER RTT: switch the active virtual terminal of up-buffer 0 by sending the 0xFF,<id> escape |
 | [`bes_image_format_name`](#bes_image_format_name) | 0x0C034818 | Return a name string for a section image-format magic value |
 | [`ble_clear_flag_2000bd18`](#ble_clear_flag_2000bd18) | 0x0C046CB4 | Clear the byte/word variable at 0x2000bd18 |
+| [`ble_clock_realtime_offset_update`](#ble_clock_realtime_offset_update) | 0x0C04014C | Reset (param nonzero) or refresh the REALTIME offset from the monotonic clock |
 | [`ble_get_ram_var_20003540_div4`](#ble_get_ram_var_20003540_div4) | 0x0C0866C0 | Return the global word at 0x20003540 shifted right by 2 |
 | [`ble_get_var_2000f5fc`](#ble_get_var_2000f5fc) | 0x0C04757C | Return the 32-bit global at 0x2000f5fc |
 | [`ble_mem_copy`](#ble_mem_copy) | 0x0C03AA40 | Wrapper around memcpy that returns 0 |
@@ -160,6 +161,23 @@ Writes 0 to the global DAT_2000bd18 and returns. Called from ble_219_0c02c49c, s
 - Called by: `ble_219_0c02c49c`
 - Confidence: medium
 
+## ble_clock_realtime_offset_update
+
+**Reset (param nonzero) or refresh the REALTIME offset from the monotonic clock**
+
+Companion of clock_settime that maintains the same offset words DAT_2000C5E0 and DAT_2000C5E4. With param_1 nonzero it sets the offset to 0 minus the current monotonic seconds, using the zero-return stub 0x0C03FEA0 as the base, so REALTIME reads zero at this instant. With param_1 zero it reads CLOCK_MONOTONIC through clock_gettime, rounds to the nearest second (adds one when tv_nsec exceeds 500 ms), adds the stored offset and passes the 64-bit result to the zero-return stub 0x0C03FEA8. Its caller is 0x0C047FEC, which is outside this packet.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `param_1` | `s32` | nonzero resets the offset so REALTIME restarts at zero; zero refreshes it |
+
+**Notes:** The base value 0 comes from util_return_zero_u64 (0x0C03FEA0). Because 0x0C03FEA8 is also a zero-return stub, the value passed in the zero-parameter branch has no visible effect.
+
+- Addresses by version: 219: 0x0C04014C
+- Called by: `ble_219_0c047fec`
+- Calls: `util_return_zero_u64`, `util_return_zero_u32`, `clock_gettime`
+- Confidence: medium
+
 ## ble_get_ram_var_20003540_div4
 
 **Return the global word at 0x20003540 shifted right by 2**
@@ -202,7 +220,7 @@ Calls newlib memcpy (0x0C0709BC) as memcpy(param_1, param_3, param_4) and return
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C03AA40
-- Called by: `ble_219_0c03bfbc`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b`, `bt_drv_reg_op_load_rssi_table_c`, `bt_drv_reg_op_load_table8_bdd4`, `rf_test_hci_cmd_complete_handler`, `ble_219_0c0469a0`, `ble_219_0c046a58`
+- Called by: `bt_drv_hci_cmd_complete_info_rx`, `bt_drv_reg_op_load_rssi_table_a`, `bt_drv_reg_op_load_rssi_table_b`, `bt_drv_reg_op_load_rssi_table_c`, `bt_drv_reg_op_load_table8_bdd4`, `rf_test_hci_cmd_complete_handler`, `ble_219_0c0469a0`, `ble_219_0c046a58`
 - Calls: `memcpy`
 - Confidence: high
 
@@ -696,7 +714,7 @@ Circular-buffer helper working on a descriptor {[0]=read index, [1]=write index,
 **Notes:** Field roles (read vs write index) inferred from the formula and the empty test ringbuf_is_empty.
 
 - Addresses by version: 219: 0x0C04352C
-- Called by: `ble_219_0c0422d4`
+- Called by: `ble_ring_poll_status`
 - Confidence: medium
 
 ## ringbuf_is_empty
@@ -712,7 +730,7 @@ Returns descriptor[1] == descriptor[0] (write index equals read index), the empt
 **Returns** `bool`: true if no data is buffered
 
 - Addresses by version: 219: 0x0C0437E0
-- Called by: `ble_219_0c0422d4`, `ble_219_0c04264c`, `ble_219_0c0462c4`
+- Called by: `ble_ring_poll_status`, `ble_219_0c04264c`, `ble_219_0c0462c4`
 - Confidence: medium
 
 ## ringbuf_is_full_with_reserve
@@ -1001,7 +1019,7 @@ Single move of 0 to r0 and return. Called from 0x0c03ff68 and 0x0c04014c alongsi
 **Notes:** Purpose of the callers' hook is unknown.
 
 - Addresses by version: 219: 0x0C03FEA8
-- Called by: `ble_219_0c03ff68`, `ble_219_0c04014c`
+- Called by: `clock_settime`, `ble_clock_realtime_offset_update`
 - Confidence: medium
 
 ## util_return_zero_u64
@@ -1015,7 +1033,7 @@ Contains only a move of 0 into the return registers and a return (declared as 64
 **Notes:** Purpose of the callers' hook is unknown; may be a stubbed-out lock/unlock or time function.
 
 - Addresses by version: 219: 0x0C03FEA0
-- Called by: `ble_219_0c03ff38`, `ble_219_0c04014c`
+- Called by: `ble_219_0c03ff38`, `ble_clock_realtime_offset_update`
 - Confidence: medium
 
 ## util_sub_s32

@@ -1,17 +1,26 @@
 # BMS - `protection` functions
 
-10 functions.
+19 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
 | [`bms_fault_class_get`](#bms_fault_class_get) | 0x0800A2BC | Priority-encode three RAM flags into a 0..3 class code |
 | [`bms_fault_record_service`](#bms_fault_record_service) | 0x0800FABC | Run the fault sub-state handler with a 20-tick window, then commit the fault record to status bits |
+| [`bms_fault_timers_step`](#bms_fault_timers_step) | 0x08003FCC | Advance the fault-timer accumulators by one step; return 1 when one passes its limit |
+| [`bms_history_ring_commit`](#bms_history_ring_commit) | 0x08005CDC | Fill the history ring on first call; later calls commit staged blocks and queue a snapshot |
 | [`bms_level_hysteresis_update`](#bms_level_hysteresis_update) | 0x0800AACC | Two-threshold hysteresis from the level byte at 0x20000630 into the flag at 0x2000062F |
 | [`bms_limit_derate_legacy_4130`](#bms_limit_derate_legacy_4130) | (removed) | Derate the two current limits and the gated output from one sampled reading and a SOC-like byte |
+| [`bms_profile_block_fill_4139`](#bms_profile_block_fill_4139) | (removed) | Fill the 4139 parameter block for profile id 0x20000016 (nine cases, default otherwise) |
+| [`bms_profile_block_fill_4168`](#bms_profile_block_fill_4168) | 0x08004128 | Fill the 4168 parameter block for profile id 0x20000026 (13 ids, default set otherwise) |
+| [`bms_profile_table_fill_4130`](#bms_profile_table_fill_4130) | (removed) | Write the 4130 table of 12-byte limit records and set the thresholds for profile id 0x20000014 |
+| [`bms_profile_table_fill_4139`](#bms_profile_table_fill_4139) | (removed) | Fill the 4139 record table and threshold bytes for profile id 0x20000014 |
+| [`bms_profile_table_fill_4168`](#bms_profile_table_fill_4168) | 0x08004488 | Fill the 4168 record table and threshold bytes for profile id 0x20000024 |
 | [`bms_prot_debounce_quad`](#bms_prot_debounce_quad) | 0x0800C380 | Run four debounced protection timers over a measurement record and update latch bits |
 | [`bms_prot_latch_pairs_update`](#bms_prot_latch_pairs_update) | 0x0800CE78 | Update seven debounced set/clear timer pairs and mirror the latch word into status bits |
 | [`bms_prot_latch_pairs_update_alt`](#bms_prot_latch_pairs_update_alt) | (removed) | BMS_4130/4139 variant of the latch-pair update: seven timer pairs and latch word 0x2000019C |
 | [`bms_protect_latch_evaluate`](#bms_protect_latch_evaluate) | 0x0800D2EC | Evaluate eight dwell-timed threshold latches and update protection status word 0x20000254 |
+| [`bms_status_event_snapshot`](#bms_status_event_snapshot) | 0x08005AB0 | Maintain the status-flag byte at 0x2000056B and snapshot the state when a flag rises |
+| [`bms_status_timeout_latch_4139`](#bms_status_timeout_latch_4139) | (removed) | Set a status flag after 2000 units of a low-value condition (4139 switch case body) |
 | [`bms_window_latch_narrow`](#bms_window_latch_narrow) | 0x080038C8 | Debounced latch for the narrow window (+8 < 40, +10 > 5); counts whole units while latched |
 | [`bms_window_latch_wide`](#bms_window_latch_wide) | 0x08003954 | Debounced latch for the wide window (+8 < 55, +10 > -15); counts whole units while latched |
 
@@ -40,6 +49,38 @@ Takes the fault record at 0x2000068F and runs the handler at index DAT_20001C8A 
 - Addresses by version: 4130: 0x0800DDCC, 4139: 0x0800E420, 4148: 0x0800F5DC, 4168: 0x0800FABC
 - Called by: `bms_tail_call_unnamed_b`
 - Calls: `bms_ram_2000068f_addr`, `bms_tick_get`, `bms_tick_timeout_check`, `bms_ram_20000bdc_addr`
+- Confidence: medium
+
+## bms_fault_timers_step
+
+**Advance the fault-timer accumulators by one step; return 1 when one passes its limit**
+
+param_1 is the elapsed time added to each active accumulator. It reads the BMS status object at DAT_2000002C (u16 at +0x124 status bits, s16 at +0x11A, u16 at +0x19C, bit 0 of the byte at +0x194) and the object from bms_u32_20000dec_addr (u16 at +0x04). Five accumulators run while their conditions hold and clear when they fail: 0x20000048 and 0x2000004C for the +0x19C count below 10 and below 20 (limits 60,480,000 and 120,960,000); 0x20000058 for the count below 3 (limit 3,600,000), where the 0x124 bits 1 and 2 and the s16 below -49 decide resets; 0x20000054 while 0x124 bits 1 and 2 are clear and the object value is 3000 or less (limit 30,000); and 0x20000050 while 0x124 bit 4 is set and bit 2 is clear (limit 6,000). An accumulator that passes its limit is clamped and makes the function return 1. The 0x2000005C timer runs only while bit 3 of the byte at *DAT_20000030 is set: it drives PA15 low through gpio_pa15_reset and returns 1 after 200, and this function never resets it.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `elapsed` | `u32` | param_1; time added to every active accumulator this step |
+
+**Returns** `bool`: 1 when a timer has expired, 0 otherwise
+
+**Notes:** The limits read as milliseconds if the step is 1 ms (3600000 is one hour); that is an inference. The fields at +0x124, +0x194 and +0x19C are not labelled in the packet.
+
+- Addresses by version: 4130: 0x080040B8, 4139: 0x08003F94, 4148: 0x08003FA0, 4168: 0x08003FCC
+- Called by: `bms_4168_080082f0`
+- Calls: `gpio_pa15_reset`, `bms_u32_20000dec_addr`
+- Confidence: medium
+
+## bms_history_ring_commit
+
+**Fill the history ring on first call; later calls commit staged blocks and queue a snapshot**
+
+Two-pass history routine for the buffers at 0x200010A8 to 0x200012FC. The first call (flag at 0x20000569 clear) sets the flag and fills ten 64-byte history records at stride 0x40 from 0x200010A8. Each holds a timestamp from bms_4168_08009d84, 13 u16 words from status +0x140, the s16 at +0x11A, six low bytes from the u16 words at +0x12C, +0x12E, +0x130, +0x134, +0x136 and +0x138, the bytes at +0x11E and +0x19C, the 0x124/0x126 and 0x194/0x196 words, and the words at +0x13C, +0x13E, +0x180 and +0x1D2. Later calls copy nine 64-byte blocks from 0x200010FC to 0x200010BC, store a current snapshot at 0x200012FC to 0x20001331 in the same field order, and count DAT_2000056A. After five counts with a pending snapshot it clears DAT_20000568 and hands the snapshot at 0x200010A8 to bms_slot_pool_register with tag 5.
+
+**Notes:** The record layout is inferred from the stores. The first-call records overlap the snapshot written by bms_status_event_snapshot at 0x200010A8, and the packet does not show how the two layouts line up. Tag 5 is not identified.
+
+- Addresses by version: 4130: 0x08005460, 4139: 0x0800567C, 4148: 0x08005B88, 4168: 0x08005CDC
+- Called by: `bms_4168_0800a8a0`
+- Calls: `memcpy`, `bms_rtc_datetime_pack`, `bms_slot_pool_register`, `bms_ram_20000bdc_addr`
 - Confidence: medium
 
 ## bms_level_hysteresis_update
@@ -72,6 +113,71 @@ The signed 16-bit sample at sample selects a trapezoid factor f1 (0..100) betwee
 - Addresses by version: 4130: 0x08006830
 - Called by: `bms_4168_0800c638`
 - Calls: `bms_udiv32`, `bms_4168_0800113c`, `bms_ram_20000bdc_addr`
+- Confidence: medium
+
+## bms_profile_block_fill_4139
+
+**Fill the 4139 parameter block for profile id 0x20000016 (nine cases, default otherwise)**
+
+Chooses one parameter set from the profile id at DAT_20000016: ids 0, 2, 3, 4, 5, 6, 7 and 8 each have their own values, and every other id (including 1) takes the default set. The set supplies a capacity-like constant (values 5100 to 19200), used directly and divided by 10 into DAT_2000001C+0x26, several 16-bit limits (values such as 255, 765, 800 and 1200), and smaller fields stored into the block returned by FUN_0800C0D0 at offsets 0x2C, 0x30, 0x34, 0x38, 0x3A, 0x3C, 0x3E, 0x74, 0x76 and 0x7D. It copies three 11-entry u16 tables from RAM into the block at +0x00, +0x16 and +0x5E, chosen by id group (0-4, 6-8, or other). Fixed bytes go to +0x80 to +0x8F; only +0x81 and +0x87 differ between the 6-8 group and the rest.
+
+**Notes:** The values are constants from this code, not measurements, and the units of the capacity-like value and of the block are not in the packet. Sibling fills: bms_profile_block_fill_4168, bms_profile_table_fill_4130 and bms_profile_table_fill_4139, which have different record layouts.
+
+- Addresses by version: 4139: 0x080040E4
+- Called by: `bms_4168_08003cc0`
+- Calls: `bms_udiv32`, `bms_get_block_20000e58_ptr`
+- Confidence: medium
+
+## bms_profile_block_fill_4168
+
+**Fill the 4168 parameter block for profile id 0x20000026 (13 ids, default set otherwise)**
+
+Picks one of nine sets from the profile id at DAT_20000026: ids 4 and 12 share a set, 3 and 11 share one (differing only in the byte at +0x3E, 7 or 6), 2 and 10 share one (byte at +0x3E 8 or 2), and 9, 0, 8, 6, 5 and 7 each have their own; any other id takes the default. Each set supplies a capacity-like value (5100 to 19200, used directly and divided by 10 into DAT_2000002C+0x26), 16-bit limits and small fields at +0x2C, +0x34, +0x38, +0x3A, +0x3C, +0x3E, +0x74 and +0x7D of the block returned by FUN_0800CE5C. It copies three 11-entry u16 tables for the id group (0-4, 6-8, 9-10, 11-12, or other) into +0x00, +0x16 and +0x5E. Fixed bytes go to +0x80 to +0x8F; +0x81, +0x82, +0x83 and +0x87 differ between the 6-8 group and the rest.
+
+**Notes:** Same role as bms_profile_block_fill_4139 for the 4168 build, with a different id-to-set mapping and different fixed bytes. The meaning of the capacity-like value is not in the packet.
+
+- Addresses by version: 4148: 0x080040FC, 4168: 0x08004128
+- Called by: `bms_4168_08003cc0`
+- Calls: `bms_udiv32`, `bms_get_block_20000e58_ptr`
+- Confidence: medium
+
+## bms_profile_table_fill_4130
+
+**Write the 4130 table of 12-byte limit records and set the thresholds for profile id 0x20000014**
+
+Fills 17 records through bms_record12_addr (FUN_0800BAE0). Fifteen of them (1, 2, 3, 5, 7, 9, 10, 0x0C, 0x0F, 0x16, 0x18, 0x1D, 0x1F, 0x21 and 0x0A pair layouts) are fixed u16 pairs with u32 words of 4000 or 10000, while records 0x11, 0x2B and 0x30 are derived from the status block. The profile id at DAT_20000014 selects threshold values stored in the status block: +0x52 and +0x86/+0x88 for id 5 or other ids, and +0x6C/+0x70/+0x76 for groups (4-5), (3), (2), (0) and other. Record 0x11 copies +0x86 and +0x88, record 0x2B takes +0x6C and +0x6C-2, and record 0x30 takes -(+0x70) and 2-(+0x70). The routine only writes.
+
+**Notes:** The purpose of individual records is not stated in the packet. The 4000 and 10000 words are probably limits or durations, which is an inference. The 4139 counterpart is bms_profile_table_fill_4139, which writes its threshold to +0x192 rather than +0x52.
+
+- Addresses by version: 4130: 0x08004208
+- Called by: `bms_4168_08003cc0`
+- Calls: `bms_record12_addr`
+- Confidence: medium
+
+## bms_profile_table_fill_4139
+
+**Fill the 4139 record table and threshold bytes for profile id 0x20000014**
+
+Fills 18 records through bms_record12_addr for the 4139 build (its accessor is FUN_0800C0B0). Records 2 and 3 take 4000 as the second word for ids 6, 7 and 8 and 0x1004 otherwise; record 0x12 copies +0x86 and +0x88; records 0x2C and 0x31 are derived from the status block; the rest are fixed pairs with u32 words of 4000 or 10000. The profile id at DAT_20000014 sets +0x86 and +0x88 and the threshold at +0x192 (0x17C for id 5, 400 otherwise), and sets +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. Records 0x2C and 0x31 take +0x6C and -(+0x70) as in the 4130 table.
+
+**Notes:** Same structure as bms_profile_table_fill_4130 with different ids, record numbers and offsets. The purpose of individual records is not stated in the packet.
+
+- Addresses by version: 4139: 0x08004388
+- Called by: `bms_4168_08003cc0`
+- Calls: `bms_record12_addr`
+- Confidence: medium
+
+## bms_profile_table_fill_4168
+
+**Fill the 4168 record table and threshold bytes for profile id 0x20000024**
+
+Fills 18 records through bms_record12_addr for the 4168 build (accessor FUN_0800CE3C). The record at index 1 takes 0x35 for id 5 and 0x2D otherwise, and record 2 takes 0xFD2 for id 5 and 0x1036 otherwise; record 0x12 copies +0x86 and +0x88, records 0x2B and 0x31 are derived from the status block, and records 6, 7, 8, 0x0B, 0x0D and 0x10 are fixed pairs. The profile id at DAT_20000024 sets +0x86, +0x88 and +0x192 (0x17C for id 5, 400 for other ids) and +0x6C, +0x70 and +0x76 by group: (4-5), (3, 6, 8), (2, 7), (0) and other. The routine only writes records and status fields.
+
+**Notes:** Sibling of bms_profile_table_fill_4139 and bms_profile_table_fill_4130 with a different id mapping and record set. The purpose of each record is not stated in the packet.
+
+- Addresses by version: 4148: 0x080043A4, 4168: 0x08004488
+- Called by: `bms_4168_08003cc0`
+- Calls: `bms_record12_addr`
 - Confidence: medium
 
 ## bms_prot_debounce_quad
@@ -149,6 +255,36 @@ Runs the protection latch engine once per call over eight channels. Each channel
 
 - Addresses by version: 4148: 0x0800CF04, 4168: 0x0800D2EC
 - Called by: `bms_4168_08007a0c`
+- Calls: `bms_ram_20000bdc_addr`
+- Confidence: medium
+
+## bms_status_event_snapshot
+
+**Maintain the status-flag byte at 0x2000056B and snapshot the state when a flag rises**
+
+Keeps a flag byte at 0x2000056B that mirrors status bits with hysteresis. Bits 0 and 1 form a two-bit state for the 0x124 bit 2 condition (armed by DAT_20000DDC and s16 +0x11A of at least 10); bit 2 mirrors 0x124 bit 4, bit 3 mirrors 0x124 bit 3, bit 4 mirrors 0x124 bits 7 to 10 and 12, bit 5 mirrors 0x124 bits 5 and 6 and 0x126 bit 2, bit 6 mirrors 0x124 bits 13 and 14, and bit 7 mirrors 0x126 bits 4, 7, 8 and 12. When any flag rises and the pending slot DAT_20000568 is clear, it writes a snapshot at 0x200010A8: the flag byte, a 32-bit timestamp from bms_4168_08009d84, the u16 at +0x118, the s16 at +0x11A, a byte from the object at 0x20000DFC, the u16 words at +0xB4 and +0xB6, and the 0x124/0x126 pair as one word.
+
+**Notes:** The bit mapping is read from the shift tests, so the status-bit names are not given in the packet. The snapshot layout is as stored and the field meanings are inferred.
+
+- Addresses by version: 4130: 0x0800524C, 4139: 0x08005468, 4148: 0x08005964, 4168: 0x08005AB0
+- Called by: `bms_4168_0800a8a0`
+- Calls: `bms_rtc_datetime_pack`, `bms_ram_20000bdc_addr`, `bms_u16_20000dfc_addr`
+- Confidence: medium
+
+## bms_status_timeout_latch_4139
+
+**Set a status flag after 2000 units of a low-value condition (4139 switch case body)**
+
+This is a case body of a switch (decompiler label switchD_0800c0e2::caseD_2); the dispatcher is not in this packet. It reads the status object from the 0x20000BDC accessor. When byte +0x194 bit 5 is set and the s16 at +0x11A is 4 or less, it adds param_1 to the accumulator at 0x20000D18 and returns until that accumulator reaches 2000; if the s16 is above 4 it clears the accumulator and returns. When bit 5 is clear, or the accumulator reaches 2000, it clears bit 2 and sets bit 0 of the u16 at +0x124 and sets 0x20000D24 to 1. The result is a latched status flag after a sustained condition.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `elapsed` | `s32` | param_1; time added to the accumulator |
+
+**Notes:** Because the decompiled structure runs the flag set when bit 5 is clear, the delay applies only in the bit-5-set case. The switch dispatcher and the meaning of bit 0 of +0x124 are not in the packet.
+
+- Addresses by version: 4130: 0x08005748, 4139: 0x08005964
+- Called by: `bms_4168_0800ce64`
 - Calls: `bms_ram_20000bdc_addr`
 - Confidence: medium
 

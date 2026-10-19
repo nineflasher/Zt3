@@ -1251,7 +1251,7 @@ Waits forever (timeout 0xFFFFFFFF) for the mutex at 0x20017180, appends the item
 **Notes:** The consumer of the deferred list is not in this packet. Wrapper 0x0C0430A8 (wait) and 0x0C042C8C (release) are inferred from use.
 
 - Addresses by version: 219: 0x0C05D08C
-- Calls: `ble_219_0c04291c`, `ble_219_0c042c8c`, `ble_219_0c0430a8`, `ble_ctrl_deferred_list_add`
+- Calls: `xEventGroupSetBits`, `xQueueGenericSend`, `xQueueSemaphoreTake`, `ble_ctrl_deferred_list_add`
 - Confidence: medium
 
 ## ble_event_count_reached_check
@@ -2987,7 +2987,7 @@ Writes constants to an 8-byte table at 0x20003EAC..0x20003EB3 (0xFD, 0, 2, 6, 8,
 **Notes:** The structure semantics are unknown; the name is a guess based on its init-time role.
 
 - Addresses by version: 219: 0x0C03E4C8
-- Called by: `ble_219_0c03e9fc`
+- Called by: `bt_drv_rf_analog_bringup`
 - Confidence: low
 
 ## lm_get_state_9bit

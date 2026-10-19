@@ -1,6 +1,6 @@
 # BLE - `ble_host` functions
 
-189 functions.
+191 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -63,6 +63,7 @@
 | [`ble_range_broadcast`](#ble_range_broadcast) | 0x0C04DF64 | Call the default listener, then the +0x10 handler of every range listener |
 | [`ble_range_dispatch`](#ble_range_dispatch) | 0x0C04E294 | Call the handler of the range node containing param_2, else the default handler |
 | [`ble_range_notify`](#ble_range_notify) | 0x0C04E304 | Send a 7-byte 0xB6 frame to the range listener matching param_3, else the default |
+| [`ble_ring_poll_status`](#ble_ring_poll_status) | 0x0C0422D4 | Poll four ring or stream objects of a channel and return a two-bit readiness mask |
 | [`ble_sink_init`](#ble_sink_init) | 0x0C04DED8 | Store the sink context pointer and register the class-4 hook handler at 0x0c04de00 |
 | [`ble_sink_notify_pair`](#ble_sink_notify_pair) | 0x0C04DF24 | Send a 6-byte 0xB5 frame carrying two u16 values to the sink callback |
 | [`bt_bdaddr_is_zero`](#bt_bdaddr_is_zero) | 0x0C05A9C4 | Return true when the 6-byte Bluetooth address is all zeros |
@@ -153,6 +154,7 @@
 | [`hci_reserve_packet_buffer`](#hci_reserve_packet_buffer) | 0x0C066BE8 | Reserve the single outgoing packet buffer by setting env+0x170 |
 | [`hci_reserve_packet_buffer_thunk`](#hci_reserve_packet_buffer_thunk) | 0x0C06D5D4 | Thunk: jump to the HCI packet-buffer reserve routine at 0x0C066BE8 |
 | [`hci_stream_buffer_is_empty`](#hci_stream_buffer_is_empty) | 0x0C045534 | Return true when the 5 KB HCI stream buffer holds no bytes |
+| [`hci_stream_buffer_receive_nowait`](#hci_stream_buffer_receive_nowait) | 0x0C045518 | Non-blocking read of up to N bytes from the global HCI stream buffer DAT_2000F2B0 |
 | [`hci_transport_h4_rx_advance`](#hci_transport_h4_rx_advance) | 0x0C06C2E0 | Advance the H4 UART receive state machine by the bytes just received |
 | [`hid_report_id_status`](#hid_report_id_status) | 0x0C04AF00 | BTstack hid_device.c: classify a HID report ID as VALID (1), INVALID (2) or UNDECLARED (0) |
 | [`hid_report_size_valid_body`](#hid_report_size_valid_body) | 0x0C04AF5A | BTstack hid_report_size_valid body (entered after the size!=0 check at 0x0C04AF54) |
@@ -660,7 +662,7 @@ Initialises the BTstack run-loop data source at 0x20013238 that drives the BLE e
 
 - Addresses by version: 219: 0x0C059134
 - Called by: `ble_219_0c0592a4`
-- Calls: `ble_219_0c042d80`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
+- Calls: `prvInitialiseMutex`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
 - Confidence: high
 
 ## ble_evt_subscribe
@@ -1019,7 +1021,7 @@ While the inbound ring at 0x200148D4 holds data, it takes the guard at 0x2001488
 
 - Addresses by version: 219: 0x0C05AF1C
 - Called by: `ble_219_0c0599d4`
-- Calls: `ble_219_0c042c8c`, `ble_219_0c0430a8`, `btstack_ring_buffer_empty`, `btstack_ring_buffer_read`
+- Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `btstack_ring_buffer_empty`, `btstack_ring_buffer_read`
 - Confidence: medium
 
 ## ble_msg_enqueue
@@ -1040,7 +1042,7 @@ Appends a message to the outbound ring at 0x20015538 under the guard at 0x200154
 
 - Addresses by version: 219: 0x0C05AE14
 - Called by: `ble_219_0c028bf0`, `ble_219_0c029c18`, `ble_219_0c029d8c`, `ble_219_0c029df8`, `ble_219_0c02c338`
-- Calls: `ble_219_0c042c8c`, `ble_219_0c0430a8`, `ble_get_state_ptr_42f8`, `ble_219_0c05d494`, `btstack_ring_buffer_reset`, `btstack_ring_buffer_bytes_free`, `btstack_ring_buffer_write`
+- Calls: `xQueueGenericSend`, `xQueueSemaphoreTake`, `ble_get_state_ptr_42f8`, `ble_219_0c05d494`, `btstack_ring_buffer_reset`, `btstack_ring_buffer_bytes_free`, `btstack_ring_buffer_write`
 - Confidence: medium
 
 ## ble_msg_queues_init
@@ -1053,7 +1055,7 @@ Creates three guard objects through the RTOS wrapper 0x0C042D80 (count 1) at 0x2
 
 - Addresses by version: 219: 0x0C05AD18
 - Called by: `ble_219_0c0592a4`
-- Calls: `ble_219_0c042d80`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
+- Calls: `prvInitialiseMutex`, `btstack_ring_buffer_init`, `btstack_run_loop_set_data_source_handler`, `btstack_run_loop_enable_data_source_callbacks`, `btstack_run_loop_add_data_source`, `btstack_run_loop_remove_data_source`
 - Confidence: medium
 
 ## ble_random_addr_advance
@@ -1154,6 +1156,24 @@ Finds the first node in the list at DAT_2000fcf8 whose u16 window contains param
 - Called by: `ble_219_0c04e398`, `ble_219_0c04e702`
 - Calls: `btstack_linked_list_iterator_init`, `btstack_linked_list_iterator_has_next`, `btstack_linked_list_iterator_next`, `co_write16_le`
 - Confidence: high
+
+## ble_ring_poll_status
+
+**Poll four ring or stream objects of a channel and return a two-bit readiness mask**
+
+Takes a channel record: the channel id byte is at +8 and the pointer at +0x10 points to a block whose words at +0x5C, +0x60, +0x64 and +0x68 hold four object pointers, each checked only when non-null. Every check runs inside vPortEnterCritical/vPortExitCritical. The object at +0x5C is tested with 0x0C043338 (bit 0 set when non-zero), the object at +0x60 with 0x0C043364 (bit 1 set when zero), the object at +0x64 with ringbuf_free_space (bit 0 set when free space is non-zero) and the one at +0x68 with ringbuf_is_empty (bit 1 set when not empty). After each check the channel is updated through 0x0C048298(channel, 0 or 1); what that routine stores is left to its own description. Returns the OR of the flags.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `channel` | `ptr` | channel record; id byte at +8, object block pointer at +0x10 |
+
+**Returns** `u8`: bit 0 and bit 1 readiness flags, 0..3
+
+**Notes:** The meanings of the 0x0C043338 and 0x0C043364 checks and of the 0x0C048298 state write are not established here. The category follows the other BLE host ring helpers.
+
+- Addresses by version: 219: 0x0C0422D4
+- Calls: `vPortEnterCritical`, `vPortExitCritical`, `uxQueueSpacesAvailable`, `prvIsQueueEmpty`, `ringbuf_free_space`, `ringbuf_is_empty`, `ble_219_0c048298`
+- Confidence: medium
 
 ## ble_sink_init
 
@@ -2515,6 +2535,26 @@ Calls ringbuf_used_count on the FreeRTOS stream-buffer handle DAT_2000f2b0 and r
 - Called by: `ble_219_0c05d40e`
 - Calls: `ringbuf_used_count`
 - Confidence: medium
+
+## hci_stream_buffer_receive_nowait
+
+**Non-blocking read of up to N bytes from the global HCI stream buffer DAT_2000F2B0**
+
+Calls the stream buffer receive routine (0x0C0436F8, xStreamBufferReceive) on the global HCI stream buffer handle DAT_2000F2B0 with a zero timeout, so it returns at once with whatever bytes are present, or 0 when empty. The receive side runs as a consumer; this is the read entry used by the HCI transport.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `pvRxData` | `ptr` | destination buffer |
+| `xBufferLengthBytes` | `u32` | destination size in bytes |
+
+**Returns** `u16`: bytes read
+
+**Notes:** The earlier note on hci_stream_buffer_is_empty (0x0C045534) says this routine fills the buffer through xStreamBufferSend. The decompiled call is to the receive side (prvReadBytesFromBuffer), so that earlier description should be checked.
+
+- Addresses by version: 219: 0x0C045518
+- Called by: `ble_219_0c05d2f4`
+- Calls: `xStreamBufferReceive`
+- Confidence: high
 
 ## hci_transport_h4_rx_advance
 

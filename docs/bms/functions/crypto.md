@@ -20,6 +20,6 @@ Transforms a 16-byte input at param_2 into a 16-byte output at param_1. It compu
 **Notes:** The purpose is not established. It could be a seed-to-key or challenge-response transform, but the routine itself only maps bytes. Its caller bms_4168_08004fec is not in this packet, so the use of the output is unknown.
 
 - Addresses by version: 4130: 0x0800E8C8, 4139: 0x0800EF1C, 4148: 0x0801017C, 4168: 0x080106C8
-- Called by: `bms_4168_08004fec`
+- Called by: `bms_auth_verify_response`
 - Calls: `bms_rotate_word_bytes`, `crc16_usb_compute`
 - Confidence: medium

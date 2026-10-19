@@ -25,5 +25,5 @@ Processes one measurement record and returns a pointer to the result block at 0x
 
 - Addresses by version: 4130: 0x0800C96C, 4139: 0x0800CF68, 4148: 0x0800DF68, 4168: 0x0800E3BC
 - Called by: `bms_4168_08007a0c`
-- Calls: `bms_udiv32`, `bms_4168_0800113c`, `bms_4168_0800379c`, `bms_4168_08003868`, `bms_window_latch_narrow`, `bms_window_latch_wide`
+- Calls: `bms_udiv32`, `bms_4168_0800113c`, `bms_banded_offset_compute`, `bms_throughput_accumulate`, `bms_window_latch_narrow`, `bms_window_latch_wide`
 - Confidence: medium

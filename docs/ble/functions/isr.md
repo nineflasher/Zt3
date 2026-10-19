@@ -1,6 +1,6 @@
 # BLE - `isr` functions
 
-14 functions.
+16 functions.
 
 | Function | Address (BLE_219) | Summary |
 |---|---|---|
@@ -8,6 +8,8 @@
 | [`HardFault_Handler`](#hardfault_handler) | 0x0C035FA8 | HardFault handler: dump fault state to trace UART and halt |
 | [`NMI_Handler`](#nmi_handler) | 0x0C046EE8 | Non-maskable interrupt handler: spin forever |
 | [`SysTick_Handler`](#systick_handler) | 0x0C03F674 | FreeRTOS xPortSysTickHandler: under BASEPRI mask call xTaskIncrementTick and pend PendSV if a switch is needed |
+| [`ble_analog_status_dispatch`](#ble_analog_status_dispatch) | 0x0C038128 | Dispatch the bank-4 analog status words 0x4080/0x4081 to channel mask writes and a callback |
+| [`ble_rf_event_status_isr`](#ble_rf_event_status_isr) | 0x0C038730 | RF/analog interrupt handler: acknowledge 0x305E, 0x3051, 0x3048 and call up to six callbacks |
 | [`ble_scb_irq_pending`](#ble_scb_irq_pending) | 0x0C0866F8 | True if the Cortex-M SCB ICSR VECTPENDING field is non-zero |
 | [`hal_dma0_irq_handler`](#hal_dma0_irq_handler) | 0x0C04555C | IRQ3 vector: dispatch pending channel interrupts of DMA controller 0 (0x40120000) |
 | [`hal_dma1_irq_handler`](#hal_dma1_irq_handler) | 0x0C04556C | IRQ4 vector: dispatch pending channel interrupts of DMA controller 1 (0x40130000) |
@@ -60,6 +62,43 @@ SysTick exception vector. Saves/raises BASEPRI with rtos_enter_critical, calls x
 - Peripheral registers: `0xe000e000` (A), `0xe000ed04` (W)
 - Calls: `rtos_enter_critical`, `rtos_exit_critical`, `xTaskIncrementTick`
 - Confidence: high
+
+## ble_analog_status_dispatch
+
+**Dispatch the bank-4 analog status words 0x4080/0x4081 to channel mask writes and a callback**
+
+Interrupt-side dispatcher for the analog status registers. It reads 0x4080 and 0x4081 and builds a cause word from bits 1..11 of 0x4080 and bits 0..4 of 0x4081 (moved to bits 12..16). It walks a 13-entry table at ROM 0x0C081C48 with 8-byte entries (a 32-bit mask and a channel index byte) and, for each entry whose mask intersects the cause, ORs that channel's mask (DAT_20003C28 + 8*index) into the analog register chosen by the index, as in ble_analog_chan_group_mask_apply. If bit 1 of 0x4080 is set the first entry is processed regardless of its mask. Finally it calls the optional callback DAT_20003C24 with the cause word, and the status reads run in a BASEPRI 0x40 section with the lock trace.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | not read by the code |
+| `unused` | `u32` | not read by the code |
+| `unused` | `u32` | not read by the code |
+
+**Notes:** Table decoding (entry stride and index byte position) is inferred from decompiled offsets. Caller not identified.
+
+- Addresses by version: 219: 0x0C038128
+- Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
+
+## ble_rf_event_status_isr
+
+**RF/analog interrupt handler: acknowledge 0x305E, 0x3051, 0x3048 and call up to six callbacks**
+
+Interrupt handler installed at vector 58 by ble_rf_event_source_enable (the constant 0x0C038731 is written to VTOR+0xE8). Inside a BASEPRI 0x40 section it reads the RF status registers 0x305E, 0x3051 and 0x3048 in turn and writes each one back when its active bits are set, which acknowledges write-1-to-clear latches (assumed). It then calls, with the register value, every non-null callback in the slot table at DAT_2000BCE8..DAT_2000BCFC: 0x305E bits 3..4 go to DAT_2000BCF0 and bits 14..15 to DAT_2000BCFC; 0x3051 bits 0..12 to DAT_2000BCE8 and bits 13..14 to DAT_2000BCEC; 0x3048 bit 11 to DAT_2000BCF8 and bits 14..15 to DAT_2000BCF4.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | not read by the code |
+| `unused` | `u32` | not read by the code |
+| `unused` | `u32` | not read by the code |
+
+**Notes:** Write-back acknowledge assumed to be write-1-to-clear. The slot table is shared with ble_rf_event_source_enable.
+
+- Addresses by version: 219: 0x0C038730
+- Called by: `ble_219_0c04533c`
+- Calls: `hal_analogif_reg_read`, `hal_analogif_reg_write`
+- Confidence: medium
 
 ## ble_scb_irq_pending
 
@@ -146,7 +185,7 @@ Inside vPortEnterCritical/vPortExitCritical (0x0c03f640/0x0c03f65c): nvic_clear_
 **Returns** `u32`: always 0
 
 - Addresses by version: 219: 0x0C046F54
-- Called by: `ble_219_0c0300d0`, `ble_219_0c0315d8`, `ble_219_0c031810`, `ble_219_0c045250`, `ble_219_0c0459d4`, `ble_219_0c046494`
+- Called by: `ble_219_0c0300d0`, `ble_219_0c0315d8`, `ble_219_0c031810`, `ble_irq_binary_sem_init`, `ble_219_0c0459d4`, `ble_219_0c046494`
 - Calls: `nvic_clear_pending_irq`, `nvic_set_default_priority_and_enable_irq`, `vPortEnterCritical`, `vPortExitCritical`
 - Confidence: medium
 

@@ -217,7 +217,7 @@ Adds param_5 to the timer DAT_20000564 on each call and chooses one of several p
 Writes 0x8000 to GPIOA.BRR (0x50000028), which resets PA15 atomically and leaves the other port-A pins alone. It is the reset half of gpio_pa15_set. Callers bms_4139_0800be74, bms_4168_08003fcc and bms_4168_0800c96c. The function of the pin is not established.
 
 - Addresses by version: 4130: 0x08007ED4, 4139: 0x080083D4, 4148: 0x08008C20, 4168: 0x08008F20
-- Called by: `bms_4168_08003fcc`, `bms_4168_0800c96c`
+- Called by: `bms_fault_timers_step`, `bms_4168_0800c96c`
 - Confidence: high
 
 ## gpio_pa15_set
@@ -260,7 +260,7 @@ Enables the GPIOB clock (RCC.IOPENR bit 1), configures PB13 to PB15 as inputs wi
 
 - Addresses by version: 4130: 0x08007F04, 4139: 0x08008404, 4148: 0x08008C50, 4168: 0x08008F50
 - Peripheral registers: `RCC.IOPENR` (RW)
-- Called by: `bms_4168_080040e4`
+- Called by: `bms_index_debounce_step`
 - Calls: `LL_GPIO_Init`
 - Confidence: medium
 

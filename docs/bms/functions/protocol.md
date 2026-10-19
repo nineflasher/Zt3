@@ -1,11 +1,18 @@
 # BMS - `protocol` functions
 
-19 functions.
+27 functions.
 
 | Function | Address (BMS_4168) | Summary |
 |---|---|---|
+| [`bms_auth_verify_response`](#bms_auth_verify_response) | 0x08004FEC | Check a 16-byte reply (cmd 0x1D, type 4) against a value computed from the object at 0x20000BCC |
 | [`bms_can_status_frame_rx`](#bms_can_status_frame_rx) | 0x0800E2C8 | Decode CAN frames 0x7F0, 0x7F1 and 0x212 and age out the 0x212 status flag after 2000 ticks |
 | [`bms_chan_service_all`](#bms_chan_service_all) | 0x0800FEFC | Run the per-object state step for each of N 36-byte channel objects in a table |
+| [`bms_comm_await_reply_cmd03`](#bms_comm_await_reply_cmd03) | 0x0800525C | Wait for the command-03 reply: accept into ctx+0x08, retry after 200 ticks, fault after 11 retries |
+| [`bms_comm_req_cmd02`](#bms_comm_req_cmd02) | 0x08005228 | Send command 0x02 with no payload, reset the reply timer, and enter state 2 |
+| [`bms_comm_req_cmd04`](#bms_comm_req_cmd04) | 0x080053C8 | Send command 0x04 with no payload, reset the reply timer, and enter state 4 |
+| [`bms_comm_req_cmd06`](#bms_comm_req_cmd06) | 0x080052E0 | Send command 0x06 with no payload, reset the reply timer, and enter state 8 |
+| [`bms_comm_request_dispatch`](#bms_comm_request_dispatch) | 0x08004DE8 | Pick the next queued link request (0x16, 0x1E, 0x18) and send it, else count the queue down |
+| [`bms_comm_send_frame`](#bms_comm_send_frame) | 0x08005128 | Build and send a framed message on USART3: magic, command, count and sequence, payload, CRC-16 |
 | [`bms_comm_service_step`](#bms_comm_service_step) | 0x0800E060 | Service the message pool: periodic 14-byte send, two busy timeouts, then dispatch the state handler |
 | [`bms_frame_parse_legacy_4139`](#bms_frame_parse_legacy_4139) | (removed) | Byte-wise parser for the 0x5A/0xA5 framed record packet with CRC-16 check (4130/4139) |
 | [`bms_frame_parse_legacy_4168`](#bms_frame_parse_legacy_4168) | 0x08007C10 | Byte-wise 0x5A/0xA5 framed-packet parser with CRC-16 check for the 4148/4168 builds |
@@ -15,6 +22,7 @@
 | [`bms_j1939_tp_session_rx`](#bms_j1939_tp_session_rx) | 0x08010204 | Process a received TP.CM or TP.DT frame for one session: RTS, CTS, EOM ACK, abort and data |
 | [`bms_j1939_tp_session_step`](#bms_j1939_tp_session_step) | 0x0800FFEC | Advance one J1939 TP transmit session: send RTS, data frames, and handle its timeouts |
 | [`bms_j1939_tpcm_abort_pack`](#bms_j1939_tpcm_abort_pack) | 0x0801066C | Build a J1939 TP.CM connection-abort frame for PGN 0xEF00 into a TX object |
+| [`bms_proto_build_reply`](#bms_proto_build_reply) | 0x080062F0 | Build the 0x5A 0xA5 reply frame for a received message and set the reply state |
 | [`bms_record_send_multiframe`](#bms_record_send_multiframe) | 0x0800B9F2 | Send a queued record in up to 8-byte frames, advancing its address between frames |
 | [`bms_rx_frame_7f0_7f1`](#bms_rx_frame_7f0_7f1) | (removed) | Receive hook for IDs 0x7F0 and 0x7F1: latch one byte-1 bit selected by the module state |
 | [`bms_seq_state_reset`](#bms_seq_state_reset) | 0x0800FAA0 | Reset the fault sequence state: sub-state 0, start time, and a nibble snapshot |
@@ -23,6 +31,23 @@
 | [`bms_tp_tx_prepare`](#bms_tp_tx_prepare) | 0x080104CC | Build a TP message in a transmit session: 3-byte header, payload, and 16-bit complement trailer |
 | [`bms_txq_enqueue`](#bms_txq_enqueue) | 0x0800DF2C | Queue a 9-byte message descriptor and payload into the first free of five pool slots |
 | [`bms_txq_init`](#bms_txq_init) | 0x0800DFEC | Reset the five-slot message pool, the queue head and counters, then stamp the periodic timer |
+
+## bms_auth_verify_response
+
+**Check a 16-byte reply (cmd 0x1D, type 4) against a value computed from the object at 0x20000BCC**
+
+Timer-driven check of a challenge reply in the host-link layer. param_1 (elapsed time) is added to the reply timer at +0x00 of the context; past 200 the state at +0xF9 becomes 5 (retry) while fewer than four retries have been used, and 0x0D (fault) otherwise. When a frame is pending (flag 0x200001AD) and its header is command 0x1D with type nibble 4, the four 32-bit words at 0x2000092C..0x2000093B are gathered and bms_4168_080106c8 (not described) computes a 16-byte value from the object at 0x20000BCC. That value is repacked into four 32-bit words and compared with the reply. A match clears the retry byte at +0xFB and sets state +0xF9 to 7. The pending flag is cleared on every pass.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `elapsed` | `u32` | param_1; time added to the reply timer |
+| `ctx` | `ptr` | param_2; link context with state +0xF9, retry +0xFB and timer +0x00 |
+
+**Notes:** This is the authentication core of the link, and the algorithm in bms_4168_080106c8 is not in this packet, so the nature of the 16-byte value (MAC, cipher output or hash) is unknown. The byte-swap repacking is decompiled awkwardly and should be checked against the source.
+
+- Addresses by version: 4130: 0x080047D8, 4139: 0x080049EC, 4148: 0x08004EA0, 4168: 0x08004FEC
+- Calls: `bms_seed_key_transform`
+- Confidence: medium
 
 ## bms_can_status_frame_rx
 
@@ -58,6 +83,111 @@ Walks a channel table descriptor: word 0 is the base address of 36-byte objects,
 - Calls: `bms_j1939_tp_session_step`
 - Confidence: high
 
+## bms_comm_await_reply_cmd03
+
+**Wait for the command-03 reply: accept into ctx+0x08, retry after 200 ticks, fault after 11 retries**
+
+Timer step of the host-link layer for requests such as bms_comm_req_cmd02. It adds param_1 to the reply timer at +0x00; past 200 it sets state +0xF9 to 1 (retry) while the retry byte at +0xFB is below 11, and to 0x0D (fault) otherwise. When a frame is pending (flag 0x200001AD) whose header byte at 0x2000092A is 3 and whose high nibble at 0x2000092B is 1, it stores the four payload bytes at 0x2000092C as a little-endian word into ctx+0x08, clears the retry byte, sets state +0xF9 to 3 (reply received), and sets bit 4 of the u16 at +0x194 of the status object from the 0x20000BDC accessor. The pending flag is cleared on every pass.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `elapsed` | `u32` | param_1; time added to the reply timer |
+| `ctx` | `ptr` | param_2; link context with reply word at +0x08, state +0xF9, retry +0xFB |
+
+**Notes:** The state values 1 and 3 are only set here, and the packet does not show what the caller does with them.
+
+- Addresses by version: 4130: 0x08004A5C, 4139: 0x08004C64, 4148: 0x08005110, 4168: 0x0800525C
+- Calls: `bms_ram_20000bdc_addr`
+- Confidence: high
+
+## bms_comm_req_cmd02
+
+**Send command 0x02 with no payload, reset the reply timer, and enter state 2**
+
+Request step of the host-link layer. It increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x02 with no payload through bms_comm_send_frame, and sets the state byte at +0xF9 to 2. The reply is collected by bms_comm_await_reply_cmd03 and timed through the reply timer.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | param_1; not read by the routine |
+| `ctx` | `ptr` | param_2; link context |
+
+**Notes:** The meaning of command 0x02 is not in the packet.
+
+- Addresses by version: 4130: 0x08004A18, 4139: 0x08004C2C, 4148: 0x080050DC, 4168: 0x08005228
+- Calls: `bms_comm_send_frame`
+- Confidence: high
+
+## bms_comm_req_cmd04
+
+**Send command 0x04 with no payload, reset the reply timer, and enter state 4**
+
+Request step of the host-link layer, the same shape as bms_comm_req_cmd02: it increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x04 with no payload through bms_comm_send_frame and sets the state byte at +0xF9 to 4. The reply is handled by bms_comm_await_reply_cmd03.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | param_1; not read by the routine |
+| `ctx` | `ptr` | param_2; link context |
+
+**Notes:** The meaning of command 0x04 is not in the packet.
+
+- Addresses by version: 4130: 0x08004BBC, 4139: 0x08004DD8, 4148: 0x0800527C, 4168: 0x080053C8
+- Calls: `bms_comm_send_frame`
+- Confidence: high
+
+## bms_comm_req_cmd06
+
+**Send command 0x06 with no payload, reset the reply timer, and enter state 8**
+
+Request step of the host-link layer, the same shape as bms_comm_req_cmd02: it increments the request counter at +0xFB, zeroes the reply timer at +0x00, sends command 0x06 with no payload through bms_comm_send_frame and sets the state byte at +0xF9 to 8. The reply is handled by bms_comm_await_reply_cmd03.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | param_1; not read by the routine |
+| `ctx` | `ptr` | param_2; link context |
+
+**Notes:** The meaning of command 0x06 is not in the packet.
+
+- Addresses by version: 4130: 0x08004AD0, 4139: 0x08004CEC, 4148: 0x08005194, 4168: 0x080052E0
+- Calls: `bms_comm_send_frame`
+- Confidence: high
+
+## bms_comm_request_dispatch
+
+**Pick the next queued link request (0x16, 0x1E, 0x18) and send it, else count the queue down**
+
+Part of the host-link request layer, with bms_comm_send_frame, bms_comm_req_cmd02/04/06 and bms_comm_await_reply_cmd03. When the pending-count byte at +0x101 is zero it sets the state byte at +0xF9 to 9 and returns. Otherwise it bumps the retry byte at +0xFB, zeroes the reply timer word at +0x00 and checks three request flags in order: +0xFC sends command 0x16 with no payload, +0xFE sends command 0x1E with one payload word (the byte at +0xFF, also stored at +0x3C), and +0xFD sends command 0x18 with no payload. Each send sets state +0xF9 to 0x0C. With no request pending it decrements the count at +0x101 and returns.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `unused` | `u32` | param_1; not read by the routine |
+| `ctx` | `ptr` | param_2; link context: state +0xF9, retry +0xFB, timer +0x00, flags +0xFC..+0xFE, count +0x101 |
+
+**Notes:** Command meanings 0x16, 0x18 and 0x1E are not identified in the packet. The state values 9 and 0x0C are the ones this function sets.
+
+- Addresses by version: 4130: 0x080045D4, 4139: 0x080047E8, 4148: 0x08004C9C, 4168: 0x08004DE8
+- Calls: `bms_comm_send_frame`
+- Confidence: medium
+
+## bms_comm_send_frame
+
+**Build and send a framed message on USART3: magic, command, count and sequence, payload, CRC-16**
+
+Builds the outgoing host-link frame and sends it with bms_usart3_send_bytes. Byte 0 is a magic, 0x5A when DAT_200001AE is 1 and 0xA5 otherwise. Byte 1 is the command (the low byte of param_1). Byte 2 holds the payload word count in its high nibble and the 4-bit sequence number from the context at +0xFA in its low nibble. Then come param_3 payload words, each sent big-endian, then the CRC-16/USB (bms_4168_08004da4) over bytes 1 to the end of the payload, high byte first. The sequence number at +0xFA advances mod 8 after each frame. The header and payload are also mirrored into globals 0x20000904 to 0x2000090E (payload stored little-endian there), with the CRC bytes at 0x20000927-0x20000928.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `cmd` | `u32` | param_1; command code, used as its low byte |
+| `words` | `ptr` | param_2; payload array of 32-bit words |
+| `count` | `u32` | param_3; number of payload words |
+| `ctx` | `ptr` | param_4; link context whose +0xFA byte holds the sequence number |
+
+**Notes:** Frame layout is read from the stores and the CRC length (count x 4 + 2). The CRC algorithm is in the wave-1 summary of bms_4168_08004da4. The receive side of the same protocol is in bms_proto_build_reply and bms_auth_verify_response.
+
+- Addresses by version: 4130: 0x08004918, 4139: 0x08004B2C, 4148: 0x08004FDC, 4168: 0x08005128
+- Called by: `bms_comm_request_dispatch`, `bms_comm_req_cmd02`, `bms_comm_req_cmd06`, `bms_comm_req_cmd04`, `bms_4168_080054f8`
+- Calls: `crc16_usb_compute`, `bms_usart3_send_bytes`
+- Confidence: high
+
 ## bms_comm_service_step
 
 **Service the message pool: periodic 14-byte send, two busy timeouts, then dispatch the state handler**
@@ -89,7 +219,7 @@ A state machine in DAT_20000114 consumes one received byte per call. A 0x5A or 0
 **Notes:** Header nibble layout is inferred from the shifts and masks, not from a protocol spec. The meaning of the 16-bit word at 0x20000124 beyond its role as CRC seed/state is not established.
 
 - Addresses by version: 4130: 0x08006C08, 4139: 0x08007108
-- Called by: `bms_4168_080036d0`
+- Called by: `USART3_4_5_6_LPUART1_IRQHandler`
 - Calls: `crc16_usb_compute`
 - Confidence: medium
 
@@ -109,7 +239,7 @@ The 4148/4168 counterpart of bms_frame_parse_legacy_4139, with the same states, 
 **Notes:** Same protocol reading as the 4139 variant, so its uncertainties apply here too.
 
 - Addresses by version: 4148: 0x08007938, 4168: 0x08007C10
-- Called by: `bms_4168_080036d0`
+- Called by: `USART3_4_5_6_LPUART1_IRQHandler`
 - Calls: `crc16_usb_compute`, `bms_frame_rx_byte`
 - Confidence: medium
 
@@ -225,6 +355,18 @@ Writes a fixed 8-byte J1939 TP.CM connection-abort frame into the object at para
 
 - Addresses by version: 4130: 0x0800E86C, 4139: 0x0800EEC0, 4148: 0x08010120, 4168: 0x0801066C
 - Called by: `bms_j1939_tp_session_step`, `bms_j1939_tp_session_rx`
+- Confidence: medium
+
+## bms_proto_build_reply
+
+**Build the 0x5A 0xA5 reply frame for a received message and set the reply state**
+
+Reads the received message through the pointer at DAT_20002608; its +4 field points to a frame whose byte 0 is the command, bytes 1 to 3 are header bytes, byte 8 is the payload length, and +4 points at the payload. A command is accepted only if it is 1, 2, 7 to 10, 0x2A, 0x2C or 0xB5 and byte 2 equals 6; otherwise the error flag 0x20002611 is set and the state at 0x2000260D becomes 4. Commands 7 to 10 also record bms_tick_get in 0x20002604. The reply is written at 0x200024E4 as 0x5A, 0xA5, the length, bytes 1 to 3, the reply command and the copied payload. Command 1 is answered with 0x2A, command 2 with 0x2C, 0x2A and 0x2C echo themselves, other commands echo the received byte, and command 10 only clears the pending flag 0x20002610.
+
+**Notes:** The 0x5A 0xA5 magic matches bms_comm_send_frame, but the reply carries the length as a plain byte instead of a count nibble. The meaning of the commands is not in the packet. The routine has no direct caller in the packet.
+
+- Addresses by version: 4148: 0x08006184, 4168: 0x080062F0
+- Calls: `bms_tick_get`
 - Confidence: medium
 
 ## bms_record_send_multiframe
