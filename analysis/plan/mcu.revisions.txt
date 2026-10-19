@@ -2,3 +2,4 @@ mcu: SystemInit (mcu_0160_0800a2ac) sets VTOR=0x08000000 while app is at 0x08001
 vcu: command 0xAA in vcu_ninebot_frame_dispatch (080054ec) writes to RAM window 0x20001d44+2*index gated only by sender byte - owner review item (data_can_batch04 agent)
 vcu: uart_rx_ring1_count (08007c8c) indices are the CAN transmit queue (can_tx_queue_head/tail) - rename (data_can_batch04 agent)
 mcu: mcu_tmr_swevt_*/mcu_tmr_iden_c*ien_set called on USART3; mcu_ctx_set_field_0x14/0x10 write GPIO CLR/SCR - misleading names (wave3_batch02)
+mcu data: loader copies 0x220 bytes to 0x20001d90 but other packets document variables at 0x20001e1c-0x20001f8f - copy length or those objects wrong (batch25-27 agent)
