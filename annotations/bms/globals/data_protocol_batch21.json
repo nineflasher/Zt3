@@ -19,7 +19,7 @@
       "0x2000011d"
     ],
     "category": "protocol",
-    "description": "Write index into the second legacy buffer at 0x20000AAE. The 4139 frame parser resets it to 0 and copies each payload byte there in the same loop that fills 0x20000A7C, so both buffers hold the same payload bytes (probably a second copy for the bank step)."
+    "description": "Write index into the second legacy buffer at 0x20000AAE. The 4139 frame parser resets it to 0 and copies each payload byte there alongside the writes to 0x20000A7C, so both buffers hold the same payload bytes (probably a second copy for the bank step)."
   },
   "bms_g_4139_2000011e": {
     "name": "bms_legacy_record_count",
@@ -52,7 +52,7 @@
       "0x20000120"
     ],
     "category": "protocol",
-    "description": "Flag set to 1 by bms_frame_parse_legacy_4139 once a frame has passed its CRC and its records are stored. bms_4139_dual_bank_step reads it and flips the active accumulator bank after an accepted frame. bms_auth_verify_response and bms_comm_await_reply_cmd03 also write it; the value they write is not stated in this packet."
+    "description": "Flag set to 1 by bms_frame_parse_legacy_4139 once a frame has passed its CRC and its records are stored. bms_4139_dual_bank_step reads and writes it, and it flips the active accumulator bank after an accepted frame. bms_auth_verify_response and bms_comm_await_reply_cmd03 also write it; the value they write is not stated in this packet."
   },
   "bms_g_4139_20000122": {
     "name": "bms_legacy_rx_crc",
@@ -118,7 +118,7 @@
       "0x200001aa"
     ],
     "category": "protocol",
-    "description": "Application state byte. bms_app_state_reset sets it to 2 as part of its default setup, and it is one of the 24 state bytes that routine clears. bms_limit_report_cmd08 takes its address, so the value is probably read through a pointer there. The meaning of the value 2 is not named in the code."
+    "description": "Application state byte. bms_app_state_reset clears its block of state bytes and then writes 2 to this one as a default. bms_limit_report_cmd08 takes its address, so the value is probably read through a pointer there. The meaning of the value 2 is not named in the code."
   },
   "bms_g_4168_200001ab": {
     "name": "bms_pool_threshold_flag",

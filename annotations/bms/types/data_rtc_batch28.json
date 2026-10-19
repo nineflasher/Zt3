@@ -7,7 +7,7 @@
     {"name": "instance", "offset": 0, "type": "ptr", "description": "Pointer to the RTC register block (&RTC). bms_indirect_nibble_get dereferences this slot and returns the low nibble of the byte it points to."},
     {"name": "init_word_04", "offset": 4, "type": "u32", "description": "Set to 0x8800 by bms_rtc_hal_init. Probably a control word of the HAL init block; its meaning is not established."},
     {"name": "hour_format", "offset": 8, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the hour-format field (0 = 24-hour clock)."},
-    {"name": "async_prediv", "offset": 12, "type": "u32", "description": "Asynchronous prescaler: 0x7C when the clock is LSI (bms_rtc_selected flag 0) and 0x7F when it is LSE (flag 1). Probably divides to 1 Hz with the synchronous prescaler."},
+    {"name": "async_prediv", "offset": 12, "type": "u32", "description": "Asynchronous prescaler: 0x7C when the clock is LSI (bms_rtc_lse_selected flag 0) and 0x7F when it is LSE (flag 1). Probably divides to 1 Hz with the synchronous prescaler."},
     {"name": "sync_prediv", "offset": 16, "type": "u32", "description": "Synchronous prescaler, set to 0xFF by bms_rtc_hal_init (probably 256 in the HAL, giving 1 Hz together with the asynchronous value)."},
     {"name": "output_word_14", "offset": 20, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the RTC output-selection field of the init block (no output used)."},
     {"name": "output_word_18", "offset": 24, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the output remap field of the init block."},
