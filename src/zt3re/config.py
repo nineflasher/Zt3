@@ -54,41 +54,51 @@ class Component:
         return ANNOTATIONS_DIR / self.key
 
 
-def _cortex_m_regions(base: int, sram: int, ahb2_gpio: bool = False) -> tuple[Region, ...]:
-    regs = [
-        Region("BOOTLOADER", 0x08000000, base - 0x08000000, execute=True,
-               comment="4 KiB bootloader area below the application image (not part of the .bin)"),
-        Region("SRAM", 0x20000000, sram, write=True, comment="On-chip SRAM (size is an upper bound)"),
-        Region("PERIPH", 0x40000000, 0x30000, write=True, volatile=True,
-               comment="APB1/APB2/AHB1 peripheral window"),
-    ]
-    regs.append(Region("SYSMEM", 0x1FFFF000, 0x1000, write=False, volatile=True,
-                       comment="System memory / ROM bootloader, unique device ID (0x1FFFF7E8), flash size, option bytes (0x1FFFF800)"))
-    if ahb2_gpio:
-        regs.append(Region("PERIPH_AHB2", 0x48000000, 0x2000, write=True, volatile=True,
-                           comment="AHB2 GPIO ports A-F (STM32F0 style)"))
-    regs.append(Region("SYSTEM", 0xE0000000, 0x100000, write=True, volatile=True,
-                       comment="Cortex-M private peripheral bus (SysTick, NVIC, SCB, DWT)"))
-    return tuple(regs)
+def _cortex_m_regions(chip: str) -> tuple[Region, ...]:
+    """Memory regions of the supported Cortex-M parts (application image is loaded at 0x08001000)."""
+    boot = Region("BOOTLOADER", 0x08000000, 0x1000, execute=True,
+                  comment="4 KiB bootloader area below the application image (not part of the .bin)")
+    system = Region("SYSTEM", 0xE0000000, 0x100000, write=True, volatile=True,
+                    comment="Cortex-M private peripheral bus (SysTick, NVIC, SCB, DWT)")
+    if chip == "at32f415":
+        return (boot,
+                Region("SRAM", 0x20000000, 0x8000, write=True, comment="32 KiB on-chip SRAM"),
+                Region("PERIPH", 0x40000000, 0x30000, write=True, volatile=True,
+                       comment="APB1/APB2/AHB peripheral window (CRM, IOMUX, EXINT, ERTC, TMR, USART, CAN ...)"),
+                Region("PERIPH_USB", 0x50000000, 0x40000, write=True, volatile=True,
+                       comment="USB OTG FS controller"),
+                Region("SYSMEM", 0x1FFFF000, 0x1000, write=False, volatile=True,
+                       comment="System memory / ROM bootloader, device ID words and user system data"),
+                system)
+    if chip == "stm32g0b1":
+        return (boot,
+                Region("SRAM", 0x20000000, 0x24000, write=True, comment="144 KiB on-chip SRAM"),
+                Region("PERIPH", 0x40000000, 0x30000, write=True, volatile=True,
+                       comment="APB/AHB peripheral window (RCC, EXTI 0x40021800, TIM, USART, FDCAN ...)"),
+                Region("PERIPH_IOPORT", 0x50000000, 0x1800, write=True, volatile=True,
+                       comment="GPIO ports A-F (IOPORT bus)"),
+                Region("SYSMEM", 0x1FFF0000, 0x8000, write=False, volatile=True,
+                       comment="System memory, UID (0x1FFF7590), flash size (0x1FFF75E0), option bytes (0x1FFF7800)"),
+                system)
+    raise KeyError(chip)
 
 
 COMPONENTS: dict[str, Component] = {
     "mcu": Component(
-        key="mcu", title="Motor controller (MCU)", role="Motor / FOC drive controller firmware",
-        language="ARM:LE:32:Cortex", chip="stm32f103",
-        regions=_cortex_m_regions(0x08001000, 0x8000)),
+        key="mcu", title="Motor controller (MCU)", role="Motor / FOC drive controller firmware (AT32F415)",
+        language="ARM:LE:32:Cortex", chip="at32f415", max_vectors=92,
+        regions=_cortex_m_regions("at32f415")),
     "vcu": Component(
         key="vcu", title="Vehicle control unit (VCU)",
-        role="Main vehicle controller / dash and CAN gateway firmware",
-        language="ARM:LE:32:Cortex", chip="stm32f103",
-        regions=_cortex_m_regions(0x08001000, 0x8000)),
+        role="Main vehicle controller / dash and CAN gateway firmware (AT32F415)",
+        language="ARM:LE:32:Cortex", chip="at32f415", max_vectors=92,
+        regions=_cortex_m_regions("at32f415")),
     "bms": Component(
         key="bms", title="Battery management system (BMS)",
-        role="Battery pack monitor / protection firmware",
-        language="ARM:LE:32:Cortex", chip="stm32f0", max_vectors=48,
-        regions=_cortex_m_regions(0x08001000, 0x8000, ahb2_gpio=True)),
+        role="Battery pack monitor / protection firmware (STM32G0B1, Cortex-M0+)",
+        language="ARM:LE:32:Cortex", chip="stm32g0b1", max_vectors=47,
+        regions=_cortex_m_regions("stm32g0b1")),
 }
-
 
 COMPONENTS["ble"] = Component(
     key="ble", title="Bluetooth LE module (BLE)",

@@ -12,10 +12,7 @@ from .config import Component
 log = logging.getLogger("zt3re.enrich")
 
 HW_DIR = Path(__file__).parent / "data" / "hw"
-HW_FILES = {
-    "stm32f103": ("stm32f1.h", "peripherals_stm32f1.json"),
-    "stm32f0": ("stm32f0.h", "peripherals_stm32f0.json"),
-}
+HW_FILES = {c: (f"{c}.h", f"peripherals_{c}.json") for c in ("at32f415", "stm32g0b1")}
 HW_CATEGORY = "/stm32"
 
 

@@ -1,0 +1,621 @@
+{
+  "ble_219_0c03aa74": {
+    "name": "startup_init_main_stack",
+    "summary": "Reset-time CPU setup: mask IRQs, set MSP/MSPLIM, thread mode and stack selection",
+    "description": "Called once from the reset path (0x0c028570). Disables IRQs (CPSID i), and if privileged loads MSP with 0x20080000 (top of the 512 KB SRAM) and sets the main-stack limit MSPLIM to 0x2007ef00 (a 0x1100-byte main/ISR stack). It then sets CONTROL.nPRIV = 0 equivalent via setThreadModePrivileged(1) and, in thread mode, re-writes the stack-select bit (SPSEL) from the current stack in use, followed by an ISB. Always returns 0.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The decompiler intrinsics setThreadModePrivileged/setStackMode map to CONTROL register writes; exact CONTROL bit polarity not verified."
+  },
+  "ble_219_0c03aa8e": {
+    "name": "startup_empty_hook",
+    "summary": "Empty function (immediately returns), called during reset sequence",
+    "description": "Contains only a return. It is called from the same reset routine (0x0c028570) as startup_init_main_stack, so it is most likely a placeholder for an optional early-init hook (for example an unused board/clock init) that was left empty in this build.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Purpose as hook is inferred from its sole caller only."
+  },
+  "ble_219_0c03aa9c": {
+    "name": "nvic_clear_pending_irq",
+    "summary": "Clear the NVIC pending bit of an external interrupt",
+    "description": "Writes 1 << (irq & 31) to NVIC word (irq >> 5) of the ICPR bank (0xE000E280 + 4*(irq>>5); the decompiler shows it as 0xE000E100 plus 0x60 words). Standard CMSIS NVIC_ClearPendingIRQ. Called from the IRQ-enable helper at 0x0c046f54.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "external IRQ number (0-based, excludes the 16 core exceptions)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03aab8": {
+    "name": "nvic_set_default_priority_and_enable_irq",
+    "summary": "Set IRQ priority to 0x60 and enable it in the NVIC",
+    "description": "If irq < 0xF0, writes priority byte 0x60 to NVIC IPR[irq] (0xE000E400 + irq); the value 0x60 corresponds to the third of the top priority levels if 3 priority bits are implemented (levels sit above BASEPRI 0x40 used by the RTOS critical sections, so these IRQs are masked when BASEPRI=0x40). It then writes 1 << (irq & 31) to ISER[irq >> 5] (0xE000E100) to enable the interrupt. Equivalent to NVIC_SetPriority(irq,0x60) + NVIC_EnableIRQ(irq); does not clear the pending bit.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "external IRQ number"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Priority-level interpretation depends on the number of implemented priority bits (not checked)."
+  },
+  "ble_219_0c03aae0": {
+    "name": "nvic_disable_irq",
+    "summary": "Disable an external interrupt in the NVIC",
+    "description": "Writes 1 << (irq & 31) to the ICER bank (0xE000E180 + 4*(irq>>5); decompiler shows 0xE000E100 + 0x20 words). CMSIS NVIC_DisableIRQ. Caller is the IRQ-disable helper at 0x0c046f7c.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "external IRQ number"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03ab30": {
+    "name": "scb_init_fpu_faults",
+    "summary": "Configure SCB: enable FPU access, trap divide-by-zero, enable fault handlers",
+    "description": "Sets CPACR (0xE000ED88) |= 0xF00000 (full access to CP10/CP11, the FPU). In CCR (0xE000ED14) it sets DIV_0_TRP (bit 4) and BFHFNMIGN (bit 10) and clears UNALIGN_TRP (bit 3). In SHCSR (0xE000ED24) it enables UsageFault (bit 18), BusFault (bit 17) and MemManage (bit 16) handlers. Finally it zeroes the system-handler priority bytes at 0xE000ED18/19/1A (MemManage, BusFault, UsageFault) and the byte at 0xE000ED20, i.e. makes them the highest configurable priority. Called once from 0x0c045a34 (OS/system init).",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Byte at 0xE000ED20 is zeroed in a SHPR3 byte lane; whether it is DebugMonitor/reserved was not determined."
+  },
+  "ble_219_0c03aba4": {
+    "name": "util_count_trailing_zeros32",
+    "summary": "Count trailing zero bits of a 32-bit word (RBIT + CLZ)",
+    "description": "Bit-reverses the input (the decompiler expanded RBIT into per-byte shift/or chains) and then executes CLZ on the result, so it returns the index of the lowest set bit (0..31), or 32 if the input is 0. Used by the controller scheduling code at 0x0c02feec to find the first set bit in a bitmask.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "value to examine"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of trailing zero bits, 32 for input 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03ac8c": {
+    "name": "bt_drv_set_global_2000bd1c",
+    "summary": "Store a 32-bit value into global DAT_2000bd1c",
+    "description": "Trivial setter: DAT_2000bd1c = param_1. Called from two routines in the 0x0c0469xx/0x0c046cxx region (controller/driver code). The meaning of the variable is unknown; it is only written here in this packet.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "value stored in DAT_2000bd1c"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Semantics of DAT_2000bd1c not determined from this function alone; name is positional."
+  },
+  "ble_219_0c03c30c": {
+    "name": "bes_analog_clock_mode_config",
+    "summary": "Program analog/clock config registers 0xD0220C18 and 0xD0220C90 for mode 2, 3 or default",
+    "description": "Read-modify-write on two undocumented registers in the 0xD022xxxx block. mode 2: reg 0xC18 |= 0x2800000 and reg 0xC90 field [30:24] = 0x31. mode 3: reg 0xC90 field [30:24] = 0x5B and reg 0xC18 |= 0x2C00000. Any other value: reg 0xC18 |= 0x2000000 only. It looks like selection of a PLL/oscillator or RF clock configuration with different divider/trim values per mode. Called from the larger init routine 0x0c03c4bc.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "mode selector: 2 or 3 select special settings, anything else is the default"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Block 0xD0220000 is not documented; interpretation as a clock/PLL setup is a guess based on the call context."
+  },
+  "ble_219_0c03c380": {
+    "name": "bes_rf_synth_config_by_mode",
+    "summary": "Set fields in 0xD0350xxx registers for mode 0 or 1; hangs on any other value",
+    "description": "Sets byte [15:8] of reg 0xD035020C to 0x1E and of 0xD0350210 to 0x20. For param_1 == 0 it sets bits [30:29] of 0xD0350228 and writes field [26:15] of 0xD0350048 = 0x44B; for param_1 == 1 it clears bits [30:29] of 0xD0350228 and writes field [26:15] of 0xD0350048 = 0x1064. Any other value falls into an endless loop (assert-style trap). Called from the init routine 0x0c03c4bc.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "mode: 0 or 1 (anything else hangs the CPU)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The 0xD035xxxx block is undocumented; it may be an RF/analog or clock synthesiser block. Two modes might be two crystal/clock frequencies."
+  },
+  "ble_219_0c03c470": {
+    "name": "bes_analog_set_c10_field",
+    "summary": "Enable (with a 4-bit value) or disable a field in register 0xD0220C10",
+    "description": "If param_1 != 0: reg 0xD0220C10 bits [28:25] = param_2 & 0xF and bit 29 is set. If param_1 == 0: bit 29 is cleared and the 4-bit field is left unchanged. Looks like an enable bit plus a 4-bit trim/gain value in the analog block. Called from 0x0c03c4bc.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "non-zero to enable and program the field, 0 to disable"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "4-bit value (masked with 0xF) written to bits 28:25"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Function of register 0xD0220C10 not known."
+  },
+  "ble_219_0c03c7b0": {
+    "name": "bes_analog_init_defaults",
+    "summary": "Initialise four registers in the 0xD0220C0C..0xD0220C8C analog block",
+    "description": "Performs read-modify-write on: 0xD0220C0C clear bits [15:11] and set bit 13; 0xD0220C80 clear bits [17:15], [11:9] and set bit 1; 0xD0220C18 clear bits 8 and 0; 0xD0220C8C clear bits [30:29]. Looks like a part of the analog/power block bring-up. Called from the init sequence 0x0c03cdfc.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Registers undocumented; the 'defaults' reading is inferred from the fact that it is called unconditionally from an init sequence."
+  },
+  "ble_219_0c03c87c": {
+    "name": "bes_periph_d035_init_small",
+    "summary": "Initialise six registers in the 0xD0350240..0xD035035C block",
+    "description": "Read-modify-write on undocumented registers: 0xD035035C bits[1:0] = 1; 0xD0350240 set bit 12; low byte of 0xD035034C = 0x40; low byte of 0xD0350350 = 0x40; low byte of 0xD0350354 = 0x80; low nibble of 0xD0350358 = 6. Called from 0x0c03c930, which is part of the same hardware bring-up family as the large 0xD0350xxx init at 0x0c03ca04.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Block purpose unknown (clock/RF/analog bring-up?)."
+  },
+  "ble_219_0c03ca04": {
+    "name": "bes_periph_d035_init_main",
+    "summary": "Big one-shot initialisation of the 0xD0350xxx register block, including two RAM buffer pointers",
+    "description": "Writes about 40 registers in the 0xD03500xx..0xD03503xx block: read-modify-write of fields (0xD0350214, 324, 210, 254, 0D0, 240, 300, 308, 340, 344, 370, 014) and direct writes of constants (0xD0350010=0x37100032, 004=0x02910055, 36C=0x04801000, 040=0x810115, 05C=0x014E1010, 120=0x00C80032, 2C0=0x00100087, 0E0=0x01FFFC85, 138=0x0FFF0FFF, 13C=0xFFF, 20C=0x1E011E1E, 018=2, 0D8=1). It also programs address registers 0xD03500E4..0xD0350100 with the RAM regions at 0x20000060 and 0x20004000 in several alias forms (0x10000060, 0x10004000, 0x08000060, 0x08004000, 0x80004000 ...) and two values 0x168174 / 0x5DC0C0 (about 6.144 MHz) into 0xD0350104/108. This looks like setup of a DMA/bus-master or audio/PCM-like peripheral with two buffers in SRAM, but the exact block is undocumented. Called from the init sequence 0x0c03cdfc.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Peripheral identity unknown; 0x5DC0C0 ~ 6.144 MHz suggests a clock-rate constant, and 0x20000060/0x20004000 are buffers."
+  },
+  "ble_219_0c03cd38": {
+    "name": "bes_periph_d033_config",
+    "summary": "Clear bit 7 of 0xD0330038 and set bit 18 / clear bit 5 of 0xD0330024",
+    "description": "Small read-modify-write on two registers in the 0xD033xxxx block: reg 0x38 bit 7 is cleared; reg 0x24 bit 5 is cleared and bit 18 is set. Called from 0x0c03bb70 (hardware bring-up). Purpose of the bits is unknown.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Undocumented block 0xD0330000."
+  },
+  "ble_219_0c03ce68": {
+    "name": "thumb2_encode_b_w",
+    "summary": "Build the 32-bit Thumb-2 B.W (T4) branch instruction from a site address and a target",
+    "description": "Computes offset = (target & ~1) - ((site + 4) & ~1) and encodes it as a wide unconditional branch: first halfword 0xF000 | S<<10 | imm10 in the low 16 bits and second halfword 0x9000 | J1<<13 | J2<<11 | imm11 in the high 16 bits (J1/J2 derived as NOT(I XOR S) from offset bits 23/22). The result can be stored directly as a little-endian 32-bit word at the patch site. Used by 0x0c03cec8 which installs ROM/flash code patches by overwriting a function entry with a branch to a new routine.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "address of the instruction being replaced"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "branch destination address"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "32-bit encoded B.W instruction (first halfword in low 16 bits)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03e480": {
+    "name": "lm_get_state_9bit",
+    "summary": "Return the low 9 bits of global DAT_20003ec0",
+    "description": "Returns DAT_20003ec0 & 0x1FF as a 16-bit value. The 9-bit mask suggests a Bluetooth-controller counter/index or a clock-offset like field (the BT clock slot counter is 9 bits in some places), but the variable is only read here. Called by 0x0c03c070.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u16",
+      "description": "DAT_20003ec0 masked with 0x1FF"
+    },
+    "confidence": "low",
+    "notes": "Meaning of DAT_20003ec0 not determined."
+  },
+  "ble_219_0c03e4c8": {
+    "name": "lm_env_defaults_init",
+    "summary": "Initialise controller default parameters in two small RAM tables",
+    "description": "Writes constants to an 8-byte table at 0x20003EAC..0x20003EB3 (0xFD, 0, 2, 6, 8, 8, 8, 8) and to a record at 0x2000BE0C..0x2000BE20 (be0c=0x100, be12=4, be15=8, be16=0x0608, be18=0x02060408, be1c=0xFD000002, low byte of be20=0xFD). The repeated values 8, 6 and 0xFD look like default packet-type/length or feature capability limits of a link-manager environment. Called once from 0x0c03e9fc (controller init).",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The structure semantics are unknown; the name is a guess based on its init-time role."
+  },
+  "ble_219_0c03ef58": {
+    "name": "bes_pack_two_14bit_fields",
+    "summary": "Pack two 14-bit values into a 32-bit register image and clear bit 31 of 0xD0350250",
+    "description": "Clears bit 31 of the hardware register 0xD0350250, then writes *param_1 bits [13:0] = param_2 & 0x3FFF and bits [29:16] = param_3 & 0x3FFF (leaving the other bits). The two writes to *param_1 are separate read-modify-writes, so param_1 is probably a memory-mapped register. Called from 0x0c03f1f4.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to the 32-bit register or word receiving the two fields"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "low field value (14 bits)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "high field value (14 bits)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Which peripheral (possibly a DMA or timer count/limit pair) is not known."
+  },
+  "ble_219_0c03f628": {
+    "name": "rtos_pendsv_trigger",
+    "summary": "Pend the PendSV exception to request a context switch",
+    "description": "Writes 0x10000000 (PENDSVSET, bit 28) to SCB->ICSR at 0xE000ED04, then DSB and ISB. This makes the PendSV handler run as soon as no higher-priority exception is active. Called from many RTOS primitives (semaphore/mutex/queue/timer/delay) in the 0x0c0428xx..0x0c0448xx range after a task becomes ready.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03f6c4": {
+    "name": "rtos_task_stack_init",
+    "summary": "Build the initial context frame on a new task stack and return the new stack pointer",
+    "description": "Takes the stack top in param_1 and writes a fake exception frame below it: hardware-stacked part xPSR=0x01000000 at -4, PC=param_3 (task entry) at -8, LR=0x0c03f5e8 (task-exit/return stub) at -0xC, R12=0x12121212, R3..R1=0x03030303/0x02020202/0x01010101, R0=param_4 (task argument) at -0x20. Below it come software-saved R11..R4 filled with the debugging patterns 0x11111111..0x04040404, the EXC_RETURN value 0xFFFFFFFD (return to thread mode on PSP) at -0x44 and param_2 at -0x48 (the per-task stack limit saved with the context). Returns top - 0x48, the value stored as the task's saved SP. Called from the task-create routine 0x0c043ba8; matches the layout of CMSIS-RTOS RTX osRtxThreadStack init for Cortex-M33.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "top of the task stack (address of first byte above the stack)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "value stored as the saved stack limit (PSPLIM)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "task entry function address (initial PC)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "argument passed to the task in R0"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "initial saved stack pointer (param_1 - 0x48)"
+    },
+    "confidence": "high",
+    "notes": "Identity of param_2 as stack limit is inferred from SVC_Handler, which loads PSPLIM from the first word of the TCB."
+  },
+  "ble_219_0c03f850": {
+    "name": "rtos_start_first_task",
+    "summary": "Reset MSP from the vector table, enable interrupts and trigger SVC #2 to start the scheduler",
+    "description": "Reads VTOR (0xE000ED08), loads the first word of the vector table (initial MSP) into MSP if privileged, enables IRQ and FIQ (CPSIE i/f), executes DSB/ISB, then issues SVC 2. Control never returns: the SVC handler (0x0c03f910) switches to the first task on PSP. Called from the scheduler start routine 0x0c043e70.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "does not return"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03f874": {
+    "name": "rtos_enter_critical",
+    "summary": "Raise BASEPRI to 0x40 and return the previous value (start of critical section)",
+    "description": "If in a privileged mode, reads the current BASEPRI, then sets BASEPRI to 0x40 (masking interrupts with priority value >= 0x40 while keeping higher-priority ones active), followed by DSB/ISB. Returns a 64-bit value whose low word is the previous BASEPRI (0 if unprivileged) and whose high word is 0x40; callers pass the low word to rtos_exit_critical. Used throughout RTOS code and the controller (callers include 0x0c03f640, 0x0c042eb4, 0x0c043658, 0x0c044914).",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "u64",
+      "description": "low 32 bits = previous BASEPRI, high 32 bits = new BASEPRI (0x40)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03f88c": {
+    "name": "rtos_exit_critical",
+    "summary": "Restore BASEPRI to a saved value (end of critical section)",
+    "description": "If privileged, writes param_1 into BASEPRI, then DSB and ISB. Counterpart of rtos_enter_critical; param_1 is the previous BASEPRI it returned. Called by the RTOS primitives after their critical sections.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "BASEPRI value to restore (as returned by rtos_enter_critical)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03f910": {
+    "name": "rtos_svc_handler",
+    "summary": "SVC exception handler: on SVC #2 switch to the first task using PSP and jump into it",
+    "description": "Selects MSP or PSP from EXC_RETURN bit 2, reads the stacked PC (frame+0x18) and checks that the SVC immediate byte at PC-2 equals 2; otherwise returns. For SVC 2 it sets CPACR (0xE000ED88) |= 0xF00000 (FPU access), FPCCR (0xE000EF34) |= 0xC0000000 (ASPEN/LSPEN lazy FP stacking), loads the TCB pointer from *DAT_2000cb8c, sets PSPLIM from TCB[0], switches thread mode to PSP, sets PSP = TCB + 0x28 and then calls the function pointer stored in TCB[1] with (PSP, 2), which restores the context and enters the first task. Vector-table entry SVC_Handler.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "does not normally return"
+    },
+    "confidence": "medium",
+    "notes": "Decompiler could not fully recover the final indirect jump; exact role of TCB[1] (context-restore routine) is inferred."
+  },
+  "ble_219_0c03f9d4": {
+    "name": "SEGGER_RTT_Init",
+    "summary": "Initialise the SEGGER RTT control block with one up and one down buffer",
+    "description": "Fills the control block at 0x2000BE30: ID string 'SEGGER RTT' (bytes 0x47474553 'SEGG', 0x5245 'ER', 0x20, 0x545452 'RTT'), MaxNumUpBuffers = MaxNumDownBuffers = 0xF. Up buffer 0 at 0x2000BE48: name pointer 0x0c07688c (name string in flash), buffer at 0x2000C138, size 0x400, WrOff/RdOff/Flags = 0. Down buffer 0 at 0x2000BFB0: same name, buffer 0x2000C118, size 0x20, offsets/flags 0. Matches SEGGER_RTT_Init / _DoInit from the SEGGER RTT library. Called from the RTT read/write/up-buffer functions (0x0c03fa40, 0x0c03fbf8, 0x0c03fc74, 0x0c03fcfc) as lazy init.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03fea0": {
+    "name": "util_return_zero_u64",
+    "summary": "Stub that returns 0 in r0/r1",
+    "description": "Contains only a move of 0 into the return registers and a return (declared as 64-bit return by the decompiler, so r1 is probably also 0). Called from 0x0c03ff38 and 0x0c04014c, which also call util_return_zero_u32. Likely a stub of a hook/callback (e.g. an unused lock, tick or hardware-query hook) in the runtime.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u64",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Purpose of the callers' hook is unknown; may be a stubbed-out lock/unlock or time function."
+  },
+  "ble_219_0c03fea8": {
+    "name": "util_return_zero_u32",
+    "summary": "Stub that returns 0",
+    "description": "Single move of 0 to r0 and return. Called from 0x0c03ff68 and 0x0c04014c alongside util_return_zero_u64, so it is a stubbed callback returning success/0.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Purpose of the callers' hook is unknown."
+  },
+  "ble_219_0c0403c8": {
+    "name": "hal_cmu_reset_get_state",
+    "summary": "Test whether the reset/gate bit of module id n is set in the 0x40000034.. status registers",
+    "description": "Maps a module id to a bit in a bank of registers: id < 0x20 -> 0x40000034 bit id; < 0x3B -> 0x4000003C bit id-0x20; < 0x5B -> 0x40000044 bit id-0x3B; < 0x67 -> 0x40000150 bit id-0x5B; < 0x91 -> 0x40080010 bit id-0x67; otherwise 0x400800C8 bit id-0x91. Returns true if that bit is set. These registers are the 'set' side of the pair written by hal_cmu_reset_set (0x0c040804) and cleared by hal_cmu_reset_clear (0x0c040890), so this reads the current software-reset assertion state of a peripheral. Called from 0x0c040934.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module/peripheral id (0..0x99)"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if the bit for that module is set"
+    },
+    "confidence": "medium",
+    "notes": "Naming follows the Bestechnic SDK CMU convention; register semantics (reset vs clock) are inferred from the set/clear register pattern and call sites."
+  },
+  "ble_219_0c040450": {
+    "name": "hal_cmu_select_pll_source",
+    "summary": "Record the active clock source index and program bits 18:17 of 0x40000070 inside a critical section",
+    "description": "Maps param_1 (0, 1, other) to a field value 0, 0x20000, 0x60000 and, under BASEPRI 0x40 (if not already in a critical section it stores the caller LR/address in DAT_20003d70/DAT_20003d74 for lock-owner debugging, and resets DAT_20003d70 to 0xFFFFFFFF on exit), stores param_1 in byte DAT_2000354D and updates 0x40000070 = (0x40000070 & 0xFFF9FFFF) | field. Restores BASEPRI and returns 0. Caller is 0x0c040cfc, which also calls hal_cmu_pll_release_user (0x0c0405f4).",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "clock-source / PLL index (0, 1, or any other value meaning 2)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "Interpretation as PLL source select is a guess from pairing with 0x0c0405f4; 0x40000070 semantic is not documented."
+  },
+  "ble_219_0c0405f4": {
+    "name": "hal_cmu_pll_release_user",
+    "summary": "Clear a user bit for clock source n and power it down when the last user is gone",
+    "description": "For param_1 = 0/1/other selects constants (0x1,0x4000,0x1 / 0x2,0x800,0x400 / 0x4,0x8000,0x20). Inside a BASEPRI 0x40 critical section (with the same DAT_20003d70/74 owner-debug bookkeeping as 0x0c040450) it clears bit param_2 in the per-source user mask byte DAT_20003d84[param_1] (param_2 == 5 forces release without checking). When the mask becomes 0 it writes the first constant to 0x400800A4 and, if DAT_2000354D equals param_1 (this source is the selected one), writes 0x20000 then 0x40000 to 0x40000064; otherwise writes the other two constants to 0x40080008. Returns 0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "clock source / PLL index (0, 1, other)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "user id bit to release (0..4); 5 releases unconditionally"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "Looks like a reference-counted clock/PLL disable; actual hardware identity of the registers is unknown."
+  },
+  "ble_219_0c040690": {
+    "name": "hal_cmu_clock_enable",
+    "summary": "Enable the clock/gate for module id n by writing its bit to a set register",
+    "description": "Returns 1 if id > 0x90. Otherwise writes 1 << (id - base) to the 'set' register of the matching bank: id < 0x20 -> 0x40000000; < 0x3B -> 0x40000008; < 0x5B -> 0x40000010; < 0x67 -> 0x40000140; else 0x40080040 (then dummy-reads 0x40080000 to flush the write). Returns 0 on success. The paired clear registers are +4 (see hal_cmu_clock_disable). Called by peripheral bring-up code at 0x0c0321f8, 0x0c0332b4, 0x0c034008 and 0x0c0458a6 together with hal_cmu_reset_clear.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module id (0..0x90)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 if the id is out of range"
+    },
+    "confidence": "medium",
+    "notes": "Clock gate interpretation is based on the Bestechnic CMU register convention (ENABLE/DISABLE pairs); not confirmed against documentation."
+  },
+  "ble_219_0c04070c": {
+    "name": "hal_cmu_clock_disable",
+    "summary": "Disable the clock/gate for module id n by writing its bit to a clear register",
+    "description": "Returns 1 if id > 0x90. Otherwise writes 1 << (id - base) to: 0x40000004 (id < 0x20), 0x4000000C (< 0x3B), 0x40000014 (< 0x5B), 0x40000144 (< 0x67) or 0x40080044 (else). These are the +4 counterparts of the registers used by hal_cmu_clock_enable. Returns 0 on success. Called at peripheral shutdown from 0x0c030a08, 0x0c031ea4 and 0x0c033acc.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module id (0..0x90)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 if the id is out of range"
+    },
+    "confidence": "medium",
+    "notes": "See hal_cmu_clock_enable regarding the interpretation."
+  },
+  "ble_219_0c040784": {
+    "name": "hal_cmu_clock_is_enabled",
+    "summary": "Return whether the clock/gate bit of module id n is currently set",
+    "description": "Returns false if id > 0x90. Otherwise reads the status register of the matching bank (0x40000000, 0x40000008, 0x40000010, 0x40000144, 0x40080040) and returns whether the bit (id - bank base) is set. Note the 4th bank is read at 0x40000144 (the clear register address) while hal_cmu_clock_enable writes 0x40000140, so this read-back address follows the hardware's status layout. Called from 0x0c033ca8 and 0x0c034008.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module id (0..0x90)"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if the module's clock bit reads set"
+    },
+    "confidence": "medium",
+    "notes": "Bank-4 read address (0x40000144) differs from the set register used by the enable function; may be a hardware quirk or a different register meaning."
+  },
+  "ble_219_0c040804": {
+    "name": "hal_cmu_reset_set",
+    "summary": "Assert (set) the reset bit of module id n",
+    "description": "Returns 1 if id > 0x99. Otherwise writes 1 << (id - base) to: 0x40000034 (id < 0x20), 0x4000003C (< 0x3B), 0x40000044 (< 0x5B), 0x40000150 (< 0x67), 0x40080010 (< 0x91) or 0x400800C8 (else). These registers are read back by hal_cmu_reset_get_state (0x0c0403c8) and cleared by hal_cmu_reset_clear (0x0c040890). Called at peripheral shutdown (0x0c02ed80, 0x0c030a08, 0x0c031ea4, 0x0c033acc) together with the clock disable.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module id (0..0x99)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 if the id is out of range"
+    },
+    "confidence": "medium",
+    "notes": "Reset semantics inferred from call pairing (set on shutdown, clear on start-up with clock enable)."
+  },
+  "ble_219_0c040890": {
+    "name": "hal_cmu_reset_clear",
+    "summary": "Release (clear) the reset bit of module id n",
+    "description": "Returns 1 if id > 0x99. Otherwise writes 1 << (id - base) to the clear-side registers: 0x40000038 (id < 0x20), 0x40000040 (< 0x3B), 0x40000048 (< 0x5B), 0x40000154 (< 0x67), 0x40080014 (< 0x91) or 0x400800CC (else); for the last two banks it also dummy-reads 0x40080000 to flush the write. Counterpart to hal_cmu_reset_set. Called at peripheral start-up from 0x0c0321f8, 0x0c0332b4, 0x0c034008, 0x0c040934 and 0x0c0458a6.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "module id (0..0x99)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 if the id is out of range"
+    },
+    "confidence": "medium",
+    "notes": "Reset semantics inferred from call pairing."
+  }
+}

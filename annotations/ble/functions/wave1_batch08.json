@@ -1,0 +1,565 @@
+{
+ "ble_219_0c0581f0": {
+  "name": "ble_ctrl_get_sanitized_setting_20004344",
+  "summary": "Return the byte at 0x20004344, forcing it to 0x0e unless it is 0x0e or 0x10",
+  "description": "Reads the 8-bit global at 0x20004344. If its value is neither 0x0e nor 0x10 it is overwritten with the default 0x0e, then the (possibly corrected) value is returned. Acts as a validated getter for a two-valued configuration byte (14 or 16); the meaning (possibly a length/power/mode selector) is not evident from this function alone. Called from ble_219_0c056a50.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "0x0e or 0x10"
+  },
+  "confidence": "low",
+  "notes": "Semantics of the 0x0e/0x10 setting not determined."
+ },
+ "ble_219_0c05844c": {
+  "name": "ble_cb_slot_130dc_set",
+  "summary": "Store a value (likely a callback pointer) into global 0x200130dc",
+  "description": "Trivial setter: writes param_1 to the 32-bit global DAT_200130dc. It is called only from ble_219_0c0297b0, which also registers several other slots (0x20014600/04/08/0c/10.., 0x20015e5c), so the value is most likely a callback function pointer installed during init.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value/callback pointer to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0591e4": {
+  "name": "ble_link_get_byte_200134a4",
+  "summary": "Return the byte at 0x200134a4",
+  "description": "Trivial getter returning the 8-bit global DAT_200134a4, located just before the 0x200134bc link/connection table. Its purpose is not clear from the code; sole caller is ble_219_0c0598b8.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "value of DAT_200134a4"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c059390": {
+  "name": "ble_state_is_0x110",
+  "summary": "Test whether the 32-bit state word at 0x200145b0 equals 0x110",
+  "description": "Returns true when the global at 0x200145b0 (read as a 32-bit word) equals 0x110. Companion of ble_219_0c05a198 which tests the same word against 0x102. Used by ble_219_0c0572c0, ble_219_0c0573c4 and ble_219_0c05741c as a mode/variant check.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "1 if _DAT_200145b0 == 0x110"
+  },
+  "confidence": "medium",
+  "notes": "The word looks like a configuration/chip-variant or state code; exact meaning unknown."
+ },
+ "ble_219_0c059558": {
+  "name": "ble_link_table_get_base",
+  "summary": "Return the address of the link/connection table base at 0x200134bc",
+  "description": "Returns the constant pointer &DAT_200134bc. The structure at this address has a 0x30-byte header; the entry count byte lives at 0x200134ec and the 20-byte entries start at 0x200134ed (first byte of each entry is a lookup key, see ble_link_table_find_by_key). Called from ten functions including ble_219_0c056a50, ble_219_0c0572c0 and ble_219_0c05a91c.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the table base"
+  },
+  "confidence": "medium",
+  "notes": "Interpretation as a connection/link table is inferred from the access pattern."
+ },
+ "ble_219_0c0597f0": {
+  "name": "ble_link_table_find_by_key",
+  "summary": "Find the table entry whose key byte matches and return its pointer",
+  "description": "Looks up param_1 in the table at 0x200134bc: the count is the byte at 0x200134ec; if zero returns NULL. Otherwise it scans entries (stride 0x14 bytes starting at 0x200134ed) comparing the first byte of each entry (offset 0x31 from the table base) with param_1 and returns &entry (0x200134ed + 20*i) on a match, or NULL when none matches. Heavily used (callers in many modules).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "key byte to search for (e.g. link/connection id)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the matching 20-byte entry, or NULL"
+  },
+  "confidence": "medium",
+  "notes": "Key is likely a link/connection handle or index."
+ },
+ "ble_219_0c059884": {
+  "name": "ble_link_table_find_index_by_key",
+  "summary": "Return the index of the table entry with the given key, or 0xff",
+  "description": "Same linear scan as ble_link_table_find_by_key (count at 0x200134ec, 20-byte entries from 0x200134ed, key = first byte) but returns the zero-based index (masked to 8 bits) of the first matching entry, or 0xff if the table is empty or no entry matches. Only caller is ble_219_0c057d9c.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "key byte to search for"
+   }
+  ],
+  "returns": {
+   "type": "u8",
+   "description": "entry index, or 0xff if not found"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059e9c": {
+  "name": "ble_state_change_notify",
+  "summary": "Update the state byte at 0x20004970 and notify the registered callbacks",
+  "description": "Ignores param_1 values 2 and 3 and any value equal to the current state in DAT_20004970. Otherwise stores the new state and walks the four-entry callback array at 0x20014610..0x20014620: for param_1==1 each non-NULL callback is invoked with argument 1, for param_1==0 each is invoked with argument 2. Callbacks are installed with ble_state_cb_register. No direct callers (invoked via function pointer / event).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "new state: 0 or 1 (2 and 3 are ignored)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Likely a BT enable/disable (or link up/down) event fan-out; exact event not confirmed."
+ },
+ "ble_219_0c059ee8": {
+  "name": "ble_cb_slot_14600_set",
+  "summary": "Store a 32-bit value into global 0x20014600",
+  "description": "Trivial setter: writes param_1 to the 32-bit global at 0x20014600. Value (likely a callback pointer) to store. Called from ble_219_0c0297b0 (a registration/init routine that also programs several sibling slots).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "Value (likely a callback pointer) to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059ef4": {
+  "name": "ble_cb_slot_14604_set",
+  "summary": "Store a 32-bit value into global 0x20014604",
+  "description": "Trivial setter: writes param_1 to the 32-bit global at 0x20014604. Value (likely a callback pointer) to store. Called from ble_219_0c0297b0 (a registration/init routine that also programs several sibling slots).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "Value (likely a callback pointer) to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059f00": {
+  "name": "ble_cb_slot_1460c_set",
+  "summary": "Store a 32-bit value into global 0x2001460c",
+  "description": "Trivial setter: writes param_1 to the 32-bit global at 0x2001460c. Value (likely a callback pointer) to store. Called from ble_219_0c0297b0 (a registration/init routine that also programs several sibling slots).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "Value (likely a callback pointer) to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059f0c": {
+  "name": "ble_state_cb_register",
+  "summary": "Install a callback into one of four notification slots at 0x20014610",
+  "description": "Bounds-checks param_2 < 4 and, if valid, stores param_1 into the pointer array at 0x20014610 at index param_2; out-of-range indexes are silently ignored. The array is traversed by ble_state_change_notify. Called from ble_219_0c0297b0 during init.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "callback function pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "slot index 0..3"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059f1c": {
+  "name": "ble_cb_slot_14608_set",
+  "summary": "Store the callback pointer used by ble_event_count_reached_check",
+  "description": "Writes param_1 to the 32-bit global DAT_20014608. That global is called as a function in ble_219_0c05a11c with a pointer to a small stack buffer which it fills in, so param_1 is a callback taking a pointer to an info structure. Callers: ble_219_0c02973c and ble_219_0c0297b0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "callback function pointer"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059f28": {
+  "name": "ble_event_counters_clear",
+  "summary": "Zero the four counter/flag bytes at 0x20004317, 0x2000431d, 0x20004318, 0x2000431c",
+  "description": "Clears the four 8-bit globals DAT_20004317, DAT_2000431d, DAT_20004318 and DAT_2000431c. 0x20004317 is the running counter compared against threshold 0x20004316 in ble_event_count_reached_check; the others appear to be sibling counters/flags. No direct callers (entry point or invoked via pointer).",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c059f5c": {
+  "name": "ble_ctx_get_base_20014580",
+  "summary": "Return the address of the context structure at 0x20014580",
+  "description": "Returns the constant pointer &DAT_20014580 (RAM structure beginning at 0x20014580; the neighbouring globals 0x20014600..0x20014620 are callback slots). Called from ble_219_0c056a50, ble_219_0c056dd0 and ble_219_0c0585a4.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to 0x20014580"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05a11c": {
+  "name": "ble_event_count_reached_check",
+  "summary": "Check whether enough events have been counted and report which kind via *param_1",
+  "description": "Gated by bits 0 and 3 of the flags byte at 0x200042fc (returns 0 if both clear) and by a non-zero byte at 0x20004300. If flag bit 3 is set and threshold 0x2000432f is non-zero and <= counter 0x20004330, it sets *param_1=0 and returns 1. Otherwise it calls the callback in 0x20014608 with a small stack buffer, then (only if flag bit 0 is set) requires byte 3 of that buffer to equal 4 and threshold 0x20004316 non-zero and <= counter 0x20004317, in which case *param_1=1 and it returns 1. In every other case it returns 0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "out: byte set to 0 or 1 identifying which condition was met"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if a threshold has been reached, else 0"
+  },
+  "confidence": "low",
+  "notes": "Purpose of the two threshold/counter pairs (possibly link-quality or sniff/sleep event counting) is a guess."
+ },
+ "ble_219_0c05a198": {
+  "name": "ble_state_is_0x102",
+  "summary": "Test whether the state word at 0x200145b0 equals 0x102",
+  "description": "Returns true when the 32-bit global at 0x200145b0 equals 0x102. Sibling of ble_state_is_0x110 and used by the same callers (ble_219_0c0572c0, ble_219_0c0573c4, ble_219_0c05741c).",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "1 if _DAT_200145b0 == 0x102"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of the 0x102/0x110 values unknown."
+ },
+ "ble_219_0c05a9a4": {
+  "name": "ble_pending_param_store",
+  "summary": "Latch a parameter pair and set a valid flag when param_1 == 2, else clear the flag",
+  "description": "If param_1 is not 2, clears the flag byte at 0x200145f8. If it is 2, stores param_2 into the 32-bit slot 0x200145f4, param_3 into byte 0x200145f9, and sets the flag at 0x200145f8 to 1. Only caller is ble_219_0c0585a4, which presumably consumes the latched values later.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "event/mode selector; only the value 2 latches the data"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "32-bit value to latch"
+   },
+   {
+    "name": "param_3",
+    "type": "u8",
+    "description": "byte value to latch"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05a9c0": {
+  "name": "ble_hook_noop_05a9c0",
+  "summary": "Empty hook, returns immediately",
+  "description": "Single-instruction function (bx lr) with no side effects. It is called from about ten places across the controller code, so it is most likely a stubbed-out debug/trace or optional-feature hook.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05a9e4": {
+  "name": "bt_bdaddr_reverse_inplace",
+  "summary": "Reverse the byte order of a 6-byte Bluetooth device address in place",
+  "description": "Copies the six bytes at param_1 in reverse order into a local buffer and then writes the 6 bytes back over the original (a 4-byte + 2-byte store), converting between little- and big-endian BD_ADDR representations. Equivalent to BTstack's reverse_bd_addr but operating in place. Called from ble_219_0c0581a8 and ble_219_0c05a8a0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "pointer to a 6-byte BD_ADDR, modified in place"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c05adfc": {
+  "name": "ble_cb_slot_15e5c_set",
+  "summary": "Store a 32-bit value into global 0x20015e5c",
+  "description": "Trivial setter: writes param_1 to the 32-bit global at 0x20015e5c. Value (likely a callback pointer) to store. Called from ble_219_0c02973c and ble_219_0c0297b0 (a registration/init routine that also programs several sibling slots).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "Value (likely a callback pointer) to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05ae08": {
+  "name": "ble_cb_slot_15f28_set",
+  "summary": "Store a 32-bit value into global 0x20015f28",
+  "description": "Trivial setter: writes param_1 to the 32-bit global at 0x20015f28. Value (likely a callback pointer) to store. Called from ble_219_0c02bdd0 (a registration/init routine that also programs several sibling slots).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "Value (likely a callback pointer) to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05b670": {
+  "name": "ble_rom_table_get_0c0810e0",
+  "summary": "Return the address of the constant data block at 0x0c0810e0",
+  "description": "Returns the constant pointer &DAT_0c0810e0, an address inside the flash image (read-only data). Pure address accessor, used by ble_219_0c0592a4 to reach that table; its contents were not analysed here.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to flash data at 0x0c0810e0"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05b71c": {
+  "name": "ble_rom_table_get_0c07fe00",
+  "summary": "Return the address of the constant data block at 0x0c07fe00",
+  "description": "Returns the constant pointer &DAT_0c07fe00 (flash read-only data). Pure address accessor used by ble_219_0c05b67c, which also uses the neighbouring pointer-table accessors at 0x0c05d48c and 0x0c05d4a4.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to flash data at 0x0c07fe00"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05c2fc": {
+  "name": "ble_peer_bdaddr_cache_set",
+  "summary": "Cache a 6-byte address at 0x20004977 and mark it valid",
+  "description": "Copies 6 bytes from param_1 (a 4-byte word followed by a 2-byte halfword) to the unaligned RAM bytes 0x20004977..0x2000497c and sets the valid flag at 0x20004976 to 1. The data looks like a Bluetooth device address; callers ble_219_0c052ec0, ble_219_0c052f28 and ble_219_0c052fb0 are likely HCI/LL command handlers.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "pointer to a 6-byte address (u32 + u16)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05c920": {
+  "name": "ble_active_idx_set",
+  "summary": "Store the byte at 0x20004992",
+  "description": "Writes param_1 to the 8-bit global DAT_20004992. This global is cleared to 0xff (invalid) by ble_active_idx_clear_if_match and read by ble_active_idx_get, so it holds a link/connection index or handle. No direct callers (invoked indirectly).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "index/handle to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05c92c": {
+  "name": "ble_active_idx_clear_if_match",
+  "summary": "Reset 0x20004992 to 0xff if it equals param_1",
+  "description": "Compares the byte DAT_20004992 with param_1 and, when equal, writes 0xff (the 'none' marker). Used to release the stored active index when the matching link goes away. No direct callers.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "index/handle to release"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cafc": {
+  "name": "ble_active_idx_get",
+  "summary": "Return the byte at 0x20004992",
+  "description": "Trivial getter returning the stored active link index (0xff means none). No direct callers.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "stored index, 0xff if none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cb88": {
+  "name": "ble_counter_20012344_step",
+  "summary": "Increment the counter at 0x20012344 and reset it to 0 if below 11",
+  "description": "Increments the global DAT_20012344 and, if the result is less than 0xb, sets it back to 0, exactly as decompiled. The condition looks inverted for a wrap-at-11 counter, so either the decompiler mangled the comparison or the counter semantics are unusual. Called from the four similar functions ble_219_0c0540f4, 0c054180, 0c05420c and 0c054298.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Condition may be a decompilation artifact (unsigned vs signed compare); verify against disassembly."
+ },
+ "ble_219_0c05cba8": {
+  "name": "ble_hook_noop_05cba8",
+  "summary": "Empty hook, returns immediately",
+  "description": "Single-instruction function (bx lr) with no effect. Its only caller is ble_219_0c053d04; likely a stubbed optional callback or debug hook.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cbc0": {
+  "name": "ble_hook_noop_05cbc0",
+  "summary": "Empty hook, returns immediately",
+  "description": "Single-instruction function (bx lr) with no effect. Its only caller is ble_219_0c0537b4; likely a stubbed optional callback or debug hook.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cec4": {
+  "name": "ble_hook_noop_05cec4",
+  "summary": "Empty hook, returns immediately",
+  "description": "Single-instruction function (bx lr) with no effect. Its only caller is ble_219_0c02a8f8; likely a stubbed optional callback or debug hook.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cf04": {
+  "name": "ble_flag_20017114_set",
+  "summary": "Store the byte at 0x20017114",
+  "description": "Trivial setter writing param_1 to the 8-bit global DAT_20017114. Its getter is ble_flag_20017114_get; the setter is called from ble_219_0c055b90 and the getter from ble_219_0c02a8f8.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05cf10": {
+  "name": "ble_flag_20017114_get",
+  "summary": "Return the byte at 0x20017114",
+  "description": "Trivial getter returning the 8-bit global DAT_20017114 written by ble_flag_20017114_set. Called from ble_219_0c02a8f8.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "stored value"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05d48c": {
+  "name": "ble_rom_ptr_table_get_0c07ffac",
+  "summary": "Return the address of the pointer table at 0x0c07ffac",
+  "description": "Returns the constant address 0x0c07ffac (symbol PTR_LAB_0c05d1f0_1_0c07ffac), a table of code pointers in the flash image. Pure accessor used by ble_219_0c05b67c.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the table at 0x0c07ffac"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05d4a4": {
+  "name": "ble_rom_ptr_table_get_0c0800b4",
+  "summary": "Return the address of the pointer table at 0x0c0800b4",
+  "description": "Returns the constant address 0x0c0800b4 (symbol PTR_LAB_0c05d3a4_1_0c0800b4), a table of code pointers in the flash image. Pure accessor used by ble_219_0c05b67c.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the table at 0x0c0800b4"
+  },
+  "confidence": "low"
+ }
+}

@@ -1,0 +1,706 @@
+{
+ "ble_219_0c065b38": {
+  "name": "co_read16_le",
+  "summary": "Read unaligned little-endian u16 from base+offset",
+  "description": "Returns (base[offset+1] << 8) | base[offset], i.e. an unaligned little-endian 16-bit load done bytewise. Equivalent of the RivieraWaves co_read16p() helper. Heavily used by the L2CAP/LL PDU parsers (for example the LL_CONNECTION_PARAM_REQ handler reads the interval/latency/timeout fields with it).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset added to base"
+   }
+  ],
+  "returns": {
+   "type": "u16",
+   "description": "value read, little-endian"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065b44": {
+  "name": "co_read32_le",
+  "summary": "Read unaligned little-endian u32 from base+offset",
+  "description": "Returns b[0] | b[1]<<8 | b[2]<<16 | b[3]<<24 from base+offset using four byte loads (unaligned-safe little-endian 32-bit read, like co_read32p). No callers are listed directly in the call graph, so it is probably reached through a table or tail call.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "value read, little-endian"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065b60": {
+  "name": "co_write16_le",
+  "summary": "Write u16 little-endian to base+offset",
+  "description": "Stores the low byte of param_3 at base[offset] and bits 15..8 at base[(offset+1) & 0xffff]. The offset of the second byte is truncated to 16 bits, so the helper is meant for offsets inside a small PDU/buffer. Counterpart of co_read16_le (RW co_write16p style).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   },
+   {
+    "name": "param_3",
+    "type": "u16",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065b70": {
+  "name": "co_write32_le",
+  "summary": "Write u32 little-endian to base+offset",
+  "description": "Stores param_3 as four bytes LSB first at base[offset..offset+3]; each of the byte offsets after the first is computed as (offset+k) & 0xffff. Counterpart of co_read32_le.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065b94": {
+  "name": "co_read16_be",
+  "summary": "Read unaligned big-endian u16 from base+offset",
+  "description": "Returns (base[offset] << 8) | base[offset+1]. Network-order (ATT/L2CAP-style big-endian) 16-bit load, used by many parsers/serializers of byte-swapped fields.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   }
+  ],
+  "returns": {
+   "type": "u16",
+   "description": "value read, big-endian"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065ba0": {
+  "name": "co_read32_be",
+  "summary": "Read unaligned big-endian u32 from base+offset",
+  "description": "Returns b[0]<<24 | b[1]<<16 | b[2]<<8 | b[3] from base+offset using four byte loads.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "value read, big-endian"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065bbc": {
+  "name": "co_write16_be",
+  "summary": "Write u16 big-endian to base+offset",
+  "description": "Stores bits 15..8 of param_3 at base[offset] and the low byte at base[(offset+1) & 0xffff] (most-significant byte first).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   },
+   {
+    "name": "param_3",
+    "type": "u16",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065bcc": {
+  "name": "co_write32_be",
+  "summary": "Write u32 big-endian to base+offset",
+  "description": "Stores param_3 as four bytes MSB first at base[offset..offset+3]; byte offsets after the first are wrapped with & 0xffff.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte offset"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065bf8": {
+  "name": "co_reverse_copy_n",
+  "summary": "Copy n bytes from src to dst reversed",
+  "description": "If param_3 > 0, copies param_3 bytes from param_1 to param_2 in reverse order (dst[n-1-i] = src[i]). Returns immediately for n <= 0. Used to flip endianness of variable-length fields (keys, addresses, UUIDs) when moving them between host and controller byte order.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "number of bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c10": {
+  "name": "co_reverse_copy_7",
+  "summary": "Copy 7 bytes from src to dst in reversed order",
+  "description": "Fixed-size byte-reversal copy: dst[6-i] = src[i] for i in 0..6, implemented as a do-while loop with no length guard. Used to convert between little-endian wire order and big-endian (most-significant-first) order for 7-byte values (for example a 6-byte address plus a type byte). No globals are touched.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer (must not overlap)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065c24": {
+  "name": "co_reverse_copy_8",
+  "summary": "Copy 8 bytes from src to dst in reversed order",
+  "description": "Fixed-size byte-reversal copy: dst[7-i] = src[i] for i in 0..7, implemented as a do-while loop with no length guard. Used to convert between little-endian wire order and big-endian (most-significant-first) order for 8-byte values such as random numbers, LTKs fragments or 64-bit identifiers. No globals are touched.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer (must not overlap)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c38": {
+  "name": "co_reverse_copy_16",
+  "summary": "Copy 16 bytes from src to dst in reversed order",
+  "description": "Fixed-size byte-reversal copy: dst[15-i] = src[i] for i in 0..15, implemented as a do-while loop with no length guard. Used to convert between little-endian wire order and big-endian (most-significant-first) order for 16-byte values such as AES keys, LTK/IRK and 128-bit UUIDs. No globals are touched.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer (must not overlap)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c4c": {
+  "name": "co_reverse_copy_32",
+  "summary": "Copy 32 bytes from src to dst in reversed order",
+  "description": "Fixed-size byte-reversal copy: dst[31-i] = src[i] for i in 0..31, implemented as a do-while loop with no length guard. Used to convert between little-endian wire order and big-endian (most-significant-first) order for 32-byte values such as the P-256 public key coordinates / DH key (LE Secure Connections). No globals are touched.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer (must not overlap)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065c60": {
+  "name": "co_reverse_copy_6",
+  "summary": "Copy 6 bytes from src to dst in reversed order",
+  "description": "Fixed-size byte-reversal copy: dst[5-i] = src[i] for i in 0..5, implemented as a do-while loop with no length guard. Used to convert between little-endian wire order and big-endian (most-significant-first) order for 6-byte Bluetooth device addresses (BD_ADDR). No globals are touched.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "destination buffer (must not overlap)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c74": {
+  "name": "co_min_u32",
+  "summary": "Unsigned minimum of two values",
+  "description": "Returns param_2 if param_2 <= param_1, else param_1 (unsigned compare). Plain min() helper, called from many length-limit computations in the stack.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "first value"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "second value"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "smaller of the two"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c7c": {
+  "name": "co_max_u32",
+  "summary": "Unsigned maximum of two values",
+  "description": "Returns param_2 if param_1 < param_2, else param_1 (unsigned compare). Plain max() helper.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "first value"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "second value"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "larger of the two"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065c84": {
+  "name": "util_sub_s32",
+  "summary": "Return param_1 - param_2",
+  "description": "Two-instruction signed subtraction wrapper. Called from three neighbouring functions (0c065908, 0c06595c, 0c065a0c), probably as a comparator/delta callback (for example comparing timestamps or sort keys); its exact use is not visible from the function itself.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "minuend"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "subtrahend"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "param_1 - param_2"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065cdc": {
+  "name": "util_nop_stub_a",
+  "summary": "Empty stub function (returns immediately)",
+  "description": "Body is a single return instruction. Likely a compiled-out debug/trace hook or an unused callback placeholder; called from stack functions such as 0c04ceb8, 0c051eb8 and 0c068da8 without effect.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065ce0": {
+  "name": "util_nop_stub_b",
+  "summary": "Empty stub function (returns immediately)",
+  "description": "Body is a single return instruction. A second no-op placeholder (distinct address, different callers than util_nop_stub_a), most probably a stubbed-out trace/assert macro in the build.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065ce4": {
+  "name": "uuid_add_bluetooth_prefix",
+  "summary": "Expand a 32-bit UUID into a 128-bit Bluetooth Base UUID",
+  "description": "Writes a 16-byte big-endian UUID into param_1: bytes 0..3 are param_2 MSB first, followed by the constant tail 00 00 10 00 80 00 00 80 5F 9B 34 FB (words 0x100000, 0x80000080, 0xfb349b5f stored little-endian). That yields xxxxxxxx-0000-1000-8000-00805F9B34FB, the Bluetooth Base UUID. Matches BTstack's uuid_add_bluetooth_prefix(); always returns 0 here. Called from the ATT database code (0c04c680, 0c04c914) when comparing/serializing 16/32-bit UUIDs.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "16-byte output buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "16- or 32-bit short UUID value"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065dc0": {
+  "name": "co_popcount32",
+  "summary": "Count set bits in a 32-bit word",
+  "description": "Classic SWAR population count: sums bits in pairs (0x55555555), nibbles (0x33333333), bytes (0x0f0f0f0f), then 16-bit halves, and returns the total 0..32. The only caller (0c06bc74) most likely counts used channels in a channel map.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "word to count"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "number of set bits, 0..32"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065df8": {
+  "name": "ll_env_run_stop_hooks",
+  "summary": "Invoke controller hooks then clear status byte 0x198",
+  "description": "Uses env = DAT_200190d0 (link-layer/controller environment pointer). Calls the function at offset 0xc of the callback table pointed to by env[0]; then, if env[3] (offset 0xc) is non-NULL and the object it points to has a non-NULL function pointer at offset 8, calls that as well. Finally clears the byte at env+0x198. Looks like a stop/reset sequence: notify the registered handlers and clear a state flag. Called from 0c0674e8, 0c068da8, 0c06b048.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Exact meaning of env offsets 0xc and 0x198 not determined; semantics inferred from structure only."
+ },
+ "ble_219_0c065e8c": {
+  "name": "ll_env_reset_defaults",
+  "summary": "Reset link-layer environment runtime fields to defaults",
+  "description": "With env = DAT_200190d0: sets env+0x5c = 0x9e8b33 (0x9e8b33 is the Bluetooth General Inquiry Access Code LAP), zeroes env+0x14 (word), bytes at 0x170, 0x1d5, 0x46, word 0x1dd, half 0x1e1, byte 0x1e3, clears bit1 of byte 0x21f, sets env+0x50 = 0x6000 and env+0x48 = 0x9f. If bit0 of the old 0x21f byte was set it sets bit2 of byte 0x1f8, and if word 0x1fc is non-zero it sets bit0 of byte 0x1f8. Called from 0c066dfc and 0c0674e8 (init/reset paths).",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "0x9e8b33 is the Bluetooth general inquiry access code LAP (GIAC), which hints this env also covers BR/EDR; field roles beyond that are guesses."
+ },
+ "ble_219_0c065fbc": {
+  "name": "ll_link_get_level",
+  "summary": "Classify a link/device record into level 0..4",
+  "description": "Returns 0 if param_1 is NULL. Otherwise requires (u16 at +0x68 & 0x3000) == 0x3000 and byte +0x16 >= byte at DAT_200190d0+0x52 (a configured threshold), else 0. Then switches on the s16 at +0x28: value 5 -> 3; value 8 -> 3 if byte +0x16 < 0x10 else 4; value 0 -> 3; any other value -> 2. Result is a small ranking (0 = not eligible, 2..4 = tiers). Callers 0c068da8 and 0c06b374 use it as a selection/priority criterion.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "link/connection record, may be NULL"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 = not eligible, 2, 3 or 4"
+  },
+  "confidence": "low",
+  "notes": "Semantics of the +0x16/+0x28/+0x68 fields are unknown; this is a structural description only."
+ },
+ "ble_219_0c0664e8": {
+  "name": "ll_get_conn_param_range",
+  "summary": "Copy 12-byte connection-parameter acceptance range",
+  "description": "Copies three words from the controller environment (DAT_200190d0 + 0x1ec, 0x1f0, 0x1f4) into the 12-byte buffer at param_1. The 12 bytes are six u16 limits that ll_conn_params_in_range() consumes. Used by the LL_CONNECTION_PARAM_REQ handler (0c06dc56, control opcode 0x12).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "12-byte output buffer (6 x u16)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066508": {
+  "name": "ll_conn_params_in_range",
+  "summary": "Check requested connection parameters against allowed range",
+  "description": "param_1 points to six u16 limits: [0] and [1] bound the interval, [2],[3] bound latency, [4],[5] bound the supervision timeout. Returns true only if lim[0] <= param_2 and param_3 <= lim[1] (interval min/max), lim[2] <= param_4 <= lim[3] (slave latency), and lim[4] <= param_5 <= lim[5] (timeout). In the caller (LL_CONNECTION_PARAM_REQ, opcode 0x12) param_2..5 are the u16 fields read at PDU offsets 4,6,8,10, and a false result sets reject-reason byte 4 in the link record.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "six u16 limits obtained from ll_get_conn_param_range"
+   },
+   {
+    "name": "param_2",
+    "type": "u16",
+    "description": "requested minimum interval"
+   },
+   {
+    "name": "param_3",
+    "type": "u16",
+    "description": "requested maximum interval"
+   },
+   {
+    "name": "param_4",
+    "type": "u16",
+    "description": "requested slave latency"
+   },
+   {
+    "name": "param_5",
+    "type": "u16",
+    "description": "requested supervision timeout"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if all parameters are within limits"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066618": {
+  "name": "ll_hook_call_0x14",
+  "summary": "Call optional external hook at table offset 0x14",
+  "description": "If the pointer at DAT_200190d0+0x10 (an external callback table) is non-NULL, tail-calls the function pointer at offset 0x14 of that table with no arguments; otherwise returns. The decompiler could not recover the indirect jump. Callers: 05741c, 05a53c, 05a804, 06d9b0.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066698": {
+  "name": "ll_hook_call_0x18",
+  "summary": "Call optional external hook at table offset 0x18",
+  "description": "If the table pointer at DAT_200190d0+0x10 is non-NULL and its function pointer at offset 0x18 is non-NULL, tail-calls it and returns its result; otherwise returns 0.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "hook result, or 0 if absent"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0666b0": {
+  "name": "ll_hook_call_0x1c",
+  "summary": "Call optional external hook at table offset 0x1c",
+  "description": "If the table pointer at DAT_200190d0+0x10 is non-NULL, tail-calls the (unchecked) function pointer at offset 0x1c and returns its result; otherwise returns 0.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "hook result, or 0 if no table"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0666d0": {
+  "name": "ll_hook_call_0x20",
+  "summary": "Call optional external hook at table offset 0x20",
+  "description": "If the table pointer at DAT_200190d0+0x10 is non-NULL, tail-calls the function pointer at offset 0x20 with no arguments; otherwise returns. Sibling of ll_hook_call_0x14/0x18/0x1c; all four are called from the same area (0c05a4a8, 0c05741c ...).",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066978": {
+  "name": "ll_env_is_ready",
+  "summary": "Check whether controller env permits the operation",
+  "description": "With env = DAT_200190d0: returns false if byte env+0x170 is non-zero. Otherwise, if the callback table at env[0] has a function at offset 0x14 it must return non-zero when called with argument 1 (otherwise false); if no such function exists the check passes. When all checks pass, returns (byte env+0x177 != 0). Used as a gate in 0c051eb8, 065038, 067178, 0674e8 and 06cdb8.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true when allowed and flag at +0x177 is set"
+  },
+  "confidence": "low",
+  "notes": "Names of the flags at env+0x170 and +0x177 not known; the 0x170 byte is also cleared by ll_env_clear_flag_170."
+ },
+ "ble_219_0c066a94": {
+  "name": "ll_env_has_free_slot",
+  "summary": "Check whether another link slot is available",
+  "description": "With env = DAT_200190d0: first, if the callback table at env[0] has a function at offset 0x14, calls it with 3 and returns false if it returns 0. If the string pointed to by table[0] begins with 'H','2' the function returns byte env+0x187. Otherwise it walks the linked list at env[5] (each node: next pointer at +0). If byte env+0x17e is 0 it counts nodes whose byte +0xc is 0xfc and byte +0x56 is non-zero; if it is non-zero it sums byte +0x194 over nodes whose byte +0xc is 0xfc and compares against byte env+0x17c, returning false when the sum exceeds it and otherwise using the difference. Returns count > 0 (or remaining capacity > 0). Sole caller is 0c066b20.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true if at least one slot/resource remains"
+  },
+  "confidence": "low",
+  "notes": "Looks like a connection/resource availability check but the node type 0xfc and the 'H2' string are not understood."
+ },
+ "ble_219_0c066bd8": {
+  "name": "ll_env_get_flag_170",
+  "summary": "Return byte at controller env offset 0x170",
+  "description": "Returns *(u8 *)(DAT_200190d0 + 0x170). This byte is cleared by ll_env_clear_flag_170 and ll_env_reset_defaults, and tested by ll_env_is_ready (non-zero blocks it). Callers: 05806c, 06d5dc, 06ed64.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "flag value"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066c1c": {
+  "name": "ll_env_clear_flag_170",
+  "summary": "Clear byte at controller env offset 0x170",
+  "description": "Writes 0 to *(u8 *)(DAT_200190d0 + 0x170). Setter counterpart of ll_env_get_flag_170. Callers: 05806c and 06d5d8.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c066cf4": {
+  "name": "ll_env_get_u16_196",
+  "summary": "Return u16 at controller env offset 0x196",
+  "description": "Returns *(u16 *)(DAT_200190d0 + 0x196). Simple getter; sole caller is 0c06cdb8. Field meaning unknown.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u16",
+   "description": "value of env field at +0x196"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c066d04": {
+  "name": "ll_env_get_u32_68",
+  "summary": "Return u32 at controller env offset 0x68",
+  "description": "Returns *(u32 *)(DAT_200190d0 + 0x68). Simple getter used by 0c06c7ac, 06cb3c, 06d5c8, 06d5dc, 06d648, 06ed64. Field meaning unknown.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "value of env field at +0x68"
+  },
+  "confidence": "low"
+ }
+}

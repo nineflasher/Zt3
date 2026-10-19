@@ -1,0 +1,577 @@
+{
+ "ble_219_0c0409e4": {
+  "name": "bes_cmu_reg5c_clear_bit9",
+  "summary": "Clear bit 9 of peripheral register 0x4000005c under BASEPRI lock",
+  "description": "Read-modify-write of 0x4000005c: value &= 0xfffffdff, i.e. clears bit 9. Part of the BES clock/power control block (0x40000000 base, address only, undocumented); the paired function at 0x0c040a20 sets bit 10 of the same register. Both are called from ble_219_0c032ee8. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Exact meaning of bit 9 / bit 10 of 0x4000005c unknown (likely a clock or oscillator gate/select)."
+ },
+ "ble_219_0c040a20": {
+  "name": "bes_cmu_reg5c_set_bit10",
+  "summary": "Set bit 10 of peripheral register 0x4000005c under BASEPRI lock",
+  "description": "Read-modify-write of 0x4000005c: value |= 0x400, i.e. sets bit 10. Counterpart of the function at 0x0c0409e4 (clears bit 9); both are called from ble_219_0c032ee8, probably as a pair that switches a clock/oscillator selection. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of the bit is not documented."
+ },
+ "ble_219_0c040bbc": {
+  "name": "bes_cmu_set_sysclk_mode",
+  "summary": "Store the clock-switch mode byte used by bes_cmu_set_sysclk_cfg",
+  "description": "Stores param_1 into the byte DAT_20003d87. bes_cmu_set_sysclk_cfg (0x0c040bc8) reads it: 0 selects the default sequence, 1 and >=2 select alternative enable/disable mask combinations (and, for >=2, a value written to the low 2 bits of 0x400000a8). Called from ble_219_0c0399b4, which also calls the config function.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "mode: 0 = default, 1 = alt A, >=2 = alt B (value-2 goes to 0x400000a8[1:0])"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Name of the mode is inferred from its single consumer."
+ },
+ "ble_219_0c040bc8": {
+  "name": "bes_cmu_set_sysclk_cfg",
+  "summary": "Apply clock-gate enable/disable masks for a system-clock configuration index 0..7",
+  "description": "Returns 1 for param_1 > 7. For 0..6 loads three words from tables at 0x0c0745a8 (mask written to 0x40000060), 0x0c0745c4 (mask written to 0x40000064) and 0x0c0745e0 (2-bit selector, 0xffffffff = none). For 7 it uses built-in masks 0x1b00/0x20 and writes 0x20 then 0x1000 to 0x40000060 first. The byte DAT_20003d87 (see bes_cmu_set_sysclk_mode) alters the masks (bits 0x20 and 0x1000 are cleared/swapped; mode >=2 supplies the selector as mode-2). If a selector is present, the low 2 bits of 0x400000a8 are replaced under a BASEPRI lock. Finally the set mask goes to 0x40000060 and the clear mask to 0x40000064 in an order that first asserts 0x20 / 0x1000 and then removes 0x1000/0x20, i.e. a glitch-free clock switch. Called from the BES hal init (ble_219_0c03ab80) and ble_219_0c032c04/0c039820/0c0399b4. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "configuration index 0..7"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if index > 7"
+  },
+  "confidence": "medium",
+  "notes": "0x40000060 is assumed to be the set/enable register and 0x40000064 the clear/disable register of a pair; bit meanings (0x20, 0x800, 0x1000, 0x200..) are inferred, tables not decoded."
+ },
+ "ble_219_0c040ccc": {
+  "name": "bes_cmu_stub_return_0",
+  "summary": "Stub that returns 0",
+  "description": "Empty hook that just returns 0 (status OK). It is called once from the hardware init routine ble_219_0c03ab80 and is a placeholder for an unused/disabled platform step.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c040cd0": {
+  "name": "bes_cmu_bit29_ctrl",
+  "summary": "Write bit 29 to the 0x40000060 (param=0) or 0x40000064 (param!=0) register",
+  "description": "If param_1 == 0 writes 0x20000000 to 0x40000060, otherwise writes 0x20000000 to 0x40000064; returns 0. These two registers behave as a set/clear pair (see bes_cmu_set_sysclk_cfg), so this toggles one clock/power-control bit (bit 29). Called from ble_219_0c040cfc, together with the bit-30 variant at 0x0c040ce8.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "0 = write to register 0x40000060, nonzero = write to 0x40000064"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Which register enables and which disables is inferred."
+ },
+ "ble_219_0c040ce8": {
+  "name": "bes_cmu_bit30_ctrl",
+  "summary": "Write bit 30 to the 0x40000060 (param=0) or 0x40000064 (param!=0) register",
+  "description": "Same as bes_cmu_bit29_ctrl but for bit 30: param_1 == 0 writes 0x40000000 to 0x40000060, otherwise to 0x40000064; returns 0. Called from ble_219_0c040cfc.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "0 = write to register 0x40000060, nonzero = write to 0x40000064"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Which register enables and which disables is inferred."
+ },
+ "ble_219_0c040d58": {
+  "name": "bes_cmu_set_reg70_sel_b2",
+  "summary": "Clear or set a selector field in 0x40000070 (0 = clear, 1 = set), under BASEPRI lock",
+  "description": "Raises BASEPRI to 0x40, then if param_1 == 0 clears bits 4..2 (mask 0x1c) of 0x40000070 (read-modify-write); if param_1 == 1 clears the field and sets bit 2 (0x4); any other value leaves the register untouched and returns 1. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored). Looks like a binary clock-source / divider selector in the BES clock-management block, but the register is undocumented.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "0 = clear field, 1 = set field, other = invalid"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if param_1 is not 0 or 1"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c040db0": {
+  "name": "bes_cmu_set_reg70_sel_b7",
+  "summary": "Clear or set a selector field in 0x40000070 (0 = clear, 1 = set), under BASEPRI lock",
+  "description": "Raises BASEPRI to 0x40, then if param_1 == 0 clears bits 9..7 (mask 0x380) of 0x40000070 (read-modify-write); if param_1 == 1 clears the field and sets bit 7 (0x80); any other value leaves the register untouched and returns 1. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored). Looks like a binary clock-source / divider selector in the BES clock-management block, but the register is undocumented.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "0 = clear field, 1 = set field, other = invalid"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if param_1 is not 0 or 1"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c040e08": {
+  "name": "bes_cmu_set_reg70_sel_b12",
+  "summary": "Clear or set a selector field in 0x40000070 (0 = clear, 1 = set), under BASEPRI lock",
+  "description": "Raises BASEPRI to 0x40, then if param_1 == 0 clears bits 14..12 (mask 0x7000) of 0x40000070 (read-modify-write); if param_1 == 1 clears the field and sets bit 12 (0x1000); any other value leaves the register untouched and returns 1. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored). Looks like a binary clock-source / divider selector in the BES clock-management block, but the register is undocumented.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "0 = clear field, 1 = set field, other = invalid"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 if param_1 is not 0 or 1"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c040ec0": {
+  "name": "bes_cmu_set_reg74_sel_b3",
+  "summary": "Clear or set a selector field in 0x40000074 (0 = clear, 1 = set), under BASEPRI lock",
+  "description": "If param_1 == 0 clears bits 5..3 of 0x40000074; if 1 clears them and sets bit 3 (0x8); otherwise returns 1 without touching the register. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored). Binary selector in the BES clock block; called from ble_219_0c0458a6.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "0 or 1"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 for invalid param"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c040f18": {
+  "name": "bes_cmu_set_rega8_bit21",
+  "summary": "Clear (0) or set (1) bit 21 of 0x400000a8 under BASEPRI lock",
+  "description": "If param_1 == 0 clears bit 21 (0x200000) of 0x400000a8; if 1 sets it; otherwise returns 1. The low 2 bits of the same register are used by bes_cmu_set_sysclk_cfg. Called from ble_219_0c031da0 and the hardware init routine ble_219_0c03ab80. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "0 = clear, 1 = set"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 1 for invalid param"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0410b8": {
+  "name": "bes_sysreg_write_04_bit4",
+  "summary": "Write 0x10 to peripheral register 0x40080004",
+  "description": "Single store of 0x10 to 0x40080004. The register is written with one-hot masks by several routines (0x10, 0x100, 0x80000), so it behaves as a write-to-act (set/clear style) register of the 0x40080000 system block, which has a companion at 0x40080008. Called once from the init routine ble_219_0c03ab80.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Semantics of bit 4 unknown."
+ },
+ "ble_219_0c0410e4": {
+  "name": "bes_hw_nop_hook",
+  "summary": "Empty hook function (bx lr)",
+  "description": "Does nothing and returns immediately. Called from the hardware init routine ble_219_0c03ab80 as a placeholder for an unused platform step.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0410e8": {
+  "name": "bes_sysreg_select_mode1",
+  "summary": "Set the low 3-bit field of 0x4008005c and 0x400800b4 to 1",
+  "description": "Two read-modify-writes: 0x4008005c = (v & ~7) | 1 and 0x400800b4 = (v & ~7) | 1. Selects the same 3-bit mode value (1) in two registers of the 0x40080000 system block. Called from ble_219_0c045a34, which also tests the boot magic.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Purpose of the 3-bit fields unknown (possibly power-domain or clock source selection)."
+ },
+ "ble_219_0c04110c": {
+  "name": "bes_hw_init_clock_power_regs",
+  "summary": "Write the default configuration of the clock/power and system register blocks at boot",
+  "description": "Long straight-line init: sets bits in 0x4008004c, programs 0x40080008/0x40080010/0x40080044/0x40080048/0x4008001c/0x40080068, loads 0x400000d4..0x400000e8 with constant words (0x040c2040, 0x09207185, 0x1234c2f4, 0x185d6554, 0x1d734d19, 0x228607de) with the low 6-bit fields of 0x40000068/0x400000ec set to 0x13/0x23, writes 0xff to 0x40000150/0x40000144 and writes the same mask patterns (0x020ff794, 0x001ffdf2, 0x10dfa000, 0x00100000, 8, 0x80000000) to the register pairs 0x40000004/0c/14 and 0x40000034/3c/44 (looks like bulk clock-gate disable/enable of HCLK/PCLK/OCLK domains), clears fields in 0x4000001c, 0x4008006c, 0x40080084, 0x400800d0, sets bit 15 of 0x4008b0fc and zeroes the 0x40085000 block (0x40085080/84/98/9c/b0/b4 = 0, 0x40085088 = 0x12f0000, 0x400850a0 = 0x400000, 0x400850b8 = 0x900000, 0x40085008 = 0, 0x4008500c = 0x100). Called once from the chip init routine ble_219_0c03ab80.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Individual register/bit meanings are undocumented; the description is of the observed writes only."
+ },
+ "ble_219_0c04124c": {
+  "name": "bes_sysreg_set_f8_low_byte",
+  "summary": "Replace the low byte of peripheral register 0x400800f8",
+  "description": "Read-modify-write: 0x400800f8 = (value & 0xffffff00) | param_1. Called from ble_219_0c02ed2c.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "new low byte"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "What register 0x400800f8 controls is unknown."
+ },
+ "ble_219_0c041328": {
+  "name": "bes_hw_get_const_4000",
+  "summary": "Return the constant 4000",
+  "description": "Returns 4000. Used by two callers (ble_219_0c03ac44 and ble_219_0c03cd58), likely a platform parameter such as a timing/wake-up margin in us or ticks.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "constant 4000"
+  },
+  "confidence": "low",
+  "notes": "Unit and purpose of the constant are unknown."
+ },
+ "ble_219_0c041330": {
+  "name": "bes_sysreg_ack_pending_bit8",
+  "summary": "Write 0x4000000 to 0x40080040 and 0x100 to 0x40080004, with read-backs of 0x40080000",
+  "description": "Writes 0x04000000 to 0x40080040, reads 0x40080000 (read-back to flush the write), writes 0x100 to 0x40080004 and reads 0x40080000 again. Part of a three-step hardware sequence (with the functions at 0x0c041348 and 0x0c0413c4) all called from ble_219_0c03bb70, possibly sleep/wake configuration.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Bit meanings unknown; role as 'ack' is a guess."
+ },
+ "ble_219_0c041348": {
+  "name": "bes_sysreg_cfg_step2",
+  "summary": "Reconfigure fields of 0x40080090/0x400800b0/0x4008003c then trigger via 0x40080014 and 0x400800cc",
+  "description": "Under a BASEPRI lock: 0x40080090 = (v & 0xc7fffc7f) | 0x380, 0x400800b0 = (v & 0xffff83e0) | 0x1f, 0x4008003c &= 0x00fffffe. After the lock: writes 0x4000000 to 0x40080014, reads 0x40080000, writes 0x48 to 0x400800cc and reads 0x40080000 again. Called from ble_219_0c03bb70 after the function at 0x0c041330. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Purpose (likely power/sleep related) is not determinable from the code alone."
+ },
+ "ble_219_0c0413c4": {
+  "name": "bes_sysreg_cfg_step3",
+  "summary": "Set field 0x82 in bits 15..8 of 0x4008006c and set bit 27 of 0x40080084",
+  "description": "0x4008006c = (v & 0xffff00ff) | 0x8200 and 0x40080084 |= 0x08000000. Third step of the sequence called from ble_219_0c03bb70.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Register meanings unknown."
+ },
+ "ble_219_0c0413e4": {
+  "name": "bes_sysreg_read_80000_hi16",
+  "summary": "Return the upper 16 bits of peripheral register 0x40080000",
+  "description": "Reads 0x40080000 and returns value >> 16. Called from ble_219_0c0385fc and ble_219_0c038d68. The same register is dummy-read elsewhere to flush posted writes, so it is a status/counter word in the system block.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "bits 31..16 of 0x40080000"
+  },
+  "confidence": "medium",
+  "notes": "Field meaning unknown."
+ },
+ "ble_219_0c0413f0": {
+  "name": "bes_sysreg_write_04_bit19",
+  "summary": "Write bit 19 to 0x40080004 under BASEPRI lock, then read back 0x40080000",
+  "description": "Raises BASEPRI to 0x40, stores 0x80000 to 0x40080004, restores BASEPRI and performs a dummy read of 0x40080000 to flush the write. Very frequently called (about a dozen callers in the 0x0c03d000..0x0c03e100 range), and the companion at 0x0c041430 writes the same bit to 0x40080008, so the pair looks like set/clear (e.g. pulse or debug marker signal) around controller routines. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Which of 0x40080004/0x40080008 sets versus clears, and what bit 19 drives, is unknown."
+ },
+ "ble_219_0c041430": {
+  "name": "bes_sysreg_write_08_bit19",
+  "summary": "Write bit 19 to 0x40080008 under BASEPRI lock",
+  "description": "Raises BASEPRI to 0x40, stores 0x80000 to 0x40080008, restores BASEPRI. Counterpart of bes_sysreg_write_04_bit19; called by the same group of routines in 0x0c03d000..0x0c03e100. The body runs inside a BASEPRI critical section (BASEPRI raised to 0x40; if it was not already 0x40 the call-site address and LR are logged to DAT_20003d70/DAT_20003d74, and DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0 on entry; BASEPRI is then restored).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Which of 0x40080004/0x40080008 sets versus clears, and what bit 19 drives, is unknown."
+ },
+ "ble_219_0c041638": {
+  "name": "bes_iomux_apply_default_pin_cfg",
+  "summary": "For all 36 pins whose function nibble is 0xf, clear a bit in one register and set it in another",
+  "description": "Writes 0xffffffff to 0x40086008 and 0 to 0x400860c4, then loops over pins 0..35. The 4-bit function field of pin n is read from 0x40086004 + (n>>3)*4 (pins 0-31) or 0x4008607c (pins 32-35), nibble (n&7). If the nibble equals 0xf (unassigned), bit n is cleared in 0x4008602c (pins 0-31) / 0x40086094 (32-35) and set in 0x40086030 / 0x40086098. Called from the init routine ble_219_0c03ab80. Looks like the IOMUX (base 0x40086000) default setup that disables pull/drive for unused pins.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Exact meaning of the registers 0x4008602c/0x40086030 (pull-up/enable pair?) is a guess."
+ },
+ "ble_219_0c0418e0": {
+  "name": "bes_iomux_reg44_set_bits",
+  "summary": "Set bits in 0x40086044 and return the previous low 16 bits",
+  "description": "Reads 0x40086044 (old), reads it again, writes (value | param_1) and returns old & 0xffff. Called from ble_219_0c040290 together with bes_iomux_reg44_clear_bits.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bitmask to set"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "previous value of 0x40086044 bits 15..0"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0418f4": {
+  "name": "bes_iomux_reg44_clear_bits",
+  "summary": "Clear bits in 0x40086044 and return the previous low 16 bits",
+  "description": "Reads 0x40086044 (old), reads it again, writes (value & ~param_1) and returns old & 0xffff. Called from ble_219_0c040290.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bitmask to clear"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "previous value of 0x40086044 bits 15..0"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c041a00": {
+  "name": "bes_iomux_get_pin_table_entry",
+  "summary": "Look up a byte in the 36x6 pin table at 0x0c08355c",
+  "description": "Returns table[param_2 + param_1*6] from a flash byte table at 0x0c08355c if param_1 < 0x24 (pin number) and param_2 < 6, else 0. Called from ble_219_0c0456c0. The table is probably a per-pin function/mux code map.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "pin index 0..35"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "column 0..5"
+   }
+  ],
+  "returns": {
+   "type": "u8",
+   "description": "table byte, or 0 when out of range"
+  },
+  "confidence": "medium",
+  "notes": "Table contents not decoded; purpose inferred."
+ },
+ "ble_219_0c041ab0": {
+  "name": "bes_gpio_read_status_words",
+  "summary": "Copy up to three 32-bit status words from 0x4008508c/90/94 into a buffer",
+  "description": "Reads 0x4008508c into out[0] if param_2 >= 1, 0x40085090 into out[1] if param_2 >= 2, and (0x40085094 & 0xffff) into out[2] if param_2 >= 3. Returns the number of words handled, min(param_2, 3) (0 when param_2 is 0). Called from ble_219_0c041b5c. These status words correspond to the 36-pin mask group at 0x40085080/84 (pins 0..35).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output array of u32 (3 entries)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "number of words requested"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "words written, 0..3"
+  },
+  "confidence": "medium",
+  "notes": "Interpretation as pin interrupt/wake status is inferred."
+ },
+ "ble_219_0c041ae8": {
+  "name": "bes_gpio_mask_set",
+  "summary": "Set bit for pin 0..35 in the mask words 0x40085080 (0-31) / 0x40085084 (32-35)",
+  "description": "If param_1 < 0x20 sets bit param_1 in 0x40085080, else if param_1 < 0x24 sets bit (param_1-0x20) in 0x40085084; larger values are ignored. Called from ble_219_0c0300d0. Not interrupt-protected.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "pin index 0..35"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as a per-pin interrupt/wake mask is inferred."
+ },
+ "ble_219_0c041b20": {
+  "name": "bes_gpio_mask_clear",
+  "summary": "Clear bit for pin 0..35 in the mask words 0x40085080 (0-31) / 0x40085084 (32-35)",
+  "description": "Inverse of bes_gpio_mask_set: clears bit param_1 in 0x40085080 for pins < 0x20, or bit param_1-0x20 in 0x40085084 for pins 0x20..0x23. Called from ble_219_0c0300d0.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "pin index 0..35"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as a per-pin interrupt/wake mask is inferred."
+ },
+ "ble_219_0c041ca8": {
+  "name": "bes_boot_param_get",
+  "summary": "Return DAT_20000180 if param_1 == 0, else DAT_20000184",
+  "description": "Selects one of two words in the early-SRAM boot/reboot info area (0x20000180 or 0x20000184) by index. Called from ble_219_0c041e38.",
+  "category": "startup",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "0 selects 0x20000180, nonzero selects 0x20000184"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "selected word"
+  },
+  "confidence": "medium",
+  "notes": "Content of the words not known."
+ },
+ "ble_219_0c041cbc": {
+  "name": "bes_boot_magic_is_valid",
+  "summary": "Check whether the boot magic word at 0x2000017c equals 0x4f42494d",
+  "description": "Returns DAT_2000017c == 0x4f42494d (bytes 'M','I','B','O' little-endian). Called from ble_219_0c045a34.",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true when the magic matches"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of the magic (reboot/boot-mode marker) is inferred."
+ },
+ "ble_219_0c041cd4": {
+  "name": "bes_boot_magic_get",
+  "summary": "Return the word at 0x2000017c",
+  "description": "Returns DAT_2000017c unchanged (the boot magic/mode word compared by bes_boot_magic_is_valid). Called from ble_219_0c03a038.",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "value of DAT_2000017c"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c041ce0": {
+  "name": "bes_boot_flag_set",
+  "summary": "Store a word to DAT_20000188",
+  "description": "Stores param_1 into DAT_20000188, a word in the early-SRAM boot info area read back by bes_boot_flag_get. Called from ble_219_0c03a038.",
+  "category": "startup",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of the value unknown."
+ },
+ "ble_219_0c041cec": {
+  "name": "bes_boot_flag_get",
+  "summary": "Return the word at DAT_20000188",
+  "description": "Returns DAT_20000188 (written by bes_boot_flag_set). Called from ble_219_0c0459fc and ble_219_0c046884.",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "value of DAT_20000188"
+  },
+  "confidence": "medium"
+ }
+}
