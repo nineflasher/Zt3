@@ -1,0 +1,663 @@
+{
+ "vcu_g_0159_2000102c": {
+  "name": "vehicle_tick100_counter",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000102c"
+  ],
+  "category": "vehicle",
+  "description": "16-bit counter used in two ways. vcu_periodic_100_tick_check counts its calls up to 100 and resets it, raising DAT_20001fc0 on the wrap if its conditions hold; vcu_fault_warning_evaluate counts it up to 300 and 500 for fault timing. vcu_0159_080054ec clears it. Probably one count per main-loop tick."
+ },
+ "vcu_g_0159_2000134c": {
+  "name": "vehicle_event_a_prev",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000134c"
+  ],
+  "category": "vehicle",
+  "description": "Previous copy of the event/input byte DAT_20001fbc, kept by vcu_event_countdown_a. When the live value differs, the countdown vehicle_countdown_a is reloaded. Written only by that function."
+ },
+ "vcu_g_0159_2000134d": {
+  "name": "vehicle_event_b_prev",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000134d"
+  ],
+  "category": "vehicle",
+  "description": "Previous copy of the event/input byte DAT_20001fbc, kept by vcu_event_countdown_b. When the live value differs, the countdown vehicle_countdown_b is reloaded."
+ },
+ "vcu_g_0159_2000135c": {
+  "name": "vehicle_cycle_mode_state",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000135c"
+  ],
+  "category": "vehicle",
+  "description": "3-state cycle selector (0, 1 or 2), stepped by each request in vcu_cycle_mode_on_request. It is mapped to vehicle_drive_cycle_mode (DAT_20001b94), which vcu_drive_command_update packs into the drive command word."
+ },
+ "vcu_g_0159_2000137c": {
+  "name": "vehicle_angle_counter_prev",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000137c"
+  ],
+  "category": "vehicle",
+  "description": "Previous value of vehicle_angle_counter (DAT_20001b84), kept by vcu_angle_deg_update. When the counter has changed, the angle in degrees (vehicle_angle_deg) is recomputed. Present in VCU_14b to 0159."
+ },
+ "vcu_g_0159_20001384": {
+  "name": "vehicle_tick100_prescaler",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001384"
+  ],
+  "category": "vehicle",
+  "description": "Divide-by-100 prescaler advanced by vcu_timebase_100_tick. It counts 0 to 99 and wraps; each wrap advances the saturating elapsed counters vehicle_elapsed_time_a, vehicle_elapsed_time_b, vehicle_elapsed_time_c and vehicle_angle_period. Cleared only by the wrap itself."
+ },
+ "vcu_g_0159_20001388": {
+  "name": "vehicle_wheel_angle_acc",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x20001388"
+  ],
+  "category": "vehicle",
+  "description": "Accumulated wheel angle, updated by vcu_wheel_odometer_limit_update by adding the per-tick increment DAT_20001b62 (probably speed-derived). Probably in thousandths of a degree: it wraps by subtracting 360000 (one turn) when it exceeds 359999."
+ },
+ "vcu_g_14a_20001389": {
+  "name": "vehicle_ready_flag_a_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x20001389"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence flag A of builds 148 and 14a, set to 1 and cleared to 0 by vcu_ready_sequence_step_v148_14a in its two phases. Probably the ready request that gates the arm and run states."
+ },
+ "vcu_g_14a_2000138a": {
+  "name": "vehicle_ready_latch_b_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x2000138a"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence latch of builds 148 and 14a. It is set when status bytes DAT_20001e90 and DAT_20001e8f are both 1 and no run is active, and it is cleared in the other phase."
+ },
+ "vcu_g_14a_2000138b": {
+  "name": "vehicle_run_latch_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x2000138b"
+  ],
+  "category": "vehicle",
+  "description": "Run latch of builds 148 and 14a, set and cleared by vcu_ready_sequence_step_v148_14a. Run conditions include DAT_20001ee4 equal to 3 and the speed value DAT_20001da6/100 above 30."
+ },
+ "vcu_g_14a_2000138c": {
+  "name": "vehicle_arm_latch_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x2000138c"
+  ],
+  "category": "vehicle",
+  "description": "Arm latch of builds 148 and 14a, set to 1 in three places of vcu_ready_sequence_step_v148_14a. Its clear path is not in this packet."
+ },
+ "vcu_g_0159_2000138d": {
+  "name": "vehicle_ready_flag_a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000138d"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence flag A of builds 14b to 0159, set and cleared by vcu_ready_sequence_step_v14b_0159. Same role as vehicle_ready_flag_a_v14a."
+ },
+ "vcu_g_0159_2000138e": {
+  "name": "vehicle_ready_latch_b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000138e"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence latch of builds 14b to 0159. It is set when status flags DAT_20001f50 and DAT_20001f4f are both 1 and no run is active; cleared when both are 0."
+ },
+ "vcu_g_0159_2000138f": {
+  "name": "vehicle_run_latch",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000138f"
+  ],
+  "category": "vehicle",
+  "description": "Run latch of builds 14b to 0159, set and cleared by vcu_ready_sequence_step_v14b_0159. Run conditions include DAT_20001fa4 equal to 3 and the speed value DAT_20001e66/100 above 30."
+ },
+ "vcu_g_0159_20001390": {
+  "name": "vehicle_arm_latch",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001390"
+  ],
+  "category": "vehicle",
+  "description": "Arm latch of builds 14b to 0159, set to 1 in three places of vcu_ready_sequence_step_v14b_0159. Its clear path is not in this packet."
+ },
+ "vcu_g_0159_20001391": {
+  "name": "vehicle_status_f4f_prev",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001391"
+  ],
+  "category": "vehicle",
+  "description": "Previous copy of status flag DAT_20001f4f, used by vcu_sensor_limit_derate_eval for edge detection. The copy is taken only when the flag changes."
+ },
+ "vcu_g_0159_20001392": {
+  "name": "vehicle_derate_limit_a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001392"
+  ],
+  "category": "vehicle",
+  "description": "Limit constant 0xB4 (180) written by vcu_sensor_limit_derate_eval in VCU_0159. Used as a threshold against the derate input; probably the upper limit of a range check."
+ },
+ "vcu_g_152_20001392": {
+  "name": "vehicle_derate_limit_a_v152",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_152",
+   "0x20001392"
+  ],
+  "category": "vehicle",
+  "description": "Limit constant 0xB4 (180) written by vcu_sensor_limit_derate_eval in VCU_152, at the same address as vehicle_derate_limit_a in VCU_0159."
+ },
+ "vcu_g_0159_20001393": {
+  "name": "vehicle_derate_limit_b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001393"
+  ],
+  "category": "vehicle",
+  "description": "Upper limit written by vcu_sensor_limit_derate_eval: 0xDC (220) in one branch and 0xD7 (215) in the other. Used as the upper bound of a range check whose lower bound is 30 (0x1E)."
+ },
+ "vcu_g_14f_20001393": {
+  "name": "vehicle_derate_limit_b_v14f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001393"
+  ],
+  "category": "vehicle",
+  "description": "Upper limit written by vcu_sensor_limit_derate_eval in VCU_14f: 0xDC (220) or 0xD7 (215). Same use as vehicle_derate_limit_b in VCU_0159."
+ },
+ "vcu_g_0159_20001394": {
+  "name": "vehicle_derate_limit_c",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001394"
+  ],
+  "category": "vehicle",
+  "description": "Constant 0x3C (60) written by vcu_sensor_limit_derate_eval in VCU_0159 (the 153 variant at the same address holds the same value). Probably a limit in the same units as the derate input."
+ },
+ "vcu_g_153_20001394": {
+  "name": "vehicle_derate_limit_c_v153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001394"
+  ],
+  "category": "vehicle",
+  "description": "Constant 0x3C (60) written by vcu_sensor_limit_derate_eval in VCU_153. Same meaning as vehicle_derate_limit_c in VCU_0159."
+ },
+ "vcu_g_0159_20001395": {
+  "name": "vehicle_derate_limit_d",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001395"
+  ],
+  "category": "vehicle",
+  "description": "Upper limit written by vcu_sensor_limit_derate_eval: 0xDC (220) or 0xD7 (215). Used as the upper bound of a second range check (lower bound 30)."
+ },
+ "vcu_g_0159_20001396": {
+  "name": "vehicle_derate_limit_e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001396"
+  ],
+  "category": "vehicle",
+  "description": "Constant 0xB4 (180) written by vcu_sensor_limit_derate_eval in VCU_0159 (VCU_14e and VCU_153 hold the same value at the same address). Same kind of threshold as vehicle_derate_limit_a."
+ },
+ "vcu_g_14e_20001396": {
+  "name": "vehicle_derate_limit_e_v14e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14e",
+   "0x20001396"
+  ],
+  "category": "vehicle",
+  "description": "Constant 0xB4 (180) written by vcu_sensor_limit_derate_eval in VCU_14e. Same meaning as vehicle_derate_limit_e."
+ },
+ "vcu_g_153_20001396": {
+  "name": "vehicle_derate_limit_e_v153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001396"
+  ],
+  "category": "vehicle",
+  "description": "Constant 0xB4 (180) written by vcu_sensor_limit_derate_eval in VCU_153. Same meaning as vehicle_derate_limit_e."
+ },
+ "vcu_g_0159_20001399": {
+  "name": "vehicle_input_b_prev",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001399"
+  ],
+  "category": "vehicle",
+  "description": "Previous copy of the input-B state byte DAT_200021c1. vcu_input_b_hold_start_tick compares the live byte with this copy to detect a change, then refreshes it."
+ },
+ "vcu_g_0159_2000139a": {
+  "name": "vehicle_input_b_hold_latch",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139a"
+  ],
+  "category": "vehicle",
+  "description": "Latch of the input-B hold sequence. It is set to 1 when input B has reached its long-hold state 3 (DAT_200021c1 == 3) while the mode check holds, and cleared on the next check."
+ },
+ "vcu_g_0159_2000139b": {
+  "name": "vehicle_derate_low_byte_ref",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139b"
+  ],
+  "category": "vehicle",
+  "description": "Reference copy of the low byte of vehicle_derate_word, initialised to 0x30 (48). vcu_input_b_hold_start_tick reloads it when the live low byte exceeds it by more than 10, so it tracks the derate value with hysteresis."
+ },
+ "vcu_g_0159_2000139c": {
+  "name": "vehicle_input_b_seq_flag_a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139c"
+  ],
+  "category": "vehicle",
+  "description": "Flag of the input-B hold sequence, set to 1 at the start of the hold and cleared at its end (vcu_input_b_hold_start_tick)."
+ },
+ "vcu_g_0159_2000139d": {
+  "name": "vehicle_input_b_seq_flag_b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000139d"
+  ],
+  "category": "vehicle",
+  "description": "Flag of the input-B hold sequence, cleared in two places and tested before the hold can start (vcu_input_b_hold_start_tick)."
+ },
+ "vcu_g_14a_200013a4": {
+  "name": "vehicle_ready_timeout_a_v14a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_14a",
+   "0x200013a4"
+  ],
+  "category": "vehicle",
+  "description": "Tick counter of builds 148 and 14a, incremented every tick by vcu_ready_sequence_step_v148_14a. It is cleared when a condition fails or when it passes 1000 ticks, which ends the wait."
+ },
+ "vcu_g_0159_200013a6": {
+  "name": "vehicle_ready_timeout_a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013a6"
+  ],
+  "category": "vehicle",
+  "description": "Tick counter of builds 14b to 0159, incremented by vcu_ready_sequence_step_v14b_0159. It is cleared when a comparison fails or when it passes 1000 ticks."
+ },
+ "vcu_g_14a_200013a6": {
+  "name": "vehicle_ready_counter_b_v14a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200013a6"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 148 and 14a in vcu_ready_sequence_step_v148_14a. It counts up and resets when it passes 100 (the sample window of the ready state)."
+ },
+ "vcu_g_0159_200013a8": {
+  "name": "vehicle_ready_counter_b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013a8"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 14b to 0159 in vcu_ready_sequence_step_v14b_0159. It counts up and resets when it passes 100."
+ },
+ "vcu_g_14a_200013a8": {
+  "name": "vehicle_ready_counter_c_v14a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200013a8"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 148 and 14a in vcu_ready_sequence_step_v148_14a. It counts up and resets when it passes 249 (0xF9)."
+ },
+ "vcu_g_0159_200013aa": {
+  "name": "vehicle_ready_counter_c",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013aa"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 14b to 0159 in vcu_ready_sequence_step_v14b_0159. It counts up and resets when it passes 249 (0xF9)."
+ },
+ "vcu_g_14a_200013aa": {
+  "name": "vehicle_ready_counter_d_v14a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_14a",
+   "0x200013aa"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 148 and 14a, counting while DAT_20001e90 is 0. It ends the wait when it passes 3000 ticks and resets otherwise."
+ },
+ "vcu_g_0159_200013ac": {
+  "name": "vehicle_ready_counter_d",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200013ac"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 14b to 0159, counting while DAT_20001f50 is 0. It ends the wait when it passes 3000 ticks and resets otherwise."
+ },
+ "vcu_g_14a_200013ac": {
+  "name": "vehicle_ready_counter_e_v14a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200013ac"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 148 and 14a, counting while DAT_20001e8f is 1. It resets when it passes 100."
+ },
+ "vcu_g_0159_200013ae": {
+  "name": "vehicle_ready_counter_e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013ae"
+  ],
+  "category": "vehicle",
+  "description": "Counter of builds 14b to 0159, counting while DAT_20001f4f is 1. It resets when it passes 100."
+ },
+ "vcu_g_0159_200013b2": {
+  "name": "vehicle_input_b_counter_a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013b2"
+  ],
+  "category": "vehicle",
+  "description": "Counter of the input-B hold sequence, incremented by vcu_input_b_hold_start_tick. It resets when it passes 10 ticks."
+ },
+ "vcu_g_0159_200013b4": {
+  "name": "vehicle_input_b_counter_b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200013b4"
+  ],
+  "category": "vehicle",
+  "description": "Second counter of the input-B hold sequence, cleared and incremented by vcu_input_b_hold_start_tick."
+ },
+ "vcu_g_0159_200013d4": {
+  "name": "vehicle_revolution_mark_prev",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x200013d4"
+  ],
+  "category": "vehicle",
+  "description": "Copy of vehicle_wheel_revolutions taken by vcu_revolution_stage_tracker. It holds the revolution count of the last stage mark."
+ },
+ "vcu_g_0159_200013d8": {
+  "name": "vehicle_revolution_stage_ref",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x200013d8"
+  ],
+  "category": "vehicle",
+  "description": "Reference value compared with vehicle_wheel_revolutions by vcu_revolution_stage_tracker. It is loaded from vehicle_revolution_snapshot (DAT_20001c88) and gates the next stage mark."
+ },
+ "vcu_g_153_200014be": {
+  "name": "vehicle_level_hold_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x200014be"
+  ],
+  "category": "vehicle",
+  "description": "Count of consecutive ticks on which the level value shifted right by 4 is at least 60. vcu_level_hold_latch sets its latch after ten such ticks and clears the count otherwise."
+ },
+ "vcu_g_0159_200014c9": {
+  "name": "vehicle_sensor_high_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200014c9"
+  ],
+  "category": "vehicle",
+  "description": "Count of sustained high readings of the sensor words in vcu_sensor_threshold_pulse_count. It saturates at 100 and resets when a reading is low."
+ },
+ "vcu_g_0159_200014d8": {
+  "name": "vehicle_sensor_burst_timer",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200014d8"
+  ],
+  "category": "vehicle",
+  "description": "Countdown in ticks, reloaded to 300 by vcu_sensor_threshold_pulse_count. It stops at 0; the burst message is sent when it runs out."
+ },
+ "vcu_g_0159_20001836": {
+  "name": "vehicle_speed_snapshot_counter",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001836"
+  ],
+  "category": "vehicle",
+  "description": "Counter in vcu_speed_mode_snapshot_update. It counts up to 11 ticks and is reset to 0 when it passes 10, which paces the periodic telemetry snapshot."
+ },
+ "vcu_g_0159_20001875": {
+  "name": "vehicle_condition_b_latch",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001875"
+  ],
+  "category": "vehicle",
+  "description": "Latch set to 1 by vcu_condition_b_latch_flags when the status conditions hold and cleared by vcu_timed_window_schedule_tick (vcu_timed_window_schedule_tick only clears it when bit 3 of DAT_20001af2 is set)."
+ },
+ "vcu_g_0159_20001880": {
+  "name": "vehicle_debounce_a_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001880"
+  ],
+  "category": "vehicle",
+  "description": "Debounce counter of vcu_debounce_condition_a. It counts up to 20 (0x14) while the condition holds and steps back otherwise; it drives the output flag DAT_20001f69."
+ },
+ "vcu_g_14b_20001a30": {
+  "name": "vehicle_speed_mode_source_v14b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14b",
+   "0x20001a30"
+  ],
+  "category": "vehicle",
+  "description": "Byte read by vcu_speed_mode_snapshot_update in builds 148, 14a and 14b. No decompiled line names it directly (accessed through a pointer); its meaning is not decoded."
+ },
+ "vcu_g_0159_20001ab4": {
+  "name": "vehicle_config_block",
+  "type": "u8",
+  "size": 46,
+  "anchor": [
+   "VCU_0159",
+   "0x20001ab4"
+  ],
+  "category": "vehicle",
+  "description": "Address-taken block of 46 bytes at 0x20001AB4 (probably the mode and configuration record that is loaded and saved in flash). About a dozen functions take its address, including vcu_config_ab_slot_load and vcu_flash_record_pingpong_save. The fields are not decoded here and the end of the block is assumed to be before 0x20001AE2.",
+  "count": 46
+ },
+ "vcu_g_14a_20001ace": {
+  "name": "vehicle_angle_legacy_v14a",
+  "type": "s16",
+  "size": 2,
+  "anchor": [
+   "VCU_14a",
+   "0x20001ace"
+  ],
+  "category": "vehicle",
+  "description": "Angle in degrees, computed by vcu_angle_deg_calc_legacy as (DAT_20001ac4 * 360) / DAT_20001ac8, and set to 0 when the divisor is 0. Used only in builds 148 and 14a."
+ },
+ "vcu_g_0159_20001ae2": {
+  "name": "vehicle_build_id",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001ae2"
+  ],
+  "category": "vehicle",
+  "description": "Build identifier word, set to 0x0159 by vcu_0159_08009da8. It is read by can_get_tx_payload_for_id and sent in the telemetry frame built by vcu_0159_080054ec."
+ },
+ "vcu_g_0159_20001ae8": {
+  "name": "vehicle_telemetry_word_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001ae8"
+  ],
+  "category": "vehicle",
+  "description": "16-bit value copied to the telemetry snapshot (DAT_200033a0) by vcu_speed_mode_snapshot_update. Present in VCU_14e to 0159; its source is not decoded here."
+ },
+ "vcu_g_0159_20001aec": {
+  "name": "vehicle_status_word_a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001aec"
+  ],
+  "category": "vehicle",
+  "description": "Packed status flags word A. Bit 2 is set and cleared by vcu_condition_b_latch_flags, and several functions test bits 8 to 11. It is read by most of the ready, fault and input routines."
+ },
+ "vcu_g_0159_20001aee": {
+  "name": "vehicle_status_word_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001aee"
+  ],
+  "category": "vehicle",
+  "description": "Packed status flags word B. Bit 3 is cleared or set by app_apply_mode_limits, and other bits are used by the alert, toggle and pulse routines (for example vcu_alert_tone_sequencer and vcu_toggle_special_mode)."
+ },
+ "vcu_g_0159_20001af0": {
+  "name": "vehicle_status_word_c",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001af0"
+  ],
+  "category": "vehicle",
+  "description": "Packed status flags word C. Bit 6 is cleared by vcu_key_sequence_entry_tick, and bits 7, 11 and 14 are tested by the key, derate and pulse routines."
+ },
+ "vcu_g_0159_20001b06": {
+  "name": "vehicle_mode_limit_g",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b06"
+  ],
+  "category": "vehicle",
+  "description": "16-bit word whose address is taken by app_apply_mode_limits. No direct access was seen, so it is probably a mode limit parameter of the same kind as vehicle_mode_limit_a."
+ }
+}
