@@ -1,0 +1,876 @@
+{
+  "ble_219_0c06badc": {
+    "name": "ll_link_get_ext_byte_by_key",
+    "summary": "Look up a link record by key and return one of its status bytes",
+    "description": "Walks the link list at controller env +0x14 (head via DAT_200190D0) and returns the first record whose u16 key at +0x0A equals param_1, or 0 when none matches. Which byte is returned depends on the record's class byte at +0x0C: for class below 4 it returns the byte at +0x1C3 when the flag byte at +0x1C0 is non-zero (else 0); for class 4 or more it returns the byte at +0x16 when bit 0x2000 of the u16 at +0x68 is set (else 0). Read-only. Group: link-record accessors by key (ll_link_*_by_key).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "key to match against the record's u16 at +0x0A (likely a connection handle)"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "selected record byte (0..255), or 0 when not found or not selected"
+    },
+    "confidence": "medium",
+    "notes": "Meaning of the class byte at +0x0C and of fields +0x16, +0x1C0, +0x1C3 and +0x68 is not established; the branch structure comes from the decompile. Callers 0c04e702, 0c06c8f4, 0c06dc56."
+  },
+  "ble_219_0c06bb3c": {
+    "name": "ll_link_get_flag_by_key",
+    "summary": "Return a flag from a link record found by key, depending on its class byte",
+    "description": "Finds the link record in the env+0x14 list whose u16 key at +0x0A equals param_1 and returns 0 when there is none. For class byte at +0x0C below 2 it returns 1 when the flag byte at +0x1C0 is set and the byte at +0x1C1 is non-zero, else 0. For larger class values it returns 0 unless (class + 4) truncated to a byte is 0 or 1; then it returns 1 when the u16 at +0x28 is 5 or 8, else 0. Group: link-record accessors by key (ll_link_*_by_key).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "record key (+0x0A) to match"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 or 0"
+    },
+    "confidence": "medium",
+    "notes": "The (class + 4) test makes the class 2..4 branch always return 0 for unsigned classes, so the class field is either signed or the decompiler folded a comparison. Treat the class >= 2 branch as unverified. When state 5 is seen the result is a leftover loop variable that equals 1. Caller 0c04e702, 0c06dc56."
+  },
+  "ble_219_0c06bbb8": {
+    "name": "ll_link_check_flag_or_state_by_key",
+    "summary": "Test a link record found by key: flag byte at +0x1C2, or state 7 or 8",
+    "description": "Finds the link record in the env+0x14 list whose u16 key at +0x0A equals param_1 and returns false when there is none. For class byte at +0x0C below 2 it returns true when the flag byte at +0x1C0 is set and the byte at +0x1C2 is non-zero. For larger class values it returns true only when (class + 4) truncated to a byte is 0 or 1 and the u16 at +0x28 minus 7 is below 2, i.e. the state is 7 or 8. Group: link-record accessors by key (ll_link_*_by_key).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "record key (+0x0A) to match"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when the selected flag or state test holds"
+    },
+    "confidence": "medium",
+    "notes": "Same class-byte caveat as ll_link_get_flag_by_key. Caller 0c04e702."
+  },
+  "ble_219_0c06bc24": {
+    "name": "ll_link_get_byte_1cb_by_key",
+    "summary": "Return the byte at +0x1CB of a link record found by key when two flags are set",
+    "description": "Finds the link record in the env+0x14 list whose u16 key at +0x0A equals param_1. It returns the byte at +0x1CB only when the flag byte at +0x1C0 and the byte at +0x1C1 are both non-zero; otherwise it returns 0, including when no record matches. Read-only. Group: link-record accessors by key (ll_link_*_by_key).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "record key (+0x0A) to match"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "byte at +0x1CB, or 0"
+    },
+    "confidence": "medium",
+    "notes": "Field meaning at +0x1CB is unknown. Callers 0c04e398, 0c06dc56."
+  },
+  "ble_219_0c06bc74": {
+    "name": "hci_cmd_pack_format",
+    "summary": "Pack an HCI command payload from a per-opcode format string and argument words",
+    "description": "Writes an HCI command into param_1: the u16 opcode from the descriptor at param_2+0 (little-endian), then the payload driven by the format string at param_2+4, one code per argument word (group items take pointers). Codes: '1' u8; '2' or 'H' u16; '3' u24; '4' u32; 'B' 6-byte BD_ADDR reversed; 'D' 8 bytes; 'K' 16 bytes reversed; 'P' 16 bytes; 'Q' 32 bytes reversed; 'A' 31-byte block; 'E' 240-byte block; 'N' string padded with zeros to 248 bytes; 'J' length byte followed by 'V' variable block of that length; '[' ... ']' group repeated a count set by 'a' (the value) or 'b' (popcount of the value). Unknown codes are skipped without consuming an argument. The payload size is stored at param_1[2] and the total byte count including the 3-byte header is returned. Group: HCI and L2CAP packet builders (see l2cap_signaling_pdu_build).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer, at least 3 + payload bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "descriptor: u16 opcode at +0, const u8 *format at +4"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "u32 argument words, consumed in format order"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "total bytes written, including the 3-byte header (opcode u16 + length byte)"
+    },
+    "confidence": "medium",
+    "notes": "The HCI-command reading comes from the 3-byte header layout (opcode plus parameter length). The 'J'/'V' and '['..']' pairings are read from the decompile. The per-opcode format tables are not in this packet."
+  },
+  "ble_219_0c06c2e0": {
+    "name": "hci_transport_h4_rx_advance",
+    "summary": "Advance the H4 UART receive state machine by the bytes just received",
+    "description": "Called after each receive chunk: the count requested last time (DAT_20019328) is added to the buffer offset DAT_20019448, then state DAT_2001932A selects the next step. State 0 (idle) stops; state 1 reads the H4 packet-type byte at DAT_20019334 and moves to state 2 for event (type 4, 2-byte header), state 3 for ACL (type 2, 4-byte header, u16 length at offset 3, at most 255 bytes) or state 4 for SCO (type 3, 3-byte header, length byte at offset 3); any other type is logged as invalid. State 6 hands the complete packet (type, payload, length) to the upper-layer callback at DAT_2000499C and returns to state 1 expecting one type byte. Each step asks the UART driver (ops table DAT_20019324, slot +0x20) to receive the next N bytes at buffer+offset; errors are logged through ble_hook_invoke_indexed channel 2.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "State 5 (ISO header, 14-bit length with bits 8..13 required to be zero) is implemented, but no transition into it appears in this function, since types other than 2, 3 and 4 are rejected. The UART ops table and the upper callback are globals with no names yet. Callers: none direct (invoked from the UART receive path)."
+  },
+  "ble_219_0c06c460": {
+    "name": "ll_link_notify_event_72",
+    "summary": "Send a 16-byte vendor event 0x72 with link parameters to the hook and the link callback",
+    "description": "Builds an H4 event: code 0x72, parameter length 14, the 6-byte peer address at record +0x26 (byte-reversed) at offset 2, and four u16 values from +0x24, +0x38, the record id at +0x06 and +0x30 at offsets 8, 10, 12 and 14. It is passed to ble_hook_invoke4 with (4, 1, buffer, 16), then to the record callback at +0x08 with (4, id, buffer, 16). Group: vendor H4 event emitters (codes 0x70..0x7D).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link record: u16 id at +0x06, callback pointer at +0x08, peer address at +0x26"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event code and field meanings are inferred from the packet layout only. Callers 0c06c8f4, 0c06dc56."
+  },
+  "ble_219_0c06c4c0": {
+    "name": "ble_listener_broadcast_event",
+    "summary": "Send an event buffer to the hook and to every listener in the list at 0x20019450",
+    "description": "Calls ble_hook_invoke4(4, 1, param_1, param_2) so the global hook sees the event, then walks the listener list at 0x20019450 and calls each item's callback at +4 with (4, 0, param_1, param_2). The second argument differs between the two paths (1 for the hook, 0 for listeners), which looks like a broadcast marker. Used to fan out the vendor event 0x78 built by ll_link_emit_event_78. Group: vendor H4 event emitters.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "event buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "event length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Listener items are BTstack-style list records with the callback at +0x04. Callers 0c06c504, 0c06dc56."
+  },
+  "ble_219_0c06c504": {
+    "name": "ll_link_emit_event_78",
+    "summary": "Emit vendor event 0x78 for a link and move matching L2CAP channel sub-states",
+    "description": "Sets the record's state byte at +0x318 to 5, then builds an 8-byte H4 event (code 0x78, length 6) from the u16 values at record +0x0A, +0x31A and +0x31C and broadcasts it with ble_listener_broadcast_event. It then walks the L2CAP channel list at 0x2001944C and, for each channel in state 0, 2 or 5 whose u16 at +0x24 equals the record's +0x0A, changes sub-state 7 at +0x20 to 0x11 and sub-state 8 to 0x0E; other channels are untouched. Group: vendor H4 event emitters.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "connection record: key at +0x0A, fields at +0x31A and +0x31C, state byte at +0x318"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event code 0x78 and the meaning of sub-states 7, 8, 0x0E and 0x11 are inferred. Caller 0c06dc56."
+  },
+  "ble_219_0c06c5ac": {
+    "name": "l2cap_channel_emit_event_70",
+    "summary": "Emit vendor event 0x70 (26 bytes) describing an L2CAP channel with a sub-code",
+    "description": "Builds an H4 event with code 0x70 and parameter length 24: byte 2 is the sub-code param_2, bytes 3..8 the byte-reversed peer address at channel +0x26, and u16 values from +0x24, +0x38, the CID at +0x06, +0x30, +0x32, +0x34 and +0x36 at offsets 9, 11, 13, 15, 17, 19 and 21. Byte 23 is bit 15 of the u16 at +0x22, and bytes 24 and 25 are zero. It is sent through ble_hook_invoke4(4, 1, ...) and then to the channel callback at +0x08 with (4, CID, buffer, 26). Group: vendor H4 event emitters; L2CAP channel management.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "L2CAP channel record (CID at +0x06, callback at +0x08, peer address at +0x26)"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "sub-code byte written at event offset 2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event code 0x70 is an inference. Callers 0c06c74c (sub-code 0x69), 0c06c83c, 0c06cdb8, 0c06d9b0."
+  },
+  "ble_219_0c06c648": {
+    "name": "ll_link_emit_event_code_handle",
+    "summary": "Send a 4-byte H4 event whose code is param_2 and whose parameter is the record id",
+    "description": "Builds [code = param_2][length 2][u16 record id at +0x06, little-endian], passes it to ble_hook_invoke4(4, 1, ...) and then to the record callback at +0x08 with (4, id, buffer, 4). It is the generic single-handle notifier for link events. Group: vendor H4 event emitters.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link record (id at +0x06, callback at +0x08)"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "H4 event code"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompiled hook and callback calls show three arguments; length 4 is taken from the built buffer (2 + 2). Callers 0c06cb3c, 0c06cdb8, 0c06d9b0, 0c06dc56, 0c06ebec."
+  },
+  "ble_219_0c06c684": {
+    "name": "ll_link_emit_event_7d",
+    "summary": "Emit vendor event 0x7D (23 bytes) with a sub-code and link parameters",
+    "description": "Builds an H4 event with code 0x7D and parameter length 21: byte 2 is the sub-code param_2, byte 3 the record byte at +0x2C, bytes 4..9 the byte-reversed peer address at +0x26, byte 12 bit 15 of the u16 at +0x22, and u16 values from +0x24, +0x38, +0x06, +0x30, +0x32 and +0x34 at offsets 10, 13, 15, 17, 19 and 21. The 23-byte event goes through ble_hook_invoke4(4, 1, ...) and to the record callback at +0x08. Group: vendor H4 event emitters.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link record"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "sub-code at event offset 2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event code 0x7D is an inference from the layout. Callers 0c06cdb8, 0c06dc56."
+  },
+  "ble_219_0c06c710": {
+    "name": "ll_link_emit_event_79",
+    "summary": "Send a 4-byte vendor event 0x79 with a u16 handle to a callback and the hook",
+    "description": "Builds [0x79][length 2][u16 param_2, little-endian], passes it to ble_hook_invoke4(4, 1, ...) and then calls the caller-supplied callback param_1 with (4, handle, buffer). Unlike ll_link_emit_event_code_handle the callback arrives as an argument rather than from a record. Group: vendor H4 event emitters.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "callback (function pointer) invoked with (4, handle, buffer)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "handle value written into the event"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The callback call shows three arguments in the decompile; the length argument is not visible. Caller 0c06cb3c."
+  },
+  "ble_219_0c06c74c": {
+    "name": "l2cap_channel_timer_teardown",
+    "summary": "Timer callback: tear down the L2CAP channel that owns the expired timer",
+    "description": "Looks up the channel in the L2CAP list at 0x2001944C (state 0, 2 or 5) whose embedded timer at +0x10 equals param_1; returns if none matches. For the match it emits event 0x70 with sub-code 0x69 (l2cap_channel_emit_event_70), unlinks the channel with btstack_linked_list_remove, removes the timer from the run loop with btstack_run_loop_remove_timer, and returns the block to the pool with btstack_memory_l2cap_channel_free. Group: L2CAP channel teardown (with l2cap_channels_teardown_by_addr).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "BTstack timer source embedded at channel +0x10"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Used as a timer callback; no direct callers in the packet."
+  },
+  "ble_219_0c06c83c": {
+    "name": "l2cap_channels_teardown_by_addr",
+    "summary": "Tear down all L2CAP channels to a peer address, emitting event 0x70 with a code",
+    "description": "First pass: every channel in the L2CAP list (0x2001944C) that is in state 0, 2 or 5 and whose peer address at +0x26 equals the 6-byte address param_1 has sub-state 2 or 3 at +0x20 changed to 0x18 (0x0C065B24 returns 0 on a match). Second pass: while a channel with sub-state 0x18 remains, it emits event 0x70 with sub-code param_2, unlinks the channel, removes its timer at +0x10 from the run loop and frees the block. Channels in other sub-states are kept. Group: L2CAP channel teardown (with l2cap_channel_timer_teardown).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte BD address to match"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "sub-code passed to the event 0x70 (l2cap_channel_emit_event_70)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "0x0C065B24 is not named in this packet; its use (the loop breaks when it is non-zero) implies it returns 0 for a matching address, like memcmp. Caller: none direct (teardown path)."
+  },
+  "ble_219_0c06c964": {
+    "name": "l2cap_coc_rx_segment",
+    "summary": "Consume an LE credit and reassemble one L2CAP credit-based SDU segment",
+    "description": "Decrements the remaining-credit counter at channel +0x56; at zero the sub-state at +0x20 becomes 0x12 and the segment is dropped. When fewer than 5 credits remain and the flag byte at +0x58 is set, the counter at +0x54 is reloaded to 5. A PDU of exactly 8 bytes (headers only) is ignored. A segment that starts an SDU reads its u16 SDU length at buffer offset 8, is dropped when it exceeds the channel MTU at +0x32, and otherwise stores the length at +0x44, resets the received count at +0x46 and copies the payload into the SDU buffer at +0x40. Continuation segments are appended at the received offset; when the received count reaches the SDU length, the channel callback at +0x08 is called with (6, id at +0x06, SDU buffer) and +0x44 is cleared. Group: L2CAP LE credit-based flow control.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "channel record (credits at +0x54/+0x56, MTU +0x32, SDU state +0x40..+0x46, callback +0x08)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "PDU buffer, starting at the HCI ACL header"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "PDU length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "appears only as an extra argument to the 16-bit read; no visible effect"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The first-segment rule assumes the 4-byte ACL and 4-byte L2CAP basic headers precede the SDU length at offset 8. The copy-length argument of the memcpy is not visible in the decompile. Callers are not in this packet."
+  },
+  "ble_219_0c06cd00": {
+    "name": "l2cap_create_channel_entry",
+    "summary": "Allocate an L2CAP channel from the pool, set its fields and pick a free local CID",
+    "description": "Takes a block from the L2CAP channel pool (btstack_memory_l2cap_channel_get) and returns 0 when the pool is empty. It stores param_1 as the context pointer at +0x08, param_2 as the state byte at +0x04, the peer address (param_3) copied to +0x26, param_4 (u8) at +0x2C, param_5 (u16) at +0x38, param_6 (u16 MTU) at +0x32, param_7 (u8) at +0x3A, and the default 0x2A0 (672) at +0x34. A local CID is taken from the counter at 0x200194A4: 0x40 upward, wrapping from 0xFFFE to 0x40, skipping any CID already used in the channel list. The channel gets sub-state 2 at +0x20, unassigned handle 0xFFFF at +0x24, and cleared bytes at +0x22, +0x2D and +0x2E; it is not linked into the list here. Group: L2CAP channel management.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "context pointer stored at +0x08"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "state value stored at +0x04"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "6-byte peer BD address, copied to +0x26"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "stored at +0x2C"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "stored at +0x38"
+      },
+      {
+        "name": "param_6",
+        "type": "u16",
+        "description": "MTU stored at +0x32"
+      },
+      {
+        "name": "param_7",
+        "type": "u8",
+        "description": "stored at +0x3A"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "new channel record, or NULL when the pool is empty"
+    },
+    "confidence": "medium",
+    "notes": "The name matches the wave-1 note on btstack_memory_l2cap_channel_get, which cites this function as the l2cap.c constructor. Callers 0c06dc56, 0c06ee70 (not in this packet). The meaning of the default 0x2A0 at +0x34 is not confirmed."
+  },
+  "ble_219_0c06d5c8": {
+    "name": "ll_env_get_u32_68_plus8",
+    "summary": "Return the u32 at controller env +0x68 plus 8",
+    "description": "Calls ll_env_get_u32_68 (0x0C066D04) and returns its value plus 8. The +8 suggests the value at env+0x68 is a pointer and the caller wants the address of a sub-field at offset 8 of that object.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "env+0x68 value plus 8"
+    },
+    "confidence": "low",
+    "notes": "Meaning of env+0x68 is unknown. Callers 0c04e398, 0c04ebc0, 0c04ec18."
+  },
+  "ble_219_0c06d5d4": {
+    "name": "hci_reserve_packet_buffer",
+    "summary": "Claim the HCI packet buffer by setting the env+0x170 flag, or fail if it is set",
+    "description": "A one-instruction tail jump to 0x0C066BE8, whose body is shown here: if the byte at controller env +0x170 is 0 it sets it to 1 and returns 1; otherwise it logs 'hci_reserve_packet_buffer called but buffer already reserved' (hci.c line 757) through ble_hook_invoke_indexed channel 2 and returns 0. Its release counterpart hci_release_packet_buffer clears the same byte.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the buffer was claimed, 0 when it was already claimed"
+    },
+    "confidence": "high",
+    "notes": "The decompiled body is the target at 0x0C066BE8, not this stub; 0x0C066BE8 is not described in this packet. The flag byte at +0x170 is the one read by ll_env_get_flag_170."
+  },
+  "ble_219_0c06d5d8": {
+    "name": "hci_release_packet_buffer",
+    "summary": "Release the HCI packet buffer by clearing the env+0x170 flag",
+    "description": "A one-instruction tail jump to 0x0C066C1C (ll_env_clear_flag_170), which writes 0 to the byte at controller env +0x170. It is the release side of hci_reserve_packet_buffer and performs no check.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Caller 0c04e398."
+  },
+  "ble_219_0c06ec54": {
+    "name": "l2cap_channel_get_u16_34_by_cid",
+    "summary": "Return the u16 at +0x34 of the L2CAP channel with a given local CID",
+    "description": "Returns 0 for CIDs below 0x40 (the dynamic CID range starts there). Otherwise it searches the channel list at 0x2001944C for the channel whose CID at +0x06 equals param_1 and returns its u16 at +0x34, which l2cap_create_channel_entry sets to 0x2A0; it returns 0 when no channel matches. Group: L2CAP channel lookups by CID.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "local CID"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "value at +0x34, or 0"
+    },
+    "confidence": "medium",
+    "notes": "Field +0x34 is a 16-bit parameter, probably an MTU or MPS; the name is not confirmed. Caller not in this packet."
+  },
+  "ble_219_0c06f03c": {
+    "name": "l2cap_channel_set_context_by_cid",
+    "summary": "Store a context pointer in the L2CAP channel with a given CID (CIDs 0..0x3F)",
+    "description": "Returns immediately for CIDs above 0x3F. Otherwise it searches the channel list at 0x2001944C for a channel whose CID at +0x06 equals param_2 and stores param_1 at its +0x08 (the callback/context slot). Nothing happens when no channel matches. Group: L2CAP channel lookups by CID.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "context value stored at +0x08"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "CID; only values up to 0x3F are searched"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The range check is the reverse of l2cap_channel_get_u16_34_by_cid (which searches CIDs of 0x40 and above), so the list may also hold fixed-CID records. Not confirmed."
+  },
+  "ble_219_0c06f078": {
+    "name": "l2cap_register_service",
+    "summary": "Register an L2CAP service (PSM, MTU, security) and refresh the env security level",
+    "description": "Rejects a PSM already in the service list at 0x200194B0 (logs 'register: PSM %u already registered', l2cap.c line 4814) and returns 0x6B. Otherwise it allocates an l2cap_service_t (btstack_memory_l2cap_service_get; on failure it logs and returns 0x56), stores the PSM at +4, the MTU at +6, the handler context at +8 and the security level at +0x0C, and inserts it at the head of the list with btstack_linked_list_add. It then takes the highest security level over all services (at least 1) and stores it at controller env +0x59 through ble_ctrl_env_set_u8_at_0x59; it returns 0 on success.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "handler / context pointer, stored at +8"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "PSM"
+      },
+      {
+        "name": "param_3",
+        "type": "u16",
+        "description": "MTU, stored at +6"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "security level, stored at +0x0C"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0x6B when the PSM is already registered, 0x56 when out of memory"
+    },
+    "confidence": "high",
+    "notes": "Matches BTstack l2cap_register_service. Callers 0c04bb00, 0c04bd48."
+  },
+  "ble_219_0c06f12c": {
+    "name": "l2cap_signaling_pdu_build",
+    "summary": "Build an L2CAP signalling command PDU from a per-code format string",
+    "description": "Writes the ACL header (u16 at +0: connection handle param_2 with PB/BC flags param_3 in the top four bits), the L2CAP basic header (length at +4, CID param_4 at +6) and the signalling header (code param_5 at +8, identifier param_6 at +9, data length at +10). The payload layout comes from the format string at table 0x0C082190 indexed by code-1: 'C' writes a list of u16 values read from a pointer until 0xFFFF, 'D' copies a (pointer, length) block, and '2' writes one u16 argument; with an empty format the command is header-only (12 bytes). The length fields are filled in at the end and the total byte count is returned. Group: HCI and L2CAP packet builders (see hci_cmd_pack_format).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "ACL connection handle (12 bits)"
+      },
+      {
+        "name": "param_3",
+        "type": "s16",
+        "description": "packet boundary / broadcast flags (4 bits)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "L2CAP CID"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "signalling command code (1-based index into the format table)"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "command identifier"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "argument words, consumed in format order"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "total bytes written"
+    },
+    "confidence": "medium",
+    "notes": "Format letters are read from the decompile; the table contents at 0x0C082190 are not in this packet. Callers: ble_219_0c06c7ac (not in this packet)."
+  },
+  "ble_219_0c06f288": {
+    "name": "w_sqrtf",
+    "summary": "Single-precision square root wrapper that sets errno to EDOM for negative input",
+    "description": "Calls the VSQRT.F32 core at 0x0C06F450 and returns its result. If the argument is not NaN and is negative, it stores 33 (EDOM) into errno through __errno and returns the default NaN 0xFFC00000 instead. Group: soft-float and libm arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "f32",
+        "description": "input"
+      }
+    ],
+    "returns": {
+      "type": "f32",
+      "description": "square root, or -NaN with errno set to EDOM"
+    },
+    "confidence": "high",
+    "notes": "Newlib-style sqrtf wrapper (w_sqrtf). The wave-1 name 'sqrtf' on 0x0C06F450 looks like the __ieee754_sqrtf core; left unchanged."
+  },
+  "ble_219_0c06f720": {
+    "name": "__aeabi_f2d",
+    "summary": "Convert a soft-float single to double (__aeabi_f2d)",
+    "description": "Expands the IEEE-754 single whose bit pattern is param_1 into a double: the sign goes to bit 63, the exponent is rebiased by 896 (xor with 0x3800000000000000), and the mantissa sits in the upper 52 bits with the low word equal to param_1 << 29. Zero, subnormal (normalised with LZCOUNT), infinity and NaN inputs take separate paths. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "single-precision bit pattern"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "double-precision bit pattern"
+    },
+    "confidence": "high",
+    "notes": "The packet's callee list shows __aeabi_dadd, but no call to it appears in the decompiled body; the arithmetic is the single-to-double expansion."
+  },
+  "ble_219_0c06f7d0": {
+    "name": "__aeabi_dmul",
+    "summary": "Soft-float IEEE double multiply (__aeabi_dmul)",
+    "description": "Multiplies two doubles given as (lo, hi) argument words. Zero, infinity, NaN and subnormal operands go through __aeabi_dmul_special_case (0x0C06F9AC). Normal operands have their 53-bit mantissas multiplied with 32x32-bit partial products, the exponents are summed and rebiased, and the product is normalised, rounded and clamped to infinity on overflow or to subnormal/zero on underflow. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "a, low word"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "a, high word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "b, low word"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "b, high word"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "product bit pattern"
+    },
+    "confidence": "high",
+    "notes": "Callers include the division special-case and dispatch paths (not all in this packet)."
+  },
+  "ble_219_0c06fa24": {
+    "name": "__aeabi_ddiv",
+    "summary": "Soft-float IEEE double divide (__aeabi_ddiv)",
+    "description": "Divides the double (param_1, param_2) by (param_3, param_4). Zero, infinity, NaN and subnormal operands go through __aeabi_ddiv_special_case (0x0C06FB92). Normal operands use restoring long division that produces the quotient mantissa four bits per pass, then rebias the exponent, normalise, round and clamp overflow and underflow as __aeabi_dmul does. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "a, low word"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "a, high word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "b (divisor), low word"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "b (divisor), high word"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "quotient bit pattern"
+    },
+    "confidence": "high",
+    "notes": "The packet's callee list includes __aeabi_dmul (0x0C06F7D0), but no call to it appears in this body; the call list may be imprecise."
+  },
+  "ble_219_0c06fb92": {
+    "name": "__aeabi_ddiv_special_case",
+    "summary": "Special-case path of __aeabi_ddiv: signed zero, infinity, NaN or a normalised operand",
+    "description": "Dual-purpose helper for non-normal operands. For zero, infinity or NaN combinations it returns a signed zero, a signed infinity or the quiet NaN 0x7FF8000000000000 as the 64-bit result. For a finite non-zero subnormal operand it shifts the mantissa left until the hidden bit is set and returns the normalised operand words in r2, r3 and r12, which the caller reads as extra results so the division can continue. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "a, low word"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "a, high word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "b, low word"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "b, high word"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "special result, or the normalised operand (with extra registers r2, r3, r12)"
+    },
+    "confidence": "medium",
+    "notes": "The extra outputs in r2, r3 and r12 are visible only in the caller's decompile (0x0C06FA24 reads them)."
+  },
+  "ble_219_0c06fc90": {
+    "name": "__aeabi_cdcmple",
+    "summary": "Double compare helper that sets the flags for __aeabi_dcmplt (calls __cmpdf2)",
+    "description": "Calls the soft-float compare __cmpdf2 (0x0C06FC04) for its side effect and returns its first argument unchanged. The comparison result reaches the caller through the carry flag, which the decompiler does not model, so the flag effect is inferred from the call pattern. Group: soft-float compare helpers.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "passed through unchanged"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "param_1"
+    },
+    "confidence": "low",
+    "notes": "The name follows the libgcc __aeabi_cdcmple convention. The carry-flag mapping is inferred because the flags are invisible in the decompile."
+  },
+  "ble_219_0c06fcb4": {
+    "name": "__aeabi_dcmplt",
+    "summary": "Return whether the preceding double compare left carry clear (a < b)",
+    "description": "Calls the flag-setting compare helper (0x0C06FC90) and returns the inverted carry flag. The libgcc convention for __aeabi_dcmplt is that carry clear means the first operand is less than the second, which is what this returns. The operands are passed in r0..r3 and are not visible as parameters. Group: soft-float compare helpers.",
+    "category": "libc",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when a < b"
+    },
+    "confidence": "low",
+    "notes": "Operands are in r0..r3 (the decompiler shows none). The result depends on the carry set by 0x0C06FC90, which the decompile does not show."
+  },
+  "ble_219_0c06fe20": {
+    "name": "__divdi3",
+    "summary": "Signed 64-bit division (__divdi3) with saturation on a zero divisor",
+    "description": "Divides the signed 64-bit dividend (param_1, param_2) by (param_3, param_4). A zero divisor returns INT64_MIN for a negative dividend, INT64_MAX for a positive non-zero dividend, and 0 for zero. Otherwise it divides the absolute values with __udivmoddi4 (0x0C06FEF0), keeps the remainder in a local, and negates the quotient when exactly one operand is negative. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "dividend, low word"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "dividend, high word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "divisor, low word"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "divisor, high word"
+      }
+    ],
+    "returns": {
+      "type": "s64",
+      "description": "quotient"
+    },
+    "confidence": "high",
+    "notes": "Unsigned counterpart is ble_219_0c06fec0 (__udivdi3). The divisor-zero saturation is a custom choice in this build, not standard libgcc behaviour."
+  },
+  "ble_219_0c06fec0": {
+    "name": "__udivdi3",
+    "summary": "Unsigned 64-bit division (__udivdi3) returning all ones on a zero divisor",
+    "description": "Divides the unsigned (param_1, param_2) by (param_3, param_4). A zero divisor returns UINT64_MAX when the dividend is non-zero and 0 when it is zero. Otherwise it calls __udivmoddi4 (0x0C06FEF0) for the quotient. Group: soft-float and libgcc arithmetic.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "dividend, low word"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "dividend, high word"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "divisor, low word"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "divisor, high word"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "quotient"
+    },
+    "confidence": "high",
+    "notes": "The decompile shows the __udivmoddi4 call without its remainder pointer argument."
+  },
+  "ble_219_0c0701e0": {
+    "name": "atol",
+    "summary": "Parse a base-10 integer from a string, saturating and setting ERANGE on overflow",
+    "description": "Skips leading whitespace (ctype bit 0x08 at 0x0C0862A9), accepts one optional '+' or '-', and reads decimal digits; a letter ends the number because only base 10 is accepted. Accumulation saturates at 0x7FFFFFFF (or 0x80000000 for a negative value), and on overflow it stores ERANGE (34) through the errno pointer at DAT_200049A8. Behaves like strtol(s, NULL, 10) on this 32-bit target.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "NUL-terminated string"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "parsed value, saturated on overflow"
+    },
+    "confidence": "high",
+    "notes": "Single-argument form, so atol or atoi; both are the same on this target. Callers 0c04855c, 0c055634, 0c05569c, 0c055b90."
+  },
+  "ble_219_0c070a1c": {
+    "name": "libc_tm_normalize",
+    "summary": "Normalise a struct tm in place, carrying or borrowing from seconds up to years",
+    "description": "Operates on six 32-bit fields (sec, min, hour, mday, mon, year, with year counted from 1900). Out-of-range values are carried into the next field using div by 60, 60, 24 and 12, month lengths from the table at 0x0C0745FC, and the Gregorian leap-year rule for February. param_2 is a signed flag: when it is negative the remainder is rebased by adding the divisor and the quotient is decremented by one, which handles borrowing from negative differences.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "six u32 fields: sec, min, hour, mday, mon, year"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "borrow flag; negative selects the borrow form"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Probably newlib mktime's internal __adjust, but the name is not confirmed, so a module-style name is used. The division helper is 0x0C072058 (div)."
+  },
+  "ble_219_0c071670": {
+    "name": "__sread",
+    "summary": "newlib __sread: read through the FILE descriptor and update its offset or error flag",
+    "description": "Stdio read callback: calls _read_r (0x0C0734E0) with the FILE's descriptor (short at +0x0E). On a negative result it clears bit 0x1000 (__SOFF, offset valid) in the FILE flags at +0x0C; on success it adds the byte count to the stream offset at +0x54. The buffer and count arguments of the original newlib function are not visible in this decompile.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "struct _reent"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "FILE stream (cookie)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Same logic as newlib sread.c. Called through the FILE read hook; no direct callers in the packet."
+  }
+}

@@ -1,0 +1,422 @@
+{
+  "bms_4168_080021b4": {
+    "name": "bms_counter_accumulate",
+    "summary": "Adds the step word at 0x20000698 into the 32-bit counter at 0x200006a0",
+    "description": "Leaf routine that does counter += step in place, where the counter is RAM word 0x200006a0 (read-write) and the step is RAM word 0x20000698 (read-only here). The only arithmetic is a 32-bit add, so the counter wraps at 2^32. It is called from bms_4168_08003662, which suggests a periodic time base or an event accumulator, but the packet does not show which.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The meaning of both RAM words and of the caller is not established in this packet; the description only covers the arithmetic."
+  },
+  "bms_4168_08002278": {
+    "name": "__NVIC_DisableIRQ",
+    "summary": "Disables a device interrupt by writing its bit to NVIC ICER at 0xE000E180",
+    "description": "CMSIS inline NVIC_DisableIRQ for the Cortex-M0+ core. For IRQn >= 0 it writes 1 << (IRQn & 0x1f) to NVIC ICER[0] (0xE000E180), which clears that interrupt's enable bit, then runs DSB and ISB so the disable has taken effect before returning. Negative IRQn values (core exceptions) are ignored. Only ICER[0] is used, which covers IRQ 0 to 31 as on the STM32G0B1.",
+    "category": "isr",
+    "params": [
+      {"name": "IRQn", "type": "s32", "description": "device interrupt number; negative values are ignored"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002298": {
+    "name": "__NVIC_EnableIRQ",
+    "summary": "Enables a device interrupt by writing its bit to NVIC ISER at 0xE000E100",
+    "description": "CMSIS inline NVIC_EnableIRQ for the Cortex-M0+ core. For IRQn >= 0 it writes 1 << (IRQn & 0x1f) to NVIC ISER[0] (the NVIC base 0xE000E100), which sets that interrupt's enable bit. Negative IRQn values are ignored. No barrier is issued, and only the first ISER word is used, which covers IRQ 0 to 31.",
+    "category": "isr",
+    "params": [
+      {"name": "IRQn", "type": "s32", "description": "device interrupt number; negative values are ignored"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_080022b0": {
+    "name": "__NVIC_SetPriority",
+    "summary": "Sets the 2-bit priority of a device interrupt (NVIC IPR) or a system exception (SHPR)",
+    "description": "CMSIS inline NVIC_SetPriority with __NVIC_PRIO_BITS = 2, so the priority is shifted to the top of the byte (priority << 6); only the low 2 bits of the argument are used and 0 is the highest priority. For IRQn >= 0 it does a read-modify-write of one byte in NVIC IPR (0xE000E400 plus IRQn with the low 2 bits dropped). For negative IRQn it does the same on one byte of SCB SHPR1/2/3 (0xE000ED18 to 0xE000ED20), selecting the register from (IRQn & 0xf) - 8. Other bytes in the word are preserved.",
+    "category": "isr",
+    "params": [
+      {"name": "IRQn", "type": "s32", "description": "device interrupt number, or negative system exception number"},
+      {"name": "priority", "type": "u32", "description": "priority value; only bits 1:0 are used, 0 is highest"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_080022f4": {
+    "name": "PWR_EnterSTOPMode",
+    "summary": "Selects the PWR LPMS low-power mode, sets SLEEPDEEP and executes WFI or WFE to enter Stop",
+    "description": "Writes PWR.CR1.LPMS (bits 2:0) with 0 when param_1 is 0 and with 1 otherwise, which selects one of the two Stop variants (0 and 1 are the ST HAL STOP0 and STOP1 choices). It then sets SCB SCR.SLEEPDEEP (0xE000ED10 bit 2), executes WFI when stop_entry is 1 and WFE twice otherwise, and clears SLEEPDEEP again after the core wakes. The function does not configure a wake source, so the caller must set up EXTI or RTC wake-up before calling it.",
+    "category": "power",
+    "params": [
+      {"name": "lpms_select", "type": "u32", "description": "0 selects LPMS = 000 (STOP0), any other value LPMS = 001 (STOP1)"},
+      {"name": "stop_entry", "type": "u32", "description": "1 = enter with WFI, any other value = enter with WFE"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The name follows the ST HAL static PWR_EnterSTOPMode pattern (inferred from the body, not from a symbol). The decompile shows two WFE calls with no SEV before them; the HAL pattern is SEV, WFE, WFE, so the SEV is probably elided by the decompiler."
+  },
+  "bms_4168_08002334": {
+    "name": "HAL_RCC_EnableCSS",
+    "summary": "Sets RCC.CR.CSSON to enable the clock security system for HSE failure detection",
+    "description": "Read-modify-write that sets RCC CR bit 19 (CSSON, clock security system enable) at 0x40021000 and leaves all other bits alone. With CSS on, a detected HSE failure switches the system clock to the internal oscillator and reports the failure through the NMI vector. It takes no arguments and returns nothing.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002540": {
+    "name": "bms_empty_stub",
+    "summary": "Empty stub that returns immediately",
+    "description": "The body is a single bx lr with no reads or writes. It is a placeholder that is called for an optional hook or weak callback, so it does nothing by design. The packet's caller address 0x08002542 lies just after this function, so the caller list is probably a split or misaligned entry rather than a real call site.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The purpose is inferred from the empty body and the caller list. Which callback or hook it stands in for cannot be determined from this packet."
+  },
+  "bms_4168_08002564": {
+    "name": "HAL_RTC_GetDate",
+    "summary": "Reads RTC_DR and returns weekday, month, date and year, converting BCD to binary when format is 0",
+    "description": "Reads the RTC DR register through the handle (the first handle word points at the RTC peripheral, DR at +4) and writes four bytes to the output record. Byte 0 is the weekday from DR.WDU (bits 13-15), byte 1 is the month from DR.MT and MU (bit 12 and bits 8-11), byte 2 is the day from DR.DT and DU (bits 4-5 and bits 0-3), and byte 3 is the year from DR.YT and YU (bits 20-23 and bits 16-19). When format is 0 (binary) each BCD field is converted as tens * 10 + units. The decompile shows no state or lock check, and the function always returns 0 (HAL_OK).",
+    "category": "rtc",
+    "params": [
+      {"name": "hrtc", "type": "ptr", "description": "RTC handle; word 0 points at the RTC peripheral"},
+      {"name": "sDate", "type": "ptr", "description": "output RTC_DateTypeDef record: WeekDay, Month, Date, Year as bytes 0 to 3"},
+      {"name": "format", "type": "u32", "description": "0 = binary output (fields converted from BCD), non-zero = BCD output"}
+    ],
+    "returns": {"type": "u32", "description": "HAL status; 0 (HAL_OK) on every path in this build"},
+    "confidence": "high"
+  },
+  "bms_4168_080025bc": {
+    "name": "HAL_RTC_GetTime",
+    "summary": "Reads RTC_TR, SSR and PRER and returns hours, minutes, seconds, AM/PM and sub-seconds",
+    "description": "Reads RTC TR through the handle and writes hours (TR bits 16-21), minutes (bits 8-14), seconds (bits 0-6) and the AM/PM flag (bit 22) as bytes 0 to 3 of the output record. It then stores SSR as the 32-bit SubSeconds at +4 and PRER & 0x7FFF as the 32-bit SecondFraction at +8. With format 0 (binary) the hour, minute and second bytes are converted from BCD. It returns 0 and does no state check.",
+    "category": "rtc",
+    "params": [
+      {"name": "hrtc", "type": "ptr", "description": "RTC handle; word 0 points at the RTC peripheral"},
+      {"name": "sTime", "type": "ptr", "description": "output RTC_TimeTypeDef record: Hours, Minutes, Seconds, TimeFormat, SubSeconds, SecondFraction"},
+      {"name": "format", "type": "u32", "description": "0 = binary output (fields converted from BCD), non-zero = BCD output"}
+    ],
+    "returns": {"type": "u32", "description": "HAL status; 0 (HAL_OK) on every path in this build"},
+    "confidence": "high",
+    "notes": "The decompile does not show the read of RTC DR that ST's HAL normally performs after TR to release the shadow registers. This is either a different HAL revision or the read was removed."
+  },
+  "bms_4168_080026cc": {
+    "name": "HAL_RTC_MspInit",
+    "summary": "Enables the RTC clock (BDCR.RTCEN and APBENR1.RTCAPBEN) when the handle is for the RTC",
+    "description": "If the handle's instance pointer equals the RTC peripheral, it sets RCC BDCR bit 15 (RTCEN) and RCC APBENR1 bit 10 (RTCAPBEN), each by read-modify-write. It then reads APBENR1 back to let the clock enable settle. This is the usual CubeMX HAL_RTC_MspInit body, which expands the __HAL_RCC_RTC_ENABLE macro. For any other instance it does nothing and returns.",
+    "category": "rtc",
+    "params": [
+      {"name": "rtcHandle", "type": "ptr", "description": "RTC handle; word 0 is the peripheral instance pointer"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The name is inferred from the CubeMX MspInit pattern (instance check followed by RTC clock enable). The clock bits themselves are read directly from the register database."
+  },
+  "bms_4168_080028a4": {
+    "name": "bms_syscfg_set_ucpd_strobe",
+    "summary": "Replaces SYSCFG.CFGR1 bits 9-10 (UCPD1 and UCPD2 strobe) with the supplied value",
+    "description": "Read-modify-write of SYSCFG CFGR1 that clears bits 9 and 10 (UCPD1_STROBE and UCPD2_STROBE) with mask 0xFFFFF9FF and then ORs in the argument unchanged. The argument is not masked, so a caller that sets any bit outside 9-10 also writes that bit into CFGR1. It is called only from bms_4168_08002234, which is presumably the USB Power Delivery port setup.",
+    "category": "protocol",
+    "params": [
+      {"name": "strobe_bits", "type": "u32", "description": "value for CFGR1 bits 9-10; should contain nothing else"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The UCPD association comes from the register names in the SVD. The caller's purpose is not visible in this packet."
+  },
+  "bms_4168_080028b8": {
+    "name": "SysTick_Config",
+    "summary": "Starts SysTick with the given reload count at lowest priority and enables its interrupt",
+    "description": "CMSIS SysTick_Config. It returns 1 without touching hardware when ticks - 1 exceeds the 24-bit reload limit 0xFFFFFF. Otherwise it writes SysTick LOAD = ticks - 1, sets the SysTick exception priority to 3 (lowest) by writing 0xC0 into the top byte of SCB SHPR3 (0xE000ED20) and preserving the low 24 bits (including the PendSV priority), clears SysTick VAL, and writes SysTick CTRL = 7 (CLKSOURCE = processor clock, TICKINT = 1, ENABLE = 1). It returns 0 on success.",
+    "category": "timer",
+    "params": [
+      {"name": "ticks", "type": "u32", "description": "number of processor clock cycles per tick; 1 to 0x1000000"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 1 if ticks is out of range"},
+    "confidence": "high"
+  },
+  "bms_4168_080028f4": {
+    "name": "HardFault_Handler",
+    "summary": "Hard fault vector that resets the MCU via AIRCR.SYSRESETREQ instead of dumping fault state",
+    "description": "Installed in the HardFault vector, but the body is CMSIS NVIC_SystemReset and not a fault handler. It runs DSB, writes SCB AIRCR = 0x05FA0004 (VECTKEY 0x5FA with SYSRESETREQ set), runs DSB again, and then spins until the reset takes effect. Any hard fault therefore resets the chip, and CFSR and HFSR are never read here. The name is kept because it is the vector slot name.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none; does not return"},
+    "confidence": "high",
+    "notes": "The AIRCR write is a constant here, so the PRIGROUP-preserving form of NVIC_SystemReset has been simplified. The name comes from the vector table, not from the code."
+  },
+  "bms_4168_08002910": {
+    "name": "LL_ADC_DeInit",
+    "summary": "Stops and disables the ADC if it is running, then resets its registers to reset values",
+    "description": "Deinitialises an ADC instance. If ADEN is set it clears CFGR1 EXTSEL and EXTEN, requests a conversion stop (ADSTP) and waits for it to clear, then sets ADDIS and waits for the hardware to clear it; each wait is a bounded countdown (0x8000 iterations) and a timeout returns 1. If ADEN, ADDIS, ADSTART and ADSTP are all clear, it writes the pending ISR flags back to clear them (mask 0x2B9F), waits up to 0x30000 iterations for CCRDY (ISR bit 13) and clears it, then resets IER, CFGR1, CFGR2, SMPR and CHSELR to their reset values (keeping a few bits the code leaves set), writes 0x0FFF0000 to the three analog watchdog thresholds, and clears the low 7 bits of CALFACT. It returns 0 on success and 1 on timeout or if the ADC is still enabled.",
+    "category": "adc",
+    "params": [
+      {"name": "ADCx", "type": "ptr", "description": "ADC instance (ADC_TypeDef pointer)"}
+    ],
+    "returns": {"type": "u32", "description": "ErrorStatus: 0 = SUCCESS, 1 = ERROR (timeout or ADC still enabled)"},
+    "confidence": "medium",
+    "notes": "The name is inferred from the reset-to-default pattern and the ErrorStatus return; the ST HAL does not reset registers in its ADC deinit, so this matches an LL-style deinit. The 'keeps a few bits' masks (0xFFFFD460 for IER and so on) are not decoded individually."
+  },
+  "bms_4168_08002a44": {
+    "name": "LL_ADC_Init",
+    "summary": "Writes ADC CFGR1 resolution, alignment and low-power fields and CFGR2 clock mode while ADC is off",
+    "description": "Configures an ADC instance from a 4-word init record, but only when CR.ADEN is clear. If the ADC is enabled it returns 1 and changes nothing. Otherwise it sets CFGR2.CKMODE (bits 31:30) from init[0] and rewrites CFGR1 by clearing RES (bits 4:3), ALIGN (bit 5) and WAIT and AUTOFF (bits 14 and 15) and ORing in the pre-encoded values init[1], init[2] and init[3]. It returns 0 on success.",
+    "category": "adc",
+    "params": [
+      {"name": "ADCx", "type": "ptr", "description": "ADC instance (ADC_TypeDef pointer)"},
+      {"name": "init", "type": "ptr", "description": "4-word init record: clock mode, resolution, data alignment, low-power bits"}
+    ],
+    "returns": {"type": "u32", "description": "0 = SUCCESS; 1 = ADC enabled, nothing written"},
+    "confidence": "medium",
+    "notes": "The LL_ADC_Init name matches the CFGR1 clear mask 0xFFFF3FC7 and the enable check. The 4-word layout and the CKMODE field are inferred from the code, so this is not confirmed against the LL header."
+  },
+  "bms_4168_08002a80": {
+    "name": "LL_ADC_REG_Init",
+    "summary": "Writes ADC regular-group trigger, continuous, DMA and overrun settings and channel selection while ADC is off",
+    "description": "Configures the regular conversion group from a 6-word record and only when ADEN is clear (returns 1 and changes nothing otherwise). It clears the trigger-select, discontinuous, continuous, DMA and overrun fields of CFGR1 with mask 0xFFFEC23C and ORs in init[0], init[2], init[3], init[4] and init[5] for those fields. When CHSELRMOD (CFGR1 bit 21) is set, init[1] is ORed into CHSELR as the regular channel selection. If CHSELRMOD is set and init[1] is 0xF0, the discontinuous bit (init[2]) is left out of the write. It returns 0 on success.",
+    "category": "adc",
+    "params": [
+      {"name": "ADCx", "type": "ptr", "description": "ADC instance (ADC_TypeDef pointer)"},
+      {"name": "init", "type": "ptr", "description": "6-word regular-group record: trigger, channel or length field, discontinuous, continuous, DMA, overrun"}
+    ],
+    "returns": {"type": "u32", "description": "0 = SUCCESS; 1 = ADC enabled, nothing written"},
+    "confidence": "medium",
+    "notes": "The field order and the 0xF0 special case come from the code only. The meaning of init[1] is uncertain: it is written to CHSELR when CHSELRMOD is set, which fits a channel mask better than a length."
+  },
+  "bms_4168_08002af0": {
+    "name": "LL_APB1_GRP1_EnableClock",
+    "summary": "Sets bits in RCC APBENR1 to enable APB1 group 1 peripheral clocks",
+    "description": "ORs the argument into RCC APBENR1 (0x4002103C) by read-modify-write and then reads the register back, which is the LL driver's dummy read that makes sure the clock write has taken effect before the caller touches the peripheral. The mask uses the LL_APB1_GRP1_PERIPH bit positions; for example bit 10 is the RTC APB clock and bit 28 is PWR. Existing enable bits are kept.",
+    "category": "clock",
+    "params": [
+      {"name": "periphs", "type": "u32", "description": "APBENR1 bit mask of peripherals to enable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002b0c": {
+    "name": "LL_EXTI_Init",
+    "summary": "Programs EXTI line masks, edge triggers and interrupt or event mode from an init record",
+    "description": "Configures EXTI lines from an LL_EXTI_InitTypeDef-style record: word 0 is the mask for lines 0 to 31, word 1 the mask for lines 32 to 63, and byte 8 is LineCommand (0 disables). For lines 0 to 31, byte 9 selects Mode (0 = interrupt: IMR1 set and EMR1 clear, 1 = event: IMR1 clear and EMR1 set, 2 = both) and byte 10 selects Trigger (1 = rising: RTSR1 set and FTSR1 clear, 2 = falling, 3 = both, 0 = none). Lines 32 to 63 get only the IMR2 and EMR2 bits for their mode, with no edge registers. With LineCommand 0 it clears the lines in IMR1, EMR1, IMR2 and EMR2 and leaves the edge registers alone.",
+    "category": "isr",
+    "params": [
+      {"name": "init", "type": "ptr", "description": "EXTI init record: line masks at +0 and +4, LineCommand at +8, Mode at +9, Trigger at +10"}
+    ],
+    "returns": {"type": "u32", "description": "error bitmask: 1 = invalid Mode for lines 0-31, 2 = invalid Trigger, 4 = invalid Mode for lines 32-63; 0 = OK"},
+    "confidence": "high",
+    "notes": "Trigger edges are not programmed for lines 32 to 63 (RTSR2 and FTSR2 are never written), so a line in that range cannot have its edge set through this function."
+  },
+  "bms_4168_08002c24": {
+    "name": "LL_GPIO_Init",
+    "summary": "Configures every pin in an init mask for mode, speed, output type, pull and alternate function",
+    "description": "Per-pin GPIO configuration, as in ST's LL_GPIO_Init, for each bit set in init[0] (the pin mask). For each pin it writes MODER (2 bits, from init[1]) and PUPDR (2 bits, from init[4]). For output or alternate mode (init[1] equal to 1 or 2) it also writes OTYPER (1 bit, init[3]) and OSPEEDR (2 bits, init[2]). For alternate mode (init[1] equal to 2) it writes the 4-bit AF value init[5] to AFRL for pins 0 to 7 or AFRH for pins 8 to 15. Each field is cleared before the new value is ORed in. It returns 0 (SUCCESS).",
+    "category": "gpio",
+    "params": [
+      {"name": "GPIOx", "type": "ptr", "description": "GPIO port (GPIO_TypeDef pointer)"},
+      {"name": "init", "type": "ptr", "description": "LL_GPIO_InitTypeDef-style record: Pin, Mode, Speed, OutputType, Pull, Alternate"}
+    ],
+    "returns": {"type": "u32", "description": "0 = SUCCESS"},
+    "confidence": "high"
+  },
+  "bms_4168_08002cd4": {
+    "name": "LL_GPIO_IsInputPinSet",
+    "summary": "Returns 1 when every pin in the mask reads high in GPIO IDR",
+    "description": "Reads GPIOx IDR (offset 0x10) and returns 1 only if all bits of PinMask are set, so a multi-pin mask is an AND test. It has no side effects. It is used by several callers for input level checks.",
+    "category": "gpio",
+    "params": [
+      {"name": "GPIOx", "type": "ptr", "description": "GPIO port"},
+      {"name": "PinMask", "type": "u32", "description": "pin bit mask to test"}
+    ],
+    "returns": {"type": "bool", "description": "true if all pins in the mask are high"},
+    "confidence": "high"
+  },
+  "bms_4168_08002ce6": {
+    "name": "LL_GPIO_ResetOutputPin",
+    "summary": "Drives the selected GPIO output pins low by writing the mask to GPIOx BRR",
+    "description": "Writes PinMask to GPIOx BRR (offset 0x28). On this part, BRR clears the output latch of each set bit and ignores zero bits, so other pins are not disturbed. The function has no return value and no read-modify-write.",
+    "category": "gpio",
+    "params": [
+      {"name": "GPIOx", "type": "ptr", "description": "GPIO port"},
+      {"name": "PinMask", "type": "u32", "description": "pins to drive low"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002cea": {
+    "name": "LL_GPIO_SetOutputPin",
+    "summary": "Drives the selected GPIO output pins high by writing the mask to GPIOx BSRR",
+    "description": "Writes PinMask to GPIOx BSRR (offset 0x18). A 1 bit sets the matching output latch and a 0 bit has no effect, so other pins are not disturbed. The function has no return value and no read-modify-write.",
+    "category": "gpio",
+    "params": [
+      {"name": "GPIOx", "type": "ptr", "description": "GPIO port"},
+      {"name": "PinMask", "type": "u32", "description": "pins to drive high"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002cf0": {
+    "name": "LL_IOP_GRP1_EnableClock",
+    "summary": "Sets bits in RCC IOPENR to enable GPIO port clocks",
+    "description": "ORs the argument into RCC IOPENR (0x40021034) by read-modify-write and then reads it back, as the LL driver does, so the clock is running before the port is used. Bit n of the argument enables port n. Existing enable bits are kept.",
+    "category": "clock",
+    "params": [
+      {"name": "periphs", "type": "u32", "description": "IOPENR bit mask of ports to enable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002df4": {
+    "name": "LL_SPI_Init",
+    "summary": "Configures an SPI instance from a 10-word init record, only while SPE is clear",
+    "description": "Writes an SPI configuration from an LL_SPI_InitTypeDef-style record of 10 words, only when CR1.SPE (bit 6) is clear; if SPI is enabled it returns 1 and writes nothing. CR1 receives init[0], init[1] and init[3] to init[8] ORed in, while the SPE bit and the upper half are kept. CR2 receives the data width from init[2] (which also sets FRXTH when the value is below 0x800, i.e. narrow data) and the NSS output bit from init[5] >> 16 (SSOE). If CRCCalculation (init[8]) is 0x2000, the CRC polynomial init[9] is written to CRCPR. I2SMOD (I2SCFGR bit 11) is cleared so the peripheral runs in SPI mode. It returns 0 on success.",
+    "category": "spi",
+    "params": [
+      {"name": "SPIx", "type": "ptr", "description": "SPI instance (SPI_TypeDef pointer)"},
+      {"name": "init", "type": "ptr", "description": "10-word LL_SPI_InitTypeDef-style record"}
+    ],
+    "returns": {"type": "u32", "description": "0 = SUCCESS; 1 = ERROR (SPI enabled, nothing written)"},
+    "confidence": "high"
+  },
+  "bms_4168_08002e78": {
+    "name": "bms_set_state_word",
+    "summary": "Stores its argument into the RAM word at 0x200006A4",
+    "description": "Trivial store of the 32-bit argument into the global at 0x200006A4, which the routine only writes. It is called from bms_4168_0800a130 and bms_4168_0800a2e0, so the word is probably a mode or state selector that those paths set. The meaning of the value is not visible in this packet.",
+    "category": "util",
+    "params": [
+      {"name": "value", "type": "u32", "description": "value to store"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The name is generic because the word's role is unknown. Renaming should wait until the callers in the later waves are documented."
+  },
+  "bms_4168_08002e84": {
+    "name": "bms_request_reset",
+    "summary": "Clears the done bit of a request block by writing 0xFFFFFFFE to its word at offset 0x10",
+    "description": "Writes 0xFFFFFFFE to the word at offset 0x10 of the object at param_1. That clears bit 0, which bms_request_is_done reads as the done flag, and sets all other bits to 1 as a sentinel. It is called from three paths before a request is started or polled.",
+    "category": "util",
+    "params": [
+      {"name": "req", "type": "ptr", "description": "request block; the status word is at offset 0x10"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The 'request' and 'done' names are guesses from the one-bit read in bms_request_is_done. The structure's other fields are not visible in this packet."
+  },
+  "bms_4168_08002e8c": {
+    "name": "LL_TIM_DeInit",
+    "summary": "Pulses the RCC reset line of a timer instance (TIM1 to TIM17); returns 1 for other pointers",
+    "description": "Resets one timer by writing a force-reset and then a release-reset to its bit in RCC APBRSTR2 (0x40021030: TIM1 bit 11, TIM14 bit 15, TIM15 bit 16, TIM16 bit 17, TIM17 bit 18) or in RCC APBRSTR1 (0x4002102C: TIM2 bit 0, TIM3 bit 1, TIM4 bit 2, TIM6 bit 4, TIM7 bit 5). It returns 0 (SUCCESS) for a known timer. For any other pointer it returns 1 without touching any register.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance (TIM_TypeDef pointer)"}
+    ],
+    "returns": {"type": "u32", "description": "ErrorStatus: 0 = SUCCESS, 1 = unknown instance"},
+    "confidence": "high"
+  },
+  "bms_4168_08002fa4": {
+    "name": "LL_TIM_DisableCounter",
+    "summary": "Clears TIMx CR1.CEN to stop the timer counter",
+    "description": "Clears CR1 bit 0 (CEN) by read-modify-write and keeps the other CR1 bits, which halts the counter at its current value. It has no other side effects.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance; word 0 is CR1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002fae": {
+    "name": "LL_TIM_DisableMasterSlaveMode",
+    "summary": "Clears SMCR.MSM (bit 7) to turn off master/slave synchronisation",
+    "description": "Clears bit 7 of the word at offset 8 of the timer block (SMCR, master/slave mode MSM) by read-modify-write, which stops the timer from synchronising its trigger output to slave timers. Other SMCR bits are unchanged. It is called only from bms_4168_0800a3e8.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002fb8": {
+    "name": "LL_TIM_EnableARRPreload",
+    "summary": "Sets CR1.ARPE (bit 7) so auto-reload writes are buffered until the next update",
+    "description": "ORs 0x80 into CR1 (offset 0), setting ARPE (auto-reload preload enable). With ARPE set, writes to ARR take effect only at the next update event rather than immediately. It is called from bms_4168_0800a3e8.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance; word 0 is CR1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002fc2": {
+    "name": "LL_TIM_EnableCounter",
+    "summary": "Sets CR1.CEN (bit 0) to start the timer counter",
+    "description": "ORs 1 into CR1 (CEN), which starts the counter from its current CNT value. Other CR1 bits are unchanged. It is called from bms_4168_0800a3e8 as part of timer start-up.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance; word 0 is CR1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_08002fcc": {
+    "name": "LL_TIM_Init",
+    "summary": "Writes prescaler, counter mode, auto-reload, clock division and repetition counter to a timer",
+    "description": "Applies an LL_TIM_InitTypeDef-style record to a timer, as ST's LL_TIM_Init does. PSC gets the 16-bit prescaler at offset 0. CR1 DIR and CMS (bits 4 to 6) take the counter mode at offset 4, for TIM1 to TIM4 only. CR1 CKD (bits 8 and 9) takes the clock division at offset 12, for TIM1 to TIM4 and TIM14 to TIM17. ARR takes the auto-reload value at offset 8, and RCR takes the repetition counter at offset 16 for the advanced timers TIM1 and TIM15 to TIM17 only. Finally it sets EGR.UG so that the new PSC and ARR load at once. It always returns 0.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance"},
+      {"name": "init", "type": "ptr", "description": "LL_TIM_InitTypeDef-style record: Prescaler (u16 at 0), CounterMode (4), Autoreload (8), ClockDivision (12), RepetitionCounter (16)"}
+    ],
+    "returns": {"type": "u32", "description": "ErrorStatus, always 0 (SUCCESS)"},
+    "confidence": "high"
+  },
+  "bms_4168_08003070": {
+    "name": "bms_request_is_done",
+    "summary": "Returns bit 0 of the request block's status word at offset 0x10",
+    "description": "Returns the value of bit 0 of the word at offset 0x10 of the object at param_1, which is 0 or 1. Callers poll it to find out whether the request has completed, using the same word that bms_request_reset clears.",
+    "category": "util",
+    "params": [
+      {"name": "req", "type": "ptr", "description": "request block; the status word is at offset 0x10"}
+    ],
+    "returns": {"type": "u32", "description": "bit 0 of the status word: 1 = done, 0 = pending"},
+    "confidence": "low",
+    "notes": "Reading bit 0 as 'done' is inferred from the reset value 0xFFFFFFFE in bms_request_reset. The name is a guess."
+  },
+  "bms_4168_08003080": {
+    "name": "LL_TIM_SetTriggerOutput",
+    "summary": "Writes CR2.MMS (bits 4 to 6), the master trigger output selection, of a timer",
+    "description": "Replaces CR2 (offset 4) bits 4 to 6 (MMS, master mode selection, which chooses the event that drives TRGO) with the argument, leaving other CR2 bits unchanged. The argument is ORed in without masking, so the caller must pass the MMS value already shifted into bits 4 to 6. It is called from bms_4168_0800a3e8.",
+    "category": "timer",
+    "params": [
+      {"name": "TIMx", "type": "ptr", "description": "timer instance"},
+      {"name": "trigger_output", "type": "u32", "description": "MMS value already in bits 4 to 6"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "bms_4168_0800308c": {
+    "name": "LL_USART_DeInit",
+    "summary": "Pulses the RCC reset line of a USART instance (USART1 to USART6); returns 1 for other pointers",
+    "description": "Resets one USART by writing a force-reset and then a release-reset to its bit in RCC APBRSTR2 (USART1 is bit 14, at 0x40021030) or RCC APBRSTR1 (USART2 bit 17, USART3 bit 18, USART4 bit 19, USART5 bit 8, USART6 bit 9, at 0x4002102C). It returns 0 (SUCCESS) for a known instance. For any other pointer it returns 1 and writes nothing.",
+    "category": "uart",
+    "params": [
+      {"name": "USARTx", "type": "ptr", "description": "USART instance (USART_TypeDef pointer)"}
+    ],
+    "returns": {"type": "u32", "description": "ErrorStatus: 0 = SUCCESS, 1 = unknown instance"},
+    "confidence": "high"
+  },
+  "bms_4168_0800325c": {
+    "name": "bms_rotate_word_bytes",
+    "summary": "Rotates the 4 bytes at param_1 by (param_2 & 3) positions, as in an AES RotWord step",
+    "description": "Copies the 4-byte word at param_1 into a stack temporary and writes it back rotated: result byte i is original byte (k + i) mod 4, where k = param_2 & 3. With k = 1 this is a one-byte rotation of the word, the same as the RotWord step in AES key expansion, so it may be a helper in a crypto routine. The initial value copied from param_4 is overwritten before use and has no effect.",
+    "category": "util",
+    "params": [
+      {"name": "word", "type": "ptr", "description": "4-byte buffer rotated in place"},
+      {"name": "rot", "type": "u32", "description": "rotation count; only bits 1:0 are used"},
+      {"name": "unused", "type": "u32", "description": "copied into a temporary and then overwritten; no effect"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Whether this is AES RotWord or a generic byte rotate is not visible in this packet. If it is a library routine, the library's name should replace the local one."
+  }
+}
