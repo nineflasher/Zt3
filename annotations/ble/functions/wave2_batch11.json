@@ -675,7 +675,7 @@
   "ble_219_0c06fb92": {
     "name": "__aeabi_ddiv_special_case",
     "summary": "Special-case path of __aeabi_ddiv: signed zero, infinity, NaN or a normalised operand",
-    "description": "Dual-purpose helper for non-normal operands. For zero, infinity or NaN combinations it returns a signed zero, a signed infinity or the quiet NaN <redacted 16-byte constant> as the 64-bit result. For a finite non-zero subnormal operand it shifts the mantissa left until the hidden bit is set and returns the normalised operand words in r2, r3 and r12, which the caller reads as extra results so the division can continue. Group: soft-float and libgcc arithmetic.",
+    "description": "Dual-purpose helper for non-normal operands. For zero, infinity or NaN combinations it returns a signed zero, a signed infinity or the quiet NaN 0x7FF8000000000000 as the 64-bit result. For a finite non-zero subnormal operand it shifts the mantissa left until the hidden bit is set and returns the normalised operand words in r2, r3 and r12, which the caller reads as extra results so the division can continue. Group: soft-float and libgcc arithmetic.",
     "category": "libc",
     "params": [
       {

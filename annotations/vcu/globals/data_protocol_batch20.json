@@ -179,6 +179,18 @@
     "category": "protocol",
     "description": "Tick counter for the 0x51 keep-alive that goes to peer 4 while the link is up (link flag 0x20001F48 equal to 1). It counts up each call; when the previous value was above 100 vcu_link_keepalive_0x51_tick sends the frame and restarts, so the keep-alive goes out about every 102 ticks. Held at 0 while the link is down."
   },
+  "vcu_g_0159_20001ad6": {
+    "name": "serial_char_pairs",
+    "type": "u16",
+    "count": 6,
+    "size": 12,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ad6"
+    ],
+    "category": "protocol",
+    "description": "Characters 2 to 13 of the 14-character ASCII serial string at 0x20001AD4 (serial_head covers the first two characters, owned by the app packet), read as six little-endian u16 pairs (low byte is the earlier character). can_get_tx_payload_for_id packs them into CAN 0x483 (word 1 = characters 2..5, word 2 = characters 6..7) and CAN 0x484 (characters 8..13). The bytes at 0x20001AD7 and 0x20001AD9 are also single-byte objects in the motor packet."
+  },
   "vcu_g_0159_20001ae4": {
     "name": "rx_212_word_0b",
     "type": "u16",

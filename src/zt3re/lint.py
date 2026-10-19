@@ -7,7 +7,8 @@ from collections import Counter
 from . import annotations as ann
 
 HEX_BLOB = re.compile(r"(?:\b(?:0x)?[0-9a-fA-F]{2}\b[ ,:-]*){16,}")        # >= 16 hex bytes in a row
-KEYISH = re.compile(r"\b(?=[A-Za-z0-9+/_=-]*\d)(?=[A-Za-z0-9+/_=-]*[A-Za-z])[A-Za-z0-9+/_=-]{20,64}\b")
+# a run of 16+ letters/digits with >= 3 lower, 3 upper and 3 digits and no 0x prefix: a key, not an identifier
+KEYISH = re.compile(r"(?<![\w/])(?!0x)(?=[A-Za-z0-9]{16,}\b)(?=(?:[^a-z]*[a-z]){3})(?=(?:[^A-Z]*[A-Z]){3})(?=(?:[^0-9]*[0-9]){3})[A-Za-z0-9]{16,64}\b")
 BANNED = ("todo", "tbd", "unknown function", "does something", "not sure what", "lorem")
 ADDR_SUFFIX = re.compile(r"_[0-9a-f]{6,8}$")
 PARAM_DEFAULT = re.compile(r"^param_\d+$")
@@ -47,9 +48,7 @@ def lint_component(comp: str) -> dict:
                 warns.append(f"{fid}: placeholder wording in {k}")
             if HEX_BLOB.search(t):
                 errors.append(f"{fid}: long hex byte run in {k} (never record key/secret bytes)")
-            m = KEYISH.search(t)
-            if m and not re.search(r"[a-z]+_[a-z_]+", m.group(0)) and re.search(r"[a-z]", m.group(0)) \
-                    and re.search(r"[A-Z]", m.group(0)) and re.search(r"\d", m.group(0)):
+            if KEYISH.search(t):
                 errors.append(f"{fid}: key-like token in {k} (never record key/secret values)")
     for oid, n in data.items():
         for k, t in _text_fields(n):

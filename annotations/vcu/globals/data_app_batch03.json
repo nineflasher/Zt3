@@ -130,7 +130,7 @@
       "0x20001f5c"
     ],
     "category": "schedule",
-    "description": "State of the daily-window logic: vcu_timed_window_schedule_tick and vcu_0159_080054ec set it to 1, the tick sets it to 2 while it runs, and vcu_0159_08009da8 sets it to 3 at boot. Probably 0 idle, 1 request pending, 2 busy, 3 ready (not confirmed)."
+    "description": "State of the daily-window logic: vcu_0159_080054ec sets it to 0 or 1, the tick sets it to 1 or 2, and vcu_0159_08009da8 sets it to 3 at boot. Probably 0 idle, 1 request pending, 2 busy, 3 ready (not confirmed)."
   },
   "vcu_g_0159_20001f68": {
     "name": "serial_match_flag",
@@ -207,7 +207,7 @@
       "0x20001fa4"
     ],
     "category": "app",
-    "description": "Application mode byte. vcu_0159_08009da8 loads it at boot from 0x20001b68, and vcu_toggle_special_mode switches it between its current value and the special value 4. The PA6 output, the ready sequence and the state machine test for 4 (special mode) and 3."
+    "description": "Application mode byte. vcu_0159_08009da8 loads it at boot from 0x20001b68 and sets it to 1 under a boot-time condition; vcu_toggle_special_mode switches it between its current value and the special value 4. The PA6 output tests it for 4 (special mode) and the ready sequence for 3."
   },
   "vcu_g_0159_20001fa5": {
     "name": "drive_table_row",
@@ -229,7 +229,7 @@
       "0x20001fa7"
     ],
     "category": "app",
-    "description": "Variant index 0..6 decoded by vcu_serial_parse_variant_code from the letter in the serial prefix. It selects the option words (vcu_apply_variant_config), the mode limits (app_apply_mode_limits), the drive tables and parts of the PA6 and C14/C15 behaviour."
+    "description": "Variant index decoded by vcu_serial_parse_variant_code from the letter in the serial prefix (vcu_apply_variant_config switches on it with cases 0..5 and a default). It selects the option words (vcu_apply_variant_config), the mode limits (app_apply_mode_limits), the drive tables and parts of the PA6 and C14/C15 behaviour."
   },
   "vcu_g_0159_20001fa8": {
     "name": "sequence_done_flag",
@@ -394,7 +394,7 @@
       "0x20002028"
     ],
     "category": "lighting",
-    "description": "Tick counter of the C14/C15 sequencer. It is incremented while a phase runs, a new phase may start while it is 40 or less, and it wraps to 0 when it passes 81 (0x51). vcu_aux_flags_reset clears it."
+    "description": "Tick counter of the C14/C15 sequencer. It is incremented while a phase runs, a new phase may start while it is 40 or less, and it is compared with 81 (0x51) after each increment. vcu_aux_flags_reset clears it."
   },
   "vcu_g_0159_200021c4": {
     "name": "level_threshold_state",

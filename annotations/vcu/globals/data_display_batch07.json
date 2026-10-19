@@ -87,17 +87,6 @@
   "category": "display",
   "description": "Status flag word of the VCU_148 gauge. Bit 0 is set while any of the counters at 0x20001c0c, 0x20001c0e, 0x20001c10, 0x20001c12 is non-zero (group A active); bit 5 is set while any of 0x20001c14, 0x20001c16, 0x20001c18 is non-zero (group B active). Selects the cycling path and is passed to FUN_0800b990 as the LED group bits."
  },
- "vcu_g_148_20001494": {
-  "name": "display_digit_glyphs_148",
-  "type": "VcuDigitGlyphs",
-  "size": 30,
-  "anchor": [
-   "VCU_148",
-   "0x20001494"
-  ],
-  "category": "display",
-  "description": "Digit glyph tables of the VCU_148 build: seg_a at 0x20001494, seg_b at +0x0a and seg_c at +0x14, ten entries each, indexed by the decimal digit 0..9. FUN_0800b84c (VCU_148 units writer) copies them to LED frame bytes 0x200021d2 (seg_a), 0x200021d3 (low nibble, seg_b) and 0x200021d4 (seg_c). Not written by the code in this packet, so probably constant data or set once at boot."
- },
  "vcu_g_153_200014ef": {
   "name": "display_153_blink30",
   "type": "u8",

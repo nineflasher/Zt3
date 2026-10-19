@@ -1,0 +1,88 @@
+{
+  "structs": {
+    "MotorLimitBlock": {
+      "size": 52,
+      "description": "Limit-block object updated every control tick by mcu_limit_block_update (0x20000370..0x200003A3). Holds two inputs, the selected output, mode bits, differences to the limits and Q15 bounds. Field names are probable, from the decompiled stores.",
+      "fields": [
+        {
+          "name": "in_a",
+          "offset": 0,
+          "type": "s32",
+          "description": "Copy of the word the first pointer argument points to (probably the first limit input)."
+        },
+        {
+          "name": "in_b",
+          "offset": 4,
+          "type": "s32",
+          "description": "Copy of word 0 of the object at param_1[7] (probably the second limit input)."
+        },
+        {
+          "name": "out",
+          "offset": 8,
+          "type": "s32",
+          "description": "Block output = param_3 + (bound_x - base_offset). Copied to 0x20000350 and to out_copy (probably the limited value)."
+        },
+        {
+          "name": "mode_bits",
+          "offset": 12,
+          "type": "u32",
+          "description": "Bits 1 and 2 hold two comparison results (probably which bound was hit). The other bits come from the mode byte at param_1+8."
+        },
+        {
+          "name": "param2",
+          "offset": 16,
+          "type": "s32",
+          "description": "Copy of the second argument (probably the position or speed input)."
+        },
+        {
+          "name": "param3",
+          "offset": 20,
+          "type": "s32",
+          "description": "Copy of the third argument. The function later adds (bound_y - base_offset) to it."
+        },
+        {
+          "name": "delta_b",
+          "offset": 24,
+          "type": "s32",
+          "description": "param_2 - param_1[5] (probably the distance to a limit)."
+        },
+        {
+          "name": "delta_c",
+          "offset": 28,
+          "type": "s32",
+          "description": "param_4 - param_2 (probably the distance to the upper bound)."
+        },
+        {
+          "name": "delta_d",
+          "offset": 32,
+          "type": "s32",
+          "description": "param_5 - param_2 (probably the distance to the lower bound)."
+        },
+        {
+          "name": "bound_x",
+          "offset": 36,
+          "type": "s32",
+          "description": "Rounded Q15 product (+0x4000, >> 15) of a gain at param_1 and a distance (probably the upper bound)."
+        },
+        {
+          "name": "bound_y",
+          "offset": 40,
+          "type": "s32",
+          "description": "Rounded Q15 product of a gain and a distance (probably the lower bound)."
+        },
+        {
+          "name": "base_offset",
+          "offset": 44,
+          "type": "s32",
+          "description": "Rounded Q15 product of a gain and a distance (probably the base offset subtracted from the output)."
+        },
+        {
+          "name": "out_copy",
+          "offset": 48,
+          "type": "s32",
+          "description": "Copy of out (probably the value used for the next cycle's comparison)."
+        }
+      ]
+    }
+  }
+}
