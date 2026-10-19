@@ -1,0 +1,488 @@
+{
+  "mcu_g_0160_20000001": {
+    "name": "sched_slot_counter",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000001"],
+    "category": "scheduler",
+    "description": "Slot counter of the main tick mcu_0160_0800a320. Each call adds 1. Slot 1 does nothing, slot 2 runs the drive path (mcu_0160_08004e78 and the speed reference code), slot 3 builds the status word (mcu_0160_0800e238) and a few telemetry bytes at 0x2000202x, slot 4 runs the housekeeping block, and any value above 4 runs the alternate slot on 0x20000002 and then resets this counter to 0. So a full cycle is five calls. The counter is only written by the tick itself and reset at boot; a mismatch with the expected five-call cycle would point to a stalled or skipped tick (probably)."
+  },
+  "mcu_g_0160_20000002": {
+    "name": "sched_alt_slot_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000002"],
+    "category": "scheduler",
+    "description": "Alternating sub-slot of the main tick. It is incremented once per five-call cycle of mcu_0160_0800a320 and runs in two phases. Phase 1 calls mcu_0160_0800dc08 (the CAN telemetry and recovery task) and mcu_0160_08007822, and increments the slow tick counter DAT_20000B20 when it is not -1. Phase 2 calls mcu_0160_080031cc and resets this byte to 0. It is probably a 1 or 2 toggle used to split the slower work across two cycles."
+  },
+  "mcu_g_0160_20000003": {
+    "name": "tmr4_tick_divider",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000003"],
+    "category": "isr",
+    "description": "Divider in the TMR4 interrupt, mcu_0160_0800a85c. It is incremented on each TMR4 event. When its value before the increment was not 0xFF, the handler calls the main tick mcu_0160_0800a320 and sets this byte back to 0. So the main tick normally runs on every TMR4 event; the 0xFF case only wraps the counter. The timer period is not visible in this packet."
+  },
+  "mcu_g_0160_20000004": {
+    "name": "tmr4_mod3_counter",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000004"],
+    "category": "isr",
+    "description": "Modulo-3 counter in the TMR4 interrupt. It counts TMR4 events from 0 to 2 and then wraps to 0. On each wrap, if the enable flag at 0x20000006 is nonzero, the handler calls mcu_0160_0800a258 (not in this packet). This gives a task that runs every third TMR4 event, probably a fast control or communication step. Written only by the handler and reset at boot."
+  },
+  "mcu_g_0160_20000005": {
+    "name": "tmr4_mod10_counter",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000005"],
+    "category": "isr",
+    "description": "Modulo-10 counter in the TMR4 interrupt. It counts TMR4 events from 0 to 9. When it passes 9, the handler calls mcu_0160_0800a480 (a slow task that adjusts the speed-dependent counter at 0x2000063E and the flag at 0x20000F4A) and resets this byte to 0. The slow task therefore runs once every ten TMR4 events."
+  },
+  "mcu_g_0160_20000006": {
+    "name": "tmr4_mod3_task_enable",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000006"],
+    "category": "isr",
+    "description": "Enable flag for the every-third-event task that the TMR4 interrupt calls through mcu_0160_0800a258. The handler reads it on each wrap of the modulo-3 counter at 0x20000004 and only makes the call when it is nonzero. The writer is not in this packet, so the reason for disabling it is not known here. It is read-only in this packet."
+  },
+  "mcu_g_0160_20000008": {
+    "name": "isr_adc1_cycles",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000008"],
+    "category": "isr",
+    "description": "Measured duration of the last ADC1 interrupt, in SysTick cycles. mcu_0160_08001ee4 (the ADC1 handler) reads the SysTick current value at entry and exit and stores the difference minus 6 cycles of entry overhead. A negative result wraps by the 24-bit SysTick range. It is only written by the handler and nothing in this packet reads it, so it is probably a profiling or load monitor. Updated on every ADC1 interrupt."
+  },
+  "mcu_g_0160_2000000c": {
+    "name": "isr_tmr4_cycles",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000000c"],
+    "category": "isr",
+    "description": "Measured duration of the last TMR4 interrupt, in SysTick cycles, with the same method as the ADC1 counter at 0x20000008: SysTick at entry and exit, minus 6 cycles, with 24-bit wrap. It includes any main tick or slow task called from the handler, so it measures the worst case of the TMR4 path (probably). Written by mcu_0160_0800a85c only. It is probably a load monitor."
+  },
+  "mcu_g_0160_20000010": {
+    "name": "isr_tmr3_cycles",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000010"],
+    "category": "isr",
+    "description": "Measured duration of the last TMR3 interrupt, in SysTick cycles, by the same method as the ADC1 and TMR4 counters. mcu_0160_0800a82c calls mcu_0160_08009160 with the pointer at 0x2000002C between the two SysTick reads, so the value covers that call. Written only by the TMR3 handler and not read in this packet, so it is probably a load monitor."
+  },
+  "mcu_g_0160_20000014": {
+    "name": "drive_ref_scaled_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000014"],
+    "category": "motor",
+    "description": "Speed-like drive reference computed in the main tick. It is the raw reference at 0x20000A20 multiplied by the Q15 gain at 0x20000140 and shifted back by 15, unless the override flag 0x20000E33 is set, in which case the raw reference is used unchanged. The value is passed with the negated limit at 0x20000A24 to mcu_0160_08006c9c, which is the slew or ramp step on the block at 0x20000994. Units are Q15 of the speed scale used by the drive (probably rpm-based, not confirmed here). Written every main tick."
+  },
+  "mcu_g_0160_20000018": {
+    "name": "pvm_tick_snapshot",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000018"],
+    "category": "protection",
+    "description": "Snapshot of the slow tick counter DAT_20000B20 taken in the power-voltage monitor interrupt mcu_0160_0800850c. If the tick counter has moved on by more than 99 since the last snapshot, the handler calls thunk_FUN_0800A7F8 first, which means the main loop has fallen behind (probably a watchdog-style warning). The value is then updated to the current tick counter, and the interrupt flag is cleared. It is the reference point for that lag check and is not reset elsewhere in this packet."
+  },
+  "mcu_g_0160_2000001c": {
+    "name": "drive_ref_raw_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000001c"],
+    "category": "motor",
+    "description": "Copy of the raw drive reference at 0x20000A20, taken at the top of every main tick in mcu_0160_0800a320. It holds the value before the gain and ramp steps of the drive path, so it can be compared with the scaled value at 0x20000014 for debugging (probably). Only written in this packet, and no reader is shown here."
+  },
+  "mcu_g_0160_20000020": {
+    "name": "speed_lowpass_copy_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000020"],
+    "category": "motor",
+    "description": "Copy of the filtered speed at 0x20000864. The main tick takes the mean of the five speed samples in 0x20000744 to 0x20000754 into 0x20000860, runs it through a Q30 low-pass step (mcu_lpf_q30_step, coefficient 0x0A268140) into 0x20000864, and this byte copies the result. Units are the same Q15 speed scale as the samples (probably). Written every main tick. Readers are outside this packet."
+  },
+  "mcu_g_0160_20000028": {
+    "name": "fault_trap_counter",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000028"],
+    "category": "protection",
+    "description": "Counter used by the HardFault handler mcu_0160_080065f0. The first time the fault is entered, the handler counts it up to 10000 in a busy loop (a delay of about 10000 increments), then sets it to 10000 (0x2711) and calls mcu_0160_0800a258 in a never-ending loop. The handler never returns, so this counter is only meaningful after a hard fault. The loop tests it against 9999 and 10000. Nothing outside the fault path touches it in this packet."
+  },
+  "mcu_g_0160_20000030": {
+    "name": "pos_init_block_base",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000030"],
+    "category": "foc",
+    "description": "Start of a RAM block whose address is passed through a pointer in mcu_0160_08008f34, the position initialisation routine. Only this first word is in the packet. The block continues beyond it (probably into a structure of the position or angle record), but its size and layout are not visible here, so the size of 4 is a minimum, not the true extent. The routine stores the block pointer at 0x2000002C first, so the block is reached by pointer and not by a fixed global name."
+  },
+  "mcu_g_0160_20000048": {
+    "name": "pos_angle_offset_rad",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000048"],
+    "category": "foc",
+    "description": "Position offset in radians, set by mcu_0160_08008f34. The configured integer offset at 0x200003D4 (in degrees, probably) is converted to float with mcu_i2f_lzc and multiplied by 0x3C8EFA35, which is about pi/180 in IEEE single precision, so the value is the offset converted to radians. It is recomputed on each run of that routine and is used by the position and angle code (probably). Units: radians."
+  },
+  "mcu_g_0160_20000078": {
+    "name": "pwm_compare_phase",
+    "type": "s32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x20000078"],
+    "category": "pwm",
+    "description": "Three PWM compare values for the three motor phases, written by mcu_0160_08009a8c from the three duty values. The values are in timer counts of TMR1, whose period is 0x1193 (about 4500 counts; mcu_0160_0800a6b8 sets it up), and 0x08CA (2250) is 50 percent. The routine computes the centred values, then stores 0x1194 minus each value, so the words are the compare register values for the centre-aligned PWM. The phase order is not confirmed here. It is probably recomputed every PWM cycle and it is read by the timer update path outside this packet."
+  },
+  "mcu_g_0160_20000084": {
+    "name": "pwm_compare_sorted",
+    "type": "s32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x20000084"],
+    "category": "pwm",
+    "description": "Three compare values sorted by size, written by mcu_0160_08009a8c, with the same 0x1194 minus form as the phase compares at 0x20000078. The first word is passed to mcu_0160_08005f08, probably the timer or ADC trigger point setter. The middle word at 0x20000088 is copied into the latch at 0x200000AC by mcu_0160_08007364 on the first run. Used for the sample and trigger timing around the PWM edges (probably). Written every PWM cycle."
+  },
+  "mcu_g_0160_20000090": {
+    "name": "pwm_compare_shadow",
+    "type": "s32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x20000090"],
+    "category": "pwm",
+    "description": "Shadow copy of the phase compare values, written by mcu_0160_08009a8c. The first word is a copy of 0x20000078. The second and third words hold the same compare values in an order that depends on the direction flag at 0x200003D7 (the two words swap when it is set), and the routine copies them to the three compare fields of the drive record. Probably used to keep a consistent set of values for the drive record when the phase order changes. Written every PWM cycle."
+  },
+  "mcu_g_0160_200000ac": {
+    "name": "pwm_compare_latch",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000ac"],
+    "category": "pwm",
+    "description": "First-run latch of a compare value. mcu_0160_08007364 copies the middle sorted compare at 0x20000088 into this word when it is zero, so the first valid value is kept. Afterwards the word is not written in this packet. It is read and written only by mcu_0160_08007364, and it is probably used as a reference value for later checks in that routine. Cleared to 0 at boot (probably)."
+  },
+  "mcu_g_0160_200000b8": {
+    "name": "drive_band_gain_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000b8"],
+    "category": "motor",
+    "description": "Speed-band gain used by the drive. mcu_0160_08004db8 selects it from the speed: the gain at 0x200003FC when the speed is between two thresholds, the gain at 0x20000400 when it is above the high threshold, and the float 20.0 (0x41A00000) below 0x8000 (Q15 low range). Each selected integer is converted to float with mcu_ui2f, so the value is in the gain units of the table. When it changes, the routine refreshes the gain triples. Written from the speed-band selection path, read by the drive path."
+  },
+  "mcu_g_0160_200000bc": {
+    "name": "drive_ctx_scale_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000bc"],
+    "category": "motor",
+    "description": "Q15 scale derived from the integer at 0x20000B60 (value times 0x8000, shifted back by 15), written by mcu_0160_08004e78 into the drive context at offset 0x214. The write only happens when the drive state at 0x20000B7F is not 5. It is a scale for the drive context field, probably a rate or ratio term, and it is also read back through the context pointer (not in this packet)."
+  },
+  "mcu_g_0160_200000c4": {
+    "name": "energy_budget_ref_floor_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000c4"],
+    "category": "motor",
+    "description": "Floor value of the energy budget limiter reference, read by mcu_0160_08003c78. When the current drive value at 0x20000A50 is below 0x200000C0 and above zero, the reference is the larger of 0x20000A50 and this word. It is a configured value (probably loaded by the parameter record load), and the writer is not visible here. It is also checked against 0x20000A50 as a comparison input."
+  },
+  "mcu_g_0160_200000c8": {
+    "name": "energy_budget_bound_low_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000c8"],
+    "category": "motor",
+    "description": "Lower bound choice of the energy budget limiter. mcu_0160_08003c78 copies it to the selected bound at 0x200000F0 while the integrator at 0x200000DC is more than a tenth below its limit at 0x200000E0. It is a configured Q15 limit, and its writer is not in this packet. The value is one of the three bounds the limiter can output."
+  },
+  "mcu_g_0160_200000d0": {
+    "name": "energy_budget_bound_high_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000d0"],
+    "category": "motor",
+    "description": "High bound choice of the energy budget limiter. mcu_0160_08003c78 copies it to the selected bound at 0x200000F0 when the integrator at 0x200000DC is at or above its limit at 0x200000E0, and sets the at-limit flag at 0x200000F4. It is the third of the three selectable bounds. Configured Q15 value, writer not in this packet."
+  },
+  "mcu_g_0160_200000d4": {
+    "name": "energy_budget_excess_gain",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000d4"],
+    "category": "motor",
+    "description": "Gain of the excess-power term in the energy budget limiter. The limiter computes the square of the drive value at 0x20000A50 minus the square of the reference, multiplies by 327 and by this word, and adds the result to the integrator at 0x200000DC. A larger value makes the integrator react faster to excess power. Its unit is not stated in this packet, and it is probably a configured tuning value."
+  },
+  "mcu_g_0160_200000d8": {
+    "name": "energy_budget_scale",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000d8"],
+    "category": "motor",
+    "description": "Scale and window parameter of the energy budget limiter in mcu_0160_08003c78. The limiter sample counter at 0x200000E4 wraps at this value divided by 20, and the power sample is scaled by this word divided by 20, the power being the raw sample times 100 minus the previous sample. It sets how many ticks make one energy window and the scaling of each power increment. Configured value, writer not in this packet."
+  },
+  "mcu_g_0160_200000dc": {
+    "name": "energy_budget_integrator",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000dc"],
+    "category": "motor",
+    "description": "Integrator of the energy budget limiter. Each limiter step adds the excess power term (see 0x200000D4) with mcu_add_overflow_direction_s32, then saturates the result to the range from 0 to the limit at 0x200000E0. The output bound choice at 0x200000F0 depends on this value. It is a running integral of excess power over the window, so it grows while the drive is above budget and drains otherwise. Reset only at boot in this packet."
+  },
+  "mcu_g_0160_200000e0": {
+    "name": "energy_budget_limit",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000e0"],
+    "category": "motor",
+    "description": "Upper limit of the energy budget integrator, read by mcu_0160_08003c78. The integrator at 0x200000DC is saturated to the range from zero to this value. The limiter also compares the integrator with this limit to choose the bound, using a tenth of it as the lower threshold. Configured value, and its writer is not in this packet."
+  },
+  "mcu_g_0160_200000e4": {
+    "name": "energy_budget_sample_counter",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000e4"],
+    "category": "motor",
+    "description": "Sample counter of the energy budget limiter. It counts up each limiter tick and is reset to 0 when it reaches the value at 0x200000D8 divided by 20. It sets the length of the energy window in ticks, so the power sum is taken once per window. Written only in mcu_0160_08003c78."
+  },
+  "mcu_g_0160_200000e8": {
+    "name": "energy_budget_power_last",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000e8"],
+    "category": "motor",
+    "description": "Last power sample of the energy budget limiter, stored as the raw sample times 100 by mcu_0160_08003c78. The next step subtracts it from the new sample to get the power increment. The main tick reads its high bits as a sign and an integer part (the value shifted right by 15) for the status bytes at 0x2000202A, and the drive status routine at 0x0800E238 reads it for the status word. Q15-style fixed point, probably a power or current measure."
+  },
+  "mcu_g_0160_200000f0": {
+    "name": "energy_budget_bound_out",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000f0"],
+    "category": "motor",
+    "description": "Output bound of the energy budget limiter. mcu_0160_08003c78 writes it each step, choosing 0x200000C8, 0x200000D0 or 0x200000C0, depending on the integrator and the at-limit flag. The limiter output is taken from it by the caller. It is a Q15 limit for the drive command, probably the energy-limited value (not confirmed in this packet)."
+  },
+  "mcu_g_0160_200000f4": {
+    "name": "energy_budget_at_limit_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200000f4"],
+    "category": "motor",
+    "description": "Flag set to 1 by mcu_0160_08003c78 when the energy budget integrator is at or above its limit, and cleared to 0 in the other branches. When it is 1 the high bound is selected. It is a state flag of the limiter (0 or 1)."
+  },
+  "mcu_g_0160_20000100": {
+    "name": "energy_limiter_range_a_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000100"],
+    "category": "motor",
+    "description": "First of two Q15 range bounds for the energy limiter. mcu_0160_08003c78 sets it from the high byte of the word at 0x20001FDC shifted left by 15, and passes it with the second bound to mcu_0160_08004d3c (the limiter range setter). That routine stores the larger of the two, so the pair defines the working range (probably the speed or power band of the limiter). Written every limiter tick."
+  },
+  "mcu_g_0160_20000104": {
+    "name": "energy_limiter_range_b_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000104"],
+    "category": "motor",
+    "description": "Second Q15 range bound of the energy limiter. It is the low byte of the word at 0x20001FD6 shifted left by 15, or the constant 0x1999 (about 0.2 in Q15) when the flag at 0x20000B24 is set, and it is passed to mcu_0160_08004d3c with the first bound at 0x20000100. Written every limiter tick. Its exact meaning is probably the speed band of the limiter."
+  },
+  "mcu_g_0160_20000108": {
+    "name": "drive_mode3_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000108"],
+    "category": "motor",
+    "description": "Boolean drive mode flag. It is set when the mode bits from 0x20001FD4 and 0x20000A3C (bits 0 to 6) combine to the value 3, and it is read by the output limit select mcu_drive_output_limit_select together with the status flag at 0x20001FCD and the speed flag path. The status callers of the drive path also read it (mcu_0160_08003f2c, and the output limit code). A value of 0 or 1."
+  },
+  "mcu_g_0160_2000010c": {
+    "name": "drive_ready_arm_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000010c"],
+    "category": "motor",
+    "description": "Arm flag of the drive ready latch. The latch routine mcu_0160_0800517c sets it to 1 on a rising edge of the enable byte at 0x20000E34. It is cleared in the same routine as part of the latch step. Its own outcome does not change the latched value, as written, so it is only an arm marker."
+  },
+  "mcu_g_0160_2000010d": {
+    "name": "drive_ready_prev_enable",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000010d"],
+    "category": "motor",
+    "description": "Previous value of the enable byte at 0x20000E34, kept by the drive ready latch mcu_0160_0800517c so it can detect a rising edge. The routine copies 0x20000E34 into this byte once per tick. Values are 0 or 1 (the enable byte is a 0 or 1 flag)."
+  },
+  "mcu_g_0160_2000010e": {
+    "name": "drive_toggle_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000010e"],
+    "category": "motor",
+    "description": "Toggle flag in the speed reference window routine mcu_0160_08003d2c. When it is 1 the routine sets it to 0, and in the other case it sets it to 1, so it alternates from one control cycle to the next. It is used to alternate a step of the speed reference update, probably to split the slew work across two cycles."
+  },
+  "mcu_g_0160_20000110": {
+    "name": "drive_speed_window_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000110"],
+    "category": "motor",
+    "description": "Flag of the drive cycle routine mcu_0160_08003f2c. It is cleared when the speed is below half of the bound at 0x20000B4C and the value at 0x200001B8 is above the threshold 0x40A051EC (about 5.01 as a float). It is set to 1 in the other branch and read in the status test with bit 14 of 0x20001FD4. The flag is a per-cycle state (probably the window of the speed reference)."
+  },
+  "mcu_g_0160_20000111": {
+    "name": "drive_enable_prev_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000111"],
+    "category": "motor",
+    "description": "Previous value of the drive state byte at 0x20000E1D, kept by mcu_0160_08004e78. The routine reads it to detect a change, and then copies the current value in, so it is a one-tick delayed copy. When it changes from 0 to nonzero a value is captured into 0x20000E2C. The byte values are 0 or 1."
+  },
+  "mcu_g_0160_20000116": {
+    "name": "speed_ref_counter",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000116"],
+    "category": "motor",
+    "description": "Counter of the speed reference window routine mcu_0160_08003d2c. Near the drive speed F30 in a middle band it is lowered by 2 each cycle while it is above 2, and it is raised toward 0x82 when the speed is high and the flag bit 1 of 0x20001FE2 is clear. It sets how far the reference is pulled toward F30 plus 0xA3D. It is a bounded integer, probably used as a ramp accumulator."
+  },
+  "mcu_g_0160_20000120": {
+    "name": "speed_ref_tracker_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000120"],
+    "category": "motor",
+    "description": "Speed reference from the position tracker, set in mcu_0160_08003f2c. It takes the tracker value (mcu_get_var_34c_ashr_scale on the tracker block at 0x20000B90) and, when the override flag 0x20000E33 is set, the value at 0x20000BE0 instead. It is then scaled by a gain factor and used as the base of the speed limit words. Q15 speed scale, updated every drive cycle."
+  },
+  "mcu_g_0160_20000124": {
+    "name": "speed_ref_slew_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000124"],
+    "category": "motor",
+    "description": "Intermediate speed value of the drive cycle update (mcu_0160_08003f2c), stored just after the speed reference is scaled and before the slew-limited limit words are built. It is a working copy used between two steps of the same routine. Q15, written every drive cycle, with no reader outside the routine in this packet."
+  },
+  "mcu_g_0160_20000128": {
+    "name": "speed_ref_limited_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000128"],
+    "category": "motor",
+    "description": "Speed value after the range limits in the drive cycle update (mcu_0160_08003f2c). It is set from the intermediate value at 0x20000124, then negated and clamped against the bound at 0x20000B3C. The negated value is used as the lower limit for the output. Q15, written each drive cycle."
+  },
+  "mcu_g_0160_2000012c": {
+    "name": "drive_ref_factor_f32",
+    "type": "f32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000012c"],
+    "category": "motor",
+    "description": "Float reference factor refreshed by mcu_0160_080054fc. It takes the float at 0x20000F4C when that float is in the positive range from 0x00800000 up to 1.0 (0x3F800000), and otherwise 0.5 (0x3F000000). The drive cycle routine converts it to Q15 with a shift of 15 before use. It is a unit-less scale factor between 0 and 1."
+  },
+  "mcu_g_0160_20000130": {
+    "name": "drive_output_ramp_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000130"],
+    "category": "motor",
+    "description": "Output limit ramp computed from the speed reference at 0x20000F30 in mcu_drive_output_limit_select. It is zero below 0x10000, rises with slope one half up to 0x30000, and then with slope four, in Q15. The value is used as the magnitude of the drive output limit, and the routine also compares it with the speed in mcu_0160_08003f2c. Q15, updated every drive cycle."
+  },
+  "mcu_g_0160_20000134": {
+    "name": "vec_mag_iir_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000134"],
+    "category": "motor",
+    "description": "Low-pass filtered magnitude of a two-word vector, computed by mcu_0160_08005830 when its third argument is nonzero. The magnitude is the square root of the sum of the squares of words 5 and 6 of the block, and this value follows it with a 1/10 IIR step: it moves by one tenth of the difference each call. It is zeroed when the argument is zero. Q15, probably a current or flux magnitude."
+  },
+  "mcu_g_0160_20000138": {
+    "name": "vec_mag_int",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000138"],
+    "category": "motor",
+    "description": "Integer part of the filtered vector magnitude at 0x20000134, set to that value shifted right by 15 in mcu_0160_08005830. Inside mcu_0160_08005830 it is converted to float with mcu_i2f_lzc and multiplied by 98.0 to form one of the six output gain words. Units are the same as the magnitude, as an integer."
+  },
+  "mcu_g_0160_2000013c": {
+    "name": "drive_speed_ref_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000013c"],
+    "category": "motor",
+    "description": "Copy of the final speed value computed by mcu_0160_08003f2c, written at the end of the drive cycle update. It is the value that the status reporting and the caller see for this cycle. Q15, written every drive cycle, read outside this packet."
+  },
+  "mcu_g_0160_20000140": {
+    "name": "drive_speed_gain_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000140"],
+    "category": "motor",
+    "description": "Q15 gain applied to the drive reference in the main tick (see 0x20000014). It is set to 0x8000 (1.0) by mcu_0160_08003d2c in one branch and to 0x147 (about 0.01) by mcu_0160_08003f2c in another, so the value depends on the drive state. The main tick multiplies the raw reference by it. A small value means the drive reference is held down. Q15."
+  },
+  "mcu_g_0160_20000150": {
+    "name": "drive_band_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000150"],
+    "category": "motor",
+    "description": "Band state flag of the drive cycle update mcu_0160_08003f2c. It is 1 in one branch of the speed band test and 0 in the other, and it is read on the next cycle to choose the branch (a simple two-state latch). Values 0 or 1."
+  },
+  "mcu_g_0160_20000154": {
+    "name": "drive_hold_word_154",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000154"],
+    "category": "motor",
+    "description": "Word cleared to 0 by mcu_0160_08003f2c in one branch and read back once in the same routine. Its meaning is not visible in this packet. The width is probably 4 bytes, but the decompile only shows the zero store and a read, so type and purpose are guesses."
+  },
+  "mcu_g_0160_20000158": {
+    "name": "ratio_pi_tracked_q15",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000158"],
+    "category": "motor",
+    "description": "Tracked gain ratio from mcu_0160_08005240. The ratio sample at 0x20000160 is held here when its magnitude is below 0x2666 (about 0.3 in Q15). Each call adds the product of the integrator at 0x20000F2C and a Q30 constant, plus the error at 0x2000015C times 0x6CCC (about 0.85 in Q15), so this is a PI-style tracker of the ratio. Q15, updated every drive cycle."
+  }
+}

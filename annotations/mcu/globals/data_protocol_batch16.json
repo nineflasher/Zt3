@@ -163,7 +163,7 @@
       "0x200006c8"
     ],
     "category": "protocol",
-    "description": "Byte offset of the next image word in the firmware transfer. The start command sets it to 0, and it advances by 4 for each word of accepted data. Flash is written at 0x08010800 plus this value. When it equals 0x400, the frame runs a header comparison against RAM copies and flash constants before its write. Each time it reaches a multiple of 0x400, the key in protocol_fwup_xtea_key_word0 is stepped."
+    "description": "Byte offset of the next image word in the firmware transfer. The start command sets it to 0, and it advances by 4 for each word of accepted data. Flash is written at 0x08010800 plus this value. When it equals 0x400, the frame runs a header comparison against RAM copies and flash constants before its write. Each time it reaches a multiple of 0x400, the 16-byte key (protocol_fwup_xtea_key_word0 and protocol_fwup_xtea_key_words_1_3) is stepped."
   },
   "mcu_g_0160_200006cc": {
     "name": "protocol_fwup_checksum_acc",

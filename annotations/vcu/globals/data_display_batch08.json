@@ -52,7 +52,7 @@
    "0x20001566"
   ],
   "category": "display",
-  "description": "Index table of the LED row animation, default set (used unless display_pattern_set is 1, 2 or 5). 18 rows of 10 bytes: row r gives count (byte 0) and then up to 9 LED frame byte indices (bytes 1..9) that are ORed with the matching masks from led_pattern_mask_std. Rows 0..8 are drawn rising and 9..17 falling by led_pattern_anim_step.",
+  "description": "Index table of the LED row animation, default set (used unless the mode byte DAT_20001fa7 is 1, 2 or 5). 18 rows of 10 bytes: row r gives count (byte 0) and then up to 9 LED frame byte indices (bytes 1..9) that are ORed with the matching masks from led_pattern_mask_std. Rows 0..8 are drawn rising and 9..17 falling by vcu_led_pattern_anim_step.",
   "count": 18
  },
  "vcu_g_0159_2000161a": {
@@ -76,7 +76,7 @@
    "0x200016ce"
   ],
   "category": "display",
-  "description": "Index table of the LED row animation, alternate set (used when display_pattern_set is 1, 2 or 5), same layout as led_pattern_idx_std: 18 rows of count plus 9 frame byte indices.",
+  "description": "Index table of the LED row animation, alternate set (used when the mode byte DAT_20001fa7 is 1, 2 or 5), same layout as led_pattern_idx_std: 18 rows of count plus 9 frame byte indices.",
   "count": 18
  },
  "vcu_g_0159_20001782": {

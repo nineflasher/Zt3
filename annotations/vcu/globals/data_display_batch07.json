@@ -96,7 +96,7 @@
    "0x200014ef"
   ],
   "category": "display",
-  "description": "VCU_153 build: 30-tick period counter (wraps at 0x1e) of the VCU_153 display renderer FUN_08005648. Each wrap advances the blink/pulse sub-phases; the same role as display_state1_phase30 (0x200014fb) in VCU_0159."
+  "description": "VCU_153 build: 30-tick period counter (wraps at 0x1e) of the VCU_153 display renderer FUN_08005648. Each wrap advances the blink/pulse sub-phases; the same role as display_state3_phase30 (0x200014fb) in VCU_0159."
  },
  "vcu_g_0159_200014f0": {
   "name": "display_sweep_period",

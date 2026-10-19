@@ -1,0 +1,26 @@
+{
+  "mcu_g_0160_20001fd4": {
+    "name": "motor_can_cmd_100",
+    "type": "MotorCan100Cmd",
+    "count": 1,
+    "size": 6,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fd4"
+    ],
+    "category": "motor",
+    "description": "Six-byte VCU command block copied from payload bytes 2..7 of CAN frame 0x100. The copy is done by mcu_can_rx_command_dispatch (memcpy into 0x20001FD2 with the frame length in byte 10), so this block is the last six bytes of that payload. flags has bit 0x10 (the counter at 0x200003BE increments while it is set and resets while clear), bit 0x4 (part of the drive-mode test in mcu_0160_08003ab8), bit 0x200 (drives GPIOC pin 10 through mcu_gpioc_pin10_follow_flag), bit 0x1000 and bit 0x2000 (edge inputs of the position tracker) and bit 0x4000 (checked in mcu_0160_08003f2c). cmd_a and cmd_b are scaled to Q15 by the drive code. No writer is visible in this packet (the CAN path writes them). Consumers are the protection and drive-cycle functions listed in the packet."
+  },
+  "mcu_g_0160_20001fdc": {
+    "name": "motor_can_cmd_20c",
+    "type": "MotorCan20cSetpoints",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fdc"
+    ],
+    "category": "motor",
+    "description": "Four-byte block at payload bytes 2..5 of CAN frame 0x20C (that frame is copied to 0x20001FDA; bytes 0..1 at 0x20001FDA are another packet's object). setpoint: its low byte is an 8-bit threshold, compared as (low+1)*0x4000 with 0x20000F30 in mcu_drive_state_update, and bit 0 of it selects a path in mcu_setpoint_slew_limit_std; its high byte is an 8-bit Q15-scaled setpoint copied to 0x20000100 by mcu_0160_08003c78 (probably). limit: its low and high bytes are two 8-bit bounds in Q15 scaling; mcu_limiter_set_range stores the larger of them in the limiter at 0x200000C0. Written by the CAN path only (no writer in this packet); read by the drive functions."
+  }
+}

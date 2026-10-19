@@ -1,0 +1,431 @@
+{
+  "mcu_g_0160_20000b50": {
+    "name": "motor_limit_seed_w5",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b50"
+    ],
+    "category": "motor",
+    "description": "Seed value copied to word 5 of the destination struct by mcu_limit_chan_cfg_high_seed. It follows motor_limit_seed_w4 (0x20000B4C), which the same function copies to word 4."
+  },
+  "mcu_g_0160_20000b54": {
+    "name": "motor_limit_src_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b54"
+    ],
+    "category": "motor",
+    "description": "Index into the pointer table at 0x20000268 (0 to 3), or 0xFF for none. mcu_0160_08003784 sets it to 0xFF and mcu_limit_target_b3c_update reads it to pick the limit block."
+  },
+  "mcu_g_0160_20000b90": {
+    "name": "motor_b90_filter_obj",
+    "type": "u8",
+    "size": 80,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b90"
+    ],
+    "category": "motor",
+    "description": "80-byte filter or integrator object at 0x20000B90. Helpers FUN_0800A574 and FUN_0800A588 return the signed word at +0x0C shifted right by the byte at +0x32 (a Q-format shift). mcu_b90_low_and_enabled tests that value against 0x666. mcu_fb_lpf_select_update also passes the object to FUN_0800A644. The rest of the layout is not in this packet."
+  },
+  "mcu_g_0160_20000be0": {
+    "name": "motor_ramp_value",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000be0"
+    ],
+    "category": "motor",
+    "description": "Ramp value that mcu_ramp_asym_track moves toward the target at 0x20000170. It moves down by distance-scaled steps and up by a fixed 0x20 per tick. mcu_0160_08003F2C copies it to 0x20000120, and mcu_fb_lpf_select_update multiplies it by the 16-bit value at 0x20000BEC."
+  },
+  "mcu_g_0160_20000be4": {
+    "name": "motor_fb_lpf_io_b",
+    "type": "s32",
+    "size": 8,
+    "anchor": [
+      "MCU_0160",
+      "0x20000be4"
+    ],
+    "category": "motor",
+    "description": "Input and output words of a second Q30 one-pole filter. FUN_0800721A(&0xBE4, &0xBE8, coeff 0x20000144) updates the output. Index 0 (0xBE4) is the input, set from FUN_08004AE4 or as the product of 0xBEC and 0xBE0 (probably the window scaled by the ramp). Index 1 (0xBE8) is the filtered output, read by mcu_fb_lpf_select_update to compute a residual.",
+    "count": 2
+  },
+  "mcu_g_0160_20000bec": {
+    "name": "motor_window_bounds_u16",
+    "type": "u16",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000bec"
+    ],
+    "category": "motor",
+    "description": "Two 16-bit bounds of a window. Index 0 (0xBEC) is the upper edge and index 1 (0xBEE) the lower edge. mcu_0160_08005054 sets the upper edge to 0xC92 and clears the lower edge. mcu_below_10pct_of_window and mcu_0160_0800500C use the lowest 10 percent of the window (probably a clamp zone).",
+    "count": 2
+  },
+  "mcu_g_0160_20000c3c": {
+    "name": "motor_limiter_obj_c3c",
+    "type": "MotorLimiterObj",
+    "size": 35,
+    "anchor": [
+      "MCU_0160",
+      "0x20000c3c"
+    ],
+    "category": "motor",
+    "description": "Limiter object at 0x20000C3C. mcu_0160_08003784 initialises it with FUN_08007198, which stores the output pointer (0x20000B3C), a constant 0x3C89458, the bounds at +0x0C and +0x10, half their distance at +0x14, and a flag at +0x22. Later functions (FUN_0800724E, FUN_080070AC) work on it too. Field layout is in types/data_motor_batch12.json."
+  },
+  "mcu_g_0160_20000d00": {
+    "name": "motor_edge_debounce5",
+    "type": "MotorDebounce20",
+    "size": 100,
+    "anchor": [
+      "MCU_0160",
+      "0x20000d00"
+    ],
+    "category": "motor",
+    "description": "Five 20-byte debounce objects at 0x20000D00, 0xD14, 0xD28, 0xD3C and 0xD50, used for the edge position tracking. FUN_08009A40 initialises them, FUN_08009954 steps them with the edge input, and FUN_08009A6E resets them. Objects 0 and 1 are initialised with (1,1,3), objects 2 and 3 with (400,1) and object 4 with (0x14,1). Object 4 is also stepped in mcu_drive_state_update. Probably one filter per encoder phase or channel.",
+    "count": 5
+  },
+  "mcu_g_0160_20000d78": {
+    "name": "motor_debounce_d78",
+    "type": "MotorDebounce20",
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000d78"
+    ],
+    "category": "motor",
+    "description": "20-byte debounce object at 0x20000D78, initialised by FUN_08009A40 with (100,1) in mcu_0160_08003784 and reset by mcu_limit_chan_init_mode6 and mcu_limit_chan_update_c. Probably a limit-channel debounce."
+  },
+  "mcu_g_0160_20000db4": {
+    "name": "motor_debounce_db4",
+    "type": "MotorDebounce20",
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000db4"
+    ],
+    "category": "motor",
+    "description": "20-byte debounce object at 0x20000DB4, initialised with (2,1) in mcu_0160_08003784 and stepped in mcu_drive_state_update with bit 1 of the byte at 0x20001FD4 (probably a hall or direction input)."
+  },
+  "mcu_g_0160_20000dc8": {
+    "name": "motor_debounce_dc8",
+    "type": "MotorDebounce20",
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000dc8"
+    ],
+    "category": "motor",
+    "description": "20-byte debounce object at 0x20000DC8, initialised with (2,1) in mcu_0160_08003784 and stepped in mcu_run_enable_update with the bits 2 of the byte at 0x20001FD4 gated by the result of the previous step (probably the hall input gating run-enable)."
+  },
+  "mcu_g_0160_20000e19": {
+    "name": "motor_din_debounced_a",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e19"
+    ],
+    "category": "motor",
+    "description": "Debounced digital input A, set by mcu_digital_input_debounce from the output of FUN_08009954 on the object at 0x20000C88 (not in this packet). Read by mcu_fb_lpf_select_update and mcu_0160_08003F2C, which test it together with 0x20000E1B (probably a hall or limit input)."
+  },
+  "mcu_g_0160_20000e1a": {
+    "name": "motor_din_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1a"
+    ],
+    "category": "motor",
+    "description": "Debounce output byte set by mcu_digital_input_debounce and copied to 0x20000E1B. The drive-state and negative-limit logic tests it for zero (probably the input is active when non-zero)."
+  },
+  "mcu_g_0160_20000e1d": {
+    "name": "motor_motion_dir_flags",
+    "type": "u8",
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1d"
+    ],
+    "category": "motor",
+    "description": "Two motion-direction flags set by mcu_update_motion_direction_flags from mode bits 3 and 4 when the speed magnitude and the counter at 0x20000B20 qualify. Index 0 (0xE1D) is also tested by mcu_neg_limit_flag_update and mcu_run_enable_update. Index 1 (0xE1E) is tested by mcu_0160_08004E78 (probably forward and reverse).",
+    "count": 2
+  },
+  "mcu_g_0160_20000e24": {
+    "name": "motor_drive_ramp_pair",
+    "type": "s32",
+    "size": 8,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e24"
+    ],
+    "category": "motor",
+    "description": "Two words of the drive ramp. Index 0 (0xE24) is set to the value at 0x20000F30, to ((DAT_20001FDC + 1) << 14), or to 0 (probably the speed setpoint for the active drive). mcu_setpoint_slew_limit_std reads it (>> 15, times 20). Index 1 (0xE28) is reset to 0 by mcu_edge_pos_track and mcu_drive_state_update.",
+    "count": 2
+  },
+  "mcu_g_0160_20000e2c": {
+    "name": "motor_fb_value_e2c",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e2c"
+    ],
+    "category": "motor",
+    "description": "Value returned by FUN_08004D94 and stored by mcu_0160_08004E78 (and by mcu_0160_08005480). mcu_limit_chan_update_c and mcu_limit_chan_cfg_d copy it to offset +0x20 of the destination struct (probably a derived limit or feedback value)."
+  },
+  "mcu_g_0160_20000e30": {
+    "name": "motor_flag_e30",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e30"
+    ],
+    "category": "motor",
+    "description": "Flag set to 1 or cleared to 0 by mcu_fb_lpf_select_update (probably it selects the filter branch)."
+  },
+  "mcu_g_0160_20000e31": {
+    "name": "motor_neg_flag_e31",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e31"
+    ],
+    "category": "motor",
+    "description": "Flag cleared to 0 by mcu_0160_08003784. mcu_0160_08004E78 and mcu_neg_limit_flag_update test it (zero blocks the negative limit), and mcu_0160_08005480 reads and writes it (probably a negative-direction enable)."
+  },
+  "mcu_g_0160_20000e32": {
+    "name": "motor_mode3_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e32"
+    ],
+    "category": "motor",
+    "description": "Set to 1 by mcu_update_flag_e32_from_mode_3 when the limit mode at 0x2000065A equals 3, otherwise 0. mcu_drive_state_update and mcu_cmd_ramp_update read it (probably 'mode 3 is active')."
+  },
+  "mcu_g_0160_20000e33": {
+    "name": "motor_drive_active",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e33"
+    ],
+    "category": "motor",
+    "description": "Drive-active flag (probably 1 = drive enabled, 0 = off). mcu_0160_08003784 clears it, mcu_drive_state_update sets and clears it, and about ten functions read it, including the edge tracker, the ramp and the slew limiters."
+  },
+  "mcu_g_0160_20000e34": {
+    "name": "motor_run_enable",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e34"
+    ],
+    "category": "motor",
+    "description": "Run-enable flag (non-zero = enabled). mcu_run_enable_update sets it or clears it from hall input bit 2, the speed and the counter at 0x20000B20. The drive-state, limit and telemetry functions read it."
+  },
+  "mcu_g_0160_20000e35": {
+    "name": "motor_neg_limit_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e35"
+    ],
+    "category": "motor",
+    "description": "Negative-limit flag set to 1 or 0 by mcu_neg_limit_flag_update from the value at offset +0x28 of a limit struct and from 0x20000F2C. mcu_0160_0800A320 copies it to 0x20002029 (probably a status byte)."
+  },
+  "mcu_g_0160_20000e37": {
+    "name": "motor_drive_transition_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e37"
+    ],
+    "category": "motor",
+    "description": "Transition flag set to 1 by mcu_drive_state_set (which also stores the state in 0x20000F44) and by mcu_0160_0800517C. mcu_0160_08003D2C and mcu_0160_08003F2C test it (probably 'a state change is pending')."
+  },
+  "mcu_g_0160_20000e39": {
+    "name": "motor_calib_pending",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e39"
+    ],
+    "category": "motor",
+    "description": "Request flag set to 1 by mcu_edge_pos_track and cleared by mcu_0160_0800A320 (probably a one-shot request to run the calibration step)."
+  },
+  "mcu_g_0160_20000e3c": {
+    "name": "motor_controller_block",
+    "type": "u8",
+    "size": 228,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e3c"
+    ],
+    "category": "motor",
+    "description": "228-byte controller block at 0x20000E3C. FUN_080029AC sets it up (called from mcu_motor_calib_apply with the calibration words), using sub-objects at +0x20, +0x50 and +0xDC. FUN_08002A64, FUN_08001436 and FUN_08002B64 work on it (probably the PI or FOC controller state). The inner layout is not in this packet."
+  },
+  "mcu_g_0160_20000f20": {
+    "name": "motor_limit_seed_w6",
+    "type": "s32",
+    "size": 8,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f20"
+    ],
+    "category": "motor",
+    "description": "Words 6 and 7 of the destination struct, copied from RAM by mcu_limit_chan_cfg_high_seed, mcu_0160_08003D2C and mcu_0160_08003F2C. Index 0 (0xF20) is written by mcu_0160_080054FC. Index 1 (0xF24) is also used by FUN_08001BA0 together with the difference of 0x2000066E and 0x2000066F.",
+    "count": 2
+  },
+  "mcu_g_0160_20000f2c": {
+    "name": "motor_neg_limit_accum",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f2c"
+    ],
+    "category": "motor",
+    "description": "Accumulator adjusted by (value >> 15) in mcu_0160_08005240 (probably a drift integrator for the negative limit). mcu_neg_limit_flag_update compares it with 1 and -0x1999. mcu_telemetry_group_get copies its bytes to the telemetry buffer."
+  },
+  "mcu_g_0160_20000f30": {
+    "name": "motor_speed_q15",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f30"
+    ],
+    "category": "motor",
+    "description": "Main speed-like value in Q15 (probably signed speed). About twelve functions read it, among them the ramp, the limit, the mismatch and the derate code. It is compared with thresholds 0x10000, 0x28000 and 0x30000. Written by mcu_0160_08004E78."
+  },
+  "mcu_g_0160_20000f38": {
+    "name": "motor_speed_limit_out",
+    "type": "s32",
+    "size": 12,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f38"
+    ],
+    "category": "motor",
+    "description": "Three outputs of mcu_speed_limit_calc. Index 0 (0xF38) is the limit derived from the speed-like input (Q15, probably). Index 1 (0xF3C) is one of 0, FUN_08004AC4, index 0 or 0x18000 (probably the active limit). Index 2 (0xF40) is copied from word +0x14 of the input struct. mcu_0160_08003F2C and mcu_drive_state_update read them.",
+    "count": 3
+  },
+  "mcu_g_0160_20000f44": {
+    "name": "motor_drive_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f44"
+    ],
+    "category": "motor",
+    "description": "Drive state code, stored by mcu_drive_state_set (it is also read and returned there). Probably the state-machine state of the drive."
+  },
+  "mcu_g_0160_20000f46": {
+    "name": "motor_setpoint_slew_pair",
+    "type": "s16",
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f46"
+    ],
+    "category": "motor",
+    "description": "Two 16-bit words of mcu_setpoint_slew_limit_std. Index 0 (0xF46) is the filtered setpoint, moved by 1 per tick. Index 1 (0xF48) is the output limit, set to index 0 minus 20 or minus 10 (probably the allowed range below the setpoint).",
+    "count": 2
+  },
+  "mcu_g_0160_20000f54": {
+    "name": "motor_enable_f54",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f54"
+    ],
+    "category": "motor",
+    "description": "Enable byte set to 1 by mcu_0160_08003784. mcu_b90_low_and_enabled and mcu_0160_08004E78 test it (probably the enable for the B90 path)."
+  },
+  "mcu_g_0160_20000f58": {
+    "name": "motor_adc_median5",
+    "type": "u16",
+    "size": 10,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f58"
+    ],
+    "category": "motor",
+    "description": "Five 16-bit ADC channel values. mcu_adc_dma_median5 writes the five-sample temporal median of each channel here from the DMA ring. Index 0 (0xF58) is read by mcu_speed_from_period_min, index 1 (0xF5A) by mcu_scale_delta_q15, index 2 (0xF5C) by mcu_speed_from_max_u12 and index 3 (0xF5E) by mcu_mul_q15_f5e_by_3f2. Index 4 (0xF60) is not read in this packet.",
+    "count": 5
+  },
+  "mcu_g_0160_20000f64": {
+    "name": "motor_speed_max_ring",
+    "type": "u32",
+    "size": 80,
+    "anchor": [
+      "MCU_0160",
+      "0x20000f64"
+    ],
+    "category": "motor",
+    "description": "Ring of 20 samples (32-bit) that mcu_speed_from_max_u12 fills with the 16-bit value at 0x20000F5C, at the index held in 0x20000280. FUN_08002946 takes the maximum over all 20 entries (probably).",
+    "count": 20
+  },
+  "mcu_g_0160_20001f30": {
+    "name": "motor_calib_words",
+    "type": "u16",
+    "size": 16,
+    "anchor": [
+      "MCU_0160",
+      "0x20001f30"
+    ],
+    "category": "motor",
+    "description": "Eight 16-bit calibration words at 0x20001F30 to 0x20001F3E. They are shifted left by 7 and passed to the controller block set-up FUN_080029AC by mcu_motor_calib_apply and mcu_0160_08003784 (probably the motor parameters stored in the calibration record).",
+    "count": 8
+  },
+  "mcu_g_0160_20001f40": {
+    "name": "motor_calib_valid_byte",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20001f40"
+    ],
+    "category": "motor",
+    "description": "Byte of the calibration record. mcu_motor_calib_apply applies the words only when it is neither 0 nor 0xFF (probably a record-valid marker)."
+  },
+  "mcu_g_0160_20001fd2": {
+    "name": "motor_cmd_byte_1fd2",
+    "type": "s8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fd2"
+    ],
+    "category": "motor",
+    "description": "Signed command byte (probably the VCU command, with 0xC8 = -0x38 as a sentinel that mcu_setpoint_slew_limit_std checks). mcu_can_rx_command_dispatch writes it through FUN_08001270 from a CAN frame byte. mcu_0160_0800ADDE uses it as a scaled value."
+  },
+  "mcu_g_0160_20001fd3": {
+    "name": "motor_cmd_byte_1fd3",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fd3"
+    ],
+    "category": "motor",
+    "description": "Command byte. mcu_ratio_110_to_q15 divides it by 110 in Q15 and saturates at 1.0 (probably a 0 to 110 percent command). Together with motor_cmd_byte_1fd2 it gates the command ramp: the ramp runs only when both are zero."
+  }
+}

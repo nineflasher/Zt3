@@ -1,0 +1,47 @@
+{
+  "structs": {
+    "MotorCan100Cmd": {
+      "size": 6,
+      "description": "Payload of CAN frame 0x100 from byte 2 on, as copied into RAM by mcu_can_rx_command_dispatch. Only the 16-bit fields are listed; the bytes before it (0x20001FD2..0x20001FD3) are a separate object.",
+      "fields": [
+        {
+          "name": "flags",
+          "offset": 0,
+          "type": "u16",
+          "description": "Flag word: 0x10 counter enable (0x200003BE), 0x4 drive-mode test bit, 0x200 GPIOC pin 10 follow, 0x1000 and 0x2000 position-tracker edge inputs, 0x4000 run check."
+        },
+        {
+          "name": "cmd_a",
+          "offset": 2,
+          "type": "u16",
+          "description": "Command magnitude: bits 0..13 are a 14-bit magnitude (scaled to Q15 by the drive code), bits 14..15 are a 2-bit mode that multiplies the high byte of cmd_b in mcu_cmd_ramp_update."
+        },
+        {
+          "name": "cmd_b",
+          "offset": 4,
+          "type": "u16",
+          "description": "Low byte: 8-bit command scaled by 0x8000 (Q15). High byte: second 8-bit command used as the slew and ramp target."
+        }
+      ]
+    },
+    "MotorCan20cSetpoints": {
+      "size": 4,
+      "description": "Setpoint and bound pair copied from payload bytes 2..5 of CAN frame 0x20C by the CAN dispatcher path. Read by the drive-state and limiter code.",
+      "fields": [
+        {
+          "name": "setpoint",
+          "offset": 0,
+          "type": "u16",
+          "description": "Low byte: threshold (x+1)*0x4000 compared with 0x20000F30, bit 0 selects a slew path. High byte: Q15-scaled 8-bit setpoint."
+        },
+        {
+          "name": "limit",
+          "offset": 2,
+          "type": "u16",
+          "description": "Two 8-bit bounds in Q15 scaling: low byte and high byte, the larger of the two is stored by mcu_limiter_set_range."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

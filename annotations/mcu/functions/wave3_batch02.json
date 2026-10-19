@@ -36,7 +36,7 @@
   "mcu_0160_08006648": {
     "name": "mcu_flash_erase_region",
     "summary": "Erase a flash range with interrupts masked; returns 0 on success, 2 on failure",
-    "description": "Wrapper that runs mcu_flash_erase_range with interrupts disabled (<redacted constant>, then <redacted constant>). The decompile shows no parameters, but its only caller mcu_0160_0800672c passes the start address 0x08010800 and the image length plus 0x80, and those registers reach the erase routine unchanged. It returns 2 when the erase reports failure and 0 when every page in the range was erased. The firmware download uses it to clear the staging area before the image is written.",
+    "description": "Wrapper that runs mcu_flash_erase_range with interrupts disabled (disableIRQinterrupts, then enableIRQinterrupts). The decompile shows no parameters, but its only caller mcu_0160_0800672c passes the start address 0x08010800 and the image length plus 0x80, and those registers reach the erase routine unchanged. It returns 2 when the erase reports failure and 0 when every page in the range was erased. The firmware download uses it to clear the staging area before the image is written.",
     "category": "flash",
     "params": [],
     "returns": {
