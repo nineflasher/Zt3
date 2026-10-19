@@ -1,0 +1,157 @@
+{
+ "vcu_g_0159_20001490": {
+  "name": "upgrade_session",
+  "type": "UpgradeSession",
+  "size": 44,
+  "anchor": [
+   "VCU_0159",
+   "0x20001490"
+  ],
+  "category": "upgrade",
+  "description": "Firmware-upgrade session record, described as the UpgradeSession struct. Cleared by vcu_crypto_key_load and driven by vcu_fw_update_frame_handler. The fields cover the build-0159 variables from 0x20001490 to 0x200014BB."
+ },
+ "vcu_g_153_200014a0": {
+  "name": "upgrade_progress_checksum_b153",
+  "type": "u32",
+  "size": 8,
+  "anchor": [
+   "VCU_153",
+   "0x200014a0"
+  ],
+  "category": "upgrade",
+  "description": "Build-153 layout of the progress and checksum words of UpgradeSession: element 0 is the bytes-accepted counter (probably the same role as xfer_progress, which the version tracker places at another address in 153), element 1 is the rolling checksum (same role as checksum). Both are cleared by vcu_crypto_key_load.",
+  "count": 2
+ },
+ "vcu_g_14b_20002041": {
+  "name": "upgrade_cfg_b14b",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_14b",
+   "0x20002041"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 14b only. They are probably product or board options, and nothing writes them in this packet.",
+  "count": 2
+ },
+ "vcu_g_14e_20002041": {
+  "name": "upgrade_cfg_b14e",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_14e",
+   "0x20002041"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 14e only. They are probably product or board options, and nothing writes them in this packet.",
+  "count": 2
+ },
+ "vcu_g_14f_20002041": {
+  "name": "upgrade_cfg_b14f",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_14f",
+   "0x20002041"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 14f only. They are probably product or board options, and nothing writes them in this packet.",
+  "count": 2
+ },
+ "vcu_g_0159_200020dc": {
+  "name": "upgrade_tea_key",
+  "type": "u8",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x200020dc"
+  ],
+  "category": "crypto",
+  "description": "16-byte key used to decrypt each 8-byte update block, probably XTEA. vcu_crypto_key_load loads it from flash 0x08001440 or the built-in default. vcu_fw_update_frame_handler adds the block index to one byte of it every 1 KiB. The key bytes are secret and are deliberately not recorded here.",
+  "count": 16
+ },
+ "vcu_g_0159_200020ec": {
+  "name": "upgrade_block_copy",
+  "type": "u8",
+  "size": 8,
+  "anchor": [
+   "VCU_0159",
+   "0x200020ec"
+  ],
+  "category": "upgrade",
+  "description": "Copy of the received frame that vcu_fw_update_frame_handler makes before checking the first 1 KiB against the product block at 0x08001400. Byte 5 of the frame is at 0x200020F1. Only the first 8 bytes are described here; the copy may be longer.",
+  "count": 8
+ },
+ "vcu_g_152_200020f9": {
+  "name": "upgrade_cfg_b152",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_152",
+   "0x200020f9"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 152 only. Probably product or board options.",
+  "count": 2
+ },
+ "vcu_g_153_20002101": {
+  "name": "upgrade_cfg_b153",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_153",
+   "0x20002101"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 153 only. Probably product or board options.",
+  "count": 2
+ },
+ "vcu_g_148_20002119": {
+  "name": "upgrade_cfg_b148",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_148",
+   "0x20002119"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 148 only. Probably product or board options.",
+  "count": 2
+ },
+ "vcu_g_0159_20002121": {
+  "name": "upgrade_ident_ram",
+  "type": "u8",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x20002121"
+  ],
+  "category": "upgrade",
+  "description": "16-byte RAM copy that vcu_fw_update_frame_handler compares with the identifier at flash 0x08001430 at the first 1 KiB boundary. The contents are the device identifier, which is not secret.",
+  "count": 16
+ },
+ "vcu_g_0159_20002131": {
+  "name": "upgrade_key_ram_copy",
+  "type": "u8",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x20002131"
+  ],
+  "category": "crypto",
+  "description": "16-byte RAM copy that vcu_fw_update_frame_handler compares with the key at flash 0x08001440 at the first 1 KiB boundary. The bytes are secret and are deliberately not recorded here.",
+  "count": 16
+ },
+ "vcu_g_14a_20002135": {
+  "name": "upgrade_cfg_b14a",
+  "type": "u8",
+  "size": 2,
+  "anchor": [
+   "VCU_14a",
+   "0x20002135"
+  ],
+  "category": "upgrade",
+  "description": "Two bytes read by vcu_fw_update_frame_handler in build 14a only. Probably product or board options.",
+  "count": 2
+ }
+}

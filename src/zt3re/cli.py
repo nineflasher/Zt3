@@ -243,6 +243,7 @@ def cmd_validate(args) -> int:
             for k, r in resolved.items():
                 if not r["covers"]:
                     errs.append(f"{k}: anchor/size covers no known {kind[:-1]} family")
+            errs += objects.overlaps(comp, j, kind)
             if args.packet:
                 ids = set(re.findall(r"^## `([\w]+)`", Path(args.packet).read_text(), re.M))
                 errs += [f"family {m} in the packet is not covered by any object" for m in sorted(ids - covered)]

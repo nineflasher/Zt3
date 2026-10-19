@@ -52,3 +52,26 @@ def uncovered(comp: str, notes: dict, fam_key: str) -> list[str]:
     resolved, _ = resolve(comp, notes, fam_key)
     covered = {fid for r in resolved.values() for fid in r["covers"]}
     return sorted(set(fam) - covered)
+
+
+def overlaps(comp: str, notes: dict, fam_key: str, exclude_file_keys: set[str] | None = None) -> list[str]:
+    """Objects in `notes` that overlap objects already defined elsewhere in the component (same image)."""
+    from . import annotations as ann
+
+    others = ann.load_globals(comp) if fam_key == "globals" else ann.load_tables(comp)
+    others = {k: v for k, v in others.items() if k not in notes}
+    mine, _ = resolve(comp, notes, fam_key)
+    theirs, _ = resolve(comp, others, fam_key)
+    errs: list[str] = []
+    for oid, r in mine.items():
+        for img, start in r["starts"].items():
+            end = start + r["size"]
+            for oid2, r2 in theirs.items():
+                s2 = r2["starts"].get(img)
+                if s2 is None:
+                    continue
+                if start < s2 + r2["size"] and s2 < end:
+                    errs.append(f"{oid} ({notes[oid]['name']}) overlaps {oid2} ({others[oid2]['name']}) in {img}: "
+                                f"{start:#x}+{r['size']} vs {s2:#x}+{r2['size']}")
+                    break
+    return errs
