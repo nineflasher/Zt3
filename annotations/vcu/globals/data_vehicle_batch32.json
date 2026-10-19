@@ -1,13 +1,167 @@
 {
   "vcu_g_0159_2000338c": {
-    "name": "vehicle_telemetry_tail",
-    "type": "VehSnapshotTail",
-    "size": 34,
-    "description": "Telemetry record, second half (0159 build, 0x2000338c..0x200033ad). vcu_speed_mode_snapshot_update rewrites it with the head every 11th tick. It holds copies of protocol-owned words, 16-bit state values and the speed telemetry word (vehicle_speed_telemetry_a at +0x20). The gaps at +0x1a and +0x1c are not written in this build. The record ends with vehicle_snapshot_marker at +0x56 from the head.",
+    "name": "vehicle_tm_proto_335a",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x2c, copy of DAT_2000335a (protocol-owned word, data_protocol_batch21).",
     "category": "vehicle",
     "anchor": [
       "VCU_0159",
       "0x2000338c"
+    ]
+  },
+  "vcu_g_0159_2000338e": {
+    "name": "vehicle_tm_state_1cd8",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x2e, copy of DAT_20001cd8, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000338e"
+    ]
+  },
+  "vcu_g_0159_20003390": {
+    "name": "vehicle_tm_state_1cda",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x30, copy of DAT_20001cda, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003390"
+    ]
+  },
+  "vcu_g_0159_20003392": {
+    "name": "vehicle_tm_state_1cdc",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x32, copy of DAT_20001cdc, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003392"
+    ]
+  },
+  "vcu_g_0159_20003394": {
+    "name": "vehicle_tm_state_1cde",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x34, copy of DAT_20001cde, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003394"
+    ]
+  },
+  "vcu_g_0159_20003396": {
+    "name": "vehicle_tm_state_1ce0",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x36, copy of DAT_20001ce0, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003396"
+    ]
+  },
+  "vcu_g_0159_20003398": {
+    "name": "vehicle_tm_state_1ce2",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x38, copy of DAT_20001ce2, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x20003398"
+    ]
+  },
+  "vcu_g_0159_2000339a": {
+    "name": "vehicle_tm_build_id",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x3a, copy of DAT_20001ae2 (vehicle_build_id, data_vehicle_batch29).",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000339a"
+    ]
+  },
+  "vcu_g_0159_2000339c": {
+    "name": "vehicle_tm_state_1ae4",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x3c, copy of DAT_20001ae4, a 16-bit value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000339c"
+    ]
+  },
+  "vcu_g_0159_2000339e": {
+    "name": "vehicle_tm_state_1ae6",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x3e, copy of DAT_20001ae6, a 16-bit value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x2000339e"
+    ]
+  },
+  "vcu_g_0159_200033a0": {
+    "name": "vehicle_tm_telemetry_word_b",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x40, copy of DAT_20001ae8 (vehicle_telemetry_word_b, data_vehicle_batch29).",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033a0"
+    ]
+  },
+  "vcu_g_0159_200033a2": {
+    "name": "vehicle_tm_state_1c9c",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x42, copy of DAT_20001c9c, a 16-bit state value. Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033a2"
+    ]
+  },
+  "vcu_g_0159_200033a4": {
+    "name": "vehicle_tm_ext_word",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x44, copy of vehicle_telemetry_ext_word (0x2000335e).",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033a4"
+    ]
+  },
+  "vcu_g_0159_200033aa": {
+    "name": "vehicle_tm_state_1e62",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x4a, copy of DAT_20001e62, a 16-bit value (also a source of the 0x203 CAN frame per the CAN notes). Meaning not established.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033aa"
+    ]
+  },
+  "vcu_g_0159_200033ac": {
+    "name": "vehicle_tm_speed_telemetry_a",
+    "type": "u16",
+    "size": 2,
+    "description": "Telemetry record (0159 build) rewritten every 11th tick by vcu_speed_mode_snapshot_update (0159 0x08008cc0); offset +0x4c, copy of DAT_20001b70 (vehicle_speed_telemetry_a, data_vehicle_batch30), a speed-derived value in 0.1 km/h.",
+    "category": "vehicle",
+    "anchor": [
+      "VCU_0159",
+      "0x200033ac"
     ]
   },
   "vcu_g_153_200033a6": {
