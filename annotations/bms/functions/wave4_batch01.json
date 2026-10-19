@@ -54,7 +54,7 @@
   "bms_4139_08006f08": {
     "name": "bms_protect_measure_tick_4139",
     "summary": "Per-tick measurement and protection latch update for the BMS_4130/4139 builds",
-    "description": "Per-tick routine for the BMS_4130 and BMS_4139 builds, one of two variants of the same tick (the other is bms_protect_measure_tick_4168). It runs the measurement pipeline (helpers 0x0800BBE4, 0x0800BD14 on RAM 0x200005C4, 0x0800BAC4, 0x0800C0D8, bms_4139 helpers at 0x0800BB40 and 0x0800B9D4, which writes the status byte at 0x200005C0, and 0x0800C560), clears the one-shot request byte 0x20000000, then runs the latch dwell logic. When bit 5 (0x20) of the u16 at state+0x194 is set and either bit 4 of state+0x124 or bit 1 of 0x200005C0 is set while 0x20000001 is clear, it adds param_1 to the accumulator at 0x20000004; past 1000 (param_2 nonzero) or 2000 ticks it sets 0x20 in state+0x194 and 0x10 in state+0x124, sets 0x20000001 and calls the latch-set helper 0x0800AE4C once. When the condition is not met it clears the accumulator, and when bit 5 is clear it clears 0x20000001 and calls the latch-release helper 0x0800AE24 once. The tail publishes a status record (byte 0 is param_1 & 0xFF divided by 100; bytes 1 to 3 are bits 2, 1 and 4 of state+0x124; then the words at +0xB2, +0x11C, +0x120, +0x122, +0x11E, +0x11A, the s16 at +0x22 times 10, and the word at +0x19C) through 0x0800CF68 and copies the 12 returned halfwords into state fields +0x28, +0x112, +0x114, +0x1C2 to +0x1C8 and +0x1EA to +0x1F0.",
+    "description": "Per-tick routine for the BMS_4130 and BMS_4139 builds, one of two variants of the same tick (the other is bms_protect_measure_tick_4168). It runs the measurement pipeline (helpers 0x0800BBE4, 0x0800BD14 on RAM 0x200005C4, 0x0800BAC4, 0x0800C0D8, 0x0800BB40 which consumes the request byte 0x20000000, 0x0800B9D4 which fills the status byte at 0x200005C0, and bms_prot_latch_pairs_update_alt at 0x0800C560), clears the request byte 0x20000000, then runs the latch dwell logic. When bit 5 (0x20) of the u16 at state+0x194 is set and either bit 4 of state+0x124 or bit 1 of 0x200005C0 is set while 0x20000001 is clear, it adds param_1 to the accumulator at 0x20000004; past 1000 (param_2 nonzero) or 2000 ticks it sets 0x20 in state+0x194 and 0x10 in state+0x124, sets 0x20000001 and calls the latch-set helper 0x0800AE4C once. When the condition is not met it clears the accumulator, and when bit 5 is clear it clears 0x20000001 and calls the latch-release helper 0x0800AE24 once. The tail publishes a status record (byte 0 is param_1 & 0xFF divided by 100; bytes 1 to 3 are bits 2, 1 and 4 of state+0x124; then the words at +0xB2, +0x11C, +0x120, +0x122, +0x11E, +0x11A, the s16 at +0x22 times 10, and the word at +0x19C) through 0x0800CF68 and copies the 12 returned halfwords into state fields +0x28, +0x112, +0x114, +0x1C2 to +0x1C8 and +0x1EA to +0x1F0.",
     "category": "protection",
     "params": [
       {
@@ -181,7 +181,7 @@
   "bms_4168_0800a9ea": {
     "name": "bms_afe_read_cc2_current",
     "summary": "Read AFE register 0x3A as a 16-bit value and store it as minus 20 times the signed value",
-    "description": "Reads two bytes from AFE register 0x3A through bms_afe_reg_read_bytes. If the read succeeds, the raw word is treated as a signed 16-bit value and the result is minus 20 times that value. The low 15 bits are used with the sign handled separately, so the raw value 0x8000 maps to zero. The result is stored as s32 at *param_1, and the read status is returned.",
+    "description": "Reads two bytes from AFE register 0x3A through bms_afe_reg_read_bytes. If the read succeeds, the raw word is treated as a signed 16-bit value and the result is minus 20 times that value. The magnitude is masked to 15 bits, so the raw value 0x8000 gives zero. The result is stored as s32 at *param_1, and the read status is returned.",
     "category": "afe",
     "params": [
       {
@@ -264,6 +264,19 @@
     },
     "confidence": "medium",
     "notes": "The role of these three registers is not identified in this packet."
+  },
+  "bms_4168_0800aae8": {
+    "name": "bms_afe_config_program",
+    "summary": "Program the AFE data-memory configuration with write-verify, then send subcommand 0x29BC",
+    "description": "AFE bring-up program. It first reads DFI byte 0x9303 as a presence check, and also 0x9239 when that byte is 7 (the value is discarded). It then makes up to five attempts. Each attempt sends subcommand 0x0097 with data 0x04 (bms_afe_block_write_checksum), writes 0x9303 = 0x06, 0x92FA = 0xB9, 0x92FB = 0xB9, 0x9304 = 0x8FFF, 0x9252 = 0, 0x9253 = 1 (shadows 0x20005448 and 0x20005449), 0x92AF from shadow 0x2000063E, 0x9282, 0x9283 (clamped to 127), 0x928D, 0x927C, 0x9278, 0x9279, 0x9301 = 0, 0x9302 = 0, 0x924D = 0 and 0x92FC = 0x22, and calls the group writers bms_afe_cfg_write_92fd, _9234, _9248, _9265, _9261, _9275, _9280, _9286 and _9308. The data values come from RAM shadows in 0x20000640 to 0x2000066E. Each attempt ends by writing 0x9239 = 0x12 and reading it back with bms_afe_datamem_read; the loop stops when the readback is 0x12. When all five attempts fail, it returns the status of the last write without sending the final command. Otherwise it sends subcommand 0x29BC (bytes 0xBC 0x29) through bms_afe_block_write_wait_ack, waits 2 units, clears DAT_2000062E and returns the status of the last write.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "Caller is bms_4168_08003bf0 through bms_afe_config_result_apply. The return value is the status of the last 0x9239 write, so after five failed readbacks the function can still return 0 while the configuration is not confirmed. The meanings of the DFI addresses and the 0x0097 and 0x29BC subcommands are not identified in this packet."
   },
   "bms_4168_0800aec8": {
     "name": "bms_afe_subcmd_select_9e_9f",

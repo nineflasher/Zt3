@@ -96,7 +96,7 @@
    "0x2000138a"
   ],
   "category": "vehicle",
-  "description": "Ready-sequence latch of builds 148 and 14a. It is set when status bytes DAT_20001e90 and DAT_20001e8f are both 1 and no run is active, and it is cleared in the other phase."
+  "description": "Ready-sequence latch of builds 148 and 14a. It is set when status bytes DAT_20001e90 and DAT_20001e8f are both 1 while the latch is clear, and it is cleared in the other phase."
  },
  "vcu_g_14a_2000138b": {
   "name": "vehicle_run_latch_v14a",
@@ -140,7 +140,7 @@
    "0x2000138e"
   ],
   "category": "vehicle",
-  "description": "Ready-sequence latch of builds 14b to 0159. It is set when status flags DAT_20001f50 and DAT_20001f4f are both 1 and no run is active; cleared when both are 0."
+  "description": "Ready-sequence latch of builds 14b to 0159. It is set when status flags DAT_20001f50 and DAT_20001f4f are both 1 while the latch is clear; it is cleared when both are 0."
  },
  "vcu_g_0159_2000138f": {
   "name": "vehicle_run_latch",
@@ -305,7 +305,7 @@
    "0x2000139a"
   ],
   "category": "vehicle",
-  "description": "Latch of the input-B hold sequence. It is set to 1 when input B has reached its long-hold state 3 (DAT_200021c1 == 3) while the mode check holds, and cleared on the next check."
+  "description": "Latch of the input-B hold sequence. It is cleared at the start of a check while DAT_2000123d is set, and set to 1 once input B is in its long-hold state 3 (DAT_200021c1 == 3). Probably tells the hold-to-start action that the hold has happened."
  },
  "vcu_g_0159_2000139b": {
   "name": "vehicle_derate_low_byte_ref",
@@ -316,7 +316,7 @@
    "0x2000139b"
   ],
   "category": "vehicle",
-  "description": "Reference copy of the low byte of vehicle_derate_word, initialised to 0x30 (48). vcu_input_b_hold_start_tick reloads it when the live low byte exceeds it by more than 10, so it tracks the derate value with hysteresis."
+  "description": "Reference copy of the low byte of vehicle_derate_word. vcu_input_b_hold_start_tick sets it to 0x30 (48) and reloads it from the live low byte when that byte exceeds it by more than 10, so it tracks the derate value with hysteresis."
  },
  "vcu_g_0159_2000139c": {
   "name": "vehicle_input_b_seq_flag_a",
@@ -327,7 +327,7 @@
    "0x2000139c"
   ],
   "category": "vehicle",
-  "description": "Flag of the input-B hold sequence, set to 1 at the start of the hold and cleared at its end (vcu_input_b_hold_start_tick)."
+  "description": "Flag of the input-B hold sequence, written 0 and then 1 by vcu_input_b_hold_start_tick. Probably marks the start and end of a hold."
  },
  "vcu_g_0159_2000139d": {
   "name": "vehicle_input_b_seq_flag_b",
@@ -338,7 +338,7 @@
    "0x2000139d"
   ],
   "category": "vehicle",
-  "description": "Flag of the input-B hold sequence, cleared in two places and tested before the hold can start (vcu_input_b_hold_start_tick)."
+  "description": "Flag of the input-B hold sequence, cleared in two places and tested by vcu_input_b_hold_start_tick before it acts."
  },
  "vcu_g_14a_200013a4": {
   "name": "vehicle_ready_timeout_a_v14a",
@@ -371,7 +371,7 @@
    "0x200013a6"
   ],
   "category": "vehicle",
-  "description": "Counter of builds 148 and 14a in vcu_ready_sequence_step_v148_14a. It counts up and resets when it passes 100 (the sample window of the ready state)."
+  "description": "Counter of builds 148 and 14a in vcu_ready_sequence_step_v148_14a. It counts up and resets when it passes 100."
  },
  "vcu_g_0159_200013a8": {
   "name": "vehicle_ready_counter_b",
@@ -547,7 +547,7 @@
    "0x20001875"
   ],
   "category": "vehicle",
-  "description": "Latch set to 1 by vcu_condition_b_latch_flags when the status conditions hold and cleared by vcu_timed_window_schedule_tick (vcu_timed_window_schedule_tick only clears it when bit 3 of DAT_20001af2 is set)."
+  "description": "Latch set to 1 by vcu_condition_b_latch_flags when the status conditions hold. vcu_timed_window_schedule_tick clears it only while bit 4 of DAT_20001af2 is set."
  },
  "vcu_g_0159_20001880": {
   "name": "vehicle_debounce_a_count",
@@ -625,7 +625,7 @@
    "0x20001aec"
   ],
   "category": "vehicle",
-  "description": "Packed status flags word A. Bit 2 is set and cleared by vcu_condition_b_latch_flags, and several functions test bits 8 to 11. It is read by most of the ready, fault and input routines."
+  "description": "Packed status flags word A. Bit 2 is set and cleared by vcu_condition_b_latch_flags, and bit 11 is tested by vcu_fault_0f_update and vcu_ready_sequence_step_v14b_0159. Many ready, fault and input routines read this word."
  },
  "vcu_g_0159_20001aee": {
   "name": "vehicle_status_word_b",

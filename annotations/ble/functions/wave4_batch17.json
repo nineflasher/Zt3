@@ -1,0 +1,748 @@
+{
+  "ble_219_0c06b498": {
+    "name": "ble_ctrl_bredr_connect_request",
+    "summary": "Queue an outgoing BR/EDR connection to a peer address and kick the controller state machine",
+    "description": "Allocates a connection record for the BD_ADDR at param_1 through ble_ctrl_conn_alloc_and_register with address type 0xFD, the value that l2cap_acl_rx_handler treats as the BR/EDR marker at connection +0x0C. On success it clears the state byte at +0x0E, sets the byte at +0x17 to 1 and replaces the flag word at +0x10 with 0x00000800, then calls ble_ctrl_state_machine_step to start the connection. It returns 0 on success and 0x56 when no connection record can be allocated.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to the peer BD_ADDR (6 bytes), copied into the new connection record"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the connection was queued, 0x56 when allocation failed"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of bit 0x800 and of the byte at +0x17 (written as 1) is inferred from the writes only. The 0xFD marker comes from the BR/EDR branch of l2cap_acl_rx_handler."
+  },
+  "ble_219_0c06b4bc": {
+    "name": "ble_ctrl_bredr_connect_request_hook",
+    "summary": "Queue a BR/EDR connection with a selectable mode after calling the optional host hook",
+    "description": "Allocates the BR/EDR connection record for the BD_ADDR at param_1 (address type 0xFD, as in ble_ctrl_bredr_connect_request) and returns 0x56 if that fails. When the hook table at env+0x10 is installed, its entry at +0x14 is called with the address before the record is set up. param_2 == 0 selects mode 2 and any other value mode 3, written to +0x17; the flag word at +0x10 is then set to 0x00008000, the state byte at +0x0E is cleared, and ble_ctrl_state_machine_step is run. It returns 0 on success.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to the peer BD_ADDR (6 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "connection mode selector: 0 gives mode 2, any other value mode 3"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0x56 when no connection record can be allocated"
+    },
+    "confidence": "medium",
+    "notes": "The hook at table +0x14 is an external callback whose signature is inferred from the call. The function has no direct callers and is reached through a table."
+  },
+  "ble_219_0c06b5a0": {
+    "name": "ble_ctrl_secondary_record_insert",
+    "summary": "Claim the lowest free id on the secondary record list and link a new record into it",
+    "description": "Searches the secondary record list at controller env+0x224 for the lowest id from 1 to 0xEF that no record carries in its id byte at +0x42. The caller's 0x48-byte record at param_1 is zeroed, given that id, and filled from the 22-byte block at param_2 (five u32 words copied to +0x04 through +0x14 and a u16 copied to +0x18), then linked with btstack_linked_list_add. On success it writes the id to *param_3, sets the flag byte at +0x46 to 4 and runs ble_ctrl_state_machine_step. It returns 0, returns 0x0B when the list refuses the record, and returns 7 when all 239 ids are in use.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "caller-supplied 0x48-byte record to initialise and link"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "22-byte source block: five u32 words followed by a u16"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "output: receives the assigned record id as a u8"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0x0B when the list insert is refused, 7 when no id is free"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the source block fields is not established. The list name follows ble_ctrl_clear_secondary_list."
+  },
+  "ble_219_0c06b64c": {
+    "name": "ble_ctrl_secondary_record_update_block",
+    "summary": "Overwrite the 22-byte block of the secondary record with the given id and set bit 0x04",
+    "description": "Finds the record on the secondary list at env+0x224 whose id byte at +0x42 equals param_1 and copies the 22-byte block at param_2 into it in the same layout that ble_ctrl_secondary_record_insert uses (five u32 words to +0x04 through +0x14 and a u16 to +0x18). It then sets bit 0x04 in the flag byte at +0x46 and runs ble_ctrl_state_machine_step. It returns 2 and changes nothing when no record has that id.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "22-byte source block"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06b6b4": {
+    "name": "ble_ctrl_secondary_record_set_bdaddr",
+    "summary": "Store a 6-byte BD_ADDR in a secondary record and set flag bit 0x08",
+    "description": "Finds the secondary-list record with id param_1 and writes the 6-byte address at param_2 (a u32 and a u16) into record bytes +0x20 through +0x25. It sets bit 0x08 in the flag byte at +0x46 and runs ble_ctrl_state_machine_step. It returns 2 when no record has that id, otherwise 0.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "6-byte BD_ADDR to store"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "high",
+    "notes": "The purpose of the record field at +0x20 is not established beyond holding an address."
+  },
+  "ble_219_0c06b70c": {
+    "name": "ble_ctrl_secondary_record_set_u32_28",
+    "summary": "Store a u32 at +0x28 and a u16 at +0x34 of a secondary record and set flag bit 0x01",
+    "description": "Finds the secondary-list record with id param_1, stores the u32 param_3 at record +0x28 and the u16 param_2 at +0x34, sets bit 0x01 in the flag byte at +0x46 and runs ble_ctrl_state_machine_step. It returns 2 when the id is not on the list and 0 otherwise. The meaning of the two stored fields is not established by this function.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "value stored at +0x34"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "value stored at +0x28"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c06b764": {
+    "name": "ble_ctrl_secondary_record_set_u32_2c",
+    "summary": "Store a u32 at +0x2C and a u16 at +0x36 of a secondary record and set flag bit 0x02",
+    "description": "Same pattern as ble_ctrl_secondary_record_set_u32_28 for the pair at +0x2C (u32 from param_3) and +0x36 (u16 from param_2). It sets bit 0x02 in the flag byte at +0x46 and runs ble_ctrl_state_machine_step. It returns 2 when no record has the id and 0 otherwise.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "value stored at +0x36"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "value stored at +0x2C"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the two stored fields is not established by this function."
+  },
+  "ble_219_0c06b7bc": {
+    "name": "ble_ctrl_secondary_record_set_u16_40",
+    "summary": "Store a u16 at +0x40 and a byte at +0x43 of a secondary record and set flag bit 0x04 at +0x45",
+    "description": "Finds the secondary-list record with id param_1, stores the u16 param_2 at +0x40 and the byte param_3 at +0x43, sets bit 0x04 in the flag byte at +0x45 (not +0x46) and runs ble_ctrl_state_machine_step. The bit is the one that ble_ctrl_secondary_record_clear_flag45_04 clears. It returns 2 when no record has the id and 0 otherwise.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "value stored at +0x40"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "value stored at +0x43"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c06b818": {
+    "name": "ble_ctrl_secondary_record_clear_flag45_04",
+    "summary": "Clear flag bit 0x04 at +0x45 of the secondary record with the given id",
+    "description": "Finds the secondary-list record with id param_1 and clears bit 0x04 of the flag byte at +0x45 (mask 0xFB), the bit set by ble_ctrl_secondary_record_set_u16_40. It then runs ble_ctrl_state_machine_step. It returns 2 when no record has the id and 0 otherwise.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "record id to match against the byte at +0x42"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when no record has the id"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06b868": {
+    "name": "ble_ctrl_set_own_addr_type",
+    "summary": "Set the own-address type byte at env+0x1DC and mark a pending address update",
+    "description": "If the own-address type byte at controller env+0x1DC differs from param_1, the function stores param_1 there, sets bit 0x04 in the flag byte at env+0x1F8 and runs ble_ctrl_state_machine_step. Type 0 selects the public address at env+0x38 and any other value the random address at env+0x1DD, as read by ble_ctrl_env_get_addr_type_and_addr_a. When the type is unchanged it does nothing.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "address type: 0 for public, any other value for random"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06b890": {
+    "name": "ble_ctrl_set_random_addr",
+    "summary": "Store the 6-byte random device address at env+0x1DD and mark it valid",
+    "description": "Copies the 6-byte address at param_1 (a u32 followed by a u16) into controller env+0x1DD through env+0x1E2, sets the valid byte at env+0x1E3 to 1, sets bit 0x08 in the flag byte at env+0x1F8 and runs ble_ctrl_state_machine_step. These are the bytes that ble_ctrl_env_get_addr_type_and_addr_a returns as the alternate address.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte address to copy"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The label random comes from the alternate-address description elsewhere in this component and is not confirmed by this function alone."
+  },
+  "ble_219_0c06b8bc": {
+    "name": "ble_ctrl_conn_request_disconnect",
+    "summary": "Start a disconnect for a handle, or report a synthetic Disconnection Complete if it is unknown",
+    "description": "Walks the connection list at env+0x14 for the record whose u16 handle at +0x0A equals param_1. If none exists it emits a synthetic HCI Disconnection Complete event (bytes 05 04 00 handle 00, sent through hci_emit_event with length 6). If the record exists and its state byte at +0x0E is not 7, the function sets that byte to 5 (disconnect pending) and runs ble_ctrl_state_machine_step. It returns 0 in both cases.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle to disconnect"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The state values 5 and 7 are read from the writes only. The callers listed in the packet include the connection teardown paths."
+  },
+  "ble_219_0c06ba60": {
+    "name": "ble_ctrl_mailbox_post_addr_op5",
+    "summary": "Post a 6-byte address with opcode 5 into the single controller mailbox slot",
+    "description": "If the mailbox opcode byte at controller env+0x1CA is zero (slot free), the function stores opcode 5 there, copies the 6-byte address at param_1 to env+0x1C4 through env+0x1C9 (a u32 and a u16) and runs ble_ctrl_state_machine_step to consume the request. When the slot is busy it changes nothing and returns 0xC.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte address to post"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the request was posted, 0xC when the mailbox is busy"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of opcode 5 is not established here. The callers are ble_219_0c0573c4 and ble_219_0c05741c."
+  },
+  "ble_219_0c06ba90": {
+    "name": "ble_ctrl_mailbox_post_addr_op6",
+    "summary": "Post a 6-byte address with opcode 6 into the single controller mailbox slot",
+    "description": "Identical to ble_ctrl_mailbox_post_addr_op5 except that the opcode byte at env+0x1CA is set to 6. It copies the address to env+0x1C4 through env+0x1C9, runs ble_ctrl_state_machine_step and returns 0xC when the slot is busy.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte address to post"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the request was posted, 0xC when the mailbox is busy"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of opcode 6 is not established here. The callers are ble_219_0c0573c4 and ble_219_0c05741c."
+  },
+  "ble_219_0c06c7ac": {
+    "name": "l2cap_send_signaling_packet",
+    "summary": "Build and send one L2CAP signalling command on the BR/EDR or LE signalling channel",
+    "description": "The core signalling sender shared by the BR/EDR (CID 1) and LE (CID 5) wrappers. It requires ll_env_can_send_acl (status 0x57 when it fails), then reserves the one shared HCI packet buffer with hci_reserve_packet_buffer; if the buffer is already reserved it logs 'l2cap_send_signaling_packet, hci packet buffer reserved' (l2cap.c line 0x58D) and returns 0xC. It lays out the command in the buffer returned by ll_env_get_u32_68 with l2cap_signaling_pdu_build, which chooses the layout from the command code, and sends the packet through hci_send_acl_packet_buffer, returning that status.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "packet-boundary/flush selector passed to the PDU builder, 0 or 2"
+      },
+      {
+        "name": "param_3",
+        "type": "u16",
+        "description": "signalling CID: 1 for BR/EDR, 5 for LE"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "L2CAP command code"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "command identifier"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload word list: the first word is the caller's value and later words follow in the caller's argument area"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "status of hci_send_acl_packet_buffer, 0x57 when the ACL link cannot send, 0xC when the packet buffer is busy"
+    },
+    "confidence": "high",
+    "notes": "The flags values 0 and 2 and the payload read pattern are inferred from the callers. The payload is consumed by the per-code format in l2cap_signaling_pdu_build."
+  },
+  "ble_219_0c06c814": {
+    "name": "l2cap_le_send_signaling_u32",
+    "summary": "Send an LE L2CAP signalling command (CID 5) with a payload word list",
+    "description": "Wrapper around l2cap_send_signaling_packet that uses flags 0 and the LE signalling CID 5. It takes the command code and identifier from param_2 and param_3 and passes param_4 as the first payload word. The callers pass more arguments than the wrapper names; the remaining words are read from the caller's stack area as payload fields for the LE credit-based connection, disconnection and connection parameter update commands.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "L2CAP command code"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "command identifier"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "first payload word"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The payload layout for each command code is set by the format used in l2cap_signaling_pdu_build and is not repeated here."
+  },
+  "ble_219_0c06c8f4": {
+    "name": "l2cap_channel_check_security",
+    "summary": "Gate an L2CAP channel on link security and start the security procedure when needed",
+    "description": "Runs before a channel record at param_1 (handle at +0x24, required security level at +0x3A) is accepted. When the controller env byte at +0x5A is 4, the connection's flags have 0x20 and 0x40 set (ble_ctrl_conn_check_flags_0x60), channel +0x38 is not 1 and the link has no status byte (ll_link_get_ext_byte_by_key returns 0), it only sets bit 0x200 in the connection flags at +0x10 and returns. Otherwise it sets the channel sub-state at +0x20 to 5 and compares the connection's security tier from ble_ctrl_conn_get_level_by_handle with the required level: if the tier is lower it sets bit 0x1000 in the channel flags at +0x22 (unless bit 0x2000 is already set) and calls ble_219_0c06b374 with the handle, the level, the flag and param_4. If the tier is sufficient the sub-state becomes 9 and ll_link_notify_event_72 emits vendor event 0x72 with the link parameters.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "channel record"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "forwarded to the security routine"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "ble_219_0c06b374, the security procedure starter, is not described in this packet and its name is unknown. The meanings of flag bits 0x1000 and 0x2000 are inferred from the branch structure."
+  },
+  "ble_219_0c06ca3c": {
+    "name": "l2cap_bredr_send_signaling_u32",
+    "summary": "Send a BR/EDR L2CAP signalling command (CID 1) with one payload word",
+    "description": "BR/EDR counterpart of l2cap_le_send_signaling_u32. It calls l2cap_send_signaling_packet with CID 1 and the command code and identifier from param_2 and param_3, passing param_4 as the first payload word. The flags argument is 0 when bit 6 of the controller env byte at +0x18E is set and the u16 at env+0x56 is zero (ble_ctrl_env_get_flag_bit6_at_0x18e and ble_ctrl_env_get_u16_at_0x56), and 2 otherwise.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "L2CAP command code"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "command identifier"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "first payload word"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The gate on bit 6 and the value 0 versus 2 are taken from the branch structure. Their hardware meaning is not established."
+  },
+  "ble_219_0c06ca80": {
+    "name": "l2cap_bredr_send_info_requests",
+    "summary": "Send pending L2CAP Information Requests for BR/EDR connections and mark them outstanding",
+    "description": "Walks the connection list at env+0x14 and, for each connection whose state byte at +0x318 is 1 or 3 and whose handle ll_env_can_send_acl accepts, sends an L2CAP Information Request (code 0x0A, CID 1) through l2cap_bredr_send_signaling_u32. State 1 moves to 2 (feature-mask request outstanding) and state 3 moves to 4 (fixed-channel request outstanding). The response is consumed in l2cap_acl_rx_handler, which stores the feature mask at +0x31A or the fixed-channel map at +0x31C. Identifiers come from the shared counter at 0x200194B4, which wraps from 0xFF to 1 and never yields 0, and the walk ends early when the controller cannot take another ACL packet.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0 as decompiled"
+    },
+    "confidence": "medium",
+    "notes": "The info-type argument of the request is not visible in the decompiled call and is inferred from the state change."
+  },
+  "ble_219_0c06caf4": {
+    "name": "l2cap_send_flow_control_credit_ind",
+    "summary": "Send an L2CAP Flow Control Credit Indication (code 0x16) on a signalling channel",
+    "description": "Sends one Flow Control Credit Indication on the BR/EDR (CID 1) or LE (CID 5) signalling channel through l2cap_send_signaling_packet. The code is fixed at 0x16 inside the function and param_3 is not used. The destination CID and the credit count are read from the caller's stack argument area as payload words. The flags argument is 2 only when param_2 is 1 and the env gate of l2cap_bredr_send_signaling_u32 does not apply, and 0 otherwise.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "signalling CID: 1 for BR/EDR, 5 for LE"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "command identifier"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c06cb3c": {
+    "name": "l2cap_channel_tx_pump",
+    "summary": "Service the L2CAP channel list: send pending data, credit-based SDU segments and events",
+    "description": "Walks the channel list at 0x2001944C with a removal-safe iterator and sends pending data for each channel whose send gate passes. Kind 0 open channels with pending data are gated by ll_env_can_send_acl, kinds 1 and 4 by ble_ctrl_can_send_br_edr_acl and kind 3 by ble_ctrl_can_send_le_acl. For kinds 0, 1, 3 and 4 the pending byte at +0x0C is cleared and vendor event 0x79 is emitted with the channel CID. Kind 2 (LE credit-based) needs sub-state 0x0C, a buffered SDU at +0x48 and at least one credit at +0x52; it builds K-frames of at most the MPS at +0x50 (the first frame carries the SDU length from +0x4C), sends each with hci_send_acl_packet_buffer, consumes one credit per frame and emits event 0x7A when the SDU is finished. Each serviced channel is moved to the list tail, so service is round-robin.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The mapping of kinds 0 to 4 to transport types is inferred from the gate functions used. Event 0x79 and 0x7A are the vendor H4 events already described for the emitters."
+  },
+  "ble_219_0c06cdb8": {
+    "name": "l2cap_channel_run_state_machine",
+    "summary": "Advance every L2CAP channel sub-state machine by one step and send the next signalling PDU",
+    "description": "Per-channel state machine tick, run after each received PDU, credit change or timer. The first pass covers LE credit-based channels (kind 2) and dispatches on the sub-state at +0x20: 0x0C (open) sends a pending credit indication with code 0x16, 0x12 sends an LE Disconnection Request (code 6), 0x13 sends the Disconnection Response (code 7) and frees the channel, 0x14 sends the LE Credit Based Connection Request (code 0x14), 0x15 sends a refusal response (code 0x15) and frees the channel, and 0x16 sends the success response with event 0x7D. The second pass covers classic channels (kind 0) with sub-states 0x02, 0x05 and 0x09, 0x0B, 0x0E, 0x10, 0x11, 0x12 and 0x13, sending the create-connection HCI command from the ROM template at 0x0C0810A4 when ll_env_is_ready allows, configuration responses (code 5), connection requests (code 2, with a 10 s timer) and responses (code 3), and disconnection requests and responses (codes 6 and 7). A final pass services the LE connection parameter update state at +0x195 of each connection (codes 0x12 and 0x13), and when DAT_2001944B is set the function clears it and runs l2cap_channel_tx_pump.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The sub-state meanings are inferred from the opcodes each branch sends, not from named constants. The ROM template at 0x0C0810A4 is treated as a create-connection command, and this is inferred from the saved peer address."
+  },
+  "ble_219_0c06d580": {
+    "name": "l2cap_channel_tx_request_fixed_cid",
+    "summary": "Flag a fixed-CID channel (CID 0x00 to 0x3F) as having TX pending and run the pump",
+    "description": "Returns immediately for CIDs above 0x3F. Otherwise it looks up the channel with that CID (u16 at +0x06) in the channel list at 0x2001944C, sets its pending-TX byte at +0x0C to 1 and runs l2cap_channel_tx_pump.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "channel CID, accepted only up to 0x3F"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06d5dc": {
+    "name": "l2cap_send_prepared_connectionless",
+    "summary": "Finish a connectionless send by writing the L2CAP header in the reserved buffer and sending it",
+    "description": "Requires the packet buffer to be reserved (ll_env_get_flag_170). If it is not, the function logs 'l2cap_send_prepared_connectionless called without reserving packet first' (l2cap.c line 0x42D) and returns 0x57. With the buffer reserved, it checks that the handle has a free ACL slot (ble_ctrl_can_send_to_handle, 0x57 if not), writes the handle at buffer +0, length+4 at +2, the length at +4 and the CID at +6, and sends length+8 bytes with hci_send_acl_packet_buffer. The payload is expected to be at buffer +8 already.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "destination CID"
+      },
+      {
+        "name": "param_3",
+        "type": "u16",
+        "description": "payload length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "status of hci_send_acl_packet_buffer, or 0x57 when the buffer is not reserved or the handle has no free slot"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06d648": {
+    "name": "l2cap_send_connectionless",
+    "summary": "Copy a connectionless L2CAP payload into the packet buffer and send it",
+    "description": "Checks ll_env_can_send_acl (0x57 when it fails) and reserves the single HCI packet buffer with hci_reserve_packet_buffer. If the buffer is already in use, the function logs 'l2cap_send_connectionless, hci packet buffer reserved' (l2cap.c line 0x448) and returns 0xC. Otherwise it copies param_4 bytes from the data at param_3 to buffer +8 with memcpy and hands the packet to l2cap_send_prepared_connectionless with param_4 as the length, returning that status.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "destination CID"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "payload data"
+      },
+      {
+        "name": "param_4",
+        "type": "u16",
+        "description": "payload length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "status of l2cap_send_prepared_connectionless, 0x57 when the ACL link cannot send, 0xC when the buffer is busy"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06d698": {
+    "name": "l2cap_pending_response_drain",
+    "summary": "Send the oldest queued L2CAP response from the three-entry pending FIFO",
+    "description": "Takes the head entry of the pending-response FIFO at 0x200194B8 (count at 0x200194D0) and sends it only when ll_env_can_send_acl accepts its handle. Each eight-byte entry holds the handle (u16 at +0), the identifier (byte at +2), the kind (byte at +3), argument 1 (u16 at +4) and argument 2 (u16 at +6). Kind 1 sends a Command Reject (code 1). Kind 2 sends a BR/EDR Connection Response (code 3) with the result argument, kind 8 an Echo Response (code 9), and kind 10 (0x0A) an Information Response (code 0x0B) of type 1, 2 or 3 (connectionless MTU from ble_ctrl_env_get_u16_at_0x17a, feature mask 0x280, or fixed-channel map 6 plus 0x80 when ble_ctrl_env_get_u8_at_0x46 is set). Kind 0x14 sends an LE Credit Based Connection Response (code 0x15), kind 0x1E sends an SMP Pairing Failed (opcode 5 with the reason byte) through l2cap_send_connectionless, and kind 0x1F sends an LE Command Reject (code 1).",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Entry kinds are named from the opcode each branch sends. The FIFO depth of three comes from the limit enforced in l2cap_pending_response_push."
+  },
+  "ble_219_0c06d96c": {
+    "name": "l2cap_pending_response_push",
+    "summary": "Queue an L2CAP response in the pending FIFO and try to send it at once",
+    "description": "Appends one entry (handle, kind, identifier, argument 1 and argument 2) to the pending-response FIFO at 0x200194B8 when the count at 0x200194D0 is below 3; a full FIFO drops the response. It then runs l2cap_pending_response_drain, and if l2cap_bredr_send_info_requests returns 0 it runs l2cap_channel_run_state_machine. The signalling receiver l2cap_acl_rx_handler and the channel processing paths use it to reply to incoming commands.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "connection handle"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "entry kind (see l2cap_pending_response_drain)"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "command identifier to echo"
+      },
+      {
+        "name": "param_4",
+        "type": "u16",
+        "description": "argument 1"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "argument 2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06d9b0": {
+    "name": "l2cap_channel_process_signal",
+    "summary": "Process one incoming signalling command for a channel and advance its sub-state",
+    "description": "Handles one signalling command addressed to channel param_1, with the command header (code, identifier, length, data) at param_2. The sub-state at +0x20 decides what is accepted. Disconnection Request (6) in sub-states 0x0B to 0x0D or 0x12 stores the identifier at +0x2D, moves the channel to 0x13 and then drains the queue and runs the state machine. In sub-state 0x0A a Connection Response (3) with result 0 stores the remote CID at +0x30, sets flag 0x04 in the flags at +0x22 and moves to 0x0B; result 1 restarts the 120 s timer; other results emit event 0x70 with sub-code 0x63 plus the result, give result 3 (security block) to the hook at table +0x14, and free the channel. In sub-state 0x0B a Configuration Request (4) parses the MTU option (type 1, capped at 0xFB), the flush timeout (type 2) and unknown options of type 8 or more (which set flag 0x200), and a Configuration Response (5) with result 0 sets flag 0x02, result 4 restarts the timer and other results set flag 0x04. In sub-state 0x0D a Disconnection Response (7) emits event 0x71, removes the channel and frees it, and when the flags reach 0x22 the channel opens with sub-state 0x0C and event 0x70 sub-code 0.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "channel record"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "signalling command: code at +0, identifier at +1, length at +2, data from +4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Sub-state numbers are inferred from the opcode each branch accepts. The 120 s and 10 s timers are the run-loop timers at channel +0x10."
+  },
+  "ble_219_0c06dc56": {
+    "name": "l2cap_acl_rx_handler",
+    "summary": "Dispatch one received ACL data packet to the BR/EDR or LE L2CAP handlers and signalling parser",
+    "description": "L2CAP receive dispatcher for one ACL packet at param_3 (4-byte HCI ACL header, 4-byte L2CAP header, payload; param_4 is the total length, so the payload is param_4 - 8). It looks up the connection by the 12-bit handle with ble_ctrl_conn_find_by_handle and branches on the connection type byte at +0x0C, where 0xFD selects BR/EDR. For BR/EDR it handles CID 2 (connectionless, callback code 0x0C), CID 7 (SMP callback), CID 1 (signalling, parsed command by command) and dynamic CIDs. For LE it handles CID 5 (LE signalling), CID 4 (ATT callback, type 8), CID 6 (SMP callback, type 9) and dynamic CIDs (l2cap_coc_rx_segment). BR/EDR Connection Requests (code 2) look up the PSM in the classic service list at 0x200194B0 and create a channel with l2cap_create_channel_entry, or queue a refusal (result 2 PSM not supported, 4 no resources) with PSM 1 also restarting the service through ble_host_restart_timer_start. Echo, Information Request and Information Response (which stores the feature mask at +0x31A or the fixed-channel map at +0x31C) are handled inline, and the remaining classic codes are routed to a channel by l2cap_channel_process_signal. LE signalling covers Command Reject (1), Disconnection Request and Response (6 and 7), Connection Parameter Update Request and Response (0x12 and 0x13, which send vendor events 0x76 and 0x77), LE Credit Based Connection Request and Response (0x14 and 0x15, with key-size, authentication and encryption checks against the LE PSM list at 0x200194A0 and result codes 2 and 4 to 10), and Flow Control Credit Indication (0x16, which adds credits and sets DAT_2001944B to request a TX pump). Each call ends by draining the pending FIFO, sending information requests and running the channel state machine.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not used by the function"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "ACL packet: handle and flags u16 at +0, ACL length at +2, L2CAP length at +4, CID at +6, payload at +8"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "total packet length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "This is the largest function in the batch and the sub-state and result meanings are inferred from the responses it sends. The LE PSM list and classic service list are the RAM lists at 0x200194A0 and 0x200194B0."
+  },
+  "ble_219_0c06ebec": {
+    "name": "l2cap_channel_tx_request_dynamic_cid",
+    "summary": "Flag a dynamic-CID channel (CID 0x40 and up) as having TX pending",
+    "description": "Dynamic-CID counterpart of l2cap_channel_tx_request_fixed_cid. For CIDs of 0x40 and above it finds the channel in the list at 0x2001944C, sets its pending-TX byte at +0x0C to 1, and then either runs l2cap_channel_tx_pump (kind 0) or, for an LE credit-based channel (kind 2) with no SDU buffered at +0x48, clears the pending byte and emits vendor event 0x79 through ll_link_emit_event_code_handle so the host can queue the next SDU. It returns 0x6E when the CID is below 0x40 or no channel matches.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "channel CID"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0x6E for a CID below 0x40 or an unknown channel"
+    },
+    "confidence": "medium",
+    "notes": "Status 0x6E is used as the error code for an unknown channel here. Its meaning elsewhere in the component is not confirmed."
+  }
+}
