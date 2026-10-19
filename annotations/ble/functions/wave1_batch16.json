@@ -1,0 +1,87 @@
+{
+  "ble_219_0c088520": {
+    "name": "ble_slot_get_field_0x14",
+    "summary": "Return the 32-bit field at offset 0x14 of the slot record selected by an index-mapped id",
+    "description": "Looks up param_1 in the byte map at 0x20003908 to get a slot number, uses it to index the pointer table at 0x2000306c (4 bytes per entry), and returns the 32-bit word at offset 0x14 of the record that pointer addresses. There is no null or range check on the id or the pointer. Called from 0c087464 and 0c089190, which appear to be a registration/dispatch layer keyed by a small id (probably a link, task or channel id). The meaning of the field is not established from this function alone; it could be a context or handle value.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "logical id (index into byte map at 0x20003908)"}],
+    "returns": {"type": "u32", "description": "word at offset 0x14 of the selected slot record"},
+    "confidence": "medium",
+    "notes": "Struct layout inferred only from field accessors (+8 u16, +0xa u16, +0x14 u32, +0x18 callback); owning subsystem unconfirmed."
+  },
+  "ble_219_0c088538": {
+    "name": "ble_slot_get_u16_at_0x0a",
+    "summary": "Return the 16-bit field at offset 0x0a of the slot record selected by an index-mapped id",
+    "description": "Maps param_1 through the byte table at 0x20003908 to a slot index, loads the record pointer from the table at 0x2000306c (4 bytes per entry), and returns the halfword at offset 0x0a of that record. No bounds or null checks are made. Its only caller is 0c089190, which also reads the sibling field at +8 and the +0x14 word through the sibling accessors, so these are probably parameters (for example a length, size or handle) of the registered slot.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "logical id (index into byte map at 0x20003908)"}],
+    "returns": {"type": "u16", "description": "halfword at offset 0x0a of the slot record"},
+    "confidence": "medium",
+    "notes": "Semantics of the field not established."
+  },
+  "ble_219_0c088550": {
+    "name": "ble_slot_get_u16_at_0x08",
+    "summary": "Return the 16-bit field at offset 0x08 of the slot record selected by an index-mapped id",
+    "description": "Maps param_1 through the byte table at 0x20003908 to a slot index, loads the record pointer from the table at 0x2000306c (4 bytes per entry), and returns the halfword at offset 0x08 of that record. No bounds or null checks are made. Its only caller is 0c089190, which also uses the +0x0a and +0x14 accessors. Likely a size, length or handle parameter of the slot.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "logical id (index into byte map at 0x20003908)"}],
+    "returns": {"type": "u16", "description": "halfword at offset 0x08 of the slot record"},
+    "confidence": "medium",
+    "notes": "Semantics of the field not established."
+  },
+  "ble_219_0c08915c": {
+    "name": "ble_slot_invoke_callback_evt4",
+    "summary": "Call the slot's registered callback (offset 0x18) with event code 4, return 0 or -1 if none",
+    "description": "Resolves param_1 through the byte map at 0x20003908 and the pointer table at 0x2000306c to a slot record, then reads the function pointer at offset 0x18. If it is non-null it is called as cb(param_1, 4, param_2, cb, param_4) and the function returns 0. The fifth argument position is filled with the callback pointer itself, which is probably a decompiler artefact of register reuse, so the real callback arguments are most likely (id, event=4, param_2, ...). If no callback is registered it returns 0xFFFFFFFF. param_3 is unused. Called from 0c0873ec.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "logical id used to select the slot and passed as first callback argument"},
+      {"name": "param_2", "type": "u32", "description": "passed through as the third callback argument"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "passed through as an extra callback argument"}
+    ],
+    "returns": {"type": "s32", "description": "0 if a callback was invoked, -1 if no callback is registered"},
+    "confidence": "medium",
+    "notes": "Event code 4 meaning unknown. The callback argument list is uncertain because of register-reuse artefacts."
+  },
+  "ble_219_0c089468": {
+    "name": "ble_thunk_call_0c0401b0",
+    "summary": "Thin wrapper that forwards its single argument to FUN_0c0401b0",
+    "description": "Calls the function at 0x0c0401b0 with param_1 and returns. That target is 210 bytes, calls three helpers at 0x0c0326a8/c4/e8 and writes globals around 0x20003d70..0x20003d80. The tiny wrapper is probably a patch or ROM-redirect veneer. The decompiler flags one indirect call here, so the real target may be resolved through a literal or table. Called from 0c086b04 and 0c086c30, which also call the sibling wrapper 0c0894a8.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "argument forwarded unchanged"}],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Purpose of the target unknown. Probably forms a pair with ble_219_0c0894a8 in the callers (for example enter/exit or start/stop)."
+  },
+  "ble_219_0c089478": {
+    "name": "ble_thunk_call_0c03aafc",
+    "summary": "Thin wrapper that calls a function at fixed address 0x0c03aafc (Thumb) with its argument",
+    "description": "Casts the constant 0x0c03aafd to a function pointer and calls it with param_1. Bit 0 set means a Thumb entry, so the target is 0x0c03aafc. This is outside the analysed function list, so it is probably a ROM-resident or patched routine. The only caller is 0c086754, which also calls the neighbouring wrapper 0c089488 (target 0x0c03ab18). They look like paired start/stop or enable/disable calls.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "argument forwarded unchanged"}],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Target 0x0c03aafc is not in the function list; function purpose unknown."
+  },
+  "ble_219_0c089488": {
+    "name": "ble_thunk_call_0c03ab18",
+    "summary": "Thin wrapper that calls a function at fixed address 0x0c03ab18 (Thumb) with its argument",
+    "description": "Casts the constant 0x0c03ab19 to a function pointer and calls it with param_1. Bit 0 set means a Thumb entry, so the target is 0x0c03ab18. This is outside the analysed function list, so it is probably a ROM-resident or patched routine. The only caller is 0c086754, which also calls the neighbouring wrapper 0c089478. They look like paired calls on the same object.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "argument forwarded unchanged"}],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Target 0x0c03ab18 is not in the function list; function purpose unknown."
+  },
+  "ble_219_0c0894a8": {
+    "name": "ble_thunk_call_0c040290",
+    "summary": "Thin wrapper that forwards its single argument to FUN_0c040290",
+    "description": "Calls the function at 0x0c040290 with param_1 and returns. That target is 220 bytes, calls helpers at 0x0c0326a8/c4 and 0x0c0418e0/f4, and writes the same globals (0x20003d70..0x20003d80) as the target of the sibling wrapper 0c089468. The tiny wrapper is probably a patch or ROM-redirect veneer. The decompiler flags one indirect call. Called from 0c086b04 and 0c086c30 together with 0c089468.",
+    "category": "ble_controller",
+    "params": [{"name": "param_1", "type": "u32", "description": "argument forwarded unchanged"}],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Purpose of the target unknown. Probably pairs with ble_219_0c089468."
+  }
+}
