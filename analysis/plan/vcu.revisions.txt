@@ -9,3 +9,4 @@ vcu data: family map pairs VCU_0159 0x2000102c with 0x20001032 in 148..14f while
 vcu data: batch21 announce_word_d0 (0x20001ff0) overlaps unreferenced_preset_table in VCU_153 because the family map puts that word at 0x20001fe2 - fix family map or batch26
 vcu data: family map puts 0x2000329e..0x200032a4 inside the 5-halfword ADC DMA buffer in 148/14a/14b/14e although the averaging function is unmatched there (data_adc_batch01 agent)
 vcu: CAN notes call the 0x7F1 frame 0x3D0 (dispatcher compares id-0x421 with 0x3D0) - fix wording (data_protocol_batch20 agent)
+vcu data: diag_warning_list (batch06) reads 0x2000224a as u16 entries but decompile uses single bytes; warn_list (batch07) limited to 1 byte - reconcile
