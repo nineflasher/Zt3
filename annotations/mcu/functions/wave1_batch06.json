@@ -1,0 +1,430 @@
+{
+  "mcu_0160_0800b72a": {
+    "name": "adc_flag_get",
+    "summary": "Test ADC status flags: true when any masked bit of ADC.STS is set",
+    "description": "Returns true when (STS & flag) is non-zero, where STS is the first word of the ADC register block (offset 0x00). This is the SDK adc_flag_get routine compiled as a bare bit test. The call sites seen in other MCU packets all pass &ADC1 with mask 4, which is STS bit 2 (PCCE, the preempt/injected conversion-end flag). ADC group: see mcu_0160_0800b738 and mcu_0160_0800bac2.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base (ADC1 = 0x40012400)"},
+      {"name": "param_2", "type": "u32", "description": "flag mask, bit position in ADC.STS (4 = PCCE)"}
+    ],
+    "returns": {"type": "bool", "description": "true if any masked flag bit is set"},
+    "confidence": "high",
+    "notes": "Identity from the SDK code shape and the &ADC1,4 call sites; the caller functions themselves were not read."
+  },
+  "mcu_0160_0800b738": {
+    "name": "adc_interrupt_enable",
+    "summary": "Enable or disable ADC interrupt sources in ADC.CTRL1",
+    "description": "Read-modify-write of ADC.CTRL1 (offset 0x04): the bits in the mask are set when param_3 == 1 and cleared for any other value. The call site seen is adc_interrupt_enable(&ADC1, 0x80, 1). 0x80 is CTRL1 bit 7 (PCCEIEN), which enables the preempt (injected) conversion-end interrupt. Matches the SDK adc_interrupt_enable. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "interrupt enable mask (ADC_xxx_INT bit)"},
+      {"name": "param_3", "type": "s32", "description": "1 = enable, any other value = disable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800b752": {
+    "name": "adc_ordinary_channel_set",
+    "summary": "Assign a regular ADC channel to a sequence rank and set its sample time",
+    "description": "Writes the 3-bit sample-time code for the channel into SPT2 (offset 0x10, channels 0..9) or SPT1 (offset 0x0C, channels 10..17). It then writes the 5-bit channel number into the regular sequence register that holds the rank: OSQ3 (0x34) for ranks 1..6, OSQ2 (0x30) for ranks 7..12, OSQ1 (0x2C) for ranks 13..16. Other fields in those registers are kept. Channel or rank values outside those ranges are ignored. The decompiler shows this as two switch statements. Matches the SDK adc_ordinary_channel_set. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "channel number 0..17 (ADC_CHANNEL_n)"},
+      {"name": "param_3", "type": "u32", "description": "regular sequence rank 1..16"},
+      {"name": "param_4", "type": "u32", "description": "sample-time code 0..7 (3 bits, ADC_SAMPLETIME_*)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800b920": {
+    "name": "adc_ordinary_conversion_trigger_set",
+    "summary": "Select the external trigger for regular conversions and enable it",
+    "description": "Writes ADC.CTRL2 (offset 0x08). The low three bits of the trigger code go to OCTESEL_L (bits 19:17), the high bit (code >= 8) goes to OCTESEL_H (bit 25), and bit 0 of the enable argument goes to OCTEN (bit 20). The other CTRL2 bits are unchanged. Matches the SDK adc_ordinary_conversion_trigger_set. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "external trigger code (ADC12_ORDINARY_TRIG_*, 0..15)"},
+      {"name": "param_3", "type": "u32", "description": "enable: bit 0 = 1 enables the regular-group trigger"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800b954": {
+    "name": "adc_ordinary_software_trigger_enable",
+    "summary": "Set or clear the regular-group software start bit (CTRL2.OCSWTRG)",
+    "description": "Writes bit 22 (OCSWTRG) of ADC.CTRL2 from bit 0 of the argument. Setting it to 1 starts a regular conversion sequence in software. The routine has no other side effects. Matches the SDK adc_ordinary_software_trigger_enable. Caller: mcu_0160_0800d548. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "bit 0 = 1 starts a regular conversion, 0 clears the bit"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800b95e": {
+    "name": "adc_preempt_channel_length_set",
+    "summary": "Set the injected (preempt) sequence length to 1..4 conversions",
+    "description": "Writes ADC.PSQ (offset 0x38) bits 21:20 (PCLEN) with (length - 1) & 3, leaving the other PSQ bits alone. The field stores the length minus one, as in the SDK adc_preempt_channel_length_set. The sequence slots themselves are set by mcu_0160_0800b96a. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "s32", "description": "injected sequence length 1..4"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800b96a": {
+    "name": "adc_preempt_channel_set",
+    "summary": "Place a channel in the injected (preempt) sequence and set its sample time",
+    "description": "Sets the sample-time code for the channel in SPT2/SPT1 the same way adc_ordinary_channel_set does. It then computes the injected slot index as rank - PCLEN + 3 (PCLEN is the raw 2-bit field in PSQ bits 21:20). The injected sequence is right-aligned, so the last rank always lands in slot 4. The 5-bit channel number goes into PSQ bits 4:0 (slot 1), 9:5 (slot 2), 14:10 (slot 3) or 19:15 (slot 4). Other index values do nothing. Matches the SDK adc_preempt_channel_set. Callers: mcu_0160_08001fb0, mcu_0160_0800226c, mcu_0160_08002548. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "channel number 0..17"},
+      {"name": "param_3", "type": "s32", "description": "rank within the injected sequence (1..length)"},
+      {"name": "param_4", "type": "u32", "description": "sample-time code 0..7"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800bac2": {
+    "name": "adc_preempt_conversion_data_get",
+    "summary": "Read the 16-bit injected conversion result (JDT1..JDT4) by index",
+    "description": "Returns the low 16 bits of the injected data register selected by the index: 0 reads offset 0x3C (PDT1), 1 reads 0x40 (PDT2), 2 reads 0x44 (PDT3), 3 reads 0x48 (PDT4). Any other index returns 0. Matches the SDK adc_preempt_conversion_data_get. Callers: mcu_0160_0800226c, mcu_0160_080025d8. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "s32", "description": "injected channel index 0..3"}
+    ],
+    "returns": {"type": "u16", "description": "injected conversion result, 0..4095 (0 for an invalid index)"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800baee": {
+    "name": "adc_preempt_conversion_trigger_set",
+    "summary": "Select the external trigger for the injected group and enable it",
+    "description": "Writes ADC.CTRL2 (offset 0x08). The low three bits of the trigger code go to PCTESEL_L (bits 14:12), the high bit (code >= 8) goes to PCTESEL_H (bit 24), and bit 0 of the enable argument goes to PCTEN (bit 15). Other CTRL2 bits are unchanged. Counterpart of adc_ordinary_conversion_trigger_set for the injected group. Matches the SDK adc_preempt_conversion_trigger_set. Caller: mcu_0160_08001fb0. ADC group: see mcu_0160_0800b72a.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ADC peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "external trigger code (0..15)"},
+      {"name": "param_3", "type": "u32", "description": "enable: bit 0 = 1 enables the injected-group trigger"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800bb22": {
+    "name": "can_base_init",
+    "summary": "Initialize CAN control and loopback bits in freeze mode, returns success flag",
+    "description": "Implements the SDK can_base_init sequence on the CAN block. It sets MCTRL.FZEN (bit 0) and polls MSTS.FZC (bit 0) for freeze acknowledge, with a 0xFFFF-iteration timeout. It then writes MCTRL bits from the init struct: TTCEN (bit 7), AEBOEN (bit 6, automatic bus-off recovery), AEDEN (bit 5, automatic doze exit), PRSFEN (bit 4, no retransmission on failure), MDRSEL (bit 3), MMSSR (bit 2), and clears DZEN (bit 1). The mode byte sets BTMG LBEN (bit 30) and LOEN (bit 31). Freeze mode is then left and FZC is polled to clear. Part of the CAN group: mcu_0160_0800bbe2 (baud rate), mcu_0160_0800bdc0 (struct zeroing), mcu_0160_0800bdd2 (filters).",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base (CAN1 = 0x40006400)"},
+      {"name": "param_2", "type": "ptr", "description": "7-byte base init struct: byte 0 mode, bytes 1..6 the control flags"}
+    ],
+    "returns": {"type": "u32", "description": "1 on success, 0 on freeze/unfreeze timeout"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800bbe2": {
+    "name": "can_baudrate_set",
+    "summary": "Program CAN bit timing (BTMG): prescaler, resync width, BS1, BS2",
+    "description": "Enters freeze mode and waits for FZC, then writes BTMG (offset 0x1C). BRP = (baudrate_div - 1) & 0xFFF goes to bits 11:0, RSAW (SJW) 2 bits go to bits 25:24 from struct byte 2, BTS1 4 bits to bits 19:16 from byte 3, and BTS2 3 bits to bits 22:20 from byte 4. The divider is a u16 at struct offset 0. Freeze mode is then left and FZC is polled. Matches the SDK can_baudrate_set. Part of the CAN group: see mcu_0160_0800bb22.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "ptr", "description": "baud rate struct: u16 divider at 0, then RSAW, BTS1, BTS2 bytes"}
+    ],
+    "returns": {"type": "u32", "description": "1 on success, 0 on freeze/unfreeze timeout"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800bdc0": {
+    "name": "can_default_para_init",
+    "summary": "Zero the 7-byte CAN base init struct to reset defaults",
+    "description": "Clears bytes 0..6 of the CAN base init struct: mode selection, TTC, automatic bus-off recovery, automatic doze exit, retransmission rule, overflow discard rule and send order. All-zero is the SDK default (normal communicate mode, FALSE for every flag, first-received discard, send by ID). Matches the SDK can_default_para_init. Part of the CAN group: see mcu_0160_0800bb22. Caller: mcu_0160_08003368.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN base init struct (7 bytes)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800bdd2": {
+    "name": "can_filter_init",
+    "summary": "Configure one CAN acceptance filter bank: scale, mode, FIFO, ID/mask words",
+    "description": "Sets FCTRL.FCS to enter filter configuration, then for the bank number in struct byte 3: clears its activation bit in FACFG (0x21C), packs the id/mask halfwords at struct bytes 6..13 into FB[n].FFDB1 and FFDB2 (base 0x240 + 8n) using the 16-bit layout (four halfwords) when byte 4 is 0 and the 32-bit layout (two words) otherwise, sets FSCFG (0x20C) for 32-bit scale or clears it for 16-bit, sets FMCFG (0x204) for ID-list mode (byte 1 = 1) or clears it for ID-mask mode, sets FRF (0x214) for FIFO 1 (byte 2 = 1) or clears it for FIFO 0, and finally sets or clears FACFG from byte 0. FCS is cleared at the end. Matches the SDK can_filter_init. Part of the CAN group: see mcu_0160_0800bb22. Caller: mcu_0160_08003368.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "ptr", "description": "filter struct: byte 0 activate, 1 mode, 2 FIFO, 3 bank 0..13, 4 scale, bytes 6..13 id/mask halfwords"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Byte offsets are read from the decompile. The SDK field names for the halfwords are not confirmed beyond the packing order."
+  },
+  "mcu_0160_0800bf14": {
+    "name": "can_flag_clear",
+    "summary": "Clear one CAN status flag by writing its write-1-to-clear bit",
+    "description": "Switches on the SDK CAN_*_FLAG code. Each case writes a constant to one status register, which clears the flag: MSTS (offset 0x04) for the error flags and EOIF (value 4), with ETR also zeroing ESTS (0x18); TSTS (0x08) for the TM0, TM1 and TM2 transmit-complete flags (bits 0, 8 and 16, or 0x10101 for all three); RF0R (0x0C) and RF1R (0x10) for the FIFO full and overrun flags. Codes 0x0F and 0x10 write MSTS bits 3 and 4. Unknown codes do nothing. Matches the SDK can_flag_clear. Part of the CAN group: see mcu_0160_0800bb22.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "flag code (SDK CAN_*_FLAG value)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Case-to-bit mapping follows the decompile. Not every case was checked against the SDK flag constants."
+  },
+  "mcu_0160_0800bf84": {
+    "name": "can_flag_get",
+    "summary": "Test a CAN status flag selected by SDK flag code, returns 1 when set",
+    "description": "Switches on the SDK CAN_*_FLAG code and tests one bit: ESTS bits 0, 1 and 2 (EAF, EPF, BOF); ESTS bits 6:4 for ETR (any non-zero last error code); MSTS bit 2 for EOIF; TSTS bit 0, 8 or 16 for TM0, TM1 or TM2 transmit complete; RF0 and RF1 bits 1:0 (pending message count), 3 (full) and 4 (overrun); MSTS bit 3 (code 0x0F); MSTS bit 1 or 4 (code 0x10); and TSTS bits 26..28 (code 0x11, any transmit mailbox empty). It returns 1 if the selected bit is set and 0 otherwise. Matches the SDK can_flag_get. Part of the CAN group: see mcu_0160_0800bb22.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "flag code (SDK CAN_*_FLAG value)"}
+    ],
+    "returns": {"type": "bool", "description": "true if the selected flag is set"},
+    "confidence": "high",
+    "notes": "Case-to-bit mapping follows the decompile. The meaning of MSTS bits 1, 3 and 4 is not confirmed against the SDK flag names."
+  },
+  "mcu_0160_0800c0b8": {
+    "name": "can_interrupt_enable",
+    "summary": "Set or clear CAN interrupt-enable bits in CAN.INTEN",
+    "description": "Read-modify-write of CAN.INTEN (offset 0x14). The mask is ORed in when the new-state argument is non-zero and cleared otherwise. Matches the SDK can_interrupt_enable. Part of the CAN group: see mcu_0160_0800bb22.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "interrupt enable mask (CAN_*_INT)"},
+      {"name": "param_3", "type": "s32", "description": "new state: non-zero enables, zero disables"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c0ce": {
+    "name": "can_message_receive",
+    "summary": "Read one frame from a CAN RX FIFO mailbox into a struct and release the slot",
+    "description": "Selects the RX mailbox at 0x1B0 for FIFO 0 or 0x1C0 for FIFO 1 (fifo index * 0x10). It decodes the ID word RXMI (+0): IDE (bit 2) and RTR (bit 1) become struct flags, the standard ID is bits 31:21, and the extended ID is bits 31:3. The DLC (bits 3:0) and filter match index FMI (bits 15:8) come from RXMDT (+4). The eight data bytes come from RXMDL (+8) and RXMDH (+0xC). Finally RFOM (bit 5) is written to RF0R (0x0C) or RF1R (0x10) to release the slot. Matches the SDK can_message_receive, without the return value.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "u32", "description": "RX FIFO number 0 or 1"},
+      {"name": "param_3", "type": "ptr", "description": "receive message struct filled with ID, flags, DLC, FMI and 8 data bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c182": {
+    "name": "can_message_transmit",
+    "summary": "Load a CAN frame into the first empty transmit mailbox and request transmission",
+    "description": "Picks the first empty transmit mailbox by testing TSTS bit 26 (TME0), bit 27 (TME1) and bit 28 (TME2). If none is empty it does nothing. The chosen mailbox at 0x180 + 0x10*n is filled from the struct: an 11-bit standard ID (u16 at offset 0) goes to bits 31:21 when the IDE byte (offset 8) is 0, otherwise the 32-bit word at offset 4 goes to the extended ID (<<3); RTR comes from byte 9; the DLC from byte 10 (TDTR bits 3:0); and the eight data bytes (offsets 11..18) go to TDLR and TDHR. The last step sets TXRQ (bit 0). Matches the SDK can_message_transmit, except that this build returns void and does not report the mailbox number.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN peripheral base"},
+      {"name": "param_2", "type": "ptr", "description": "transmit message struct: ID, IDE, RTR, DLC and 8 data bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c2e4": {
+    "name": "crm_adc_clock_div_set",
+    "summary": "Set the ADC clock divider in CRM.CFG (ADCDIV low 2 bits and high bit)",
+    "description": "Read-modify-write of CRM.CFG (0x40021004). The low two bits of the divider code go to ADCDIV_L (bits 15:14), and bit 2 of the code goes to ADCDIV_H (bit 28). Matches the SDK crm_adc_clock_div_set. The VCU build names the same routine identically (vcu_0159_0800b37c). Callers: mcu_0160_08001fb0, mcu_0160_08002068.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "ADC divider code 0..7 (3 bits)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c300": {
+    "name": "crm_ahb_div_set",
+    "summary": "Set the AHB prescaler (AHBDIV) in CRM.CFG bits 7:4",
+    "description": "Read-modify-write of CRM.CFG (0x40021004): replaces bits 7:4 with the low four bits of the argument. Only the division code is written, so the clock tree is unchanged until SYSCLK is switched. Matches the SDK crm_ahb_div_set. Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "AHB divider code (4 bits)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c310": {
+    "name": "crm_apb1_div_set",
+    "summary": "Set the APB1 prescaler (APB1DIV) in CRM.CFG bits 10:8",
+    "description": "Read-modify-write of CRM.CFG (0x40021004): replaces bits 10:8 with the low three bits of the argument. Matches the SDK crm_apb1_div_set. Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "APB1 divider code (3 bits)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c320": {
+    "name": "crm_apb2_div_set",
+    "summary": "Set the APB2 prescaler (APB2DIV) in CRM.CFG bits 13:11",
+    "description": "Read-modify-write of CRM.CFG (0x40021004): replaces bits 13:11 with the low three bits of the argument. Matches the SDK crm_apb2_div_set. Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "APB2 divider code (3 bits)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c330": {
+    "name": "crm_auto_step_mode_enable",
+    "summary": "Enable or disable automatic AHB step-up mode (CRM.MISC2 bits 5:4)",
+    "description": "Writes both bits of the AUTO_STEP_EN field (bits 5:4 of CRM.MISC2, 0x40021054) to 1 when the argument is 1, and to 0 for any other value. Matches the SDK crm_auto_step_mode_enable. The VCU build names the same routine identically (vcu_0159_0800b3c8). Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "1 = enable, other = disable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c350": {
+    "name": "crm_clock_source_enable",
+    "summary": "Enable or disable an oscillator or PLL (HICK, HEXT, PLL, LEXT, LICK)",
+    "description": "Switches on the source code. 0 HICK sets CTRL bit 0 (HICKEN). 1 HEXT sets CTRL bit 16 (HEXTEN). 2 PLL sets CTRL bit 24 (PLLEN). 3 LEXT sets BPDC bit 0 (LEXTEN, 0x40021020). 4 LICK sets CTRLSTS bit 0 (LICKEN, 0x40021024). The bit is written from bit 0 of param_2, and unknown codes do nothing. The routine does not wait for the ready flag; callers poll with mcu_0160_0800c4c4. Matches the SDK crm_clock_source_enable and the VCU build's function of the same name. Callers: mcu_0160_08006028, mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "clock source code 0..4 (HICK, HEXT, PLL, LEXT, LICK)"},
+      {"name": "param_2", "type": "u32", "description": "bit 0: 1 = enable, 0 = disable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c4c4": {
+    "name": "crm_flag_get",
+    "summary": "Test a CRM status flag given as packed register offset and bit number",
+    "description": "The argument packs the register offset from the CRM base in bits 31:16 and the bit number in bits 4:0. It returns 1 when that bit is set in the register, computed as ((1 << bit) & ~reg) == 0. Used to poll oscillator-ready and PLL-lock flags during clock bring-up. Matches the SDK crm_flag_get, and the VCU build's function of the same name (vcu_0159_0800b578). Callers: mcu_0160_08008dc0, mcu_0160_0800c4f8.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "packed flag code: (register offset << 16) | bit"}
+    ],
+    "returns": {"type": "bool", "description": "true if the flag bit is set"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c4e8": {
+    "name": "crm_hext_bypass",
+    "summary": "Set or clear the HEXT bypass bit (CRM.CTRL bit 18, HEXTBYPS)",
+    "description": "Writes bit 18 (HEXTBYPS) of CRM.CTRL from bit 0 of the argument. Bypass lets an external clock signal drive HEXT without the crystal oscillator. Matches the SDK crm_hext_bypass. Caller: mcu_0160_08006028.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "bit 0: 1 = bypass, 0 = crystal mode"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c524": {
+    "name": "crm_lext_bypass",
+    "summary": "Set or clear the LEXT bypass bit (CRM.BPDC bit 2, LEXTBYPS)",
+    "description": "Writes bit 2 (LEXTBYPS) of CRM.BPDC (0x40021020) from bit 0 of the argument. Bypass lets an external clock drive the low-speed oscillator input. Matches the SDK crm_lext_bypass. Caller: mcu_0160_08006028.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "bit 0: 1 = bypass, 0 = crystal mode"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c534": {
+    "name": "crm_periph_clock_enable",
+    "summary": "Enable or disable a peripheral bus clock (AHBEN, APB1EN or APB2EN bit)",
+    "description": "param_1 packs the CRM register offset in bits 31:16 (0x14 AHBEN, 0x18 APB2EN, 0x1C APB1EN) and the bit position in bits 4:0. The bit is set when param_2 == 1 and cleared otherwise, with a plain read-modify-write. Called by nearly every peripheral init routine in the MCU build, including mcu_0160_08001f34, mcu_0160_08001fb0 and mcu_0160_08002068. Matches the SDK crm_periph_clock_enable, and the VCU build's function of the same name (vcu_0159_0800b5cc).",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "packed peripheral clock code: (register offset << 16) | bit"},
+      {"name": "param_2", "type": "s32", "description": "1 = enable clock, other = disable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c55c": {
+    "name": "crm_periph_reset",
+    "summary": "Assert or release a peripheral reset bit (APB1RST, APB2RST)",
+    "description": "Same bit set/clear code as crm_periph_clock_enable, applied to the reset registers: packed offsets 0x0C (APB2RST) and 0x10 (APB1RST). param_2 == 1 holds the peripheral in reset and any other value releases it. The one caller in the packet family, mcu_0160_0800c278, pulses 0x100019 (APB1RST bit 25, CAN1RST) with 1 and then 0, which is a CAN1 reset pulse. Matches the SDK crm_periph_reset, and the VCU build's function of the same name (vcu_0159_0800b5f4).",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "packed peripheral reset code: (register offset << 16) | bit"},
+      {"name": "param_2", "type": "s32", "description": "1 = hold in reset, other = release"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The machine code is identical to crm_periph_clock_enable. The reset role comes from the 1-then-0 pulse at its call site, not from the code itself."
+  },
+  "mcu_0160_0800c584": {
+    "name": "crm_pll_config",
+    "summary": "Select the PLL input (HICK, HEXT or HEXT/2), set its FREF band and multiplier",
+    "description": "param_1 chooses the PLL input. 0 is HICK (CFG.PLLRCS = 0, reference 4 MHz). 1 is HEXT direct (PLLRCS = 1, PLLHEXTDIV = 0, reference 16 MHz). Any other value is HEXT/2 (PLLHEXTDIV = 1, reference 8 MHz). The reference frequency selects the PLL.PLLFREF code in CRM+0x2C bits 26:24: 4 MHz = 0, 6 MHz = 1, 8 MHz = 2, 12 MHz = 3, 16 MHz = 4, 25 MHz = 5. param_2 is the multiplier code: bits 3:0 go to CFG bits 21:18 (PLLMULT_L) and bits 5:4 go to CFG bits 30:29 (PLLMULT_H). The SDK version also sets MISC1.HICKDIV for the HICK source, which this build does not do. Matches the SDK crm_pll_config and the VCU build's function (vcu_0159_0800b61c). Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "PLL source: 0 HICK, 1 HEXT, other = HEXT/2"},
+      {"name": "param_2", "type": "u32", "description": "6-bit PLL multiplier code"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c684": {
+    "name": "crm_reset",
+    "summary": "Reset the clock tree to its power-on state, switching SYSCLK to HICK first",
+    "description": "Sets CTRL.HICKEN and busy-waits for HICKSTBL. It selects HICK as SYSCLK (CFG.SCLKSEL = 0) and waits for SCLKSTS to show HICK. It clears CTRL bits 16 (HEXTEN), 18 (HEXTBYPS), 19 (CFDEN) and 24 (PLLEN), zeroes CFG, and loads the power-on values PLL = 0x1F10, MISC1 = 0x100000 and CLKINT = 0x9F0000. Both waits have no timeout. Matches the SDK crm_reset. Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c6d0": {
+    "name": "crm_sysclk_switch",
+    "summary": "Select the system clock source (CFG.SCLKSEL bits 1:0)",
+    "description": "Replaces CFG bits 1:0 with the low two bits of the argument: 0 HICK, 1 HEXT, 2 PLL. No wait is done here. Callers poll the result with crm_sysclk_switch_status_get. Matches the SDK crm_sysclk_switch. Caller: mcu_0160_08008dc0.",
+    "category": "clock",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "SYSCLK source code 0..3"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c6e0": {
+    "name": "crm_sysclk_switch_status_get",
+    "summary": "Read which clock currently drives SYSCLK (CFG.SCLKSTS bits 3:2)",
+    "description": "Returns CFG bits 3:2 (SCLKSTS): 0 HICK, 1 HEXT, 2 PLL. Used after crm_sysclk_switch to wait until the switch has taken effect. Matches the SDK crm_sysclk_switch_status_get, and the VCU build's function of the same name (vcu_0159_0800b760). Callers: mcu_0160_08008dc0, mcu_0160_0800c398.",
+    "category": "clock",
+    "params": [],
+    "returns": {"type": "u32", "description": "current SYSCLK source code 0..2"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c918": {
+    "name": "dma_channel_enable",
+    "summary": "Enable or disable a DMA channel by writing its CCTRL.CHEN bit",
+    "description": "Sets bit 0 (CHEN) of the channel control register, which is the first word of the DMA channel block, to bit 0 of the argument. Matches the SDK dma_channel_enable. Called on the DMA1 channel 1 block at 0x40020008 in other MCU packets. It is part of the DMA group with mcu_0160_0800c922 and mcu_0160_0800c928.",
+    "category": "dma",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DMA channel block base (CCTRL at offset 0)"},
+      {"name": "param_2", "type": "u32", "description": "bit 0: 1 = enable, 0 = disable"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c922": {
+    "name": "dma_data_number_get",
+    "summary": "Read the DMA channel's data-number (DTCNT) register, low 16 bits",
+    "description": "Returns the low 16 bits of the channel data-number register at offset 0x04 (DTCNT), which is the number of transfers still to be done. Matches the SDK dma_data_number_get. Called on the DMA1 channel 1 block at 0x40020008 in other MCU packets. DMA group: see mcu_0160_0800c918.",
+    "category": "dma",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DMA channel block base"}
+    ],
+    "returns": {"type": "u16", "description": "remaining transfer count"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800c928": {
+    "name": "dma_default_para_init",
+    "summary": "Zero an 18-byte DMA init struct to the SDK default values",
+    "description": "Clears the 18-byte dma_init_type (offsets 0x00..0x11): peripheral and memory base addresses, direction (peripheral to memory), buffer size, peripheral and memory increment enables, data widths (byte), loop mode and priority (low). All of those defaults are zero, so the routine is a zero-fill. Matches the SDK dma_default_para_init. DMA group: see mcu_0160_0800c918. Callers: mcu_0160_08001f34, mcu_0160_0800abda.",
+    "category": "dma",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DMA init struct to clear (18 bytes)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  }
+}
