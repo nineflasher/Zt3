@@ -1,0 +1,776 @@
+{
+  "ble_219_0c04ded8": {
+    "name": "ble_sink_init",
+    "summary": "Store the sink context pointer and register the class-4 hook handler at 0x0c04de00",
+    "description": "Stores param_1 in the global DAT_2000fcd4, the context used by the sink code, then calls FUN_0c06f03c(0x0c04de00, 4) to register the function at 0x0c04de00 for hook class 4. Class 4 is the first argument of every event callback in this packet (ble_evt_publish, ble_range_*, ble_sink_notify_pair). The registration routine 0x0c06f03c is not described yet, so its semantics are inferred from the call shape.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "context pointer kept in DAT_2000fcd4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Sink pointer DAT_2000fcdc is only read in this packet; the handler at 0x0c04de00 is not named yet."
+  },
+  "ble_219_0c04df24": {
+    "name": "ble_sink_notify_pair",
+    "summary": "Send a 6-byte 0xB5 frame carrying two u16 values to the sink callback",
+    "description": "If the sink pointer DAT_2000fcdc is non-NULL, builds a 6-byte frame: byte 0 = 0xB5 (message type), byte 1 = 4 (payload length), bytes 2-3 = param_1 and bytes 4-5 = param_2, both as u16 little-endian. It then calls the sink as sink(4, param_1, frame, 6). Nothing is sent when the pointer is NULL. The two values are not decoded further (they look like a handle and a value).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "sent as u16 at frame[2..3]; also the second sink argument"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "sent as u16 at frame[4..5]"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04df64": {
+    "name": "ble_range_broadcast",
+    "summary": "Call the default listener, then the +0x10 handler of every range listener",
+    "description": "Calls the default listener DAT_2000fce4, when set, as listener(4, 0, param_1, param_2). It then walks the removal-safe list at DAT_2000fcf8 and calls each node's handler at node+0x10 with the same arguments, skipping nodes whose handler is NULL. This is the notify-all counterpart of ble_range_notify, which picks a single node by range.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "forwarded to each listener as its third argument"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "forwarded to each listener as its fourth argument"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04e294": {
+    "name": "ble_range_dispatch",
+    "summary": "Call the handler of the range node containing param_2, else the default handler",
+    "description": "Walks the list at DAT_2000fcf8 and picks the first node whose u16 window [node+4, node+6] contains param_2 (compared as an unsigned 32-bit value). It calls that node's handler at node+8 with all four arguments and returns the result. When no node matches, the default handler DAT_2000fce8 is used, and when the chosen handler is NULL the function returns 0 without calling anything. The +8 slot is a different callback role from the +0x10 slot used by the notify functions.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "forwarded as the first handler argument"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "range key, matched against the node windows"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "forwarded as the third handler argument"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "forwarded as the fourth handler argument"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "result of the selected handler, or 0 when it is NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04e304": {
+    "name": "ble_range_notify",
+    "summary": "Send a 7-byte 0xB6 frame to the range listener matching param_3, else the default",
+    "description": "Finds the first node in the list at DAT_2000fcf8 whose u16 window contains param_3, or uses the default listener DAT_2000fce4 when no node matches. If the selected handler (node+0x10 or DAT_2000fce4) is non-NULL, builds a 7-byte frame: byte 0 = 0xB6, byte 1 = 5 (payload length), byte 2 = param_1, bytes 3-4 = param_2 and bytes 5-6 = param_3, both u16 little-endian, then calls handler(4, 0, frame, 7). The two u16 fields are the notified values; their meaning is not decoded.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "sub-type byte at frame[2]"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "low 16 bits sent at frame[3..4]"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "low 16 bits sent at frame[5..6]; also the range key"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04ecc0": {
+    "name": "le_device_db_tlv_check_init",
+    "summary": "Log an error when the LE device DB TLV backend has not been installed",
+    "description": "Returns at once if the TLV backend pointer DAT_2000fd0c is set. Otherwise it logs '%s:%u: bthost_tlv not initialized' (file le_device_db_tlv.c, line 0x81) through ble_hook_invoke_indexed with level 2, and returns without stopping the caller. The backend is installed by le_device_db_tlv_configure.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04ed28": {
+    "name": "le_device_db_tlv_add",
+    "summary": "Insert or update an LE device DB entry (identity address and IRK) in TLV storage",
+    "description": "Searches the 4 slots (in-use bytes DAT_2000fd04..07) for a used record with the same address type (param_1) and 6-byte address (param_2) and reuses it. Otherwise it takes a free slot and increments the entry count DAT_2000fd10; when all slots are used it overwrites the slot with the smallest sequence number (LRU). The 60-byte record at tag 0x42544400|slot ('BTD'+slot) holds: u32 sequence number at +0 (previous maximum + 1), u32 address type at +4, 6-byte address at +8, 16-byte IRK (param_3) at +14, and zeros at +30..+59 (encryption data cleared). It is written through the backend write function (vtable +4); the in-use byte is set only on success, otherwise 'tag store failed' is logged (le_device_db_tlv.c line 0xe8) and -1 is returned.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "address type, compared with and stored at record +4"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "6-byte identity address"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "16-byte IRK"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "slot index 0..3, or -1 on failure"
+    },
+    "confidence": "medium",
+    "notes": "The IRK name comes from the 16-byte field at +14, which le_device_db_tlv_read_identity returns with the identity address."
+  },
+  "ble_219_0c04ee74": {
+    "name": "le_device_db_tlv_read_identity",
+    "summary": "Read DB slot N's identity fields: address type, 6-byte address and IRK",
+    "description": "Reads the 60-byte record at tag 0x42544400|slot through the backend read function (vtable +0). If fewer than 60 bytes come back, the buffer is zeroed and the address type is set to 0xFE, the empty-slot marker other DB routines test for. Non-NULL outputs receive the u32 address type from record +4, the 6-byte address from +8..+13 and the 16-byte IRK from +14..+29. This is the identity part of the layout written by le_device_db_tlv_add.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "DB slot index 0..3"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "out: u32 address type (0xFE for an empty slot)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "out: 6-byte address, may be NULL"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "out: 16-byte IRK, may be NULL"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04eeec": {
+    "name": "le_device_db_tlv_set_encryption",
+    "summary": "Overwrite the LTK, EDIV, Rand and key flags of DB slot N in its TLV record",
+    "description": "Reads the 60-byte record for slot param_1 and, only if all 60 bytes come back, rewrites its encryption part and stores it again: 16-byte LTK at +30..+45 (param_4), u16 EDIV at +46..+47 (param_2), 8-byte Rand at +48..+55 (param_3), and four flag bytes at +56..+59 (param_5..param_8). NULL pointers keep the previous LTK or Rand bytes, and the identity fields and sequence number are unchanged. A failed write logs 'Set encryption data failed' (le_device_db_tlv.c line 0x11f) through ble_hook_invoke_indexed.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "DB slot index"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "EDIV"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "8-byte Rand, NULL keeps the old value"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "16-byte LTK, NULL keeps the old value"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "flag byte at record +56 (key size or security flags, not decoded)"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "flag byte at record +57"
+      },
+      {
+        "name": "param_7",
+        "type": "u8",
+        "description": "flag byte at record +58"
+      },
+      {
+        "name": "param_8",
+        "type": "u8",
+        "description": "flag byte at record +59"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The four flag bytes probably hold key size and authentication bits; that is an inference."
+  },
+  "ble_219_0c04f14c": {
+    "name": "ble_host_timer_arm_30s",
+    "summary": "Re-arm the 30 s run-loop timer at 0x2000FF44 with context param_1",
+    "description": "Removes the timer source at 0x2000FF44 from the BTstack run loop, sets its context to param_1, its callback to 0x0c052474, its timeout to 30000 ms, and adds it back. The callback and the purpose of the 30 s deadline are not named yet. Caller: ble_219_0c051eb8 (not yet described).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "context stored in the timer source"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04f1ec": {
+    "name": "sm_c1_xor_p2",
+    "summary": "XOR the 16-byte value at 0x2000FD94 with SMP c1 p2 (0 || ia || ra)",
+    "description": "Builds p2 on the stack as 4 zero bytes followed by the 6 bytes at param_1 and the 6 bytes at param_2, then writes param_3[i] = RAM[0x2000FD94+i] XOR p2[i] for i = 0..15. This is the p2 step of the Bluetooth SMP legacy confirm-value function c1 (p2 = padding || initiator address || responder address), applied to the output of an earlier AES-128 step stored at 0x2000FD94. The AES step itself is not in this function, and the trace call 0x0c065ce0 is an empty stub.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte initiator address (ia)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "6-byte responder address (ra)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "16-byte output buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Which pointer is ia and which is ra is inferred from the c1 layout."
+  },
+  "ble_219_0c04f30c": {
+    "name": "sm_c1_build_t1",
+    "summary": "Build SMP c1 input t1 = (pres || preq || rat || iat) XOR r at 0x2000FDB4",
+    "description": "Creates the 16-byte p1 on the stack: bytes 0..6 are param_3 and bytes 7..13 are param_2 (both 7-byte Pairing PDUs, copied byte-reversed by co_reverse_copy_7), then byte 14 = param_5 and byte 15 = param_4. It then stores 0x2000FDB4[i] = p1[i] XOR param_1[i] for 16 bytes. This is the first step of SMP c1 (t1 = e(k, r XOR p1), with p1 = pres || preq || rat' || iat'); the AES encryption is performed by a later step. The trace calls with labels 'r' and 't1' are empty stubs.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "16-byte random value r"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "7-byte Pairing Request PDU (preq), copied to p1[7..13]"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "7-byte Pairing Response PDU (pres), copied to p1[0..6]"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "initiator address type (iat), p1[15]"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "responder address type (rat), p1[14]"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Assigning param_2 to preq and param_3 to pres follows the c1 byte order; the argument names are an assumption."
+  },
+  "ble_219_0c04f380": {
+    "name": "ble_evt_publish",
+    "summary": "Publish a link frame: call hook class 4, then every subscriber callback",
+    "description": "Calls ble_hook_invoke4(4, 1, frame, len) so the registered 4-argument hook sees the frame (it may first tick a periodic callback). It then walks the subscriber list at DAT_2000fe9c and calls each node's callback at node+4 as callback(4, 0, frame, len). The ble_link_notify_* frame builders use it for all their output.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "frame buffer; byte 0 is the message type, byte 1 the payload length"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "frame length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04f3c4": {
+    "name": "ble_link_notify_local_ext",
+    "summary": "Send 13-byte frame 0xD5 with the local address record and two extra bytes",
+    "description": "Clears the link flag byte at +0x34 and publishes a 13-byte frame: 0xD5, length 11, the link's u16 handle at [2..3], the 1-byte type at 0x20010148 at [4], the 6-byte address at 0x20010149 copied in reverse order to [5..10], then param_2 at [11] and param_3 at [12]. The frame goes out through ble_evt_publish. The meaning of the 0xD5 type and of the two extra bytes is not decoded.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link context: u16 handle at +0, flag byte at +0x34"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "extra byte at frame[11]"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "extra byte at frame[12]"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04f418": {
+    "name": "ble_link_notify_id_flag",
+    "summary": "Send 0xD7 frame with the link's identity address, address type and a flag byte",
+    "description": "Clears the link flag byte at +0x35. If the link's DB index (int at +0x30) is negative it uses the link's own address type (+7) and 6-byte address (+8..+13); otherwise it fetches both from DB slot N through le_device_db_tlv_read_identity. The frame is 0xD7, length 10, u16 handle at [2..3], address type at [4], the address reversed at [5..10], and param_2 at [11], published with ble_evt_publish.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link context: handle +0, address type +7, address +8, DB index +0x30 (int), flag +0x35"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "flag byte sent as the last payload byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompiled ble_evt_publish call passes no length; 12 bytes is inferred from the length byte (10) plus 2."
+  },
+  "ble_219_0c04f4d8": {
+    "name": "ble_link_notify_state",
+    "summary": "Send the link state frame (0xC8, 0xC9, 0xCB or 0xCC) selected by byte 0x2000FF5A",
+    "description": "Clears the report flag DAT_2000ff54 and sets the link flag at +0x34 to 1, then switches on the state byte DAT_2000ff5a. States 0, 1/3 and 4 send frames 0xC8, 0xCB and 0xCC (length byte 10, published length 12) with the handle, the link's address type (+7) and reversed address (+8..+13), and set DAT_2000ff54 to 1. State 2 sends frame 0xC9 (length 14, 16 bytes), which adds the flag byte (DAT_2000ff6c != 0) at [11] and a u32 read big-endian from DAT_2000ff5b+12 and stored little-endian at [12..15]. Other states send nothing.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link context (see ble_link_notify_id_flag)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "State codes are not decoded. The 0xC8/0xCB/0xCC frames declare a 10-byte payload but write 9 bytes; the last byte is left unset."
+  },
+  "ble_219_0c04f584": {
+    "name": "ble_link_notify_local",
+    "summary": "Send 11-byte frame 0xD4 with the local address record and the link handle",
+    "description": "Sets the link flag byte at +0x34 to 1 and publishes an 11-byte frame: 0xD4, length 9, the u16 handle at [2..3], the type byte at 0x20010148 at [4], and the 6-byte address at 0x20010149 reversed at [5..10]. It uses the same global record as ble_link_notify_local_ext.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link context: handle at +0, flag at +0x34"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04f5cc": {
+    "name": "ble_link_notify_pair_addrs",
+    "summary": "Send 20-byte frame with two reversed addresses, a byte, a u16 and a DB index",
+    "description": "Reads the identity address of DB slot param_5 (le_device_db_tlv_read_identity, address only) and builds a 20-byte frame: [0] = param_1, [1] = 0x12 (length 18), u16 param_2 at [2..3], byte param_3 at [4], the 6-byte address param_4 reversed at [5..10], byte [11] left unwritten, the slot address reversed at [12..17], and u16 param_5 at [18..19]. It is published with ble_evt_publish(frame, 20).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "message type byte, frame[0]"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "low 16 bits sent at frame[2..3]"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "byte sent at frame[4]"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "6-byte address, reversed into frame[5..10]"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "DB slot index; looked up, and echoed at frame[18..19]"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The roles of the two addresses are inferred from the call pattern."
+  },
+  "ble_219_0c04f948": {
+    "name": "ble_link_notify_id_addr",
+    "summary": "Send 11-byte frame 0xD6 with the link's identity address type and address",
+    "description": "Sets the link flag byte at +0x35 to 1, takes the address type and 6-byte address from the link (+7, +8) when its DB index is negative or from DB slot N through le_device_db_tlv_read_identity otherwise, and publishes an 11-byte frame: 0xD6, length 9, u16 handle at [2..3], type at [4], reversed address at [5..10]. Compared with ble_link_notify_id_flag (0xD7) it has no trailing flag byte, and it sets +0x35 to 1 instead of 0.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "link context (see ble_link_notify_id_flag)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0501b0": {
+    "name": "ble_host_timer_arm_interval",
+    "summary": "Re-arm timer 0x2000FD58 with the interval in DAT_2000FD6C; kick 0x2000FF0C once",
+    "description": "Sets the callback of the timer source at 0x2000FD58 to 0x0c0500d0 and adds it with timeout DAT_2000fd6c (ms), without removing it first. If the flag DAT_2000fd78 is zero, it sets the flag to 1 and, when DAT_2000feb0 is non-zero, removes and re-adds the timer source at 0x2000FF0C with timeout 0 so that it fires at once. The meaning of the flags and of the callback at 0x0c0500d0 is not decoded.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The timer at 0x2000FD58 is added without a prior remove; if it is still pending when this runs, the run loop may see a double add."
+  },
+  "ble_219_0c052b2c": {
+    "name": "ble_evt_subscribe",
+    "summary": "Add a subscriber node to the BLE event list at 0x2000FE9C",
+    "description": "Thin wrapper around btstack_linked_list_add_tail(&DAT_2000fe9c, param_1), which appends the node unless it is already linked. Subscribers have their callback at node+4, and ble_evt_publish calls each of them. Caller: ble_219_0c04eb24 (not yet described).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "subscriber node; callback at +4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c052dd4": {
+    "name": "ble_host_env_read_1d8",
+    "summary": "Return the u32 at +0x1D8 of the BLE host environment, or 0xFFFFFFFF if absent",
+    "description": "Calls the environment accessor at 0x0c066554 (not yet named). If it returns a non-NULL pointer, returns the u32 at offset 0x1D8 of that structure; otherwise returns 0xFFFFFFFF. The meaning of the field is not known.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "field value at +0x1D8, or 0xFFFFFFFF when there is no environment"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c052e28": {
+    "name": "ble_host_op_allowed",
+    "summary": "Report whether the BLE host state gate allows starting a new operation",
+    "description": "Reads the BLE host environment from 0x0c066554 and returns false when it is missing or the byte at +0x1C0 is set. When the state byte at +0x1BE is 3 it returns false for sub-state 3 (+0x1BD); otherwise it compares the sub-state with 0x1A when the flag at +0x1AC is set, or with 0x29 when it is clear. For any other state it returns true unless the state is 4. The function has no side effects, and the state values are not decoded.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when a new operation may start"
+    },
+    "confidence": "low",
+    "notes": "The name describes the gate only; the state machine it guards is not documented here."
+  },
+  "ble_219_0c052e70": {
+    "name": "le_device_db_tlv_remove_by_addr",
+    "summary": "Delete the DB entry whose address type and 6-byte address match",
+    "description": "Visits DB slots 0 up to le_device_db_tlv_max_count() minus one, reads each slot's identity record (le_device_db_tlv_read_identity) and, for the first slot whose address type equals param_1 and whose address matches param_2 (memcmp of 6 bytes), calls le_device_db_tlv_remove(slot). Empty slots (type 0xFE) never match. Unlike le_device_db_tlv_add it does not check the in-use bytes, and nothing happens when no slot matches.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "address type"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "6-byte address"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0531b8": {
+    "name": "ble_slot_mgr_check_flag5",
+    "summary": "When the slot manager is ready, run the flag-5 test for slot param_1 (or all slots)",
+    "description": "Calls ble_slot_mgr_is_ready() and returns at once if it is 0. Otherwise it calls ble_slot_test_flag_any(param_1, 5) and ignores its result. The function has no return value, so it acts only through the side effects of the flag test, if any.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "slot id; 0xFE selects all slots"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05328c": {
+    "name": "ble_slot_test_flag_any",
+    "summary": "Test flag bit param_2 on one slot, or on each slot until one reports set",
+    "description": "For a specific slot id (not 0xFE) it calls ble_slot_test_flag(id, bit) and returns without using the result. For id 0xFE it walks the 4-entry table at 0x20010198 (16-byte entries, id byte at +12) and calls ble_slot_test_flag(entry_id, bit) on each entry, stopping at the first call that returns true. The function returns nothing; free entries (id 0xFF) are rejected inside ble_slot_test_flag.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "slot id, or 0xFE for all slots"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flag bit number"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0534e0": {
+    "name": "ble_slot_expiry_scan",
+    "summary": "Scan the slot table against the tick count; the result is always 0",
+    "description": "Reads the tick count through xTaskGetTickCount, then walks the 4-entry table at 0x20010198 (16-byte entries: a 64-bit value at +0..+7, id byte at +12). Free entries (id 0xFF) are skipped, as are entries whose id has flag 5 set (for id 0xFE, when any slot has it). For the rest it compares a 64-bit sum of the entry value and the word from ble_get_word_41cc with the tick count; the exact 64-bit comparison is hard to read in the decompile. Only calls are visible, no memory is written, and the function returns 0 on every path.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "The intended expiry result is not visible in this build, so the purpose is inferred from the table layout."
+  },
+  "ble_219_0c05481c": {
+    "name": "ble_host_ctx_clear_2608",
+    "summary": "Zero the 0x574-byte host state block at 0x20012608",
+    "description": "Calls memset(0x20012608, 0, 0x574), clearing 1396 bytes. The block's internal layout is not decoded here. It ends at 0x20012B7C, before the state byte at 0x20012B88 and the blocks cleared by ble_host_ctx_reset_b88.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0554fc": {
+    "name": "ble_host_timers_stop_pair",
+    "summary": "Remove the two run-loop timer sources at 0x20012C0C and 0x20012C3C",
+    "description": "Calls btstack_run_loop_remove_timer on the timer sources at 0x20012C0C and 0x20012C3C, through the thunk btstack_run_loop_remove_timer_thunk (0x0c059abc). Nothing else is written. The start side of these timers is not in this packet.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c055524": {
+    "name": "ble_host_timer_set_enabled",
+    "summary": "Enable or disable the host timer at 0x20012C6C and store the flag at 0x20012B85",
+    "description": "For a non-zero argument, re-arms the timer source at 0x20012C6C with the timeout in the global DAT_20003FB0 and the callback 0x0c054e1c through ble_host_timer_restart, which only acts when env+0x198 is 2. For zero, it removes that timer source. Either way the low byte of the argument is stored in DAT_20012B85, which ble_get_byte_12b85 reads.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "non-zero to enable, zero to disable"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c055570": {
+    "name": "ble_host_ctx_reset_b88",
+    "summary": "Clear the state byte at 0x20012B88 and the 0x80-byte block at 0x20012B8C",
+    "description": "Zeroes 0x30 bytes at 0x20012B8C, 0x20 bytes at 0x20012BBC and 0x30 bytes at 0x20012BDC (three adjacent sub-blocks that make up 0x80 bytes), then sets the byte at 0x20012B88 to 0. The block ends at 0x20012C0B, where the timer sources cleared by ble_host_timers_stop_pair begin. The individual fields are not decoded.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0555a8": {
+    "name": "ble_host_timer_arm_5min",
+    "summary": "Re-arm the 300 s timer at 0x20012C98 and clear the flag byte at 0x20012606",
+    "description": "Calls ble_host_timer_restart on the timer source at 0x20012C98 with timeout 300000 ms and callback 0x0c054b94, then sets DAT_20012606 to 0 (the byte accessed by ble_set_flag_12606 and ble_get_flag_12606). The restart only acts when env+0x198 is 2, as for every ble_host_timer_restart call.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0555c8": {
+    "name": "ble_host_timer_stop_5min",
+    "summary": "Remove the 300 s timer source at 0x20012C98",
+    "description": "Calls btstack_run_loop_remove_timer_thunk (0x0c059abc) on the timer source at 0x20012C98. This is the stop side of ble_host_timer_arm_5min.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0567c8": {
+    "name": "ble_nb_block_copy_in",
+    "summary": "Copy n bytes from the source into the RAM block at 0x200042E0",
+    "description": "Calls memcpy(0x200042E0, param_1, param_2) with no size check against the destination. The destination's image bytes start with 4E 42 40 00 00 00 00 BF ('NB@' ...), which suggests a Ninebot-specific configuration record, but its layout is not decoded here. Callers include ble_219_0c029414 (not yet described).",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "byte count"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0573b8": {
+    "name": "ble_host_timer_cancel_130b0",
+    "summary": "Remove the run-loop timer source at 0x200130B0",
+    "description": "Calls btstack_run_loop_remove_timer_thunk (0x0c059abc) on the timer source at 0x200130B0. The function has no direct callers in the image (entry point, callback or indirect use only), and its matching start function is not in this packet.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c059830": {
+    "name": "ble_link_table_find_by_addr",
+    "summary": "Find the link table entry whose 6-byte address at +12 equals param_1",
+    "description": "Reads the entry count byte at 0x200134EC and returns NULL if it is zero. Otherwise it compares the 6 bytes at param_1 (memcmp) with the 6 bytes at +12 of each 20-byte entry, starting at 0x200134ED with stride 20, and returns the base of the first matching entry or NULL. It scans the same table as ble_link_table_find_by_key, which matches the byte at +0 instead.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte address to find"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "base of the matching 20-byte entry, or NULL"
+    },
+    "confidence": "medium",
+    "notes": "The address offset +12 comes from the scan start 0x200134F9 = entry base + 12; the entry stride is inferred from the pointer arithmetic."
+  }
+}
