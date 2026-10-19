@@ -1,0 +1,71 @@
+{
+  "structs": {
+    "TpSessionTable": {
+      "size": 12,
+      "description": "Descriptor of the J1939 transport-protocol session table, located at 0x20002970 in VCU_0159.",
+      "fields": [
+        {
+          "name": "entries",
+          "offset": 0,
+          "type": "ptr",
+          "description": "Base address of the session array (36 bytes per session; 0x200022E0 in this build)."
+        },
+        {
+          "name": "count",
+          "offset": 4,
+          "type": "u16",
+          "description": "Number of sessions in the array (5 in this build, set by proto_sessions_init)."
+        },
+        {
+          "name": "callbacks",
+          "offset": 8,
+          "type": "ptr",
+          "description": "Address of the callback block: accept function word at +0, transmit callback at +0x0C."
+        }
+      ]
+    },
+    "CanTxFrame": {
+      "size": 20,
+      "description": "20-byte CAN frame record: the transmit queue entries at 0x200029AC and the scratch frame at 0x2000297C use this layout (read by can_message_transmit).",
+      "fields": [
+        {
+          "name": "std_id",
+          "offset": 0,
+          "type": "u16",
+          "description": "Standard 11-bit identifier, used when ide is 0."
+        },
+        {
+          "name": "ext_id",
+          "offset": 4,
+          "type": "u32",
+          "description": "29-bit extended identifier, used when ide is 1."
+        },
+        {
+          "name": "ide",
+          "offset": 8,
+          "type": "u8",
+          "description": "Identifier type: 0 = standard frame, 1 = extended frame."
+        },
+        {
+          "name": "rtr",
+          "offset": 9,
+          "type": "u8",
+          "description": "Remote-frame flag in bit 0 (the code always writes 0)."
+        },
+        {
+          "name": "dlc",
+          "offset": 10,
+          "type": "u8",
+          "description": "Data length code in the low nibble (0 to 8 bytes of payload)."
+        },
+        {
+          "name": "data",
+          "offset": 11,
+          "type": "u8",
+          "count": 8,
+          "description": "Payload bytes 0 to 7 of the frame."
+        }
+      ]
+    }
+  }
+}

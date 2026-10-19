@@ -19,7 +19,7 @@
    "0x20001b38"
   ],
   "category": "vehicle",
-  "description": "Mode level 0 to 3, set to 3 by app_apply_mode_limits. It is compared with the speed value divided by 10 by vcu_standby_entry_timer and vcu_sensor_limit_derate_eval, so it is probably a speed-class index."
+  "description": "Mode level 0 to 3, set to 3 by app_apply_mode_limits. vcu_standby_entry_timer compares it with the speed value divided by 10, and vcu_sensor_limit_derate_eval compares it with 3, so it is probably a speed-class index."
  },
  "vcu_g_0159_20001b3a": {
   "name": "vehicle_mode_limit_a",
@@ -74,7 +74,7 @@
    "0x20001b42"
   ],
   "category": "vehicle",
-  "description": "Mode parameter word written by app_apply_mode_limits as 0x140F or 0x190F, and its high byte is changed by vcu_drive_command_update. Same kind as vehicle_mode_limit_c."
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x140F or 0x190F. vcu_drive_command_update rewrites its low byte and reads its high byte. Same kind as vehicle_mode_limit_c."
  },
  "vcu_g_0159_20001b44": {
   "name": "vehicle_mode_limit_f",
@@ -85,7 +85,7 @@
    "0x20001b44"
   ],
   "category": "vehicle",
-  "description": "Mode parameter word written by app_apply_mode_limits as 0x1919, 0x1414 or 0x2828. Its high byte is updated by vcu_0159_080054ec and read by vcu_ready_sequence_step_v14b_0159."
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x1919, 0x1414 or 0x2828. Bits 8 to 12 are rewritten by vcu_0159_080054ec, and vcu_drive_command_update reads and writes it."
  },
  "vcu_g_0159_20001b62": {
   "name": "vehicle_speed_value",
@@ -96,7 +96,7 @@
    "0x20001b62"
   ],
   "category": "vehicle",
-  "description": "Motion magnitude per tick, probably speed in km/h (the derate and standby code compare it with thresholds 10, 30 and 60). Written by vcu_speed_mode_snapshot_update and read by most ready, derate and standby routines. Probably updated from the wheel-speed message."
+  "description": "Motion magnitude per tick, probably speed in km/h (the derate and standby code compare it with thresholds 10, 30 and 60). Written by vcu_speed_mode_snapshot_update and read by most ready, derate and standby routines."
  },
  "vcu_g_0159_20001b68": {
   "name": "vehicle_drive_mode_snapshot",
@@ -206,7 +206,7 @@
    "0x20001b8e"
   ],
   "category": "vehicle",
-  "description": "Wheel angle in degrees, 0 to 359, computed by vcu_angle_deg_update as (vehicle_angle_counter * 360) / vehicle_angle_period and set to 0 when the period is not positive. Sent in telemetry by can_get_tx_payload_for_id."
+  "description": "Wheel angle in degrees, 0 to 359, computed by vcu_angle_deg_update as (vehicle_angle_counter * 360) / vehicle_angle_period and set to 0 when the period is not positive. Written only by vcu_angle_deg_update."
  },
  "vcu_g_0159_20001b94": {
   "name": "vehicle_drive_cycle_mode",
@@ -294,7 +294,7 @@
    "0x20001cf6"
   ],
   "category": "vehicle",
-  "description": "Standby latch set to 1 by vcu_standby_entry_timer after 600 quiet ticks. vcu_sensor_limit_derate_eval and vcu_standby_entry_timer test it, and vcu_0159_08009da8 clears it."
+  "description": "Standby latch set to 1 by vcu_standby_entry_timer after 600 quiet ticks. vcu_sensor_limit_derate_eval and vcu_standby_entry_timer test it, and vcu_0159_08009da8 writes it."
  },
  "vcu_g_0159_20001cf8": {
   "name": "vehicle_mode_gate_state",
@@ -305,7 +305,7 @@
    "0x20001cf8"
   ],
   "category": "vehicle",
-  "description": "Mode gate state 0 or 1 (values below 2), tested by vcu_special_mode_gate and vcu_ready_sequence_step_v14b_0159. It is set by vcu_speed_mode_snapshot_update and cleared by vcu_0159_08009da8."
+  "description": "Mode gate state 0 or 1 (values below 2), tested by vcu_special_mode_gate and vcu_ready_sequence_step_v14b_0159. It is written by vcu_speed_mode_snapshot_update and vcu_0159_08009da8."
  },
  "vcu_g_0159_20001cfc": {
   "name": "vehicle_ready_state_code",
@@ -459,7 +459,7 @@
    "0x20001f6f"
   ],
   "category": "vehicle",
-  "description": "Flag set by vcu_sensor_threshold_pulse_count when the sustained-high condition holds. It is cleared after the burst message is sent (when DAT_2000101a is 0)."
+  "description": "Flag set by vcu_sensor_threshold_pulse_count when the sustained-high condition holds. It is cleared by vcu_sensor_threshold_pulse_count when DAT_2000101a is 0."
  },
  "vcu_g_0159_20001f72": {
   "name": "vehicle_toggle_request",
@@ -492,12 +492,12 @@
    "0x20001f78"
   ],
   "category": "vehicle",
-  "description": "Input and status flags byte. Bit 0 gates the debounce and standby routines, bit 2 is tested by vcu_drive_command_update, and bit 3 is tested by the debounce and derate routines. Written by vcu_rx_frame_dispatch."
+  "description": "Input and status flags byte. Bit 0 gates the debounce and standby routines, bit 2 is tested by vcu_drive_command_update, and bit 3 is tested by the debounce and condition routines. Written by vcu_rx_frame_dispatch."
  },
  "vcu_g_0159_20001f8c": {
   "name": "vehicle_state_word_f8c",
-  "type": "u32",
-  "size": 4,
+  "type": "u16",
+  "size": 2,
   "anchor": [
    "VCU_0159",
    "0x20001f8c"
@@ -536,7 +536,7 @@
    "0x20001f94"
   ],
   "category": "vehicle",
-  "description": "Packed drive command word. Its low byte is loaded from the derate and ramp values by vcu_drive_command_update and reset by vcu_state_params_reset. Bits 14 and 15 hold vehicle_drive_cycle_mode, and vcu_speed_mode_snapshot_update and can_get_tx_payload_for_id read it."
+  "description": "Packed drive command word. Its low byte is loaded from other state bytes (DAT_200013b8 and DAT_200013a1) by vcu_drive_command_update, and vcu_state_params_reset resets it to 0x0F00 plus the cycle bits. Bits 14 and 15 hold vehicle_drive_cycle_mode, and vcu_speed_mode_snapshot_update and can_get_tx_payload_for_id read it."
  },
  "vcu_g_0159_20001f96": {
   "name": "vehicle_drive_output_word",
@@ -547,7 +547,7 @@
    "0x20001f96"
   ],
   "category": "vehicle",
-  "description": "Packed output word. vcu_state_params_reset loads it with 0x2800 or 0x3200 (the default mode limit), and vcu_drive_command_update rewrites its low byte with a ramp value. The low byte is copied to telemetry by vcu_speed_mode_snapshot_update."
+  "description": "Packed output word. vcu_state_params_reset loads it with 0x2800 or 0x3200, and vcu_drive_command_update rewrites its low byte. The low byte is copied to telemetry by vcu_speed_mode_snapshot_update."
  },
  "vcu_g_0159_20001f98": {
   "name": "vehicle_status_word_f98",
@@ -624,7 +624,7 @@
    "0x20001fd6"
   ],
   "category": "vehicle",
-  "description": "Special mode stage, 0 or 1. vcu_special_mode_gate sets it to 1 when the gate conditions hold for 300 ticks and tests it when leaving; vcu_0159_080047ac clears it."
+  "description": "Special mode stage, 0 or 1. vcu_special_mode_gate sets it to 1 after the gate conditions hold for 300 ticks and tests it when leaving. vcu_0159_080047ac also writes it."
  },
  "vcu_g_0159_20001fd9": {
   "name": "vehicle_standby_request_flag",
@@ -635,7 +635,7 @@
    "0x20001fd9"
   ],
   "category": "vehicle",
-  "description": "Request flag set to 1 by vcu_sensor_limit_derate_eval and to 0 by vcu_ready_sequence_step_v14b_0159. vcu_standby_entry_timer tests it and clears it."
+  "description": "Request flag set to 1 by vcu_sensor_limit_derate_eval and written 0 or 1 by vcu_ready_sequence_step_v14b_0159. vcu_standby_entry_timer tests it and clears it."
  },
  "vcu_g_153_200020a8": {
   "name": "vehicle_revolution_stage_words_v153",

@@ -1,0 +1,21 @@
+{
+ "structs": {
+  "MotorTxOverride": {
+   "size": 17,
+   "description": "Override block for CAN transmit fields. Each value replaces its transmit field only while its enable byte is nonzero. vcu_drive_command_update applies the overrides at the end of each tick. The block is probably written by the receive or diagnostic path.",
+   "fields": [
+    {"name": "tx184_byte6_override", "offset": 0, "type": "u8", "description": "Replacement for byte 6 of CAN frame 0x184 (the low byte of DAT_20001f8c). Used when override_en_a8 is nonzero."},
+    {"name": "tx184_word_override", "offset": 2, "type": "u16", "description": "Replacement for payload bytes 4..5 of CAN frame 0x184 (DAT_20001f8e). Used when override_en_a9 is nonzero."},
+    {"name": "override_en_a8", "offset": 4, "type": "bool", "description": "Enable for tx184_byte6_override."},
+    {"name": "override_en_a9", "offset": 5, "type": "bool", "description": "Enable for tx184_word_override."},
+    {"name": "override_en_aa", "offset": 6, "type": "bool", "description": "Enable for txf96_high_override."},
+    {"name": "txf96_high_override", "offset": 8, "type": "u8", "description": "Replacement for the high byte of the output word DAT_20001f96 (the CAN 0x100 field), used when override_en_aa is nonzero."},
+    {"name": "override_en_ae", "offset": 10, "type": "bool", "description": "Enable for tx184_byte7_override."},
+    {"name": "tx184_byte7_override", "offset": 12, "type": "u8", "description": "Replacement for byte 7 of CAN frame 0x184 (DAT_20001fee), used when override_en_ae is nonzero."},
+    {"name": "override_en_b2", "offset": 14, "type": "bool", "description": "Enable for tx184_byte0_override."},
+    {"name": "tx184_byte0_override", "offset": 16, "type": "u8", "description": "Replacement for byte 0 of CAN frame 0x184 (DAT_20001fef), used when override_en_b2 is nonzero."}
+   ]
+  }
+ },
+ "enums": {}
+}

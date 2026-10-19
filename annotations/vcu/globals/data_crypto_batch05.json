@@ -1,0 +1,86 @@
+{
+  "vcu_g_153_2000148a": {
+    "name": "crypto_keyload_flags_153",
+    "type": "u8",
+    "count": 3,
+    "size": 3,
+    "anchor": [
+      "VCU_153",
+      "0x2000148a"
+    ],
+    "category": "crypto",
+    "description": "Three flag bytes at 0x2000148A to 0x2000148C in build 153 that vcu_crypto_key_load clears on every key load (its build-153 code is at 0x080063B8). Nothing in this build reads them, so they are probably leftovers of an earlier key or update state."
+  },
+  "vcu_g_0159_20001496": {
+    "name": "crypto_keyload_flags_0159",
+    "type": "u8",
+    "count": 3,
+    "size": 3,
+    "anchor": [
+      "VCU_0159",
+      "0x20001496"
+    ],
+    "category": "crypto",
+    "description": "Three flag bytes at 0x20001496 to 0x20001498 that vcu_crypto_key_load clears on every key load. No other reader in VCU_0159, so they are probably unused leftovers of an earlier key or update state."
+  },
+  "vcu_g_0159_200014bc": {
+    "name": "crypto_upgrade_record_default",
+    "type": "UpgradeRecord",
+    "count": 1,
+    "size": 12,
+    "anchor": [
+      "VCU_0159",
+      "0x200014bc"
+    ],
+    "category": "crypto",
+    "description": "Built-in default copy of the 12-byte upgrade record (tag, pending flag, image size). vcu_crypto_identity_record_init copies it into the working record at 0x200020D0 when the stored tag differs. It is only read here, so its values come from the start-up data copy; the values are not reproduced in this note."
+  },
+  "vcu_g_0159_20001c7c": {
+    "name": "crypto_device_id",
+    "type": "DeviceId",
+    "count": 1,
+    "size": 6,
+    "anchor": [
+      "VCU_0159",
+      "0x20001c7c"
+    ],
+    "category": "crypto",
+    "description": "6-byte device identifier in RAM (see type DeviceId). The Ninebot-style identity write (command 0x19 in vcu_ninebot_frame_dispatch) stores it from the payload. vcu_crypto_identity_record_init compares it with the flash copy at 0x08001430 and writes the built-in default when they differ. Its second family 0x20001C80 lies inside this object."
+  },
+  "vcu_g_0159_20001c82": {
+    "name": "crypto_device_id_fallback",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001c82"
+    ],
+    "category": "crypto",
+    "description": "Non-zero when the built-in default identifier was loaded because the identifier or the flash key check failed (vcu_crypto_identity_record_init sets 1 and clears it when the flash key equals the built-in key). While it is set, vcu_fw_update_frame_handler also checks the image key and identifier against flash before it accepts the image."
+  },
+  "vcu_g_0159_200020d0": {
+    "name": "crypto_upgrade_record",
+    "type": "UpgradeRecord",
+    "count": 1,
+    "size": 12,
+    "anchor": [
+      "VCU_0159",
+      "0x200020d0"
+    ],
+    "category": "crypto",
+    "description": "RAM working copy of the 12-byte firmware-upgrade record (see type UpgradeRecord). It is loaded from flash at 0x0801F800 at start-up, changed by vcu_fw_update_frame_handler (sub-commands 7, 9 and 10) and saved to flash by vcu_upgrade_record_store. Its families 0x200020D4 and 0x200020D8 lie inside this object."
+  },
+  "vcu_g_0159_200020e0": {
+    "name": "crypto_key_words_1_3",
+    "type": "u32",
+    "count": 3,
+    "size": 12,
+    "anchor": [
+      "VCU_0159",
+      "0x200020e0"
+    ],
+    "category": "crypto",
+    "description": "Words 1 to 3 (bytes 4 to 15) of the 16-byte key at 0x200020DC, which vcu_crypto_key_load fills either from the built-in default or from the 16-byte key in flash at 0x08001440. The firmware-update handler uses that key to decrypt 8-byte blocks (XTEA per the function notes). Word 0 is at 0x200020DC in another packet. The key material is deliberately not recorded here."
+  }
+}

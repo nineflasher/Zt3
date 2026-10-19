@@ -574,14 +574,14 @@
  "vcu_g_0159_20001ab4": {
   "name": "vehicle_config_block",
   "type": "u8",
-  "size": 46,
+  "size": 35,
   "anchor": [
    "VCU_0159",
    "0x20001ab4"
   ],
   "category": "vehicle",
-  "description": "Address-taken block of 46 bytes at 0x20001AB4 (probably the mode and configuration record that is loaded and saved in flash). About a dozen functions take its address, including vcu_config_ab_slot_load and vcu_flash_record_pingpong_save. The fields are not decoded here and the end of the block is assumed to be before 0x20001AE2.",
-  "count": 46
+  "description": "Address-taken block of 46 bytes at 0x20001AB4 (probably the mode and configuration record that is loaded and saved in flash). About a dozen functions take its address, including vcu_config_ab_slot_load and vcu_flash_record_pingpong_save. The fields are not decoded here and the end of the block is limited to 35 bytes by the motor model bytes at 0x20001AD7 and 0x20001AD9.",
+  "count": 35
  },
  "vcu_g_14a_20001ace": {
   "name": "vehicle_angle_legacy_v14a",
