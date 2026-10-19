@@ -1,0 +1,34 @@
+{
+ "structs": {
+  "RtcHandle": {
+   "size": 40,
+   "description": "RTC peripheral handle in the ST HAL layout, filled by bms_rtc_hal_init at RAM 0x20005D00 and then passed to HAL_RTC_Init, HAL_RTC_GetDate, HAL_RTC_GetTime, HAL_RTC_SetDate and the RTC wake-up helpers. Only the fields written by bms_rtc_hal_init are identified here; the rest of the HAL structure is not in this packet.",
+   "fields": [
+    {"name": "instance", "offset": 0, "type": "ptr", "description": "Pointer to the RTC register block (&RTC). bms_indirect_nibble_get dereferences this slot and returns the low nibble of the byte it points to."},
+    {"name": "init_word_04", "offset": 4, "type": "u32", "description": "Set to 0x8800 by bms_rtc_hal_init. Probably a control word of the HAL init block; its meaning is not established."},
+    {"name": "hour_format", "offset": 8, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the hour-format field (0 = 24-hour clock)."},
+    {"name": "async_prediv", "offset": 12, "type": "u32", "description": "Asynchronous prescaler: 0x7C when the clock is LSI (bms_rtc_selected flag 0) and 0x7F when it is LSE (flag 1). Probably divides to 1 Hz with the synchronous prescaler."},
+    {"name": "sync_prediv", "offset": 16, "type": "u32", "description": "Synchronous prescaler, set to 0xFF by bms_rtc_hal_init (probably 256 in the HAL, giving 1 Hz together with the asynchronous value)."},
+    {"name": "output_word_14", "offset": 20, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the RTC output-selection field of the init block (no output used)."},
+    {"name": "output_word_18", "offset": 24, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the output remap field of the init block."},
+    {"name": "output_word_1c", "offset": 28, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Probably the output polarity field of the init block."},
+    {"name": "control_word_20", "offset": 32, "type": "u32", "description": "Set to 0x40000000 by bms_rtc_hal_init. Meaning not established in this packet."},
+    {"name": "reserved_24", "offset": 36, "type": "u32", "description": "Set to 0 by bms_rtc_hal_init. Meaning not established in this packet."}
+   ]
+  },
+  "BmsTm": {
+   "size": 32,
+   "description": "Broken-down calendar time (struct tm style, eight 32-bit words) written by bms_epoch_to_tm from a Unix epoch value. Weekday 0 is Sunday; year is counted from 1900 as in struct tm.",
+   "fields": [
+    {"name": "sec", "offset": 0, "type": "s32", "description": "Seconds, 0 to 59."},
+    {"name": "min", "offset": 4, "type": "s32", "description": "Minutes, 0 to 59."},
+    {"name": "hour", "offset": 8, "type": "s32", "description": "Hours, 0 to 23."},
+    {"name": "mday", "offset": 12, "type": "s32", "description": "Day of the month, 1 to 31."},
+    {"name": "mon", "offset": 16, "type": "s32", "description": "Month, 0 to 11."},
+    {"name": "year", "offset": 20, "type": "s32", "description": "Years since 1900 (tm_year)."},
+    {"name": "wday", "offset": 24, "type": "s32", "description": "Day of the week, 0 = Sunday."},
+    {"name": "yday", "offset": 28, "type": "s32", "description": "Day of the year, 0 to 365."}
+   ]
+  }
+ }
+}

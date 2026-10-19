@@ -1,0 +1,229 @@
+{
+  "bms_g_4168_20000ecc": {
+    "name": "bms_derate_scale_ecc",
+    "type": "u16",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000ecc"
+    ],
+    "category": "protection",
+    "description": "Two u16 scale factors of bms_current_limit_derate, each multiplied into a derate product and divided by 1000 through the helper FUN_0800113c: element 0 (0x20000ECC) scales the first current limit 0x20000E50 and element 1 (0x20000ECE) scales the second limit 0x20000E4C. Probably configuration constants.",
+    "count": 2
+  },
+  "bms_g_4168_20000ed5": {
+    "name": "bms_derate_scale_ed5",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000ed5"
+    ],
+    "category": "protection",
+    "description": "u8 factor multiplied into both current limits of bms_current_limit_derate (the third factor of each product). Probably a configuration constant; no writer in this packet."
+  },
+  "bms_g_4168_20000ed8": {
+    "name": "bms_derate_table",
+    "type": "BmsDerateTable",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20000ed8"
+    ],
+    "category": "protection",
+    "description": "Sixteen bytes of derate parameters read by bms_current_limit_derate (0x20000ED8 to 0x20000EE7). They hold the piecewise-linear breakpoints and floors of the derate curves, the SOC window of the second factor, the 3-factor window and the taper slope. Layout is in BmsDerateTable; values are configuration constants."
+  },
+  "bms_g_4168_20000f10": {
+    "name": "bms_latch_eval_ref_f10",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f10"
+    ],
+    "category": "protection",
+    "description": "Address-taken only in the BMS_4139, BMS_4148 and BMS_4168 builds: bms_protect_latch_evaluate takes its address and no decompiled line names it. Size not established; 4 bytes assumed."
+  },
+  "bms_g_4168_20000f20": {
+    "name": "bms_latch_eval_pairs_ch1_2",
+    "type": "BmsDwellPair",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f20"
+    ],
+    "category": "protection",
+    "description": "Dwell accumulator pairs 1 and 2 of bms_protect_latch_evaluate (0x20000F20..0x20000F2F). Pair 1 (0x20000F20 trigger, 0x20000F24 release) is tested against limits 0x20000280 and 0x20000284; pair 2 (0x20000F28, 0x20000F2C) against 0x2000028C and 0x20000290. Each accumulator adds param_4 while its condition holds and resets to zero otherwise.",
+    "count": 2
+  },
+  "bms_g_4168_20000f38": {
+    "name": "bms_latch_eval_pairs_ch3_5",
+    "type": "BmsDwellPair",
+    "size": 24,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f38"
+    ],
+    "category": "protection",
+    "description": "Dwell accumulator pairs 3, 4 and 5 of bms_protect_latch_evaluate (0x20000F38..0x20000F4F). Pair 3 (0x20000F38, 0x20000F3C) is tested against limits 0x200002A4 and 0x200002A8, pair 4 (0x20000F40, 0x20000F44) against 0x200002B0 and 0x200002B4, pair 5 (0x20000F48, 0x20000F4C) against 0x200002BC and 0x200002C0. Each accumulator adds param_4 while its condition holds and resets otherwise.",
+    "count": 3
+  },
+  "bms_g_4168_20000f60": {
+    "name": "bms_latch_eval_pairs_ch6_7",
+    "type": "BmsDwellPair",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f60"
+    ],
+    "category": "protection",
+    "description": "Dwell accumulator pairs 6 and 7 of bms_protect_latch_evaluate (0x20000F60..0x20000F6F). Pair 6 (0x20000F60, 0x20000F64) is tested against 0x200002E0 and 0x200002E4; pair 7 (0x20000F68, 0x20000F6C) against 0x200002EC and 0x200002F0, whose limits are in bms_latch_eval_ch7_limits. Each accumulator adds param_4 while its condition holds and resets otherwise.",
+    "count": 2
+  },
+  "bms_g_4168_20000f78": {
+    "name": "bms_latch_eval_pair_ch8",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f78"
+    ],
+    "category": "protection",
+    "description": "Dwell accumulator pair 8 of bms_protect_latch_evaluate: trigger 0x20000F78 (limit 0x20000304) and release 0x20000F7C (limit 0x20000308). Each adds param_4 while its condition holds and resets otherwise. The limits are the set_limit and clear_limit of bms_latch_eval_ch8_cfg."
+  },
+  "bms_g_4139_20000f74": {
+    "name": "bms_dwell_4139_f74",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4139",
+      "0x20000f74"
+    ],
+    "category": "protection",
+    "description": "BMS_4139 word read and written through a base pointer by bms_protect_dwell_flags_update. Probably a dwell accumulator of that build (BMS_4130 keeps it at 0x20000F14). Width and role inferred."
+  },
+  "bms_g_4139_20000f94": {
+    "name": "bms_dwell_ref_4139_f94",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4139",
+      "0x20000f94"
+    ],
+    "category": "protection",
+    "description": "Address-taken only in BMS_4139: bms_protect_dwell_flags_update takes its address and no decompiled line names it. Size not established; 4 bytes assumed. Not the same family as BMS_4168 0x20000F94."
+  },
+  "bms_g_4168_20000f90": {
+    "name": "bms_prot_pair_ch1",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000f90"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 1 in bms_prot_latch_pairs_update: 0x20000F90 (set, limit 0x20000328) and 0x20000F94 (clear, limit 0x2000032C). Each adds param_3 while its condition holds; the set timer is zeroed when its condition fails or the clear side fires, and vice versa."
+  },
+  "bms_g_4139_20000f9c": {
+    "name": "bms_dwell_words_4139_f9c",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4139",
+      "0x20000f9c"
+    ],
+    "category": "protection",
+    "description": "Two u32 words of BMS_4139 (0x20000F9C and 0x20000FA0) read and written through a base pointer by bms_protect_dwell_flags_update. Probably dwell timers of that build (the BMS_4130 build places them at 0x20000F3C and 0x20000F40); inferred from the access pattern.",
+    "count": 2
+  },
+  "bms_g_4168_20000fa0": {
+    "name": "bms_prot_pair_ch2",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000fa0"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 2 in bms_prot_latch_pairs_update: 0x20000FA0 (set, limit 0x20000340) and 0x20000FA4 (clear, limit 0x20000344). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20000fc8": {
+    "name": "bms_prot_pair_ch3",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000fc8"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 3 in bms_prot_latch_pairs_update: 0x20000FC8 (set, limit 0x2000037C) and 0x20000FCC (clear, limit 0x20000380). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20000fd8": {
+    "name": "bms_prot_pair_ch4",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000fd8"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 4 in bms_prot_latch_pairs_update: 0x20000FD8 (set, limit 0x20000394) and 0x20000FDC (clear, limit 0x20000398). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20001000": {
+    "name": "bms_prot_pair_ch5",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20001000"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 5 in bms_prot_latch_pairs_update: 0x20001000 (set, limit 0x200003D0) and 0x20001004 (clear, limit 0x200003D4). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20001010": {
+    "name": "bms_prot_pair_ch6",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20001010"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 6 in bms_prot_latch_pairs_update: 0x20001010 (set, limit 0x200003E8) and 0x20001014 (clear, limit 0x200003EC). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20001020": {
+    "name": "bms_prot_pair_ch7",
+    "type": "BmsDwellPair",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20001020"
+    ],
+    "category": "protection",
+    "description": "Set and clear dwell accumulators of latch channel 7 in bms_prot_latch_pairs_update: 0x20001020 (set, limit 0x20000400) and 0x20001024 (clear, limit 0x20000404). Same timing rules as bms_prot_pair_ch1."
+  },
+  "bms_g_4168_20001070": {
+    "name": "bms_dwell_timers_1070",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20001070"
+    ],
+    "category": "protection",
+    "description": "Two u32 dwell accumulators of bms_protect_dwell_flags_update: 0x20001070 (arms latch 0x02, clamped to limit 0x20000478) and 0x20001074 (release timer for latches 0x02, 0x04, 0x08 and 0x10, limit 0x2000047C). Each adds param_2 (the tick count) while armed and is zeroed otherwise.",
+    "count": 2
+  },
+  "bms_g_4168_20001090": {
+    "name": "bms_dwell_timers_1090",
+    "type": "u32",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20001090"
+    ],
+    "category": "protection",
+    "description": "Four u32 dwell accumulators of bms_protect_dwell_flags_update (0x20001090 to 0x2000109F): 0x20001090 and 0x20001094 set and release latch 0x80 (limits 0x200004A8 and 0x200004AC); 0x20001098 arms latch 0x100 (limit 0x200004B4); 0x2000109C expires and clears the sticky byte DAT_20000251 (limit 0x200004B8). Each adds param_2 while armed and is zeroed otherwise.",
+    "count": 4
+  }
+}

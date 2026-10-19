@@ -1,0 +1,430 @@
+{
+  "bms_g_4168_200004e4": {
+    "name": "bms_prot_debounce_thr_e4",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200004e4"
+    ],
+    "category": "protection",
+    "description": "s16 threshold of bms_prot_debounce_quad, compared with the s16 at record+0x12 for the first debounced condition (keeps the timer 0x200004CC running while the sample is at or below it, probably). Configuration constant; unit of the sample not established."
+  },
+  "bms_g_4168_200004e8": {
+    "name": "bms_prot_debounce_thr_e8",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200004e8"
+    ],
+    "category": "protection",
+    "description": "s16 threshold of bms_prot_debounce_quad, compared with the s16 at state+0x11A while bit 0 of the u16 at state+0x180 is clear. Part of the condition that runs the second debounced timer 0x200004D0. Configuration constant; probably a current or SOC value in the same unit as state+0x11A."
+  },
+  "bms_g_4168_200004ec": {
+    "name": "bms_prot_debounce_limit_ec",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200004ec"
+    ],
+    "category": "protection",
+    "description": "u32 limit of debounce accumulator 0x200004D0 in bms_prot_debounce_quad. The accumulator is clamped to it and sets bit 0x80 at +0x126 and bit 0x20 in the flag byte 0x200004C8 once it reaches the limit. Tick units (probably)."
+  },
+  "bms_g_4168_200004f0": {
+    "name": "bms_prot_debounce_thr_f0",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200004f0"
+    ],
+    "category": "protection",
+    "description": "s16 threshold of bms_prot_debounce_quad, compared with the s16 at record+6 for the third debounced condition (against 0x200004D4). Configuration constant; unit of the sample not established."
+  },
+  "bms_g_4168_200004f5": {
+    "name": "bms_prot_debounce_thr_f5",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200004f5"
+    ],
+    "category": "protection",
+    "description": "Single-byte threshold of bms_prot_debounce_quad, compared with the s16 at record+4 (odd address, so a byte, not a halfword). Used by the second and third debounced conditions. Configuration constant; probably a percent or a small count."
+  },
+  "bms_g_4168_200004f8": {
+    "name": "bms_prot_debounce_limit_f8",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x200004f8"
+    ],
+    "category": "protection",
+    "description": "Two u32 limits of bms_protect_debounce_quad. Element 0 (0x200004F8) is the limit for debounce accumulator 0x200004D4 (sets bit 0x2 in 0x200004C8 and bit 0x2000 at +0x124). Element 1 (0x200004FC) is the limit for accumulator 0x200004D8 whose expiry clears those bits. Tick units (probably).",
+    "count": 2
+  },
+  "bms_g_4168_20000568": {
+    "name": "bms_history_flags",
+    "type": "BmsHistoryFlags",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000568"
+    ],
+    "category": "protection",
+    "description": "Four adjacent state bytes of the status-history ring at 0x200010A8: a pending-snapshot flag, a ring-initialised flag, a commit counter and a status-flag byte. Written by bms_status_event_snapshot and bms_history_ring_commit only; the ring itself is in the 0x200010A8..0x200012FC area."
+  },
+  "bms_g_4168_20000600": {
+    "name": "bms_win_wide_latch",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000600"
+    ],
+    "category": "protection",
+    "description": "Latch of the wide sample window (in-window when the signed readings at record+8 and record+10 satisfy +8 < 55 and +10 > -15). Set when the time accumulated in 0x20000604 reaches 30 units; cleared by hysteresis exits. Written by bms_window_latch_wide; bms_sample_window_process only passes its record."
+  },
+  "bms_g_4168_20000601": {
+    "name": "bms_win_narrow_latch",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000601"
+    ],
+    "category": "protection",
+    "description": "Latch of the narrow sample window (in-window when +8 < 40 and +10 > 5). Cleared when the timer 0x20000608 reaches 30 units inside the window; set when it reaches 30 outside. Written by bms_window_latch_narrow."
+  },
+  "bms_g_4168_20000604": {
+    "name": "bms_win_wide_timer",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000604"
+    ],
+    "category": "protection",
+    "description": "Time accumulator of the wide sample window, in step units (the step is the byte at record+0). Reset when the window is left and the latch is clear; reaches 30 to set the latch. Written by bms_window_latch_wide."
+  },
+  "bms_g_4168_20000606": {
+    "name": "bms_win_wide_sub",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000606"
+    ],
+    "category": "protection",
+    "description": "Sub-accumulator of the wide sample window. While the latch is set it adds the step each call and, past 9, subtracts 10 and counts one whole unit into the return value (the latched time in tens). Written by bms_window_latch_wide."
+  },
+  "bms_g_4168_20000608": {
+    "name": "bms_win_narrow_timer",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000608"
+    ],
+    "category": "protection",
+    "description": "Time accumulator of the narrow sample window, in step units. Reset inside the window while the latch is clear; accumulates to 30 to clear the latch when inside and to set it when outside. Written by bms_window_latch_narrow."
+  },
+  "bms_g_4168_2000060a": {
+    "name": "bms_win_narrow_sub",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000060a"
+    ],
+    "category": "protection",
+    "description": "Sub-accumulator of the narrow sample window. While the latch is set it adds the step each call and, past 9, subtracts 10 and counts one whole unit into the return value of bms_window_latch_narrow (the latched time in tens). Written by bms_window_latch_narrow."
+  },
+  "bms_g_4168_2000062f": {
+    "name": "bms_level_hyst_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000062f"
+    ],
+    "category": "protection",
+    "description": "Flag byte set by bms_level_hysteresis_update from the level byte at 0x20000630: cleared below 2, set above 2, kept at exactly 2 (hysteresis band). The level's unit and the flag's role are not established in this packet."
+  },
+  "bms_g_4139_20000967": {
+    "name": "bms_status_byte_4139_967",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000967"
+    ],
+    "category": "protection",
+    "description": "BMS_4139 byte read through a base pointer by bms_status_bit4_from_reply and bms_limit_report_cmd08. Probably a status or request flag of the reply path (not established by this packet)."
+  },
+  "bms_g_4139_20000a6b": {
+    "name": "bms_status_byte_4139_a6b",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a6b"
+    ],
+    "category": "protection",
+    "description": "BMS_4139 byte read through a base pointer by bms_status_bit4_from_reply and bms_limit_report_cmd08, the same two readers as 0x20000967. Probably a second status or request flag of the reply path (not established)."
+  },
+  "bms_g_4139_20000d1c": {
+    "name": "bms_mode_byte_4139_d1c",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000d1c"
+    ],
+    "category": "protection",
+    "description": "BMS_4139 field read and written through a base pointer by bms_mode_fsm_step. Probably a mode-machine field of the BMS_4139 state block (not established)."
+  },
+  "bms_g_4168_20000ddc": {
+    "name": "bms_limit_flag_ddc",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000ddc"
+    ],
+    "category": "protection",
+    "description": "Status flag byte (0 or 1, tested as '== 0' and written from the status-word path) read by bms_limit_status_update, bms_remaining_time_4168, bms_status_event_snapshot, bms_pct_hysteresis_step and others. Probably the 'limit or fault condition active' flag; writer bms_4168_0800fb94 (not reviewed here). BMS_4148 keeps it at 0x20000D20."
+  },
+  "bms_g_4168_20000dde": {
+    "name": "bms_limit_flag_dde",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000dde"
+    ],
+    "category": "protection",
+    "description": "Limit-status flag byte (0 or 1) set by bms_4168_0800c96c and read by bms_limit_status_update, where it is packed into the status word at bit 4 of the 0x17A block. BMS_4148 keeps it at 0x20000D22."
+  },
+  "bms_g_4168_20000ddf": {
+    "name": "bms_limit_flag_ddf",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000ddf"
+    ],
+    "category": "protection",
+    "description": "Flag byte (0 or 1) that suppresses the high-current latch and the second limit: read by bms_limit_status_update, bms_current_limit_derate, bms_protect_dwell_flags_update and bms_pct_hysteresis_step. bms_can_status_frame_rx sets it from bit 0 of CAN frame 0x212 byte 9 and clears it after 2000 ticks. BMS_4148 keeps it at 0x20000D23."
+  },
+  "bms_g_4168_20000de1": {
+    "name": "bms_limit_flag_de1",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000de1"
+    ],
+    "category": "protection",
+    "description": "Limit-status flag byte (0 or 1) written by bms_4168_080082f0 and packed into the status word at bit 6 by bms_limit_status_update. BMS_4148 keeps it at 0x20000D25."
+  },
+  "bms_g_4168_20000de2": {
+    "name": "bms_limit_flag_de2",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000de2"
+    ],
+    "category": "protection",
+    "description": "Limit-status flag byte (0 or 1) written by bms_4168_0800c96c and packed into the status word at bit 8 by bms_limit_status_update. BMS_4148 keeps it at 0x20000D26."
+  },
+  "bms_g_4168_20000de3": {
+    "name": "bms_limit_flag_de3",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000de3"
+    ],
+    "category": "protection",
+    "description": "Limit-status flag byte (0 or 1) cleared and tested by bms_4168_0800c96c; bms_limit_status_update copies it into the 0x174 status block. BMS_4148 keeps it at 0x20000D27."
+  },
+  "bms_g_4168_20000de4": {
+    "name": "bms_limit_flags_de4",
+    "type": "u8",
+    "size": 3,
+    "anchor": [
+      "BMS_4168",
+      "0x20000de4"
+    ],
+    "category": "protection",
+    "description": "Three adjacent limit-status flag bytes: 0x20000DE4, 0x20000DE5 and 0x20000DE6 in BMS_4168, which the BMS_4148 build keeps at 0x20000D28, 0x20000D29 and 0x20000D2A (the BMS_4148 families d29 and d2a are covered here). DE4 is a 0/1 flag written by bms_4168_0800c96c and copied to the 0x176 block; DE5 is set to 1 by bms_4168_0800f2e0 and packed at bit 10 of the status word; DE6 is a latch set to 1 on the high-current condition in bms_limit_status_update, and it is cleared when the condition ends. Probably one byte each.",
+    "count": 3
+  },
+  "bms_g_4130_20000dbc": {
+    "name": "bms_prot_alt_dbc_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4130",
+      "0x20000dbc"
+    ],
+    "category": "protection",
+    "description": "Address-taken only in BMS_4130: bms_prot_latch_pairs_update_alt takes its address, and no decompiled line names it. Size not established; 4 bytes assumed."
+  },
+  "bms_g_4130_20000dcc": {
+    "name": "bms_prot_alt_words_4130_dcc",
+    "type": "u32",
+    "size": 16,
+    "anchor": [
+      "BMS_4130",
+      "0x20000dcc"
+    ],
+    "category": "protection",
+    "description": "Four u32 words of the BMS_4130 alternative latch engine (0x20000DCC to 0x20000DDB), read and written through a base pointer by bms_prot_latch_pairs_update_alt. Probably the per-channel set and clear timers of that variant (not named in the decompiled lines); meaning inferred from the access pattern.",
+    "count": 4
+  },
+  "bms_g_4130_20000de4": {
+    "name": "bms_prot_alt_words_4130_de4",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4130",
+      "0x20000de4"
+    ],
+    "category": "protection",
+    "description": "Two u32 words of the BMS_4130 alternative latch engine at 0x20000DE4 and 0x20000DE8, read and written through a base pointer by bms_prot_latch_pairs_update_alt. Probably timer or limit words of one channel (inferred from the access pattern).",
+    "count": 2
+  },
+  "bms_g_4130_20000df4": {
+    "name": "bms_prot_alt_words_4130_df4",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4130",
+      "0x20000df4"
+    ],
+    "category": "protection",
+    "description": "Two u32 words of the BMS_4130 alternative latch engine at 0x20000DF4 and 0x20000DF8, read and written through a base pointer by bms_prot_latch_pairs_update_alt. Probably timer or limit words (inferred from the access pattern).",
+    "count": 2
+  },
+  "bms_g_4130_20000e04": {
+    "name": "bms_prot_alt_words_4130_e04",
+    "type": "u32",
+    "size": 16,
+    "anchor": [
+      "BMS_4130",
+      "0x20000e04"
+    ],
+    "category": "protection",
+    "description": "Four u32 words of the BMS_4130 alternative latch engine at 0x20000E04 to 0x20000E13, read and written through a base pointer by bms_prot_latch_pairs_update_alt. Probably timer or limit words (inferred from the access pattern).",
+    "count": 4
+  },
+  "bms_g_4130_20000e1c": {
+    "name": "bms_prot_alt_words_4130_e1c",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4130",
+      "0x20000e1c"
+    ],
+    "category": "protection",
+    "description": "Two u32 words of the BMS_4130 alternative latch engine at 0x20000E1C and 0x20000E20, read and written through a base pointer by bms_prot_latch_pairs_update_alt. Probably timer or limit words (inferred from the access pattern).",
+    "count": 2
+  },
+  "bms_g_4130_20000e34": {
+    "name": "bms_prot_alt_words_4130_e34",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4130",
+      "0x20000e34"
+    ],
+    "category": "protection",
+    "description": "Two u32 words at 0x20000E34 and 0x20000E38 of BMS_4130, read and written through a base pointer by bms_prot_latch_pairs_update. Probably a timer pair of the BMS_4130 latch engine (inferred from the access pattern).",
+    "count": 2
+  },
+  "bms_g_4130_20000ea8": {
+    "name": "bms_prot_alt_word_4130_ea8",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4130",
+      "0x20000ea8"
+    ],
+    "category": "protection",
+    "description": "u32 at 0x20000EA8 of BMS_4130, read and written through a base pointer by bms_prot_latch_pairs_update. Probably a timer of the BMS_4130 latch engine (inferred from the access pattern)."
+  },
+  "bms_g_4130_20000eb4": {
+    "name": "bms_prot_alt_word_4130_eb4",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4130",
+      "0x20000eb4"
+    ],
+    "category": "protection",
+    "description": "u32 at 0x20000EB4 of BMS_4130, read and written through a base pointer by bms_prot_latch_pairs_update. Probably a timer of the BMS_4130 latch engine (inferred from the access pattern)."
+  },
+  "bms_g_4168_20000e10": {
+    "name": "bms_mode_timers",
+    "type": "u32",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20000e10"
+    ],
+    "category": "protection",
+    "description": "Four u32 tick timers of bms_mode_fsm_step at 0x20000E10 to 0x20000E1F, each advanced by the tick argument on every call: E10 is tested against 999 (1000 ticks), E14 against 2999 in bms_status_latch_step (3000 ticks), E18 probably the 2000-tick recovery entry timer, and E1C the 6000-tick recovery timer. They are zeroed on state changes. BMS_4148 keeps the first one at 0x20000D50.",
+    "count": 4
+  },
+  "bms_g_4148_20000e1c": {
+    "name": "bms_mode_byte_4148_e1c",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4148",
+      "0x20000e1c"
+    ],
+    "category": "protection",
+    "description": "BMS_4148-only byte read by bms_current_limit_derate. Probably a flag of the derate step in that build (not established)."
+  },
+  "bms_g_4168_20000e20": {
+    "name": "bms_mode_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000e20"
+    ],
+    "category": "protection",
+    "description": "State index of the four-state mode machine in bms_mode_fsm_step: idle, monitoring, hold and recovery are the states the function describes; bms_status_latch_step writes 1, and bms_mode_fsm_step writes 1 and 2. Probably a byte. The mode written to bits 0 to 2 of the state word 0x20000BDC+0x124 follows from it."
+  },
+  "bms_g_4168_20000e90": {
+    "name": "bms_derate_limit_cap_e90",
+    "type": "u16",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000e90"
+    ],
+    "category": "protection",
+    "description": "Two u16 caps of bms_current_limit_derate: element 0 (0x20000E90) caps the first derated limit 0x20000E50 at 10 times its value, element 1 (0x20000E92) caps the second limit 0x20000E4C the same way. Probably stored in coarser units than the published limits (inferred from the x10 scaling). BMS_4130 keeps them at 0x20000D38 and 0x20000D3A.",
+    "count": 2
+  },
+  "bms_g_4168_20000e98": {
+    "name": "bms_derate_ref_e98",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000e98"
+    ],
+    "category": "protection",
+    "description": "Address-taken only: bms_current_limit_derate takes the address and no decompiled line names it. Size not established; 4 bytes assumed."
+  }
+}

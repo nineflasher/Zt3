@@ -1,0 +1,78 @@
+{
+  "structs": {
+    "BmsChanDescriptor": {
+      "size": 16,
+      "description": "16-byte descriptor passed to bms_chan_bind with a TP session channel array. The bind check needs words 0 and 3 to be nonzero. Other fields are not established.",
+      "fields": [
+        {
+          "name": "word0",
+          "offset": 0,
+          "type": "u32",
+          "description": "Must be nonzero for bms_chan_bind to succeed. Meaning not established; probably a configuration or capability word of the channel."
+        },
+        {
+          "name": "word3",
+          "offset": 12,
+          "type": "u32",
+          "description": "Second word checked by bms_chan_bind; must be nonzero. Meaning not established."
+        }
+      ]
+    },
+    "BmsMeasRecord": {
+      "size": 500,
+      "description": "Measurement and cell record at 0x20000BDC, reached through a base pointer. Only the fields used by the functions in this packet are listed. The size is the smallest extent that holds those fields, not a confirmed end.",
+      "fields": [
+        {
+          "name": "cell_count",
+          "offset": 32,
+          "type": "u16",
+          "description": "Number of cells to read. bms_4168_0800c80c uses it as the loop bound of the cell scan, which reads at most 16 cells."
+        },
+        {
+          "name": "filtered_avg",
+          "offset": 280,
+          "type": "s16",
+          "description": "Copy of the low half of the filtered cell average (0x20000DEC). bms_4168_0800c80c sets it to 0 when a scan reports a fault."
+        },
+        {
+          "name": "meas",
+          "offset": 282,
+          "type": "s16",
+          "description": "Signed 16-bit measurement compared by protection debounce in bms_4168_0800c380. Unit not established."
+        },
+        {
+          "name": "flags_124",
+          "offset": 292,
+          "type": "u16",
+          "description": "Status flags. Bits 1, 4 and 11 are tested by bms_4168_0800be58 and bit 13 is set by bms_4168_0800c380 when its debounce expires. Probably a protection and status latch word."
+        },
+        {
+          "name": "balance_mask",
+          "offset": 316,
+          "type": "u32",
+          "description": "Balance bit mask over up to 16 cells (bit i is cell i). It is stored as two u16 halves at 0x13C and 0x13E, written and read back by bms_4168_0800be58."
+        },
+        {
+          "name": "cell_mv",
+          "offset": 320,
+          "type": "u16",
+          "count": 16,
+          "description": "Cell voltage readings, one u16 per cell in address order. Written by bms_4168_0800c80c and used by the balance logic. Unit not established."
+        },
+        {
+          "name": "state_194",
+          "offset": 404,
+          "type": "u16",
+          "description": "Status word. Bit 9 (0x200) is set when the balance period has elapsed and cleared when balancing is released in bms_4168_0800be58. Bit 6 is tested by bms_ctrl_request_handshake."
+        },
+        {
+          "name": "temp_sel",
+          "offset": 498,
+          "type": "u16",
+          "description": "Temperature chosen for protection by bms_4168_0800c6dc: the minimum when the midpoint (bms_temp_midpoint) is below 20, otherwise the maximum."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -34,16 +34,6 @@
         {"name": "w3", "offset": 12, "type": "u32", "description": "Word 3 of the record, copied from the pushed record's word 3 (probably payload)."},
         {"name": "w4", "offset": 16, "type": "u32", "description": "Word 4 of the record, copied from the pushed record's word 4 (probably payload or length)."}
       ]
-    },
-    "McuBlockTable": {
-      "size": 544,
-      "description": "544-byte block table copied into RAM and verified by mcu_block_table_load_verified (up to five attempts). It holds 16 windows of 32 bytes at a 16-byte stride, each checked against one check byte. Layout inferred from the loader; the parts that are not decoded are kept as raw bytes.",
-      "fields": [
-        {"name": "window_data", "offset": 0, "type": "u8", "count": 256, "description": "Window data. Window i is bytes 16*i to 16*i+31 and is checksummed by the loader (probably). The 4-byte word read at offset 0x20 (address 0x20001DB0) lies here."},
-        {"name": "window_check", "offset": 256, "type": "u8", "count": 16, "description": "Check byte for each window, compared with the checksum the loader computes for that window (probably the low byte)."},
-        {"name": "reserved_a", "offset": 272, "type": "u8", "count": 240, "description": "Bytes 0x110 to 0x1FF of the table. The loader does not decode them."},
-        {"name": "tail_b", "offset": 512, "type": "u8", "count": 32, "description": "Bytes 0x200 to 0x21F of the table. The 4-byte word at offset 0x200 (address 0x20001F90) is read by the loader and by mcu_0160_08009f98."}
-      ]
     }
   },
   "enums": {}
