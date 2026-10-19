@@ -98,6 +98,12 @@ producer = "annotation agents / hand"
 consumer = "zt3 apply, zt3 docs"
 
 [[rule]]
+glob = "annotations/*/types/*.json"
+class = "annotation"
+producer = "annotation agents / hand"
+consumer = "zt3 apply, zt3 docs"
+
+[[rule]]
 glob = "docs/*/README.md"
 class = "doc-generated"
 producer = "zt3 docs"
