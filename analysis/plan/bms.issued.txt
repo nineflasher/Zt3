@@ -8,3 +8,6 @@ wave2_batch02
 wave2_batch03
 wave2_batch04
 wave2_batch05
+wave3_batch01
+wave3_batch02
+wave3_batch03

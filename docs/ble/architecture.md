@@ -131,7 +131,7 @@ Creation calls resolve as follows. `FUN_0c043d3c` is `xTaskCreate`. `FUN_0c043cf
 | `process command` (NBOS shell) | `FUN_0c0354e8` (xTaskCreateStatic) | `LAB_0c034F0C` | 0x200 | 1 | Creates its own queue (`FUN_0c042ba0`). Prompt `NBOS >`. |
 | `factory_test_task` | `FUN_0c02d554` (xTaskCreate) | `LAB_0c02D1F4` | 0x400 | 2 | Opens `/dev/gpio`, takes the UART channel fd, then delays 10 ticks in a loop. |
 | `adc process` | `FUN_0c02d554` | `LAB_0c02D224` | 0x200 | 2 | Factory ADC path. |
-| `uart_process_task` | `FUN_0c02d554` | `0x0C02D359` | 0x200 | 1 | Factory single-wire UART test path (M). |
+| `uart_process_task` | `FUN_0c02d554` | `0x0C02D359` | 0x200 | 1 | Factory UART test path (L). |
 | `nvdata` | `FUN_0c02d724` (xTaskCreateStatic) | `0x0C02DC51` (`FUN_0c02dc50`) | 0x100 | 3 | Command queue of 5 items × 4 bytes (`FUN_0c042ba0`). |
 | `nb uart disp` | `FUN_0c02e420` (xTaskCreateStatic) | `0x0C02EB61` (`FUN_0c02eb60`) | 0x200 | 4 | UART dispatcher for `/dev/uart2`. Two 0x120-byte stream buffers. |
 | `bts_task` | `FUN_0c059a40` (xTaskCreateStatic) | `0x0C0599D5` (`FUN_0c0599d4`) | 0x400 | 2 | Event loop for BLE/BTstack messages (§2.4). |
@@ -208,7 +208,7 @@ Module boundaries come from the source-file strings, annotation categories and n
 | BES controller and ROM patches | `0x0C03AC8C`..`0x0C03ECC8` (`bt_drv_*` RF init, ROM patch table `0x0C03CEC8`), `0x0C05D48C`..`0x0C05D4A4` (ROM pointer tables), `0x0C073AD0`..`0x0C073CC0` (RAM-patch thunks), `0x0C07C04C`..`0x0C07DE3A` (ROM patch functions for `ld_`/`lld_`/`lm_`/`sch_`/`em_`), `0x0C07D840`..`0x0C07DE30` (flash-alias patch thunks `a00xxxxx`) | `bt_drv_rf_init` `0x0C03CDFC`, `bt_drv_rom_patch_apply_table` `0x0C03CEC8`, `ble_ram_patch_thunk_*` | M |
 | BLE controller state and link table | `0x0C04F0A4`..`0x0C05D4A8` (`ble_ctrl_*`, `ble_slot_*`, `ble_state_*`, `ble_link_table_get_base` `0x0C059558`), `0x0C065DF8`..`0x0C06F448` (controller and link-layer code interleaved with L2CAP) | `ble_ctrl_store_keys_and_addrs` `0x0C04F0C8`, `ble_ctrl_clear_pairing_flags` `0x0C04F0A4`, `ll_env_init` `0x0C066DFC` | M |
 | BTstack host, ATT and GATT | `0x0C04C6FC`..`0x0C04EB80` (att_db `0x0C04CDF0`, att_server `0x0C04DFB8`..`0x0C04EC18`, sdp/data elements `0x0C04C580`..`0x0C04CAB8`), `0x0C04ECC0`..`0x0C04F034` (`le_device_db_tlv`), `0x0C04AB90`..`0x0C04AEF8` (`bthost_link_key_db_tlv`) | `att_set_db` `0x0C04CDF0`, `FUN_0c04eb24` (ATT init), `att_iterator_fetch_next` `0x0C04CC74` | H |
-| BTstack HID and advertising | `0x0C04AF00`..`0x0C04BC2C` (`hid_device.c`, `hid_report_*`), `0x0C0645EC`..`0x0C0645E0` (`ad_iterator_*`) | `hid_report_id_status` `0x0C04AF00` | M |
+| BTstack HID and advertising | `0x0C04AF00`..`0x0C04BC2C` (`hid_device.c`, `hid_report_*`), `0x0C06458C`..`0x0C0645E0` (`ad_iterator_*`) | `hid_report_id_status` `0x0C04AF00` | M |
 | BTstack core | `0x0C0653E0`..`0x0C06570C` (linked list, memory pool, ring buffer), `0x0C065884`..`0x0C065AEC` (run loop), `0x0C065B2C`..`0x0C065C24` (`bd_addr_*`, `co_*`) | `btstack_run_loop_embedded_*`, `btstack_ring_buffer_*` | H |
 | HCI and L2CAP | `0x0C0661E8`..`0x0C06B048` (`hci.c`), `0x0C06C2E0` (`hci_transport_h4.c`), `0x0C06C7AC`..`0x0C06F078` (`l2cap.c`) | `hci_send_cmd` `0x0C067178`, `hci_event_handler` `0x0C068DA8`, `l2cap_send_signaling_packet` `0x0C06C7AC` | M |
 | Security manager (SM) | roughly `0x0C0505F0`..`0x0C052AD4` (strings only) | strings `sm_sc_cmac_done`, `Persistent ER/IR not set` | L |
@@ -510,7 +510,7 @@ The labels, the server-shared secret and the `PairingSession` GCM envelope indic
 - Bonding and link-key storage are provided by `bthost_link_key_db_tlv` (`0x0C04AB90`..`0x0C04AEF8`, `put/get/delete_link_key`) and `le_device_db_tlv` (`0x0C04ECC0`..`0x0C04F034`). Both sit on a flash TLV store whose vtable is at `0x0C07FFFC` (three function pointers: `0x0C048DED`, `0x0C048CAD`, `0x0C048B71`, followed by text). The backing device for that vtable was not identified (M).
 - SM strings show that LE Secure Connections and legacy pairing both exist: `Persistent ER not set with sm_set_er. Legacy Pairing LTK is not secure`, `Persistent IR not set with sm_set_ir`, `sm_sc_cmac_done in state %u`, `Please configure bthost_tlv to let BThost setup ER and IR keys`. The SM code was not recovered as functions (L).
 - Controller-side key storage: `ble_ctrl_store_keys_and_addrs` (`0x0C04F0C8`), `ble_ctrl_clear_pairing_flags` (`0x0C04F0A4`), `ble_ctrl_set_key_dist_flags` (`0x0C04F848`).
-- Clearing: the VCU command (src 0x16, cmd 0x16, index 0x66) clears pairing info. A debug command, `clear user bond info`, is in the NBOS path.
+- Clearing: the VCU command (src 0x16, cmd 0x66) clears pairing info (`ble_clear_pairinfo ack`). A string `clear user bond info` (`0x0C07F130`) exists for a debug path whose caller was not traced.
 - ATT persistent CCCDs: `att_is_persistent_ccc` (`0x0C04DD40`).
 
 ### 6.9 Where persistent key material lives
@@ -518,7 +518,7 @@ The labels, the server-shared secret and the `PairingSession` GCM envelope indic
 | Location | Content (inferred unless noted) | Evidence |
 |---|---|---|
 | RAM `0x20004980` (16 B) | Vehicle SN (plain). | `FUN_0c05c888`. |
-| RAM `0x20008FE4` (3 × 17 B, persisted as 474 B) | Password candidate table. | `FUN_0c02be44`, `FUN_0c05b0a8`. |
+| RAM `0x20008FE4` (start of a 474-byte block) | Password candidate records (first 3 × 17 bytes) and other config. Persisted to partition 2. | `FUN_0c02be44`, `FUN_0c05b0a8`. |
 | RAM `0x20009404`..`0x20009430` | SN-derived block and SHA-1 contexts. | `FUN_0c02bdd0`. |
 | RAM `0x200093F4` (16 B) | Seed (libc `rand()`, §6.10). | `FUN_0c05b5c0`. |
 | RAM `0x20009450` (16 B) | Active password. | `cmd crypto set password`. |
@@ -567,7 +567,7 @@ These are design observations for review. They are not exploit steps.
 ### 7.1 Entry
 
 - Upgrade frames are standard frames with DEST 0x04, 0x0D, 0x0E or 0x0F and CMD 0x07 to 0x0A (table B, §4.3). They are handled by `FUN_0c0285ec` (IAP receiver, 2172 bytes).
-- Phone-side entry is through the BLE registry (CMD 0x07 to 0x0A, `FUN_0c02a724`, §4.5). Confidence M.
+- Phone-side commands CMD 0x07 to 0x0A are routed through the BLE registry to `FUN_0c02a724` (§4.5). That routine was not recovered by Ghidra, so its upgrade role is unconfirmed (L).
 - The NBOS shell offers `reboot -u` (reboot into the bootloader) and `download application with ymodem/zmodem` (`0x0C084858`).
 
 ### 7.2 Accepted image formats
@@ -631,14 +631,14 @@ After a successful update the firmware logs `upgrade system reboot`. The fatal p
 ### 9.1 Entry points
 
 - UART table A (SRC 0x3D, DEST 0x23), CMD 0x42 → `FUN_0c02c49c` (1506 bytes). Strings in it: `set PORT_GPIO(0, 0) failed`, `ble tx test v2: tx_freq, test_data_len, pkt_payload, phy`, `ble rx test v2`, `bt vco test start`, `bt vco test stop`, `duplicate factory test mode`, `wr ble adv id`, `wr BT100_UART_BAUDRATE`, `set rf test finished flag`.
-- CMD 0x41 → `FUN_0c02cca8` (840 bytes), `index error`. CMD 0x01, 0x02, 0x7E → `FUN_0c02d128`, `FUN_0c02d16c`, `FUN_0c02d1b0`, which call `FUN_0c02d358` (`d1x single uart test successed` and `cmd or index failed`).
+- CMD 0x41 → `FUN_0c02cca8` (840 bytes), `index error`. CMD 0x01 and 0x02 → `FUN_0c02d128` and `FUN_0c02d16c`, which wrap the FMNA status routine `FUN_0c02a8f8`. CMD 0x7E → `FUN_0c02d1b0`, which wraps `FUN_0c02b264`. The single-UART test `FUN_0c02d358` (strings `d1x single uart test successed` and `cmd or index failed`) has no direct caller in this pass (L).
 - Factory task `factory_test_task` (§2.2). The init path `factory test init done`.
 - NBOS path: `bt_factory_test`, `bt no signal test end`, `le tx test result`, `bt_xtal_calibration mode[0], tx_freq[39], power level[4]`, `set calibration value`, `enter test mode`, `enter signal test mode`, `exit test mode`, `ble data send test, tx period`, `vco test start:channel`.
 
 ### 9.2 Implementation
 
 - Non-signalling TX test: `app_testmode_bt_nonsig_tx` (`FUN_0c0469a0`).
-- Crystal calibration: `app_factorymode_bt_xtalcalib_proc` (`0x0C076970`). Stored capacitance value written to nv (`success set value to nv`). Default value logged as `calib default, capval`.
+- Crystal calibration: a routine named `app_factorymode_bt_xtalcalib_proc` (name string at `0x0C076970`; address not recovered). Stored capacitance value written to nv (`success set value to nv`). Default value logged as `calib default, capval`.
 - VCO test: `bt_drv_vco_test_start` (`FUN_0c03dfac`) writes `(channel & 0x7F) | 0xA0000` to RF register `0xD0220C00`. `bt_drv_vco_test_stop` (`FUN_0c03dff4`) writes 0 there.
 - RF test HCI capture: `rf_test_hci_cmd_complete_h` (`FUN_0c0468b4`) copies return parameters of RF-test HCI Command Complete events into globals.
 - Counters: `final ble test cnt`, `final bt test result cnt` (`FUN_0c046c50`, `FUN_0c046b18`).
