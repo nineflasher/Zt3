@@ -1,0 +1,11 @@
+{
+  "vcu_g_0159_20001feb": {
+    "name": "exint_pa1_boot_level",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["VCU_0159", "0x20001feb"],
+    "category": "exint",
+    "description": "Boot-time level of PA1 (GPIOA pin 1), stored as 0 or 1. It is written once by vcu_exint14_pb14_init from the result of the function at 0x08007A9C, which returns 1 when PA1 reads high and 0 otherwise. Probably a hardware variant strap read at power-up (the packet shows no other source). Readers: vcu_sensor_limit_derate_eval and vcu_panel_key_report_telemetry_tick. When it is 1 they scale the three sensor words by 1/15 instead of 1/14, and vcu_sensor_limit_derate_eval uses an upper limit of 220 instead of 215. No other writer appears in this packet, so the value holds from boot until the next reset."
+  }
+}

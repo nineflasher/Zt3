@@ -1,0 +1,469 @@
+{
+  "ble_219_0c046e84": {
+    "name": "ble_thunk_sbrk",
+    "summary": "Thunk to the newlib _sbrk heap-growth routine at 0x0C046E04",
+    "description": "Single-instruction branch to 0x0C046E04 (Ghidra shows the target as thunk_FUN_0c046e04); the decompiled body in the packet is that target. The target grows the heap break DAT_20003F94 by param_1 bytes, provided the new break plus DAT_2000F4C4 stays below the stack limit 0x2007EF01, and updates DAT_20003F98 (remaining heap) and DAT_2000F4C8 (total bytes taken). The update runs between vTaskSuspendAll and xTaskResumeAll. When the heap is exhausted it sets errno to ENOMEM, logs 'sbrk failed' with the increment, calls 0x0C046D50, waits 1000 ms with vTaskDelay and returns -1.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "bytes to add to the heap break"}
+    ],
+    "returns": {"type": "ptr", "description": "previous heap break on success, -1 when the heap is exhausted"},
+    "confidence": "medium",
+    "notes": "The entry is a single branch, so the logic lives at 0x0C046E04. The _sbrk name depends on that target being named consistently in its own packet."
+  },
+  "ble_219_0c046ee0": {
+    "name": "ble_thunk_malloc",
+    "summary": "Thunk to malloc: allocates a heap block through _malloc_r with the global reent pointer",
+    "description": "Single-instruction branch to 0x0C07097C (Ghidra thunk_FUN_0c07097c); the packet body is that target. The target calls FUN_0c071080 (newlib _malloc_r) with DAT_200049A8 as the reentrancy structure and the requested byte count. nb_upgrade_image_parse uses it for each block buffer (DAT_2000F650) and frees the previous one through ble_thunk_free.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "requested size in bytes"}
+    ],
+    "returns": {"type": "ptr", "description": "allocated block, or NULL when the heap is exhausted"},
+    "confidence": "medium",
+    "notes": "The malloc identity is inferred from the pairing with 0x0C07098C (free) and the byte-count arguments; no library symbol confirms it. The decompiled thunk is typed void, so the return type comes from the target's use."
+  },
+  "ble_219_0c046ee4": {
+    "name": "ble_thunk_free",
+    "summary": "Thunk to free: releases a heap block through _free_r with the global reent pointer",
+    "description": "Single-instruction branch to 0x0C07098C (Ghidra thunk_FUN_0c07098c); the packet body is that target. It calls FUN_0c070F40 (newlib _free_r) with DAT_200049A8 and the block pointer. It pairs with ble_thunk_malloc: nb_upgrade_image_parse releases the previous block buffer DAT_2000F650 through it, and fd_driver_open_finalize and fd_close release their open-file objects through it. A NULL pointer is harmless in newlib free.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "block returned by ble_thunk_malloc, or NULL"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Same identity caveat as ble_thunk_malloc."
+  },
+  "ble_219_0c046f0c": {
+    "name": "isr_unexpected_irq_handler",
+    "summary": "Catch-all for unexpected IRQ75: log the exception number and return",
+    "description": "Vector slot for IRQ75 (exception 91). The body is the generic default handler: it reads SCB->ICSR (DAT_E000ED04), takes the active exception number from its low byte, subtracts 16 to get the IRQ number, and prints 'Unexpected interrupt %d occur' through the trace log at 0x0C035D0C. It does not mask the interrupt or halt, so a level-triggered source that stays pending will re-enter the handler. The fault-dumping default handler is a separate function at 0x0C035F90.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The packet labels the vector IRQ75_Handler and the body Default_Handler. The name here is distinct because the body differs from the Default_Handler at 0x0C035F90."
+  },
+  "ble_219_0c046fb0": {
+    "name": "nb_upgrade_open_target",
+    "summary": "Open the upgrade target, read its erase and page geometry, rewind and keep it open",
+    "description": "Opens the device path param_1 with open(path, 0) through 0x0C071A94; a path that fails to open logs 'Can't open %s' and returns -6. On success it issues command 0x100 on the descriptor through 0x0C0484B4 with param_2 as the output buffer, which receives the two words later stored as DAT_2000F600 (erase-block size) and DAT_2000F604 (write chunk size). It then rewinds with lseek(fd, 0, SEEK_SET) through 0x0C071A80 and returns the descriptor. If the geometry command fails, the negative status is returned without closing the descriptor, so that descriptor leaks.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "NUL-terminated device path, for example /dev/pflash"},
+      {"name": "param_2", "type": "ptr", "description": "output buffer for the geometry words (DAT_2000F600 and DAT_2000F604 when called from nb_upgrade_begin)"}
+    ],
+    "returns": {"type": "s32", "description": "open descriptor on success, -6 when open fails, or the negative geometry-command status"},
+    "confidence": "medium",
+    "notes": "Descriptor leak on the geometry-failure path (no close before returning the negative status). The meaning of command 0x100 and the two output words is inferred from how nb_upgrade_write_buffered uses DAT_2000F600 and DAT_2000F604. 0x0C0484B4 is named _close in wave2_batch06, but here it is called with command codes 0x100, 0x101 and 0x110 and looks like an ioctl dispatch. That name should be reviewed in its own packet."
+  },
+  "ble_219_0c047184": {
+    "name": "nb_upgrade_write_buffered",
+    "summary": "Write upgrade data in page-sized chunks, erase on block boundaries, pad the final tail with 0xFF",
+    "description": "Writes param_2 bytes from param_1 to the open upgrade descriptor DAT_2000F5FC in DAT_2000F604-byte chunks. Before writing, it reads the device position with lseek(fd, 0, SEEK_CUR) through 0x0C071A80. When that position is a multiple of the erase size DAT_2000F600, it issues command 0x110 on the descriptor (through 0x0C0484B4) before the chunk, so the block is prepared first. When param_3 is nonzero (final flush), the trailing partial chunk is copied to a stack buffer, padded with 0xFF to a full chunk and written, so the device always receives whole pages. It returns the number of input bytes handled, or param_2 after a flushed tail.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "image bytes to write"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes to write"},
+      {"name": "param_3", "type": "s32", "description": "nonzero to flush and pad the final partial chunk"}
+    ],
+    "returns": {"type": "u32", "description": "bytes handled from param_1"},
+    "confidence": "medium",
+    "notes": "The position and chunk arithmetic was only partly traced, so the exact return value on error paths is uncertain. Command 0x110 is taken to prepare a block (erase); this is an inference. The offset check on DAT_2000F600 is clear from the code."
+  },
+  "ble_219_0c047274": {
+    "name": "nb_upgrade_image_parse",
+    "summary": "Resumable parser for the firmware image stream: 0x30-byte records, CRC-checked blocks, format tags",
+    "description": "A resumable state machine: each step stores its continuation in DAT_2000F60C and returns to the caller, which feeds the next bytes. It consumes 0x30-byte records. The tag 0x704F6C46 ('FlOp' in memory) copies 48 bytes of header into DAT_2000F614 onward, and the block's CRC is checked with crc32_reflected_table (0x0C0476A0) over DAT_2000F620 bytes against DAT_2000F624. Each block is copied into a buffer from ble_thunk_malloc, its two words are read as start and end offsets (DAT_2000F654 and DAT_2000F658), command 0x101 is issued on the descriptor, and the state moves to the raw writer. The tags 0x43506462 ('bdPC') and 0x55327A62 ('bz2U') install a pair of handlers in DAT_2000F60C and DAT_2000F610 and end the parse, and any other data is passed to nb_upgrade_write_buffered (0x0C047184).",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "image stream bytes"},
+      {"name": "param_2", "type": "s32", "description": "bytes remaining in the stream"},
+      {"name": "param_3", "type": "u32", "description": "flush flag forwarded to nb_upgrade_write_buffered"}
+    ],
+    "returns": {"type": "s32", "description": "bytes consumed from the stream, or 0 when a CRC check fails"},
+    "confidence": "low",
+    "notes": "Lowest-confidence entry of this packet. Tag meanings come from their ASCII bytes and the handler pairs. The 'bz2U' tag suggests a bzip2-style payload, which is not verified. The block-buffer layout and the offset words are inferred. Callees 0x0C0476A0, 0x0C07097C and 0x0C0484B4 are named elsewhere."
+  },
+  "ble_219_0c0474b0": {
+    "name": "nb_upgrade_begin",
+    "summary": "Start a firmware upgrade: notify, open the target, pick the parser state from the image name",
+    "description": "Stores 0 in DAT_2000F644 and the expected total size in DAT_2000F648, then calls the progress log in slot 0 of the callback table at DAT_2000F64C ('Begin application update.') and slot 1 with 0. It opens the target with nb_upgrade_open_target, using param_3 or /dev/pflash when param_3 is NULL, and stores the descriptor in DAT_2000F5FC. It reports 'Receiving firmware...' and, if the image name in param_1 is not exactly 'pflash.mImage' but is longer than 8 characters and ends in '.mImage', sets the state to LAB_0C047268 (the streaming parser). Otherwise the state becomes LAB_0C0473EC. It returns 0, or the negative open status.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "image name, checked against 'pflash.mImage' and the '.mImage' suffix"},
+      {"name": "param_2", "type": "u32", "description": "expected total size, stored in DAT_2000F648"},
+      {"name": "param_3", "type": "ptr", "description": "device path, or NULL for /dev/pflash"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, otherwise the negative status from opening the target"},
+    "confidence": "medium",
+    "notes": "The state constant LAB_0C0473EC is the raw writer state, and its role is inferred from the code that sets it after each block. The string checks are read directly from the code."
+  },
+  "ble_219_0c047554": {
+    "name": "nb_upgrade_seek",
+    "summary": "Record the upgrade write offset and seek the open target to it",
+    "description": "Stores param_1 in DAT_2000F644 as the current upgrade offset. If the target descriptor DAT_2000F5FC is open (positive), it calls lseek(fd, offset, SEEK_SET) through 0x0C071A80 and returns the new position. With no open target it returns -5 (0xFFFFFFFB).",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "absolute byte offset in the target"}
+    ],
+    "returns": {"type": "s32", "description": "new position from lseek, or -5 when no target is open"},
+    "confidence": "high"
+  },
+  "ble_219_0c0475d4": {
+    "name": "nb_upgrade_end",
+    "summary": "Finish an upgrade: run the finish hook, close the target, clear the 80-byte upgrade state",
+    "description": "Logs 'Receive firmware done.' through the callback table at DAT_2000F64C. If the finish hook DAT_2000F610 is installed it is called with param_1 and its result becomes the return value, otherwise the return value is 0. The target is then queried with lseek(fd, 0, -1), which is a position query whose result is unused, closed through 0x0C071A60, and the 80-byte block starting at DAT_2000F5FC is zeroed with memset. It finally logs 'Update firmware done.'.",
+    "category": "upgrade",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "argument passed to the finish hook"}
+    ],
+    "returns": {"type": "u32", "description": "result of the finish hook, or 0 when none is installed"},
+    "confidence": "high",
+    "notes": "The 80-byte zeroing starts at DAT_2000F5FC and covers the descriptor, geometry words, parser state and the seek offset (DAT_2000F644). The meaning of the lseek(fd, 0, -1) query follows fd_lseek and is inferred."
+  },
+  "ble_219_0c047f48": {
+    "name": "util_bytes16_to_hex",
+    "summary": "Format 16 bytes as 32 lowercase hex characters with a NUL terminator",
+    "description": "Loops over 16 input bytes at param_1 and writes each as two lowercase hex digits with snprintf(dst, 33, '%02x') through 0x0C071570. Each call writes two characters and a NUL at the write position, and the next call overwrites that NUL, so the result is a 32-character string terminated at param_2[32]. param_3 and param_4 are not used by the body; param_4 is passed through as a stray variadic argument to snprintf.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16 input bytes"},
+      {"name": "param_2", "type": "ptr", "description": "output buffer, at least 33 bytes"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused, passed as an extra snprintf argument"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "No caller is in this packet. It is probably used to print 16-byte identifiers or keys as text."
+  },
+  "ble_219_0c047fec": {
+    "name": "app_system_init",
+    "summary": "One-time BLE application bring-up: init sub-systems, start the command task, create the init task",
+    "description": "Runs the bring-up sequence for the BLE application: 0x0C0459D4(0), 0x0C035D30(), 0x0C041D50(), ble_clock_realtime_offset_update(1) to reset the realtime offset, 0x0C036394(1), 0x0C0459FC(), app_process_cmd_task_start (0x0C0354E8), and 0x0C0286E0(). It then creates the FreeRTOS task named 'init' at entry 0x0C047F8C with stack depth 0x400 and priority 5 through 0x0C043D3C, calls 0x0C043E70(), and returns 0. The task entry at 0x0C047F8C is not in this packet.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The 0x0C043D3C call is identified as a task-create call from its arguments (name string, depth, priority). The meaning of the calls to 0x0C0459D4, 0x0C036394 and 0x0C043E70 is not clear from this packet."
+  },
+  "ble_219_0c048040": {
+    "name": "fd_dump_open_files",
+    "summary": "Print the open-file table: slot index, /dev name, flags O_NONBLOCK and O_POLL",
+    "description": "Signals command completion through app_cmd_complete_signal (0x0C0354CC), then prints 'opened file information:' and walks the 46-slot open-file table from DAT_2000F6D8 (slot i corresponds to fd i+3). For each occupied slot it prints the slot index as %.2d, then the device name as '/dev/%s%d' using the class table at DAT_0C073E40 and DAT_0C073E78, or '<noname>' when no class matches. It appends ' O_NONBLOCK' when bit 14 of the flags is set and ' O_POLL' when bit 2 is set, then ends the line. It takes no locks, so the listing can disagree with concurrent opens or closes.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Bit 2 is labelled O_POLL in this libc; that label comes from the string and is not checked against a header. The table layout follows fd_open_device."
+  },
+  "ble_219_0c048138": {
+    "name": "fd_alloc_slot",
+    "summary": "Reserve a free file-descriptor slot under the fd mutex and allocate its open-file object",
+    "description": "Takes the fd mutex DAT_2000F680 (created on first use with prvInitialiseMutex, 100-tick timeout) and searches the open-file table. Normal opens (param_3 zero) search slots 14..45, which are fds 17..48, and poll opens (param_3 nonzero) search slots 0..13, which are fds 3..16. For the first free slot it writes the fd to *param_1, allocates an object of param_2 + 0x14 bytes with FUN_0C0701E8(1, size), stores it in the table, writes the slot index into obj+8 and points obj+0x10 just past its 0x14-byte header. The mutex is released in every path. When no slot or allocation is available it logs 'file_descript%s full' with '(poll)' for poll opens and returns NULL.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "receives the new fd"},
+      {"name": "param_2", "type": "u32", "description": "payload size requested for the open-file object"},
+      {"name": "param_3", "type": "u32", "description": "poll flag: nonzero selects slots 0..13"},
+      {"name": "param_4", "type": "u32", "description": "passed to mutex creation on first use"}
+    ],
+    "returns": {"type": "ptr", "description": "new open-file object, or NULL when no slot or allocation is available"},
+    "confidence": "high",
+    "notes": "The object layout (ops at +0, wait object at +4, slot index at +8, reference byte at +9, flags at +0xA, offset at +0xC) is taken from the callers in this packet."
+  },
+  "ble_219_0c048204": {
+    "name": "fd_driver_open_finalize",
+    "summary": "Run the driver open hook for a new fd; on failure free the object and release its slot",
+    "description": "If the driver open hook param_1 is non-NULL it is called with the open-file object param_2. A result of zero or more keeps the open and returns the fd in param_3. A negative result frees the object through ble_thunk_free, takes the fd mutex DAT_2000F680, clears table slot param_3-3, releases the mutex and returns the driver's negative error. With a NULL hook the function returns param_3 directly.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "driver open hook, called as hook(obj), or NULL"},
+      {"name": "param_2", "type": "ptr", "description": "open-file object"},
+      {"name": "param_3", "type": "s32", "description": "fd being opened"},
+      {"name": "param_4", "type": "u32", "description": "passed to the mutex release"}
+    ],
+    "returns": {"type": "s32", "description": "fd on success, or the driver's negative open error"},
+    "confidence": "high"
+  },
+  "ble_219_0c0482e4": {
+    "name": "fd_close",
+    "summary": "close(fd): drop a dup reference, or run the driver close hook and free the slot",
+    "description": "A descriptor below 3 returns 0 with no action. Otherwise slot fd-3 must be below 46 and occupied, or the call sets errno to EBADF and returns -1. A nonzero reference byte at object+9 is decremented and the call returns 0, which handles dup'd descriptors. Otherwise the driver close hook at ops+0x18 is called with the object, and the wait object at +4 is signalled or destroyed through 0x0C043358 when present. A nonzero hook result returns 0 and leaves the slot allocated. A zero result frees the object through ble_thunk_free, clears the slot under the fd mutex and returns 0.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "passed to the mutex release"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, or -1 with errno EBADF for a bad descriptor"},
+    "confidence": "high",
+    "notes": "A nonzero hook result returns 0 without freeing the slot. That path looks like a deferred close, and it is not confirmed which driver returns nonzero."
+  },
+  "ble_219_0c048380": {
+    "name": "fd_lseek",
+    "summary": "lseek on an fd: SET or CUR on the object or its driver hook; whence -1 queries the position",
+    "description": "fd 0..2 return 0. Otherwise the slot is validated as in fd_close (EBADF on failure), and the object's recursive lock at +4 is taken with xQueueTakeMutexRecursive (created with 0x0C042E44 on first use, indefinite wait). If the driver seek hook at ops+0x14 is present it is called as hook(obj, offset, whence) and its result is returned. Without a hook, whence 0 (SEEK_SET) sets the position at +0xC to the offset, whence 1 (SEEK_CUR) adds it, and both return the new position. whence -1 returns the current position at +0xC and gives the lock back with rtos_mutex_give_checked (0x0C042E20).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "file descriptor"},
+      {"name": "param_2", "type": "s32", "description": "offset"},
+      {"name": "param_3", "type": "s32", "description": "whence: 0 SET, 1 CUR, -1 query current position"}
+    ],
+    "returns": {"type": "s32", "description": "new position, the driver hook result, 0 for fd 0..2, or -1 with errno EBADF"},
+    "confidence": "medium",
+    "notes": "Possible lock leak. On the no-hook SET and CUR paths, and on the no-hook fallback, the code returns after taking the recursive lock without a matching give. Check whether the lock is released elsewhere before relying on this path."
+  },
+  "ble_219_0c04855c": {
+    "name": "fd_open_device",
+    "summary": "open('/dev/<class><unit>'): match the device class, reuse or allocate an fd, run the open hook",
+    "description": "The path must begin with '/dev/', otherwise the call logs 'Open: %s unrealized' and returns -2. It splits the rest into a class name and a decimal unit, matches the class against the device tables at DAT_0C073E78 and DAT_0C073E40 with strncmp, and converts the unit with atol (0x0C0701E0). If an open object for the same class and unit already exists, it checks that the flags match (otherwise logs 'Unsupport: /dev/%s%d reopen with different flags'), increments its reference byte at +9 and returns that fd. Otherwise it allocates a slot with fd_alloc_slot (poll flag from bit 2 of param_2), records the class, unit and flags, and runs the driver open hook through fd_driver_open_finalize. Failure logs 'Can't open %s' and returns -1 or the hook's error.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "device path beginning with /dev/"},
+      {"name": "param_2", "type": "u32", "description": "open flags: bit 2 selects poll slots, bit 14 is O_NONBLOCK, stored at object+0xA"}
+    ],
+    "returns": {"type": "s32", "description": "fd (3 or more) on success, -2 for a path without /dev/, or -1 or the hook error on failure"},
+    "confidence": "medium",
+    "notes": "The two-table class lookup and the unit handling were traced only partly. The duplicated code for the two tables is not fully resolved, so the exact class-table fields are inferred."
+  },
+  "ble_219_0c0493d4": {
+    "name": "ble_crypto_ccm_seal_frame",
+    "summary": "Encrypt and authenticate an outgoing frame: 3-byte header, CCM-style payload, 4-byte MIC, 2-byte counter",
+    "description": "The context holds pointers to two 16-byte keys at +0x00 and +0x04, which ble_sha1_mix_pair16 mixes into a session key; an 8-byte IV at +0x08; and the transmit counter at +0x18, which is incremented for each frame. The 3-byte header is copied through unchanged. With a nonzero counter, the payload is encrypted in 16-byte CCM counter-mode blocks (flags 0x01, the counter, the IV and a block index), and a 4-byte CBC-MAC over the header and plaintext (ble_crypto_ccm_cbc_mac) is XORed with keystream block 0. The output layout is header(3) | ciphertext | MIC(4) | counter(2, big-endian). With a counter of zero, the payload is XORed with AES of one fixed constant block for every 16-byte chunk, and the trailer carries a 16-bit one's-complement sum of the plaintext instead of a MIC.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "crypto context: key pointers, IV, transmit counter"},
+      {"name": "param_2", "type": "ptr", "description": "input frame: 3-byte header then plaintext"},
+      {"name": "param_3", "type": "s32", "description": "input frame length including the header"},
+      {"name": "param_4", "type": "ptr", "description": "output frame buffer"}
+    ],
+    "returns": {"type": "u32", "description": "output frame length, truncated to 8 bits by the code"},
+    "confidence": "medium",
+    "notes": "Security concern (medium confidence): in the zero-counter path the keystream is AES of the same constant block for every 16-byte chunk, so the keystream repeats across chunks and frames. The integrity check there is an unkeyed 16-bit sum. Check whether any pairing or connection state can produce a zero counter."
+  },
+  "ble_219_0c0496a8": {
+    "name": "ble_crypto_ccm_open_frame",
+    "summary": "Verify and decrypt a received CCM-style frame, accepting only a counter above the last one",
+    "description": "Inverse of ble_crypto_ccm_seal_frame with the same context; +0x18 holds the last accepted receive counter. It reads the 2-byte big-endian counter from the last two bytes of the frame and handles the 16-bit wrap. A counter above the stored value decrypts the payload, recomputes the 4-byte CBC-MAC, and compares it with the decrypted trailer. The stored counter advances only when the MIC matches. A counter not above the stored value is rejected with a result of 2, which reads as true. A counter of zero takes a separate path: the payload is decrypted with the same constant-block keystream and only the 16-bit sum in the trailer is checked, with no MIC. The header and decrypted payload go to param_4 and the payload length to *param_5.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "crypto context: key pointers, IV, last accepted counter"},
+      {"name": "param_2", "type": "ptr", "description": "received frame"},
+      {"name": "param_3", "type": "s32", "description": "received frame length"},
+      {"name": "param_4", "type": "ptr", "description": "output buffer for header and plaintext"},
+      {"name": "param_5", "type": "ptr", "description": "receives the payload length"}
+    ],
+    "returns": {"type": "bool", "description": "false on accept, true on reject (MIC or checksum mismatch, or replayed counter)"},
+    "confidence": "medium",
+    "notes": "Security concern (medium confidence): a frame whose trailing counter is zero is accepted on an unkeyed 16-bit checksum with no MIC. Because the keystream is the same for every chunk, one known plaintext would reveal it. Confirm whether the caller filters counter zero before relying on this function."
+  },
+  "ble_219_0c04bc2c": {
+    "name": "hid_device_request_can_send_now_event",
+    "summary": "BTstack hid_device_request_can_send_now_event: send now if the HID channel is ready",
+    "description": "BTstack-named function; its log strings come from hid_device.c. If channel param_1 equals the stored HID channel DAT_2000FA10 and the channel object DAT_2000FA1C is set, it calls the readiness probe 0x0C06ED64. A zero result means ready, and if the pending-request flag DAT_2000FA28 is set the function calls 0x0C06EBEC(channel) to request the can-send-now event, returning its result; otherwise it returns 0. A nonzero probe result is logged as 'l2cap_send faild, ret = [0x%02x]' and returned. A channel mismatch is logged as 'hid device is null' and returns 2.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "HID channel id"}
+    ],
+    "returns": {"type": "s32", "description": "0 when the request was made or the channel is ready, the probe error code, or 2 for an unknown channel"},
+    "confidence": "medium",
+    "notes": "0x0C06C138 (the log routine, named ble_hook_invoke_indexed by wave1) is the trace logger. 0x0C06ED64 and 0x0C06EBEC are not described here, so their roles are inferred from the BTstack call pattern."
+  },
+  "ble_219_0c04de00": {
+    "name": "ble_ctrl_le_acl_event_dispatch",
+    "summary": "Dispatch LE ACL events to one of two ping-pong handler slots and drain pending sends",
+    "description": "Two handler slots sit 8 bytes apart at 0x2000FCD4 (function pointer) and 0x2000FCD8 (pending byte), and DAT_2000FCD0 selects which slot is served first. Event 4 with frame byte 0x79 clears the busy flag DAT_2000FCD1 and visits both slots: a slot that has a handler and a pending byte has the byte cleared, its handler is called with event 4, and the selector is toggled. After each call, if ble_ctrl_can_send_le_acl reports no free LE slot, control goes to the exit path, which posts another class-4 event through 0x0C06D580 when work remains. Event 8 selects the slot from the first byte of the frame: slot 0 when bit 0 is clear, otherwise slot 1 when (byte & 0x3F) is below 0x24 and slot 0 when not. It calls that slot's handler with event 8. Other events are ignored.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "event number: 4 (tx ready) or 8 (received frame)"},
+      {"name": "param_2", "type": "u32", "description": "event argument, passed through to the handler"},
+      {"name": "param_3", "type": "ptr", "description": "frame bytes"},
+      {"name": "param_4", "type": "u32", "description": "passed through to the handler"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The two-slot pairing is inferred from the 8-byte stride and the toggle. The exit-path conditions that decide whether to post were only partly traced."
+  },
+  "ble_219_0c04defc": {
+    "name": "ble_ctrl_le_acl_request_send",
+    "summary": "Mark LE ACL slot 0 pending and post a class-4 event unless the dispatcher is already busy",
+    "description": "Sets the pending byte of slot 0 at 0x2000FCD8. If the busy flag DAT_2000FCD1 is already set it returns, because the running dispatcher will reach the slot. Otherwise it sets busy and posts a class-4 event through 0x0C06D580 with the caller's argument (typically a connection handle), so ble_ctrl_le_acl_event_dispatch runs. The ATT and link paths in this packet call it after queuing a packet.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "argument for the posted event, typically a connection handle"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c04e398": {
+    "name": "ble_host_att_event_dispatch",
+    "summary": "ATT server dispatcher: tick passes over connections, and inbound ATT PDU handling per connection",
+    "description": "Event 4 with frame byte 0x79 is a scheduler tick. It walks the connection list with the BTstack removal-safe iterator in three passes (cVar10 = 0, 1, 2). In pass 0, a connection in state 3 (request ready at +0x1EC) has its buffered PDU (+0x216, length at +0x214) run through att_server_handle_request (0x0C04CEB8) into a reserved HCI buffer, and the response is committed. In passes 1 and 2, queued send items on the lists at +0x210 and +0x20C are invoked through their handler at +4 with the argument at +8 when the connection is ready. Event 8 handles an inbound PDU for a connection found by handle: an opcode byte 0x1E (Handle Value Confirmation) clears the pending indication at +0x1FA and its 30-second timer, then reports through ble_range_notify(0, handle, length), and opcode 0x52 (Write Command) goes straight to att_server_handle_request. Other PDUs are copied into the buffer at +0x216, marked state 1, and promoted to state 3 when ble_host_op_allowed passes, after which ble_ctrl_le_acl_request_send is called.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "event: 4 scheduler tick, 8 inbound PDU"},
+      {"name": "param_2", "type": "u32", "description": "connection handle for event 8"},
+      {"name": "param_3", "type": "ptr", "description": "PDU bytes (event 8) or the tick marker (event 4)"},
+      {"name": "param_4", "type": "u32", "description": "PDU length"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "300-instruction dispatcher, traced at the level of its passes and opcodes rather than every branch. The state numbering (1 received, 3 ready) and the list roles at +0x20C and +0x210 are inferred. Opcode 0x1E and the 30-second timer are checked against ble_host_att_send_indication."
+  },
+  "ble_219_0c04e702": {
+    "name": "ble_host_link_event_dispatch",
+    "summary": "Dispatch link and HCI events by type byte: connect, disconnect, ATT hooks and state notices",
+    "description": "Switches on the event type byte in param_3[0]; values above 0xD5 are ignored. Type 0x05 (Disconnection Complete) reads the handle at offset 3, clears the connection's state, flags and pending timer, fails any pending indication with 0x92 through ble_range_notify, and broadcasts a 4-byte 0xB4 frame with the handle through ble_range_broadcast. Type 0x3E with subevent 1 (LE Connection Complete) reads the handle at offset param_1 and fills the connection record: role, the peer address copied in reverse with co_reverse_copy_6, default MTU 0x17, and a data length from ble_ctrl_get_data_len_or_default, capped at 0xFF. It then broadcasts a 0xB3 frame. Types 0x08, 0x30 and 0x59 need the connection's address class to be 3, and copy per-connection attributes and call hook entries tagged 0x42544300 plus index for up to 20 indices. Types 0xC8 to 0xD5 toggle the hold and busy bytes at +0x1F8 and +0x1F9 and call matching hook entries, and they end by calling ble_ctrl_le_acl_request_send when the state allows.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "offset of the connection handle inside the message (4 for LE meta events)"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "ptr", "description": "event message: type byte, length, payload"},
+      {"name": "param_4", "type": "u32", "description": "message length for broadcasts"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Large dispatcher traced by its main branches. The meanings of the 0xC8 to 0xD5 type codes and of the hook tag scheme are inferred. Type 0xD5 also appears as an outbound frame in ble_link_notify_local_ext, which suggests the code loops its own notifications back in."
+  },
+  "ble_219_0c04eb8c": {
+    "name": "ble_host_att_queue_send",
+    "summary": "Queue a send item on a connection's ATT list and kick the LE ACL sender",
+    "description": "Looks up the connection for handle param_2 with ble_ctrl_conn_find_by_handle. If none exists it returns 2. Otherwise it appends the node param_1 to the connection's pending list at +0x20C with btstack_linked_list_add_tail_impl (0x0C065416), calls ble_ctrl_le_acl_request_send for the handle, and returns 0 when the add succeeded or 0x0C when the list reports failure.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "list node: handler at +4, argument at +8"},
+      {"name": "param_2", "type": "u32", "description": "connection handle"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 2 when there is no connection, 0x0C when the add fails"},
+    "confidence": "high",
+    "notes": "The add routine returns zero when the node is already queued, so the 0x0C result may also mean a duplicate."
+  },
+  "ble_219_0c04ebc0": {
+    "name": "ble_host_att_send_notification",
+    "summary": "Send an ATT Handle Value Notification for a connection through a reserved HCI buffer",
+    "description": "Finds the connection for handle param_1 and returns 2 when none exists. It then calls att_event_forward_class4 (0x0C04DEF0), and when that does not accept the event it returns 0x57. Otherwise it reserves an HCI packet buffer (0x0C066BE8), gets its address from ll_env_get_u32_68_plus8, builds the 0x1B notification with att_prepare_handle_value_notification (0x0C04CE50) from the connection handle, attribute handle, value and length, commits it through 0x0C06D5DC, and returns that commit result.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "connection handle"},
+      {"name": "param_2", "type": "u32", "description": "attribute handle"},
+      {"name": "param_3", "type": "ptr", "description": "value bytes"},
+      {"name": "param_4", "type": "u32", "description": "value length"}
+    ],
+    "returns": {"type": "u32", "description": "commit result, 2 when there is no connection, or 0x57 when the class-4 hook refuses"},
+    "confidence": "medium",
+    "notes": "The decompile calls the connection lookup without an argument, so param_1 is taken from the lookup's use of r0. The meaning of the 0x57 result is taken from the code path."
+  },
+  "ble_219_0c04ec18": {
+    "name": "ble_host_att_send_indication",
+    "summary": "Start an ATT Handle Value Indication with a 30-second confirmation timer",
+    "description": "Returns 2 when the connection does not exist. If an indication is already in flight (nonzero pending handle at +0x1FA), it logs ATT_HANDLE_VALUE_INDICATION_IN_PROGRESS and returns 0x90. Otherwise it stores the attribute handle at +0x1FA, initialises the timer object at +0x1FC with expiry callback 0x0C04E374, and starts it for 30000 ms. It reserves an HCI buffer and builds the 0x1D indication with att_prepare_handle_value_indication (0x0C04CE84), committing through 0x0C06D5DC. If no buffer is available it logs 'att_server_indicate, hci buffer reserved' and returns 0x0C; success returns 0.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "connection handle"},
+      {"name": "param_2", "type": "u32", "description": "attribute handle, stored as the pending indication"},
+      {"name": "param_3", "type": "u32", "description": "value data passed to the PDU builder"},
+      {"name": "param_4", "type": "u32", "description": "value length passed to the PDU builder"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 2 when there is no connection, 0x90 when an indication is in flight, 0x0C when no buffer is available"},
+    "confidence": "high",
+    "notes": "The 30-second timeout is what ble_host_att_event_dispatch cancels on a Handle Value Confirmation. The expiry callback 0x0C04E374 is not in this packet."
+  },
+  "ble_219_0c04f7b8": {
+    "name": "ble_crypto_auth_step",
+    "summary": "Advance the crypto-auth state machine: state 1 starts the address check, state 3 starts the next op",
+    "description": "The auth state byte DAT_2000FD78 drives the sequence. In state 1 it moves to state 2 and starts an operation (0x0C064FFC) on the 6-byte peer address at DAT_2000FEF8 with completion callback 0x0C04FEE4, returning 1. In state 3, when the busy byte DAT_2000FDC4 is clear, it copies the first three address bytes into the request block at DAT_2000FDC0, marks busy, and starts operation 0x0C065038 with the request block (zeroed at DAT_2000FDB4) and the output at DAT_2000FD94, with callback 0x0C04FE38. Any other state, or a busy operation, returns 0.",
+    "category": "crypto",
+    "params": [],
+    "returns": {"type": "u32", "description": "1 when an operation was started, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "The operations started here (0x0C064FFC, 0x0C065038) are not in this packet. The state numbering is inferred from the transitions in this function."
+  },
+  "ble_219_0c04f894": {
+    "name": "ble_crypto_auth_pubkey_begin",
+    "summary": "Store a 65-byte key block (X, Y, flag) and start an operation over it with a 16-byte value",
+    "description": "Copies param_2 (32 bytes) to 0x2000FE00 as X and param_3 (32 bytes) to 0x2000FE20 as Y, writes param_5 into the byte at 0x2000FE40, and records param_1 at DAT_2000FDC8. The resulting 65-byte block is the size of an uncompressed P-256 public key, so this may be the start of an LE Secure Connections key exchange. It arms DAT_2000FDC6, sets the callback at DAT_2000FDCC to 0x0C0503F4, and starts operation 0x0C065078 with the 16-byte value param_4, the key block, the output at DAT_2000FDD0 and completion callback 0x0C04FD4C. The two calls to util_nop_stub_a in the body do nothing.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "context value stored at DAT_2000FDC8"},
+      {"name": "param_2", "type": "ptr", "description": "X coordinate, 32 bytes"},
+      {"name": "param_3", "type": "ptr", "description": "Y coordinate, 32 bytes"},
+      {"name": "param_4", "type": "ptr", "description": "16-byte value passed to the operation"},
+      {"name": "param_5", "type": "u8", "description": "flag byte stored at 0x2000FE40"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The public-key reading is an inference from the 65-byte size. The roles of the 16-byte value and the flag are not determined. Operation 0x0C065078 is not in this packet."
+  },
+  "ble_219_0c04f9b0": {
+    "name": "ble_crypto_auth_send_word_type1",
+    "summary": "Send the local 16-bit auth word as request type 1 on the crypto channel",
+    "description": "Clears the busy byte DAT_2000FDC4 and looks up the connection for handle param_1; it does nothing when the connection is absent. Otherwise it zeroes the 16-byte request block at 0x2000FDB4, writes type 1 at offset 0xC and the local word DAT_200100CE, big-endian, at offset 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x200100EA, completion callback 0x0C050618 and the connection's +0x1A8 parameter. The call to util_nop_stub_b in the body copies nothing.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "connection handle"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The stub call (copy from 0x0C0841F8 to 0x2000FFD9) is a no-op if util_nop_stub_b really is a bare return. See notes on ble_crypto_auth_load_keys."
+  },
+  "ble_219_0c04fa38": {
+    "name": "ble_crypto_auth_derive_own_word",
+    "summary": "Derive the local auth word as stored word XOR peer word, then send it as request type 0",
+    "description": "Clears busy and returns when the connection for handle param_1 is absent. It reads the 16-bit peer word from 0x2000FD94 at offset 0xE, big-endian, and sets the local word DAT_200100CE to DAT_200100D0 XOR peer. It zeroes the request block, writes type 0 at 0xC and the local word at 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x2000FFD9, completion callback 0x0C050068 and the connection's +0x1A8 parameter.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "connection handle"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04facc": {
+    "name": "ble_crypto_auth_store_xor_word",
+    "summary": "Store peer XOR local as the shared auth word, then send the local word as request type 0",
+    "description": "Clears busy and returns when the connection for handle param_1 is absent. It reads the peer word from 0x2000FD94 at offset 0xE, big-endian, saves the current local word, and sets DAT_200100D0 to peer XOR local, which the derive step later reads. It zeroes the request block, writes type 0 at 0xC and the saved local word at 0xE, marks busy, and starts operation 0x0C065038 with output 0x2000FEC4, input 0x2000FFD9, completion callback 0x0C04F9B1 (the Thumb entry of ble_crypto_auth_send_word_type1) and the connection's +0x1A8 parameter.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "connection handle"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "With ble_crypto_auth_derive_own_word, this forms a two-step XOR exchange of 16-bit words. Its completion path is ble_crypto_auth_send_word_type1."
+  },
+  "ble_219_0c04fb64": {
+    "name": "ble_crypto_auth_start_by_mode",
+    "summary": "Start the crypto operation for the current auth mode: type 0 with value 1 (mode 1) or 3 (mode 2)",
+    "description": "Reads the mode byte DAT_2000FD14, set by ble_crypto_auth_load_keys to 1 or 2. In mode 1, when the busy byte DAT_2000FDC4 is clear, it zeroes the request block, writes type 0 and value 1, and starts operation 0x0C065038 with input 0x2000FEE4 and completion callback 0x0C04FCAC. In mode 2 it writes type 0 and value 3, uses input 0x2000FEB4 and callback 0x0C04FCFC. Both set busy, use output 0x2000FED4, and return 1. Any other mode, or a busy operation, returns 0.",
+    "category": "crypto",
+    "params": [],
+    "returns": {"type": "u8", "description": "1 when an operation was started, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "The meaning of the mode values and of the 16-byte inputs (fee4 and feb4) follows from ble_crypto_auth_load_keys. The mode 2 input (0x2000FEB4) is not loaded by ble_crypto_auth_load_keys, which may leave it unset."
+  },
+  "ble_219_0c04fc10": {
+    "name": "ble_link_pending_timer_done",
+    "summary": "Finish a pending link timer for a handle: local notify, cancel timer, optional follow-up operation",
+    "description": "Sets the state byte at +0x15 of the link record to 0x1A. If the flag byte at +0x34 is set, it calls ble_link_notify_local_ext(record, 0) to publish the 0xD5 frame, which also clears that flag. When the record's handle equals the pending handle DAT_20003FAA, it cancels the timer DAT_2000FF44 with btstack_run_loop_remove_timer, sets DAT_20003FAA to -1, and, if DAT_2000FF6C is set, marks DAT_2000FD15 and starts operation 0x0C0650C0 with callback 0x0C04FC78 on the context at DAT_2000FE6C.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "link record; the handle is its first u16"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of the 0x1A state value and of DAT_2000FF6C is inferred. Operation 0x0C0650C0 is not in this packet."
+  },
+  "ble_219_0c050310": {
+    "name": "ble_crypto_auth_load_keys",
+    "summary": "Load the 16-byte auth keys from the key store, set the mode, and fall back to generating one",
+    "description": "When param_1 is nonzero, it first writes the 16-byte block at 0x2000FEC4 back to the store under tag 0x534D4552 (the bytes 'REMS' in memory order) using the store's put method. It then clears the failure flag DAT_2000FEF4 and reads the 16-byte record for tag 0x534D4952 ('RIMS') into 0x2000FED4. If that read returns 16 bytes, the mode byte DAT_2000FD14 becomes 1 and the second record is attempted (mode 2 when DAT_2000FF40 is set). Otherwise the failure flag is set and operation 0x0C064FFC is started over 0x2000FED4 with callback 0x0C050120. If DAT_2000FEB0 is set, the timer at 0x2000FF0C is re-armed with zero delay.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nonzero to persist the 0x2000FEC4 record before loading"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Potential defect: the second key record and the constant defaults are loaded through util_nop_stub_b (0x0C065CE0), which the stub annotation describes as a bare return. If so, the copies from 0x0C084200, 0x0C084204 and 0x0C0768A0 do nothing and mode 2 uses an unloaded 0x2000FEE4. Verify the disassembly of 0x0C065CE0 before trusting the key loading."
+  }
+}

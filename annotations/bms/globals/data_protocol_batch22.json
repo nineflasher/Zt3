@@ -1,0 +1,242 @@
+{
+  "bms_g_4168_2000090c": {
+    "name": "bms_host_tx_mirror_tail",
+    "type": "u8",
+    "count": 3,
+    "size": 3,
+    "anchor": [
+      "BMS_4168",
+      "0x2000090c"
+    ],
+    "category": "protocol",
+    "description": "Last three bytes of the outgoing host-link frame mirror. bms_comm_send_frame copies each frame here starting at 0x20000904 (magic, command, count and sequence byte, then payload bytes stored little-endian), so these three bytes are probably payload bytes 5 to 7 of the last frame sent. Only bms_comm_send_frame writes them in this packet."
+  },
+  "bms_g_4168_20000927": {
+    "name": "bms_host_tx_crc16",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000927"
+    ],
+    "category": "protocol",
+    "description": "CRC-16/USB of the last outgoing host-link frame, computed by bms_comm_send_frame over the command byte and the payload. The low byte is at 0x20000927 and the high byte at 0x20000928 (RAM is little-endian). On the wire the high byte is sent first. Written only by bms_comm_send_frame."
+  },
+  "bms_g_4168_20000929": {
+    "name": "bms_host_rx_frame",
+    "type": "HostRxFrame",
+    "count": 1,
+    "size": 19,
+    "anchor": [
+      "BMS_4168",
+      "0x20000929"
+    ],
+    "category": "protocol",
+    "description": "Received host-link frame as rebuilt by the 4148/4168 parser bms_frame_parse_legacy_4168: magic byte, command byte, the type-and-count byte, then four 32-bit reply words. The reply checks bms_comm_await_reply_cmd03 and bms_auth_verify_response read it after the frame's CRC passes. The 4130/4139 builds keep their records elsewhere (4139 stores 4-byte records at 0x20000840)."
+  },
+  "bms_g_4168_20000950": {
+    "name": "bms_pool_slot_a",
+    "type": "u8",
+    "count": 4,
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000950"
+    ],
+    "category": "protocol",
+    "description": "Four-byte argument slot of the message pool, passed by address to the state-1 handler selected by bms_pool_handler_idx_a. bms_comm_pool_state_step gives that handler the tick delta and this address on every pass. bms_app_state_reset zeroes the first byte. The layout of the four bytes belongs to the handler and is not shown in this packet."
+  },
+  "bms_g_4168_20000954": {
+    "name": "bms_pool_time_a",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000954"
+    ],
+    "category": "protocol",
+    "description": "Tick accumulator of the message pool. bms_comm_pool_state_step adds the tick delta to it on every pass while the gate is nonzero, and bms_app_state_reset zeroes it. It accumulates in every pool state, so it is probably the time since the last pool reset rather than the time spent in state 1. No limit is compared against it in this packet."
+  },
+  "bms_g_4168_20000a49": {
+    "name": "bms_pool_handler_idx_a",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a49"
+    ],
+    "category": "protocol",
+    "description": "Index into the handler pointer table at flash 0x08010800, used while the message pool is in state 1 (see bms_comm_pool_state_step). The handler is called with the tick delta and the slot at 0x20000950. An index of 0, or an odd index, ends the pass through the transition code of that function. bms_app_state_reset zeroes it."
+  },
+  "bms_g_4168_20000a53": {
+    "name": "bms_pool_alt_transition",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a53"
+    ],
+    "category": "protocol",
+    "description": "Mode flag read by the message pool and by the limit code. bms_comm_pool_state_step uses it to pick the next-state table (flash 0x080107F4 when it is 0, 0x080107FA otherwise). bms_status_bit4_from_reply and bms_limit_report_cmd08 read it together with flag 0x20000B57, and bms_limit_report_cmd08 halves the working limit when both are 1. bms_app_state_reset clears it. The exact meaning (probably a fault or limit-mode latch) is not confirmed by this packet."
+  },
+  "bms_g_4168_20000a54": {
+    "name": "bms_pool_slot_b",
+    "type": "u8",
+    "count": 4,
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a54"
+    ],
+    "category": "protocol",
+    "description": "Four-byte argument slot of the message pool for the handler selected by bms_pool_handler_idx_b (pool states other than 1 and 2). bms_comm_pool_state_step passes this address with the tick delta. bms_app_state_reset zeroes the first byte. Layout belongs to the handler."
+  },
+  "bms_g_4168_20000a58": {
+    "name": "bms_pool_time_b",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a58"
+    ],
+    "category": "protocol",
+    "description": "Second tick accumulator of the message pool. bms_comm_pool_state_step adds the same tick delta to it as to bms_pool_time_a, and bms_app_state_reset zeroes it. The two always move together in that function, so the reason for two copies is not shown here (probably one serves the state-1 handler and one the other handlers, not confirmed)."
+  },
+  "bms_g_4168_20000b4d": {
+    "name": "bms_pool_handler_idx_b",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b4d"
+    ],
+    "category": "protocol",
+    "description": "Index into the handler pointer table at flash 0x08010800, used by the message pool in states other than 1 and 2 (see bms_comm_pool_state_step). The handler gets the tick delta and the slot at 0x20000A54. Index 0 or an odd index ends the pass with a transition. bms_app_state_reset zeroes it."
+  },
+  "bms_g_4139_20000a7c": {
+    "name": "bms_frame_rx_buf_4139",
+    "type": "u8",
+    "count": 50,
+    "size": 50,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a7c"
+    ],
+    "category": "protocol",
+    "description": "Payload buffer of the 4130/4139 host-link parser bms_frame_parse_legacy_4139. Each received payload byte is written at index DAT_2000011C, which is also the frame length. The 50-byte size is probably the buffer capacity, since the second copy (bms_frame_rx_copy_4139) starts exactly 50 bytes later at 0x20000AAE."
+  },
+  "bms_g_4139_20000aae": {
+    "name": "bms_frame_rx_copy_4139",
+    "type": "u8",
+    "count": 50,
+    "size": 50,
+    "anchor": [
+      "BMS_4139",
+      "0x20000aae"
+    ],
+    "category": "protocol",
+    "description": "Second working copy of the 4130/4139 payload buffer, 50 bytes after bms_frame_rx_buf_4139. The parser writes each payload byte here at index DAT_2000011D and reads 16-bit values from it (bms_frame_parse_legacy_4139)."
+  },
+  "bms_g_4168_20000b68": {
+    "name": "bms_frame_rx_buf_4168",
+    "type": "u8",
+    "count": 50,
+    "size": 50,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b68"
+    ],
+    "category": "protocol",
+    "description": "Payload buffer of the 4148/4168 host-link parser bms_frame_parse_legacy_4168, the 4168 counterpart of bms_frame_rx_buf_4139. Bytes are written at index DAT_200001B4 (frame length). The 50-byte size is probably the capacity, since the copy begins 50 bytes later at 0x20000B9A."
+  },
+  "bms_g_4168_20000b9a": {
+    "name": "bms_frame_rx_copy_4168",
+    "type": "u8",
+    "count": 50,
+    "size": 50,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b9a"
+    ],
+    "category": "protocol",
+    "description": "Second copy of the 4148/4168 payload buffer, 50 bytes after bms_frame_rx_buf_4168, written at index DAT_200001B5 and read as 16-bit values. bms_frame_parse_legacy_4168 rebuilds the four 4-byte reply words at 0x2000092C from bytes starting at 0x20000B9D, in reversed byte order. The copy ends where the 0x20000BCC key block starts."
+  },
+  "bms_g_4168_20000bcc": {
+    "name": "bms_auth_key_block",
+    "type": "u8",
+    "count": 16,
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x20000bcc"
+    ],
+    "category": "protocol",
+    "description": "Sixteen bytes used by the challenge-response check bms_auth_verify_response. bms_4168_080106c8 reads all 16 bytes, mixes them with constant tables in flash (around 0x08010848 and 0x08010888) and derives the expected 16-byte reply that is compared with the reply words in bms_host_rx_frame. The bytes are probably secret and are deliberately not recorded here. Where they come from (provisioning or a fixed image) is not shown in this packet."
+  },
+  "bms_g_4168_20000de8": {
+    "name": "bms_telem_status_flag",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000de8"
+    ],
+    "category": "protocol",
+    "description": "Status flag read by bms_telemetry_block_fill_16 (bit 0 is copied to bit 6 of a status byte in the packed record) and cleared by bms_4168_0800fb94 in several places. The setter, which is probably the supervisor step, is not in this packet."
+  },
+  "bms_g_4130_20001b3e": {
+    "name": "bms_telem_4130_field_1b3e",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4130",
+      "0x20001b3e"
+    ],
+    "category": "protocol",
+    "description": "Byte of the 4130-only telemetry layout, written by bms_telemetry_block_fill. The 4130 build lays out its telemetry differently from 4139, so this is probably a field of one 4130 record. No decompiled line names it, so its meaning is unknown."
+  },
+  "bms_g_4130_20001b50": {
+    "name": "bms_telem_4130_field_1b50",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4130",
+      "0x20001b50"
+    ],
+    "category": "protocol",
+    "description": "Byte of the 4130-only telemetry layout, written by bms_telemetry_sched_11_step. Probably a per-record scheduler field of the 4130 table, which is not shown in this packet."
+  },
+  "bms_g_4130_20001b5e": {
+    "name": "bms_telem_4130_field_1b5e",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4130",
+      "0x20001b5e"
+    ],
+    "category": "protocol",
+    "description": "Byte of the 4130-only telemetry layout, written by bms_telemetry_block_fill. Meaning not known from this packet."
+  },
+  "bms_g_4139_20001b90": {
+    "name": "bms_telem11_records",
+    "type": "BmsTelemRecord",
+    "count": 11,
+    "size": 176,
+    "anchor": [
+      "BMS_4139",
+      "0x20001b90"
+    ],
+    "category": "protocol",
+    "description": "Telemetry table of the 4130/4139 builds: eleven 16-byte records, one per CAN message. bms_telemetry_block_fill packs record N (block N) and bms_telemetry_sched_11_step sends one due record per call (index DAT_200004FD, wrapping after 10). Periods are in 100 ms units. Records in order (CAN ID, period): 0 (0x420, 5), 1 (0x421, 5), 2 (0x310, 2), 3 (0x422, 5), 4 (0x500, 20), 5 (0x423, 5), 6 (0x311, 2), 7 (0x501, 20), 8 (0x502, 20), 9 (0x424, 10), 10 (0x425, 5). Payload by record: 0 = state bytes +0x118..+0x11B, u16 at +0x11E times 10, bytes +0x1E and +0x1F; 1 = ASCII hex digits of u16 at +0x1C, then bytes +0x26, +0x27, +0xB6, +0xB7; 2 = bytes +0x122, +0x123, +0x12A, +0x12B, +0x1A2, +0x1A3 and constant 1; 3 = bytes +0xB2, +0xB3, constant 0x20 and 0, two packed flag words, and two bytes of a 16-bit value; 4 = eight bytes converted from the signed 16-bit values at +0x12C (value + 50, 0xFF when missing, 0xFD below -29, 0xFE at 121 and above); 5 = bytes +0x120, +0x121, +0x104, +0x105, +0x128, +0x129, constant 1 and 0; 6 = u16 at +0x1DA, u16 at +0x1D8, bytes +0x192 and +0x193; 7 = staging bytes 0 to 7; 8 = staging bytes 8 to 15 (see bms_telem_stage_copy); 9 = packed RTC date and time (four bytes); 10 = bytes from +0x11C, +0x11E (twice), +0x19C, the +0x1F2 value, and constants. The stamp at +0 is written from bms_tick_get and the check word is written last."
+  }
+}

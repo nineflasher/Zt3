@@ -1,0 +1,790 @@
+{
+ "ble_219_0c086710": {
+  "name": "nvic_any_masked_irq_pending",
+  "summary": "Return 1 if any IRQ in a bitmask is both enabled and pending in the NVIC",
+  "description": "Clamps the word count param_2 to at most 3 (returns 0 immediately if it is 0), then for each word i ANDs NVIC_ISER[i] (0xE000E100+4i, enable set), NVIC_ICPR[i] (0xE000E280+4i, reads pending state) and the caller-supplied mask word param_1[i]. Returns 1 on the first non-zero result, else 0. Used (from 0x0c0883f0) to check whether a wake-up/interrupt of interest is already pending, e.g. before entering sleep; covers IRQ 0..95.",
+  "category": "isr",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "array of u32 IRQ mask words (bit n of word i = IRQ 32*i+n)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "number of mask words to test, clamped to 3"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if an enabled and pending IRQ matches the mask, else 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c086bb8": {
+  "name": "flash_cache_hook_nop_a",
+  "summary": "Empty stub (immediate return)",
+  "description": "Single-instruction function that just returns. Called together with the neighbouring empty stub from 0x0c088128, next to the flash cache invalidate routine; looks like an unused/ROM-patch hook placeholder (e.g. a pre/post flash operation callback).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Purpose of the hook is a guess from the caller context; the body is certain."
+ },
+ "ble_219_0c086bbc": {
+  "name": "flash_cache_hook_nop_b",
+  "summary": "Empty stub (immediate return)",
+  "description": "Single-instruction function that just returns. Companion of the other empty stub called from 0x0c088128; an unused hook placeholder.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Purpose of the hook is a guess from the caller context; the body is certain."
+ },
+ "ble_219_0c0875a8": {
+  "name": "norflaship_set_ctrl_field_4_11",
+  "summary": "Set bits 4..11 of flash-IP control register REG_004 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Spins until status REG_00C bit0 (busy) is clear, then read-modify-writes REG_004: clears bits 4..11 (mask 0xFFFFF00F) and ORs in (param_2 << 4). The value is not masked, so values above 0xFF would spill into bits 12+. Likely the command/opcode byte or transfer-type field of the pending operation.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "8-bit field value placed in REG_004[11:4]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0875c8": {
+  "name": "norflaship_ctrl_clear_bit25",
+  "summary": "Clear bit 25 of flash-IP control register REG_004 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits until REG_00C bit0 (busy) clears, then REG_004 &= 0xFDFFFFFF. Counterpart of norflaship_ctrl_set_bit25; bit meaning not documented (probably a read/receive-phase enable).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0875e4": {
+  "name": "norflaship_ctrl_set_bit25",
+  "summary": "Set bit 25 of flash-IP control register REG_004 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits until REG_00C bit0 (busy) clears, then REG_004 |= 0x02000000. Counterpart of norflaship_ctrl_clear_bit25; bit meaning not documented (probably a read/receive-phase enable).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c087600": {
+  "name": "norflaship_set_len_and_fill_txfifo",
+  "summary": "Program transfer length and push bytes into the TX FIFO",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Writes param_3 & 0x1FFF into REG_004[24:12] (transfer length). Reads the FIFO count field REG_00C[12:8]; if zero returns param_3 without writing anything. Otherwise copies bytes from param_2 to the FIFO register REG_008, at most as many as the count field allows, and returns the number of bytes NOT written (param_3 - count, 0 if everything fit). Used by flash write/program paths.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source byte buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "number of bytes / transfer length (13-bit)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "bytes remaining to send (0 when all were pushed, param_3 when FIFO had no space)"
+  },
+  "confidence": "medium",
+  "notes": "Direction of the FIFO count (free space vs. filled) inferred from use as TX FIFO fill."
+ },
+ "ble_219_0c08765c": {
+  "name": "norflaship_fill_txfifo",
+  "summary": "Push up to FIFO-space bytes from a buffer into the TX FIFO",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Same copy loop as norflaship_set_len_and_fill_txfifo but without touching the length field. Reads REG_00C[12:8]; if 0 returns param_3; otherwise writes min(count, param_3) bytes from param_2 to REG_008 one at a time and returns the remaining byte count (0 if everything was written). Called from the flash program loop (0x0c089064).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source byte buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "number of bytes to send"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "bytes remaining to send, 0 when all written"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0876a0": {
+  "name": "norflaship_read_rxfifo_byte",
+  "summary": "Read the low byte of flash-IP register REG_010 (RX data)",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Returns REG_010 & 0xFF; this is the receive FIFO / read-data register where bytes returned by the flash chip (ID, status, data) are fetched. Callers are the read-ID / read-status / read-data routines.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "u8",
+   "description": "received byte (0..255)"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0876b0": {
+  "name": "norflaship_set_xfer_len",
+  "summary": "Set transfer length field REG_004[24:12] of the flash IP",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Does REG_004 = (param_2 & 0x1FFF) << 12 | (REG_004 & 0xFE000FFF), without waiting for idle. The 13-bit field holds the number of bytes of the following data phase.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "length in bytes, 13-bit"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0876d4": {
+  "name": "norflaship_send_cmd_byte",
+  "summary": "Issue a command opcode with one operand byte (REG_004 bit0 cleared)",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for busy (REG_00C bit0) to clear, clears REG_004 bit0, then writes REG_000 = param_2 | (param_3 << 8), which starts the transaction. Used for simple flash commands such as write-enable or status-register writes where no 24-bit address follows.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "command opcode (low byte)"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "operand/data byte or bytes placed in REG_000[15:8]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0876f4": {
+  "name": "norflaship_send_cmd_word",
+  "summary": "Start a transaction with a raw command word and length (REG_004 bit0 set)",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle, then REG_004 = (param_3 & 0x1FFF) << 12 | (REG_004 & 0xFE000FFF) | 1 and writes REG_000 = param_2. Bit0 appears to mark a transfer with a data phase; param_2 is the already assembled command (opcode and address) word.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "raw command/address word written to REG_000"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "data phase length in bytes (13-bit)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c08772c": {
+  "name": "norflaship_send_cmd_ext",
+  "summary": "Start a transaction with command, data length and extended field",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle, sets REG_004 length field to param_3 & 0x1FFF and bit0, then writes REG_000 = ((param_4 & 0x3FFF) << 13) | param_2 | 0x100. The 0x100 bit and the 14-bit field at bit 13 look like a flag plus an address/operand; used by read and program paths together with the FIFO helpers.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "command opcode / low bits of REG_000"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "data phase length in bytes (13-bit)"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "14-bit operand (e.g. address bits) placed at REG_000[26:13]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of the 14-bit field and bit 8 is inferred only from the bit layout."
+ },
+ "ble_219_0c087774": {
+  "name": "norflaship_ctrl_clear_bit0",
+  "summary": "Wait for idle, then clear bit 0 of REG_004",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Spins while REG_00C bit0 (busy) is set, then REG_004 &= ~1. Ends the data-phase/extended mode selected by norflaship_send_cmd_word.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c087790": {
+  "name": "norflaship_wait_fifo_level",
+  "summary": "Busy-wait until REG_00C[7:4] reaches a minimum level",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Spins until ((REG_00C & 0xFF) >> 4) >= param_2. The 4-bit field is a FIFO fill level (probably RX FIFO), so this waits for param_2 entries to be available. No timeout.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "minimum FIFO level to wait for"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0877bc": {
+  "name": "norflaship_wait_idle",
+  "summary": "Busy-wait until the flash controller is no longer busy",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Spins until REG_00C bit0 reads 0. No timeout; the most frequently used helper of this block (12 callers).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0877e4": {
+  "name": "norflaship_clear_fifos",
+  "summary": "Reset both TX and RX FIFOs of the flash IP",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle, writes 3 to REG_018 (bit0 = clear RX FIFO, bit1 = clear TX FIFO), then waits for idle again.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Bit assignment of REG_018 inferred from the 1/2/3 trio of helpers."
+ },
+ "ble_219_0c087800": {
+  "name": "norflaship_clear_rxfifo",
+  "summary": "Reset the RX FIFO of the flash IP",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle, writes 1 to REG_018, waits for idle again. Called before read operations to discard stale data.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c08781c": {
+  "name": "norflaship_clear_txfifo",
+  "summary": "Reset the TX FIFO of the flash IP",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle, writes 2 to REG_018, waits for idle again. Called before write/program operations.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c087838": {
+  "name": "norflaship_set_cfg14_byte2",
+  "summary": "Set bits 16..23 of config register REG_014 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle then replaces REG_014[23:16] with param_2 & 0xFF. Probably the SPI clock divider or sample delay (not confirmed); partner getter is norflaship_get_cfg14_byte2.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "8-bit value for REG_014[23:16]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c08785c": {
+  "name": "norflaship_get_cfg14_byte2",
+  "summary": "Read bits 16..23 of config register REG_014",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Returns (REG_014 & 0xFFFFFF) >> 16. Used by the routine at 0x0c088bb8 to save the setting before temporarily changing it.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "u8",
+   "description": "REG_014[23:16]"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087870": {
+  "name": "norflaship_set_cfg14_nibble3",
+  "summary": "Set bits 12..15 of config register REG_014 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle then REG_014 = ((param_2 << 12) & 0xFFFF) | (REG_014 & 0xFFFF0FFF), replacing the 4-bit field at [15:12]. Likely a sample-delay or dummy-cycle count.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s16",
+    "description": "4-bit value for REG_014[15:12]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087890": {
+  "name": "norflaship_set_cfg14_bit5",
+  "summary": "Set or clear bit 5 of config register REG_014 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle; if param_2 != 0 sets REG_014 bit5 (|= 0x20) else clears it. One of three mode flag bits (bits 3, 4, 5) in REG_014, possibly dual/quad I/O or similar.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "non-zero to set the bit, 0 to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0878b4": {
+  "name": "norflaship_set_cfg14_bit4",
+  "summary": "Set or clear bit 4 of config register REG_014 after waiting for idle",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle; if param_2 != 0 sets REG_014 bit4 (|= 0x10) else clears it.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "non-zero to set the bit, 0 to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0878d8": {
+  "name": "norflaship_set_cfg14_bit3",
+  "summary": "Set or clear bit 3 of config register REG_014 (no idle wait)",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). If param_2 != 0 sets REG_014 bit3 (|= 8) else clears it. Unlike its siblings it does not wait for the busy flag.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "non-zero to set the bit, 0 to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0878f8": {
+  "name": "norflaship_set_reg30_top_byte",
+  "summary": "Write the top byte of a word to register REG_030",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Stores param_2 >> 24 (the most significant byte) in REG_030. Called with an address/opcode word; probably a read-mode command or high address byte register.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "word whose bits 31..24 are written"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087928": {
+  "name": "norflaship_set_reg20_byte2",
+  "summary": "Set bits 16..23 of register REG_020",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Replaces REG_020[23:16] with param_2 & 0xFF, no idle wait. Companion of norflaship_set_reg20_byte0 (opcode/mode bytes for the fast-read command, inferred).",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "8-bit value for REG_020[23:16]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087944": {
+  "name": "norflaship_set_reg20_byte0",
+  "summary": "Set bits 0..7 of register REG_020",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Replaces REG_020[7:0] with param_2, no idle wait.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u8",
+    "description": "8-bit value for REG_020[7:0]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087978": {
+  "name": "norflaship_set_cfg38_width_sel",
+  "summary": "Map a size/width value to the 2-bit selector REG_038[14:13]",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Maps param_2 to a code: 8 -> 0, 0x10 -> 1 (0x2000), 0x40 -> 3 (0x6000), anything else -> 2 (0x4000), and writes it into REG_038 bits 14..13 (mask 0xFFFF9FFF). The 8/16/32(default)/64 values look like a bus or burst width in bits.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "width selector value: 8, 0x10, 0x40, other (treated as 0x20)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0879ac": {
+  "name": "norflaship_cfg38_set_bit12",
+  "summary": "Set bit 12 of register REG_038",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). REG_038 |= 0x1000. Counterpart of norflaship_cfg38_clear_bit12.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0879c0": {
+  "name": "norflaship_cfg38_clear_bit12",
+  "summary": "Clear bit 12 of register REG_038",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). REG_038 &= ~0x1000.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0879d4": {
+  "name": "norflaship_cfg38_set_bit0",
+  "summary": "Set bit 0 of register REG_038",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). REG_038 |= 1; probably an enable bit of the cached/memory-mapped access path.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0879e8": {
+  "name": "norflaship_set_reg40_bits2_3",
+  "summary": "Set or clear bits 2..3 (mask 0xC) of register REG_040",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Waits for idle; if param_2 != 0 REG_040 |= 0xC else REG_040 &= ~0xC.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "non-zero to set both bits, 0 to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087a0c": {
+  "name": "norflaship_set_reg108",
+  "summary": "Write a 5-bit value to register REG_108",
+  "description": "Register base = *(u32*)(0x20003060 + id*4), i.e. the per-instance pointer table of the BES NOR-flash controller IP (hal_norflaship style driver; register purpose inferred from access pattern, undocumented). Stores param_2 & 0x1F in the register at offset 0x108.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash-controller instance index (selects base from the pointer table at 0x20003060; only 0 appears used)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "5-bit value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c087a34": {
+  "name": "norflash_build_protect_table",
+  "summary": "Build the table mapping SR block-protect bits to protected address ranges",
+  "description": "Generates, for a NOR flash of size param_2 bytes, an array of 12-byte entries {status_register_value, range_start, range_end} at 0x200035C0 and stores the entry count in 0x200038C0. Entry 0 is {0,0,0} (no protection) and entry 1 is {0x7C,0,size-1} (everything protected). It then loops over the power-of-two block sizes (4 KiB doubling, or 8 KiB when the flag in 0x200038C4[param_1] is set, up to 32 KiB) producing top/bottom-aligned ranges for the BP bits (value n*4), the TB bit 0x40 and the CMP bit 0x4000, as used by SPI NOR status register block protection. The table is later searched to pick the status-register value that protects a given region. Only param_1 == 0 is handled; any other value spins forever. param_1 also indexes the variant flag array at 0x200038C4.",
+  "category": "flash",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "flash instance (must be 0, otherwise infinite loop)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "flash size in bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Entry layout read from the stores; semantic interpretation (BP/TB/CMP) is inferred from the 4*n / 0x40 / 0x4000 patterns."
+ },
+ "ble_219_0c087d34": {
+  "name": "norflash_cache_invalidate_range",
+  "summary": "Invalidate flash cache lines for an address range",
+  "description": "param_1 selects a flash window: 0 -> addresses in 0x2C000000..0x2FFFFFFF, 1 -> 0x34000000..0x37FFFFFF (any other value spins forever). If the address param_2 is outside the selected window the function returns param_1 and does nothing. For length param_3 > 0xFE0 it writes 1 to 0x07FFA038 (invalidate the whole cache) and returns 0. Otherwise it aligns param_2 down to 32 bytes and, for each 32-byte line up to param_2+param_3, writes the line address to 0x07FFA014 and 1 to 0x07FFA018 (single-line invalidate trigger). Returns 0 on success.",
+  "category": "flash",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "flash/cache window selector, 0 or 1"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "start address"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 when handled, param_1 (non-zero) when the address is outside the window"
+  },
+  "confidence": "medium",
+  "notes": "Cache controller registers at 0x07FFA0xx are decompiler-reported (Ghidra PIC warning); peripheral semantics inferred."
+ }
+}

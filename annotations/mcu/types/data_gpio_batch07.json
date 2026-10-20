@@ -1,0 +1,26 @@
+{
+  "structs": {
+    "PulseBurstDecoder": {
+      "size": 42,
+      "description": "State of one pulse-burst decoder for a digital input (used for PC3). Initialised by FUN_08009A40 and mcu_0160_08008998; the sample logic (FUN_08009954 debounce, FUN_08006B70 burst logic) and the reset FUN_08006C86 use the fields. Offsets are relative to the start of the object at 0x20001FFC.",
+      "fields": [
+        {"name": "integrator", "offset": 0, "type": "u32", "description": "Debounce integrator in 0..integrator_max. Counts up while the raw input is high and down while it is low; reloaded with integrator_load when the debounced level becomes 1."},
+        {"name": "integrator_max", "offset": 4, "type": "u32", "description": "Upper limit of the debounce integrator. Set to 6 by mcu_0160_08008998."},
+        {"name": "integrator_load", "offset": 8, "type": "u32", "description": "Value loaded into integrator when the debounced level becomes 1. Set to 6 by mcu_0160_08008998."},
+        {"name": "mode", "offset": 12, "type": "u8", "description": "Output select: 1 = debounced level, 2 = rising edge, 3 = falling edge, 4 = any edge, 5 = high level after a rising edge, 6 = low level after a falling edge; other values give 0. Set to 1 by mcu_0160_08008998."},
+        {"name": "level", "offset": 13, "type": "u8", "description": "Debounced input level (0 or 1). Init writes 2, meaning no valid level yet."},
+        {"name": "last_edge", "offset": 14, "type": "u8", "description": "Direction of the last debounced edge: 0 after a rising edge, 1 after a falling edge. Init writes 2 (no edge seen yet)."},
+        {"name": "out", "offset": 15, "type": "u8", "description": "Output bit (0 or 1) of the last sample, selected by mode. The burst logic in FUN_08006B70 reads it as the event bit."},
+        {"name": "enabled", "offset": 16, "type": "u8", "description": "1 when the decoder is valid. FUN_08009A40 clears it and returns 0 when a debounce count is 0; a disabled decoder returns 0 from every sample."},
+        {"name": "gap_threshold", "offset": 20, "type": "u32", "description": "Number of low samples after the last falling edge before a finished burst is reported. Set to 40 (0x28) by mcu_0160_08008998 from 0x20002010."},
+        {"name": "gap_count", "offset": 24, "type": "u32", "description": "Low samples since the last falling edge. Cleared on every rising edge; the burst is reported when it reaches gap_threshold."},
+        {"name": "long_high_threshold", "offset": 28, "type": "u32", "description": "A high level lasting at least this many samples returns 0xFF. On the falling edge after such a pulse the whole decoder is reset (FUN_08006C86). Set to 400 by mcu_0160_08008998."},
+        {"name": "run_length", "offset": 32, "type": "u32", "description": "Samples since the last falling edge; while the input is high this is the length of the current high pulse. Stops counting near 2^31."},
+        {"name": "pulse_count", "offset": 36, "type": "u32", "description": "Number of rising edges (pulses) in the current burst. Its low byte is the value returned when the burst is reported, and it is cleared then."},
+        {"name": "prev_out", "offset": 40, "type": "u8", "description": "Output bit of the previous sample, used to detect rising and falling edges of the event bit."},
+        {"name": "reported", "offset": 41, "type": "u8", "description": "1 after a burst has been reported or the decoder was reset, until the next rising edge. Stops a long low gap from reporting the same burst twice."}
+      ]
+    }
+  },
+  "enums": {}
+}

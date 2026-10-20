@@ -1,0 +1,681 @@
+{
+  "ble_219_0c04628c": {
+    "name": "ble_stub_nop_0c04628c",
+    "summary": "Empty function (immediate return)",
+    "description": "Body is a single return instruction. Called once from ble_219_0c043e70 as a hook/placeholder; it has no side effects.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046cb4": {
+    "name": "ble_clear_flag_2000bd18",
+    "summary": "Clear the byte/word variable at 0x2000bd18",
+    "description": "Writes 0 to the global DAT_2000bd18 and returns. Called from ble_219_0c02c49c, so it acts as a reset of a state flag/counter owned by that caller; the variable's exact meaning is not visible from this function alone.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c046ee8": {
+    "name": "NMI_Handler",
+    "summary": "Non-maskable interrupt handler: spin forever",
+    "description": "Cortex-M NMI vector target. It is an empty infinite loop, so any NMI hangs the core until the watchdog (if enabled) resets the chip.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046eec": {
+    "name": "startup_copy_vector_table_to_sram",
+    "summary": "Copy the flash vector table into SRAM at 0x20000000",
+    "description": "Word-copy loop that reads consecutive 32-bit words from the vector table inside the RAW4TFT image (header + 0x400, starting at the initial-SP word) and stores them at 0x20000000, 0x20000004, ... It stops after the word that is vector_IRQ75_Handler has been copied, i.e. it relocates the exception table plus 75 IRQ entries to SRAM so handlers can be patched at run time. Called from ble_219_0c046f24 (early startup code).",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Source start address is derived from raw4tft_header.padding+0x3cc, which decodes to the vector table at 0x0C028400."
+  },
+  "ble_219_0c046f40": {
+    "name": "ble_slot_is_used_2000f4cc",
+    "summary": "Test whether entry N of the 32-bit table at 0x2000f4cc is non-zero",
+    "description": "Returns true when the word at DAT_2000f4cc[param_1] is not zero, i.e. an indexed array of pointers/handles/flags is checked for an occupied slot. No bounds check is performed. It has no direct callers (invoked through a function pointer / callback table).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "slot index into the word array at 0x2000f4cc"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if the slot is non-zero"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04757c": {
+    "name": "ble_get_var_2000f5fc",
+    "summary": "Return the 32-bit global at 0x2000f5fc",
+    "description": "Trivial getter that returns DAT_2000f5fc. Called from ble_219_0c0285ec, which also uses the CRC16 routine, so the value may be a configuration/state word used there.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "value of DAT_2000f5fc"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c047634": {
+    "name": "ble_set_var_2000f64c",
+    "summary": "Store a 32-bit value in the global at 0x2000f64c, return 0",
+    "description": "Trivial setter: DAT_2000f64c = param_1; always returns 0 (success). Called from ble_219_0c0286e0 and ble_219_0c037a2c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "value to store"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c047644": {
+    "name": "crc16_ccitt_nibble",
+    "summary": "Table-driven CRC-16/CCITT (poly 0x1021, MSB first) over a buffer, 4 bits at a time",
+    "description": "Computes a CRC-16 with polynomial 0x1021 using a 16-entry nibble table at 0x0C08097C (entries 0x0000, 0x1021, 0x2042, ...). For each byte the high nibble is processed first, then the low nibble: crc = table[nibble ^ (crc >> 12)] ^ ((crc & 0xFFF) << 4). param_1 optionally points to a context of u16 values: [0] is the initial CRC and [2] (offset 4) is a final XOR value; if NULL both are 0. param_4 is a stride: the data pointer advances by param_4 bytes per step and the remaining length is decremented by param_4 per step (normally 1). Returns xorout ^ crc. Called from five places, including the NB upgrade/UART frame code paths (ble_219_0c0285ec, 0c02d784, 0c02dc50, 0c0366e4, 0c037798).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "optional CRC context: u16 init at +0, u16 xor-out at +4; NULL means 0/0"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "data buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "length in bytes (loop runs while > 0)"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "step/stride in bytes (1 for contiguous data)"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "16-bit CRC (stored in a u32)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0476a0": {
+    "name": "crc32_reflected_table",
+    "summary": "Table-driven reflected CRC-32 (poly 0xEDB88320) over a buffer",
+    "description": "Standard byte-wise CRC-32: crc = table[(byte ^ crc) & 0xFF] ^ (crc >> 8) with the 256-entry table at 0x0C074168. param_1 optionally points to a context of two u32 words: [0] initial CRC value, [1] final XOR value (NULL means both 0), so the caller supplies 0xFFFFFFFF/0xFFFFFFFF for the usual IEEE CRC-32. param_4 is a stride: pointer advances by param_4 and the remaining count drops by param_4 per iteration. Returns xorout ^ crc. Used for firmware/IAP image CRC verification and other integrity checks (callers ble_219_0c034468, 0c03457c, 0c047274).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "optional context: u32 init at +0, u32 xor-out at +4; NULL = 0/0"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "data buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "stride in bytes (normally 1)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "CRC-32 value"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0476d8": {
+    "name": "md5_encode_le_words",
+    "summary": "Serialise 32-bit words to little-endian bytes (MD5 'Encode')",
+    "description": "Do-while loop that takes consecutive 32-bit words from param_2 and writes each as four bytes (LSB first) to param_1 until at least param_3 bytes have been produced; because it is a do-while, at least one word is always written and the length is effectively rounded up to a multiple of 4. This is the MD5 'Encode' helper used to write out the state words as the 16-byte digest; its only caller is ble_219_0c047efc (MD5 final).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output byte buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "input array of u32 words"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes to produce (multiple of 4)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c047710": {
+    "name": "md5_transform",
+    "summary": "MD5 compression function: process one 64-byte block into the 4-word state",
+    "description": "Fully unrolled 64-step MD5 (RFC 1321, constants such as 0xD76AA478, 0xE8C7B756 ...; rotates 7/12/17/22, 5/9/14/20, 4/11/16/23, 6/10/15/21). param_1 points to the four state words A,B,C,D (a context pointer plus 8 in the surrounding MD5 context); param_2 is the 64-byte input block which is first decoded into sixteen little-endian words on the stack. After the rounds the result is added back into the state in place. Called from the MD5 update routine ble_219_0c047e70. Used by the firmware-upgrade module for the md5sum check.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "state A,B,C,D (4 x u32), updated in place"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "64-byte message block"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c047e44": {
+    "name": "md5_init",
+    "summary": "Initialise an MD5 context",
+    "description": "Zeroes the 64-bit bit-count words at ctx[0],ctx[1] and loads the standard MD5 initial values into ctx[2..5]: 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476. Called from ble_219_0c03477c, ble_219_0c036868 and ble_219_0c0369d8 (md5sum computation in the upgrade code).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "MD5 context (6 x u32: count lo/hi, state A..D)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c047f88": {
+    "name": "ble_stub_nop_0c047f88",
+    "summary": "Empty function (immediate return)",
+    "description": "Single return instruction with no side effects; no direct callers, so it is a default/placeholder callback in a table.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c047fe8": {
+    "name": "ble_stub_nop_0c047fe8",
+    "summary": "Empty function (immediate return)",
+    "description": "Single return instruction with no side effects. Called from ble_219_0c043f48 as an empty hook.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c048b00": {
+    "name": "ble_ring_dispatch_pending",
+    "summary": "Drain a ring of queued callbacks until the read index meets the write index",
+    "description": "Reads write index DAT_2000f7b0 and read index DAT_2000f7c0 (u16). While they differ it fetches entry #read from a table at DAT_2000f7b8 (8 bytes per entry: function pointer at +0, u16 value at +4) and calls fn(DAT_2000f7b4 + read * DAT_2000f7bc, entry.u16, ...), i.e. the first argument is the address of the read-th element of a parallel buffer (base DAT_2000f7b4, element size DAT_2000f7bc). Afterwards the read index is incremented and wrapped to 0 once it passes the last index DAT_2000f7be. Called from ble_219_0c0599d4 (looks like a deferred completion/event dispatch for a DMA or transport ring).",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Exact subsystem (UART/HCI transport DMA completion vs. other event queue) not determined."
+  },
+  "ble_219_0c048f34": {
+    "name": "bthost_tlv_get_instance",
+    "summary": "Return the pointer to the flash TLV storage vtable",
+    "description": "Returns the address 0x0C07FFFC of a constant three-entry function table (btstack_tlv_t: get_tag, store_tag, delete_tag, code at 0x0C048DEC/0x0C048CAC/0x0C048B70). Called from ble_219_0c05b67c, which also calls the link-key DB get_instance, so it is the BTstack TLV (tag-length-value persistent store) implementation handed to the bthost key/device databases.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "pointer to the TLV implementation vtable"
+    },
+    "confidence": "medium",
+    "notes": "Identification as btstack_tlv_t is inferred from how the link-key and device DB call vtable slots +0 (get) and +8 (delete)."
+  },
+  "ble_219_0c048f3c": {
+    "name": "aes128_key_expansion",
+    "summary": "AES-128 key schedule: expand a 16-byte key into 176 bytes of round keys",
+    "description": "Copies the 16-byte key from param_2 to param_1, then generates words 4..43: each new word is the previous word XOR the word four positions back; every fourth word first applies RotWord, SubWord via the AES S-box at 0x0C083E20, and XORs the round constant from the table at 0x0C07482C (0x01,0x02,0x04,...,0x1B,0x36). Output is the 11 round keys (44 words = 176 bytes) at param_1. Called together with ble_219_0c048fd4 from the three AES wrappers ble_219_0c049288, 0c0493d4, 0c0496a8.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output: 176-byte expanded key schedule"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "input: 16-byte AES-128 key"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c048fd4": {
+    "name": "aes128_encrypt_block",
+    "summary": "AES-128 ECB encrypt of one 16-byte block, in place, using an expanded key",
+    "description": "Standard byte-oriented AES-128 encryption: initial AddRoundKey, nine rounds of SubBytes (S-box at 0x0C083E20), ShiftRows, MixColumns (GF(2^8) xtime with reduction constant 0x1B) and AddRoundKey, then a final round without MixColumns. param_1 is the 176-byte schedule from ble_219_0c048f3c and param_2 the 16-byte state which is overwritten with the ciphertext. Used by the BLE crypto wrappers (ble_219_0c049288, 0c0493d4, 0c0496a8), e.g. for AES-ECB/CCM-style operations and authentication.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "expanded round keys (176 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "16-byte block, encrypted in place"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0499f0": {
+    "name": "sha1_ctx_init_with_seed",
+    "summary": "Initialise a SHA-1 style context, optionally loading four state words",
+    "description": "Zeroes the 64-bit length counter ctx[0],ctx[1] and ctx[6] (the fifth state word E, which in ble_219_0c049a28 is stored at offset 0x18). If param_2 is non-NULL, four words are copied from it into ctx[2..5] (the A,B,C,D state words); if NULL those words are left untouched. Unlike plain SHA-1 init this does not write the fixed constants, so the caller supplies the initial vector. Caller: ble_219_0c02bdd0.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "hash context (7 x u32: length lo/hi, A,B,C,D,E)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "optional 4-word initial state (A,B,C,D); NULL to keep existing"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Role of the 4-word seed is unverified; may be a keyed/seeded hash construct."
+  },
+  "ble_219_0c049a20": {
+    "name": "sha1_ctx_set_e_word_one",
+    "summary": "Set the word at offset 0x18 of a context to 1",
+    "description": "Stores 1 in *(u32*)(param_1+0x18). In the SHA-1 context used by ble_219_0c049a28 offset 0x18 is the fifth state word, but this function has no direct callers, so it is more likely a generic 'set flag' method reached through a function-pointer table.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "context pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c049a28": {
+    "name": "sha1_process_block",
+    "summary": "SHA-1 compression: process one 64-byte block into the five-word state",
+    "description": "Fully unrolled 80-round SHA-1 (constants 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6; rotl 5 / rotl 30). The state A,B,C,D,E lives at ctx+8,+0xC,+0x10,+0x14,+0x18. The 16 input words at param_2 are byte-swapped (big-endian load) into W[0..15] and the schedule W[t] = rotl1(W[t-3]^W[t-8]^W[t-14]^W[t-16]) is computed on the fly. Results are added back into the state in place and 0 is returned. Called from ble_219_0c04a924 (SHA-1 update/final wrapper).",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "hash context; state words at +8..+0x18"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "64-byte message block (16 u32 words)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04ab90": {
+    "name": "bthost_link_key_db_tlv_iterator_get_next",
+    "summary": "Link-key DB iterator: fetch the next stored link key from TLV storage",
+    "description": "Iterator state is a byte index in *param_1 (0..3, max four entries). For each index it calls the TLV get_tag function (*DAT_2000f8ac) with context DAT_2000f8b0, tag 0x42544C00|index ('BTL'+index) and a 28-byte buffer. On the first tag that exists it copies the 6-byte BD_ADDR to param_2, the 16-byte link key to param_3 and the u16 key type to param_4, advances the index and returns 1. If none is found, the index becomes 4 and 0 is returned. This is slot 7 of the BTstack btstack_link_key_db_t vtable at 0x0C07FE88 (hence no direct callers); source file bthost_link_key_db_tlv.c.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "iterator state: u8 current index"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "out: bd_addr (6 bytes)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "out: link key (16 bytes)"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "out: link key type (u16)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 if an entry was returned, 0 when iteration is finished"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04ade0": {
+    "name": "bthost_link_key_db_tlv_get_instance",
+    "summary": "Register the TLV implementation/context and return the link-key DB vtable",
+    "description": "Stores the TLV implementation pointer in DAT_2000f8ac and its context in DAT_2000f8b0 (used by the link-key DB functions to read/write tags 'BTL'+index), then returns the address 0x0C07FE88 of the btstack_link_key_db_t function table (open, set_local_bd_addr, close, get/put/delete_link_key, iterator_init/get_next/done). Called from ble_219_0c05b67c during host initialisation.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TLV implementation (btstack_tlv_t vtable)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "TLV context"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "pointer to link key DB vtable"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04aef0": {
+    "name": "bthost_stub_return_minus1_0c04aef0",
+    "summary": "Stub returning -1",
+    "description": "Returns 0xFFFFFFFF without side effects. No direct callers; it sits just after the link-key DB code and is most likely an unused/default entry in a callback table that signals 'not available / error'.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "always -1"
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c04aef8": {
+    "name": "bthost_stub_nop_0c04aef8",
+    "summary": "Empty function (immediate return)",
+    "description": "Single return instruction; no callers, likely a default callback or the 'close' style no-op entry of a vtable.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04aefc": {
+    "name": "bthost_stub_nop_0c04aefc",
+    "summary": "Empty function (immediate return)",
+    "description": "Single return instruction; no callers, likely a default callback / empty vtable entry.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04bbcc": {
+    "name": "bthost_set_var_2000fa00",
+    "summary": "Store a 32-bit value (probably a callback) in the global at 0x2000fa00",
+    "description": "Trivial setter: DAT_2000fa00 = param_1. Called from ble_219_0c058f00 during setup, so the value is most likely a handler/callback pointer registered with the host stack; exact meaning not determinable here.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "value (likely function pointer) to store"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c04c570": {
+    "name": "bthost_byte_get_low3_bits",
+    "summary": "Return bits 0..2 of the byte pointed to",
+    "description": "Returns *param_1 & 7 (no NULL check). Its only caller, ble_219_0c04bd98, uses it with the companion ble_219_0c04c578, which extracts the upper five bits of the same byte, so the byte is a packed field with a 3-bit part and a 5-bit part (e.g. a type/length style header).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to the packed byte"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "low 3 bits"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04c578": {
+    "name": "bthost_byte_get_high5_bits",
+    "summary": "Return bits 3..7 of the byte pointed to (0 if NULL)",
+    "description": "Returns *param_1 >> 3, or 0 when param_1 is NULL. Companion getter of ble_219_0c04c570; both are called by ble_219_0c04bd98.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to the packed byte, may be NULL"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "upper 5 bits, 0 if NULL"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04cbb4": {
+    "name": "att_validate_security",
+    "summary": "Check whether a connection's security level satisfies an ATT attribute's permissions",
+    "description": "BTstack att_db.c security check. param_3 is the attribute iterator whose flags (u16 at +6) hold the read/write permission bits and, in the top nibble, the required encryption key size (stored as size-1). param_2 selects the operation (1 = write, otherwise read) which decides which flag bits form the required level 0..3 (1 encrypted, 2 authenticated, 3 authorized). param_1 is the att_connection_t: encryption_key_size at +7, authenticated at +8, authorized at +9, and a flag at +10 that switches to a variant of the check. Returns the ATT error code: 0x05 insufficient authentication, 0x08 insufficient authorization, 0x0F insufficient encryption, 0x0C insufficient encryption key size, or 0 when allowed. Called from ble_219_0c04ceb8 (attribute read/write handler).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:att_connection",
+        "description": "ATT connection state (key size, authenticated, authorized)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "operation: 1 = write, else read"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "ATT attribute iterator; flags u16 at +6"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "ATT error code, 0 = OK"
+    },
+    "confidence": "medium",
+    "notes": "Bit-level mapping inferred from decompilation against att_db.c; the +10 connection flag is believed to be secure-connection state."
+  },
+  "ble_219_0c04ce18": {
+    "name": "att_set_read_callback",
+    "summary": "Register the ATT attribute read callback",
+    "description": "Stores param_1 in DAT_2000fcc8, the att_read_callback pointer of att_db.c (the write callback lives in the next word, 0x2000fccc). Called from ble_219_0c04eb24 (ATT server init).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "att_read_callback_t function pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04ce30": {
+    "name": "att_clear_transaction_queue",
+    "summary": "Tell the application to cancel any pending ATT prepared-write transaction",
+    "description": "Calls the registered ATT write callback DAT_2000fccc as callback(con_handle = *(u16*)param_1, attribute_handle = 0, transaction_mode = 3 (cancel), offset 0, buffer NULL, size 0). param_1 is the att_connection_t whose first field is the connection handle. Called from ble_219_0c04e702 when a connection ends or the prepared-write queue is reset.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:att_connection",
+        "description": "ATT connection; first u16 is the HCI connection handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04eb80": {
+    "name": "att_server_register_packet_handler",
+    "summary": "Store a handler pointer in the global at 0x2000fce4",
+    "description": "Single-global setter: DAT_2000fce4 = param_1, located in the att_server.c variable area right after the att_db variables. Matches BTstack's att_server_register_packet_handler (att_client_packet_handler = handler). Called from ble_219_0c059230 at application init.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "packet handler callback"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c04ece0": {
+    "name": "le_device_db_tlv_init",
+    "summary": "Empty initialiser of the LE device DB (TLV backed)",
+    "description": "Single return instruction. In BTstack's le_device_db_tlv.c the init hook performs no work (storage is accessed lazily through the TLV singleton). No direct callers; reached through the le_device_db function interface.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c04ece4": {
+    "name": "le_device_db_tlv_max_count",
+    "summary": "Return the maximum number of LE device DB entries (4)",
+    "description": "Returns the constant 4, the number of bonded-device slots (tags 'BTD'+index) supported by this build of le_device_db_tlv.c. Called from ble_219_0c04f634, 0c051eb8 and 0c052e70 (security manager).",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "4"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04ece8": {
+    "name": "le_device_db_tlv_remove",
+    "summary": "Delete LE device DB entry N and its TLV tag",
+    "description": "If the used-flag byte DAT_2000fd04[index] is zero it returns. Otherwise it calls the TLV delete_tag function (vtable at DAT_2000fd0c, slot +8) with context DAT_2000fd08 and tag 0x42544400|index ('BTD'+index), clears the used flag and decrements the entry count DAT_2000fd10. Called from ble_219_0c052e70 (security manager removing a bond).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "device DB index (0..3)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  }
+}

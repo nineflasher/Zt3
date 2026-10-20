@@ -1,0 +1,653 @@
+{
+  "ble_219_0c03ac98": {
+    "name": "bt_drv_hci_cmd_send_wait",
+    "summary": "Send an HCI packet to the BT core and poll a reply flag with a timeout",
+    "description": "Sends the HCI packet at param_1 (param_2 bytes) to the BT controller core and is the common send path for the vendor command group (bt_drv_hci_vendor_cmd_send, bt_drv_hci_cmd_post_settle, the event hooks). While the controller-running flag DAT_2000BD06 is clear it hands the buffer to bt_drv_intersys_send_saved_iface, waits one 50-unit delay and returns without waiting for a reply. Once the flag is set it clears DAT_20003EA4, queues the packet with hal_sysipc_send(channel 0, type 0) and polls every 50 delay units for up to 201 iterations until DAT_20003EA4 or the ready flag DAT_2000BD18 becomes nonzero. It returns no status, so a timeout is silent and the caller continues.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "HCI packet buffer, H4 indicator byte first"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "packet length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Who sets DAT_20003EA4 is outside this packet. The 201-iteration bound is the literal 0xC9 in the decompile."
+  },
+  "ble_219_0c03acf0": {
+    "name": "bt_drv_intersys_link_init_once",
+    "summary": "One-time BT-core link setup: set the controller-running flag and register callbacks",
+    "description": "Runs its body only once: while DAT_2000BD06 is zero it sets the flag to 1 and registers two callbacks (code labels at 0x0C03BD44 and 0x0C03ABB0) through 0x0C0315D8(0, 0, cb_a, cb_b, 0). If that registration returns 0 it calls 0x0C031808, which is probably the IRQ-enable counterpart of hal_sysipc_rx_irq_disable. Later calls do nothing. DAT_2000BD06 is the flag that bt_drv_hci_cmd_send_wait tests to choose between the intersys and IPC send paths.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "0x0C0315D8 and 0x0C031808 are not described yet. The meaning of the two callbacks is open."
+  },
+  "ble_219_0c03ad44": {
+    "name": "bt_drv_rf_gain_ratio_rescale",
+    "summary": "Rescale about 30 analog gain bit-fields by a power ratio read from register 0x2144",
+    "description": "Saves analog registers 0x20B8 and 0x2172 and RF word 0xD0220C00, then puts the radio in a test state (0xD0220C00 = 0x000A0080, 0x20B8 = 0x7C00, bits 4 and 5 of 0x2172 set, with delays of 1 to 10 units). It reads the 16-bit power word at 0x2144 and only when bit 15 is set takes its low 14 bits divided by 8257.0 as a ratio, falling back to 1.0 for some range and FP-status cases. Each analog bit-field in about 23 registers from 0x2027 to 0x213C is read, divided by the ratio, rounded and clamped to nonnegative, then written back. The saved registers are restored at the end, so the routine is a self-contained gain-compensation step in the same RF group as bt_drv_rf_analog_bringup.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low",
+    "notes": "The 8257.0 scale, the field layout and the meaning of the 0x2144 word are not confirmed, so the purpose is a guess from the code shape. The final write to 0x213C overwrites the ratio variable but nothing reads it afterwards. If bit 15 of the word is clear, no field is changed."
+  },
+  "ble_219_0c03b8d4": {
+    "name": "bt_drv_rf_dc_iq_cal_run",
+    "summary": "Run the RF DC/IQ calibration sweep inside a save and restore of RF and analog state",
+    "description": "Saves 11 analog registers (address list in ROM at 0x0C0768F8, first entry 0x200F) and nine RF or controller words (0xD0350334, 0xD0350248, 0xD035002C, 0xD0350028, 0xD0340020, 0xD0330058, 0xD0330060, 0xD0330064, 0xD0220C00). It then writes the ROM list at 0x0C0768A4 (its first entry sets 0x200F = 0x0030), loads 0xD0340020 = 0x030E01C0, 0xD0350028 = 0x013F0012, 0xD035002C = 3 and 0xD0220C00 = 0x800A0027 (test word for channel 39), sets bit 23 of 0xD0350334 and clears bit 31 of 0xD0350250. It runs bt_rfcal_dc_iq_sweep_all_bands and then restores everything it saved, so it is the wrapper that makes the sweep safe to run from the controller init path.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The purpose of the individual register writes is inferred from the calibration context. Bit 31 of 0xD0350250 is cleared here and set again by the sweep itself."
+  },
+  "ble_219_0c03ba38": {
+    "name": "bt_drv_rf_tx_power_trim_apply",
+    "summary": "Apply the signed TX power trim from calibration record 7 to power and gain registers",
+    "description": "Reads calibration record 7 through the RAM routine at 0x2000067C into a 16-bit value and decodes three 3-bit sign-magnitude fields at bits 2:0, 6:4 and 10:8, where a set sign bit (3, 7 or 11) means positive. If bit 12 is set the result is the average of the three fields divided by 3, otherwise it is the first field alone, rounded half away from zero. A positive result is subtracted from five 6-bit power fields (the first in 0xD0350308, the rest at addresses listed in ROM at 0x0C0768D0). A negative result instead adds 1 + 2*|v| to the 5-bit gain index in bits 8:4 of analog register 0x20CC, and zero changes nothing.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The meaning of calibration record 7 and the names of the power registers are not known. The sign convention comes from the bit tests: a clear sign bit negates the field."
+  },
+  "ble_219_0c03bc74": {
+    "name": "bt_drv_rf_regset_mode0_select",
+    "summary": "Call the RF register-set selector with mode 0",
+    "description": "Wrapper that calls bt_drv_rf_regset_select with a single argument of 0 (the decompile shows no second argument). Its callers 0x0C04696C and 0x0C046C7C are controller state-machine paths outside this packet.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The set index is the second argument of bt_drv_rf_regset_select, which the decompile does not show here, so the set actually selected is not confirmed."
+  },
+  "ble_219_0c03bccc": {
+    "name": "bt_drv_hci_evt_conn_state_hook",
+    "summary": "HCI event hook for Connection Complete and Disconnection Complete state changes",
+    "description": "Callback for incoming HCI event packets that does nothing unless the ready flag DAT_2000BD18 is nonzero. For a Connection Complete event (indicator 0x04, event 0x03, length 11, status 0) it sends the 5-byte buffer at 0x0C076924 through bt_drv_hci_cmd_send_wait, waits 20 units and sets DAT_20003EA8 = 1. For a Disconnection Complete event (event 0x05, length 4, status 0) it sends the buffer at 0x0C07692C, waits 20 units, sets DAT_2000BD18 = 1 and sets DAT_20003EA8 = 2. Other events are ignored, so this is a small two-state connection tracker in the host-side event path.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "H4 event packet: indicator, event code, parameter length, status"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Reached only indirectly as a callback, so there are no direct callers. The length of the 0x0C07692C send is not visible in this decompile; another packet (wave4_batch05) passes 5 for the same buffer."
+  },
+  "ble_219_0c03bd70": {
+    "name": "bt_drv_hci_cmd_post_settle",
+    "summary": "Send the fixed 4-byte HCI packet at 0x0C076914 and wait 350 units",
+    "description": "Sends the four-byte packet stored at ROM 0x0C076914 through bt_drv_hci_cmd_send_wait and then waits 350 delay units (0x15E) with the RAM delay pair, which gives the controller time to apply it. It is a fixed step in controller sequencing: the pending-action poll at 0x0C03C034 calls it, and so do routines at 0x0C0469xx and 0x0C046Cxx.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The packet contents are not visible in this packet, so the opcode is not identified."
+  },
+  "ble_219_0c03bd90": {
+    "name": "bt_drv_vco_test_session_start",
+    "summary": "Start a factory VCO test session on one channel, saving and overriding two analog registers",
+    "description": "Part of the factory VCO test pair with bt_drv_vco_test_session_stop. It returns at once if DAT_2000BD10 is already set; otherwise it sets DAT_2000BD10, saves analog register 0x20C1 into DAT_2000BD0E and 0x2024 into DAT_2000BD0C. It then calls bt_drv_vco_test_start with the channel, clears bit 11 of 0x20C1 and writes bits 7:4 of 0x2024 to 1001b (0x90). The stop function restores the saved values.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "BT channel index, 0..78"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Called from the factory command handler at 0x0C02C49C, which is outside this packet."
+  },
+  "ble_219_0c03be14": {
+    "name": "bt_drv_vco_test_session_stop",
+    "summary": "End the factory VCO test session and restore the saved analog registers",
+    "description": "Second half of the factory VCO test pair. If DAT_2000BD10 is set it clears it, calls bt_drv_vco_test_stop to zero RF word 0xD0220C00, and writes the values saved by bt_drv_vco_test_session_start back to analog registers 0x20C1 and 0x2024. It does nothing when no session is active.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Called from 0x0C02C49C, which is outside this packet."
+  },
+  "ble_219_0c03be50": {
+    "name": "bt_drv_hci_vendor_cmd_send",
+    "summary": "Build an H4 HCI command from opcode, length and parameters, then send it",
+    "description": "Builds a command in a 256-byte stack buffer: byte 0 is 0x01 (H4 command indicator), bytes 1 and 2 are the opcode, byte 3 is the parameter length, and the parameters are copied from param_3 with newlib memcpy when the length is nonzero. It then calls bt_drv_hci_cmd_send_wait with length param_2 + 4. The opcodes used across the vendor group are BES vendor commands in the 0xFCxx range: 0xFC71, 0xFC77, 0xFC81 and 0xFCC3.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "HCI opcode, sent little-endian"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "parameter length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "parameter block, copied only when the length is nonzero"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03bfbc": {
+    "name": "bt_drv_hci_cmd_complete_info_rx",
+    "summary": "Command Complete hook that copies a 16-byte vendor response into RAM at 0x2000BD38",
+    "description": "Runs with the IPC RX interrupt for channel 0 disabled (0x0C031848(0) before the work and 0x0C031808(0) after it). If the packet is an HCI event (indicator 0x04) with event code 0x0E (Command Complete), parameter length 0x12 and a nonzero halfword at offset 7, it copies 16 bytes from offset 7 into RAM at 0x2000BD38 through ble_mem_copy and sets DAT_2000BD33 = 1. It returns its second argument in every case, so it works as a pass-through filter in the host event path.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "H4 event packet"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "value passed through unchanged"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "Returns param_2 in every case."
+    },
+    "confidence": "medium",
+    "notes": "Reached indirectly as a callback, so there are no direct callers. The meaning of the 16-byte response is not known."
+  },
+  "ble_219_0c03c034": {
+    "name": "bt_drv_pending_action_poll",
+    "summary": "Service two pending flags: resend the 350-unit HCI step and call 0x0C044D90",
+    "description": "Periodic poll for two pending actions. If DAT_2000BD32 is set it runs bt_drv_hci_cmd_post_settle, waits 200 delay units and clears the flag. If DAT_2000BD34 is nonzero it calls 0x0C044D90 with DAT_2000BD34, 3, 0, 0 and 0. It is called from 0x0C03C070, which is outside this packet.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "0x0C044D90 is not described yet, so the action behind DAT_2000BD34 is open."
+  },
+  "ble_219_0c03cd58": {
+    "name": "bt_drv_vendor_ctrl_init_cmds",
+    "summary": "Send the BES vendor controller-init commands 0xFC71, the 0xFCxx record table and 0xFCC3",
+    "description": "Controller init step made of vendor commands. It builds a 16-byte 0xFC71 block from bes_hw_get_const_4000 (three copies of 4000 + 200, then 0x0203, 4000, 1 and 0) and sends it through bt_drv_hci_vendor_cmd_send. It then walks a ROM table of 12-byte records (opcode at +2, parameter length at +4, parameter pointer at +8), sending each with a 20-unit delay. Last it sends opcode 0xFCC3 with a 37-byte block at 0x0C07F078, or a 40-byte block at 0x0C07F0A0 when the RAM routine at 0x20000220 returns nonzero, followed by a 1-unit delay.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "As decompiled, the table loop exits after the first record because its end test compares the pointer with the start address, so only one record may be sent. That is possibly a decompiler artefact. The 4000 constant and the fields of the 0xFC71 block are not identified."
+  },
+  "ble_219_0c03ce14": {
+    "name": "bt_drv_vendor_fc77_set_value",
+    "summary": "Store a byte in DAT_20003EB4 and send vendor command 0xFC77 with an 8-byte block",
+    "description": "Stores param_1 in DAT_20003EB4, sends vendor opcode 0xFC77 with an 8-byte parameter block through bt_drv_hci_vendor_cmd_send, and waits one delay unit. It is one of the small vendor-setting writes called from the controller state machine (with bt_drv_vendor_fc81_cmd).",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "value cached in DAT_20003EB4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The parameter block is not visible in the decompile, so it is whatever the caller left in the third argument register. Callers are 0x0C04696C and 0x0C046C7C."
+  },
+  "ble_219_0c03ce38": {
+    "name": "bt_drv_vendor_fc81_cmd",
+    "summary": "Send vendor command 0xFC81 with an 8-byte block and wait one unit",
+    "description": "Sends vendor opcode 0xFC81 with an 8-byte parameter block through bt_drv_hci_vendor_cmd_send, then waits one delay unit. It is the companion of bt_drv_vendor_fc77_set_value in the same controller state-machine callers.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The parameter block pointer is not visible in the decompile. Callers are 0x0C04696C and 0x0C046C7C."
+  },
+  "ble_219_0c03e314": {
+    "name": "bt_drv_ctrl_param_load_all",
+    "summary": "Load the controller RSSI, timing and table parameters and set the RF mode field",
+    "description": "Loads the controller parameter set in a fixed order. If DAT_2000BDB4 is nonzero it writes the 6-byte constant at 0x0C07691C; it then loads the three RSSI tables (bt_drv_reg_op_load_rssi_table_a, _b and _c), the 8-byte table at 0x20003EAC (bt_drv_reg_op_load_table8_bdd4), the RSSI monitor block (bt_drv_reg_op_set_rssi_monitor_params) and the slot-timing block (bt_drv_reg_op_set_timing_params). It sets RF field 14:13 to 1 through the thunk at 0x0C03BE88. Finally, when the register-access guard DAT_2000BD58 is zero it toggles the sysreg gate (0x0C0413F0 on, 0x0C041430 off), and in both paths it sets byte +0x28 of the structure at DAT_2000BDF8 to 1 when that pointer is set.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The order follows the decompile. The configuration meaning of the 0xD0220C7C field is not known."
+  },
+  "ble_219_0c03e388": {
+    "name": "bt_drv_rf_reg_lo6_from_lut",
+    "summary": "Write the table code for a float setting into bits 5:0 of analog register 0x2049+index",
+    "description": "Converts param_2 to float and searches an 8-byte-record table at ROM 0x0C0857F0 for it, returning the 16-bit code of the matching record (zero when nothing matches). The scan starts from the key 16.0 and runs until 0x0C085888. It then replaces bits 5:0 of analog register (0x2049 + param_1) with that code by read-modify-write and keeps the other bits. It is the low-field half of the RF lookup helpers together with bt_drv_rf_reg_mid6_from_lut and bt_drv_rf_apply_cfg_record.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "field index; analog register is 0x2049 + index"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "setting, converted to float before the lookup"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Table layout is inferred from the scan loop: the float at +8 of each record is the key that selects the record after it, and the last matching record wins. The meaning of the setting is not known."
+  },
+  "ble_219_0c03e3e8": {
+    "name": "bt_drv_rf_reg_mid6_from_lut",
+    "summary": "Write the table code for a float setting into bits 11:6 of analog register 0x2049+index",
+    "description": "For param_1 below 6 it runs the same lookup as bt_drv_rf_reg_lo6_from_lut on param_2 and writes the 16-bit code into bits 11:6 of analog register (0x2049 + param_1), keeping the other bits. For param_1 of 6 or more it enters an endless loop and never returns. It is the mid-field companion of bt_drv_rf_reg_lo6_from_lut.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "field index, 0..5 valid"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "setting, converted to float before the lookup"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The endless loop is a trap for an out-of-range index, not a delay."
+  },
+  "ble_219_0c03e454": {
+    "name": "bt_drv_rf_2168_field9_set",
+    "summary": "Set the 9-bit field of analog register 0x2168 and refresh its shadow",
+    "description": "Replaces bits 8:0 of the cached word DAT_20003EC0 with param_1 & 0x1FF and keeps bits 15:9. It writes the cached word to analog register 0x2168 and copies it to the shadow DAT_20003EBE. The other 0x2168 writers in the RF group (bt_drv_rf_2168_update_from_src) use the same cache.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "new value; bits 8:0 used"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03e490": {
+    "name": "bt_drv_analog_reg200f_set_1",
+    "summary": "Write value 1 to analog register 0x200F",
+    "description": "Writes the constant 1 to analog register 0x200F through hal_analogif_reg_write. That is also the first register in the list that bt_drv_rf_dc_iq_cal_run saves and programs. It is called from 0x0C03C070, which is outside this packet.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c03e49c": {
+    "name": "bt_drv_analog_init_20f2_variant",
+    "summary": "On the variant path, clear analog 0x20F2 and 0x20F3 and set 0x20F4 to 0x7C",
+    "description": "Calls the RAM routine at 0x20000220 as a flag test. When the result is nonzero it writes 0 to analog registers 0x20F2 and 0x20F3 and 0x7C to 0x20F4 through hal_analogif_reg_write. Otherwise it returns without touching the registers. It is called from 0x0C03BB70, which is outside this packet.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The flag at 0x20000220 is also tested by bt_drv_vendor_ctrl_init_cmds and bt_drv_rf_analog_bringup, so it is a chip or variant selector. Its exact meaning is not established."
+  },
+  "ble_219_0c03e51c": {
+    "name": "bt_drv_rf_apply_cfg_record",
+    "summary": "Apply the RAM config record at 0x2000BE0C-0x2000BE20 to the RF lookup registers",
+    "description": "Spins forever if DAT_2000BE0D is zero, which means the record is not initialised. Otherwise it passes seven record bytes to bt_drv_rf_reg_lo6_from_lut for indices 0 to 6 (analog registers 0x2049 to 0x204F, values from 0x2000BE1F, BE1D, BE1B, BE19, BE17, BE15 and BE12) and six bytes to bt_drv_rf_reg_mid6_from_lut for indices 0 to 5 (bits 11:6 of the same registers, values from 0x2000BE20, BE1E, BE1C, BE1A, BE18 and BE16). It is the apply step at the end of the RF bring-up group.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The record is filled by lm_env_defaults_init and cleared by bt_drv_rf_analog_bringup. DAT_2000BE0D is nonzero after lm_env_defaults_init."
+  },
+  "ble_219_0c03e5dc": {
+    "name": "bt_drv_rf_2168_update_from_src",
+    "summary": "Update the 9-bit field of analog 0x2168 from an external measurement or a fallback value",
+    "description": "When DAT_2000BE0C is zero it reads a status from 0x0C045F04 and, if that equals 1 and 0x0C045E04(&value) returns 0, sets the 9-bit field to value & 0x1FF and waits one unit. When the status check fails it uses the constant 0x7F. When DAT_2000BE0C is nonzero it uses DAT_2000BE0E & 0x1FF instead. Every path writes analog register 0x2168 and copies the cached word to DAT_20003EBE.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "0x0C045E04 and 0x0C045F04 are not described yet, so the source of the value is open."
+  },
+  "ble_219_0c03e66c": {
+    "name": "bt_drv_rf_0x2058_fields_remap",
+    "summary": "Remap two 7-bit fields of analog 0x2058 into 0x202E and set bits 13:11 of 0x202D",
+    "description": "Sets bit 0 of analog 0x20C4 and puts RF word 0xD0220C00 into test state 0x000A0028 (channel 40) with a 1-unit delay. It splits analog 0x2058 into a low 7-bit field and a 7-bit field at bits 13:7. Field values 0x75 to 0x7F are scaled as value * 0.8 + 0.5 (truncated) and other values are kept. The two results go into 0x202E, bits 13:11 of 0x202D are set, bit 0 of 0x20C4 is cleared and the RF word is restored.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low",
+    "notes": "The meaning of the 0x2058 fields and the 0.8 scale are not known, so the purpose is a guess. The second read of 0x2058 is discarded. The 0x20C4 bit and the 0x202D and 0x202E registers are not identified."
+  },
+  "ble_219_0c03e7d0": {
+    "name": "bt_drv_rf_regset_capture",
+    "summary": "Save the two analog register sets used by bt_drv_rf_regset_select",
+    "description": "Reads analog 0x221D, 0x221E, 0x2220 and 0x2221 into RAM words DAT_2000BE22, DAT_2000BE24, DAT_2000BE28 and DAT_2000BE2A, and reads 0x2235 twice, storing its low byte in DAT_2000BE26 and its high byte in DAT_2000BE2C. Set 0 therefore holds (BE22, BE24, BE26) and set 1 holds (BE28, BE2A, BE2C). bt_drv_rf_regset_select writes those values back to 0x221D, 0x221E and the low byte of 0x2235.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c03e844": {
+    "name": "bt_drv_rf_regset_select",
+    "summary": "Switch analog 0x221D, 0x221E and the low byte of 0x2235 to saved set 0 or 1",
+    "description": "Returns at once if the requested index equals the current index held in DAT_20003EBC. Otherwise it stores the index and, with mode 0, writes the saved 0x221D and 0x221E values for that set and merges the saved byte into the low byte of 0x2235. Set 0 uses BE22, BE24 and BE26, set 1 uses BE28, BE2A and BE2C (see bt_drv_rf_regset_capture). An index other than 0 or 1 returns without writing.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "mode gate: must be 0, any other value spins forever"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "register set index, 0 or 1"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Both callers in this packet (0x0C03BC74 and 0x0C03E9FC) pass only one argument, so the set index they select is not visible in the decompile. The index is stored before the mode check."
+  },
+  "ble_219_0c03e8f0": {
+    "name": "bt_drv_rf_0x2018_from_cfg_mode",
+    "summary": "Set the low 6 bits of analog 0x2018 from a 2-bit mode in calibration record 0x0C",
+    "description": "Reads calibration record 0x0C through the RAM routine at 0x2000067C and forms a 2-bit mode from bit 0 and bit 6 of the record. Mode 2 sets the low 6 bits of analog 0x2018 to 0x26, mode 3 sets them to 0x3F, mode 1 sets them to 0x18, and any other mode uses 0x12. The upper bits are kept. It is a step of bt_drv_rf_analog_bringup.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The calibration record index and the meaning of the mode are not established."
+  },
+  "ble_219_0c03e9ac": {
+    "name": "bt_drv_rf_0x208f_field_from_cfg",
+    "summary": "Copy bits 11:9 of calibration record 0x0C into analog 0x208F bits 6:4",
+    "description": "Reads calibration record 0x0C through the RAM routine at 0x2000067C. If bits 11:9 of the record are all zero it returns without a write. Otherwise it replaces bits 6:4 of analog register 0x208F with the 3-bit value of bits 11:9 and keeps the other bits. It runs only on the variant path of bt_drv_rf_analog_bringup.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c03e9fc": {
+    "name": "bt_drv_rf_analog_bringup",
+    "summary": "RF analog front-end bring-up: init tables, LUT registers, config record and register sets",
+    "description": "Full analog bring-up of the BT radio and the head of the RF group. It reads the variant flag from 0x20000220 and clears the low nibble of analog 0x20E9 (with a 1-unit delay), writes 0x2002 = 0x1717, then runs the ROM list at 0x0C083BE8 of 6-byte records (register at +6, value at +8, optional 1-unit delay flag at +10), each preceded by a dummy read. It writes 0x208F = 0x9F52, or 0x9F42 with a delay and bt_drv_rf_0x208f_field_from_cfg on the variant path, and calls bt_drv_rf_0x2018_from_cfg_mode. It then clears the config record at 0x2000BE0C-0x2000BE20 and calls lm_env_defaults_init, bt_drv_rf_apply_cfg_record, bt_drv_rf_0x2058_fields_remap and bt_drv_rf_2168_update_from_src. Next it sets bit 3 and then bits 4 and 5 of analog 0x227D, runs the ROM list at 0x0C083AA8 (starting with 0x027D = 0x0378), and calls bt_drv_rf_regset_capture and bt_drv_rf_regset_select with mode 0.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "Always 0."
+    },
+    "confidence": "medium",
+    "notes": "The contents of the two ROM lists are not visible here. The variant flag decides the 0x208F value and the extra step."
+  },
+  "ble_219_0c03ee44": {
+    "name": "bt_rfcal_search_i_fmt16",
+    "summary": "Refine the I code of a band calibration point using fmt16 residual probes",
+    "description": "Searches the I code (bits 13:0) of the register at param_1 while the Q code is held at param_3, using bt_rfcal_measure_residual_fmt16. It probes the centre minus 50, the centre plus 50 and the midpoint, with two measurements per probe (four once the bracket is under 8 codes). It then repeatedly probes the midpoint and keeps the side with the lower residual until the bracket is only a few codes wide. The best code and residual are written to *param_4 and *param_5. If the last probe was not the best, it re-measures the stored best with bt_rfcal_measure_residual_fmt14 at three averages and keeps the better result. It is the I refinement step of bt_rfcal_dc_iq_sweep_all_bands.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "register that receives the packed codes, such as 0xD0310034"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "centre I code; probes sit at centre plus or minus 50"
+      },
+      {
+        "name": "param_3",
+        "type": "s16",
+        "description": "fixed Q code"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "out: best I code as s32"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "in/out: best residual as f32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "Best I code."
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c03efc0": {
+    "name": "bt_rfcal_search_i_fmt14",
+    "summary": "Refine the I code on register 0xD0350250 with fmt14 residual probes, Q fixed",
+    "description": "Bracketing search for the I code (bits 13:0) of 0xD0350250 with the Q code fixed at param_2, using bt_rfcal_measure_residual_fmt14. It probes centre minus and plus the half-width and the midpoint, with one measurement per probe (three once the bracket is under 17 codes). It narrows the bracket toward the lower residual until it is a few codes wide and then re-measures the stored best with three averages. Results go to *param_4 and *param_5 and the best code is returned. It is the I step of the 0xD0350250 sweep in bt_rfcal_dc_iq_sweep_all_bands.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "centre I code"
+      },
+      {
+        "name": "param_2",
+        "type": "s16",
+        "description": "fixed Q code, placed in bits 27:14"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "search half-width in codes"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "out: best I code as s32"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "in/out: best residual as f32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "Best I code."
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c03f0dc": {
+    "name": "bt_rfcal_search_q_fmt14",
+    "summary": "Refine the Q code on register 0xD0350250 with fmt14 residual probes, I fixed",
+    "description": "Same bracketing search as bt_rfcal_search_i_fmt14, but the varied code is Q (bits 27:14 of 0xD0350250) and the I code is fixed at param_2. It probes centre minus and plus the half-width and the midpoint, with one measurement per probe (three under 17 codes), narrows toward the lower residual and re-measures the stored best with three averages. Results go to *param_4 and *param_5 and the best Q code is returned. It is the Q step of the 0xD0350250 sweep.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "centre Q code"
+      },
+      {
+        "name": "param_2",
+        "type": "s16",
+        "description": "fixed I code, placed in bits 13:0"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "search half-width in codes"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "out: best Q code as s32"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "in/out: best residual as f32"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "Best Q code."
+    },
+    "confidence": "medium",
+    "notes": "In bt_rfcal_dc_iq_sweep_all_bands the decompiled call to this function passes six values, including a float, to a five-parameter prototype. The centre (0) and half-width (50) used there are inferred from the call pattern."
+  },
+  "ble_219_0c03f1f4": {
+    "name": "bt_rfcal_dc_iq_sweep_all_bands",
+    "summary": "DC offset and IQ calibration sweep: coarse-to-fine I and Q search per band, table store",
+    "description": "Measures the DC offset and IQ codes of the transmit path. Stage 1 sweeps the I code from -200 to 200 in steps of 50 with Q at 0 on register 0xD0350250 (bt_rfcal_measure_residual_fmt14), clears bit 23 of 0xD0350334, refines Q and repeats the sweep and refinement while the residual stays above 200. Stage 2 runs for each of three bands with register 0xD0310034, 0xD031009C or 0xD0310104, frequency word 0xD0350248 (0xBF8E39, 0xC24E90, 0xC50EE6) and channel word 0xD0220C00 (channels 13, 39 and 65). It uses bt_rfcal_measure_residual_fmt16 with a threshold of 100 and runs a coarse I sweep, I refinement and, when needed, a Q sweep, Q refinement and I refinement again. Each channel's packed (I, Q) pair is stored with bes_pack_two_14bit_fields in the table at 0xD0310000 (26, 26 and 27 entries, 79 channels in total). At the end it sets bit 31 of 0xD0350250 and reports the elapsed time through the RAM routine at 0x200005E8. It is the core of the RF calibration group, called from bt_drv_rf_dc_iq_cal_run.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The 0x0C03ECC8 and 0x0C03EB98 names follow the existing annotations (fmt16 and fmt14). The packed 14-bit I and Q codes stored in the table are consistent with the codes measured here. The argument list of the Q refinement call is discussed in bt_rfcal_search_q_fmt14."
+  },
+  "ble_219_0c03ff68": {
+    "name": "clock_settime",
+    "summary": "POSIX clock_settime: accept CLOCK_REALTIME only and store the epoch offset",
+    "description": "Accepts only CLOCK_REALTIME (1); any other id sets errno to EINVAL (22) through __errno and returns -1. For CLOCK_REALTIME it reads CLOCK_MONOTONIC (clock 4) through clock_gettime and computes the offset REALTIME minus MONOTONIC from the caller's timespec into the 64-bit words DAT_2000C5E0 and DAT_2000C5E4. It then reads the monotonic clock again, adds one second when its tv_nsec exceeds 500 ms and passes the 64-bit result to 0x0C03FEA8. The offset in DAT_2000C5E0 and DAT_2000C5E4 is the stored state; the final call goes to a zero-return stub with no visible effect. The function returns 0 on success.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "clock id; only CLOCK_REALTIME (1) is accepted"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "const struct timespec with the new time"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -1 with errno set to EINVAL."
+    },
+    "confidence": "medium",
+    "notes": "The nanosecond borrow in the offset calculation is simplified. 0x0C03FEA8 is util_return_zero_u32 by its own annotation (medium confidence on the stub reading)."
+  },
+  "ble_219_0c04014c": {
+    "name": "ble_clock_realtime_offset_update",
+    "summary": "Reset (param nonzero) or refresh the REALTIME offset from the monotonic clock",
+    "description": "Companion of clock_settime that maintains the same offset words DAT_2000C5E0 and DAT_2000C5E4. With param_1 nonzero it sets the offset to 0 minus the current monotonic seconds, using the zero-return stub 0x0C03FEA0 as the base, so REALTIME reads zero at this instant. With param_1 zero it reads CLOCK_MONOTONIC through clock_gettime, rounds to the nearest second (adds one when tv_nsec exceeds 500 ms), adds the stored offset and passes the 64-bit result to the zero-return stub 0x0C03FEA8. Its caller is 0x0C047FEC, which is outside this packet.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "nonzero resets the offset so REALTIME restarts at zero; zero refreshes it"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The base value 0 comes from util_return_zero_u64 (0x0C03FEA0). Because 0x0C03FEA8 is also a zero-return stub, the value passed in the zero-parameter branch has no visible effect."
+  }
+}

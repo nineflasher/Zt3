@@ -1,0 +1,274 @@
+{
+  "bms_g_4130_200002ec": {
+    "name": "bms_prot_dwell_limit_4130",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4130",
+      "0x200002ec"
+    ],
+    "category": "protection",
+    "description": "u32 dwell limit that exists only in the BMS_4130 build. bms_prot_latch_pairs_update reads it through a base pointer, so the owning channel is not visible in this packet. The family map does not link it to BMS_4168 0x200002EC, so treat it as a 4130-only variable. Probably a set-side limit in tick counts, compared the same way as the BMS_4168 limits in bms_latch_eval_ch7_limits."
+  },
+  "bms_g_4168_200002ec": {
+    "name": "bms_latch_eval_ch7_limits",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x200002ec"
+    ],
+    "category": "protection",
+    "description": "Two u32 dwell limits of bms_protect_latch_evaluate for latch-engine pair 7 (accumulators 0x20000F68 and 0x20000F6C). Element 0 (0x200002EC) is the trigger limit: the trigger accumulator 0x20000F68 is clamped to it and the channel latches when it reaches it. Element 1 (0x200002F0) is the release limit for accumulator 0x20000F6C. Tick units of the caller's elapsed-time argument (probably). This packet shows only reads; the writer of these calibration values is not identified here.",
+    "count": 2
+  },
+  "bms_g_4168_20000300": {
+    "name": "bms_latch_eval_ch8_cfg",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x20000300"
+    ],
+    "category": "protection",
+    "description": "Latch-engine pair 8 of bms_protect_latch_evaluate. thr_a (0x20000300) and thr_b (0x20000302) are unsigned-compared with the 16-bit sample at record+0x0E: the trigger accumulator 0x20000F78 runs while the sample is below thr_a (probably the arming side), and the release side uses thr_b (probably the same band in reverse). set_limit (0x20000304) caps trigger accumulator 0x20000F78 and clear_limit (0x20000308) caps accumulator 0x20000F7C. Latch status bits are set in bms_protect_latch_evaluate."
+  },
+  "bms_g_4168_20000324": {
+    "name": "bms_prot_latch_cfg_ch1",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x20000324"
+    ],
+    "category": "protection",
+    "description": "Latch channel 1 of bms_prot_latch_pairs_update, sampled at record+2. The set accumulator 0x20000F90 runs while the sample is at or below thr_a (0x20000324) and latches bit 0x2 of the latch word 0x20000258 when it reaches set_limit (0x20000328). The clear accumulator 0x20000F94 runs while bit 0x2 or 0x4 is set and the sample is at or above thr_b (0x20000326), and clears 0x2 and 0x4 at clear_limit (0x2000032C). Values are configuration constants; no writer is in this packet."
+  },
+  "bms_g_4168_2000033c": {
+    "name": "bms_prot_latch_cfg_ch2",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x2000033c"
+    ],
+    "category": "protection",
+    "description": "Latch channel 2 of bms_prot_latch_pairs_update, sampled at record+4 (opposite arming side to channel 1). The set accumulator 0x20000FA0 runs while the sample is at or above thr_a (0x2000033C) and latches bit 0x10 at set_limit (0x20000340). The clear accumulator 0x20000FA4 runs while bit 0x10 or 0x40 is set and the sample is at or below thr_b (0x2000033E), and releases at clear_limit (0x20000344). Configuration constants."
+  },
+  "bms_g_4168_20000378": {
+    "name": "bms_prot_latch_cfg_ch3",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x20000378"
+    ],
+    "category": "protection",
+    "description": "Latch channel 3 of bms_prot_latch_pairs_update, sampled at record+2. Set accumulator 0x20000FC8 runs while the sample is at or below thr_a (0x20000378) and latches bit 0x400 at set_limit (0x2000037C). Clear accumulator 0x20000FCC runs while bit 0x400 or 0x800 is set and the sample is at or above thr_b (0x2000037A), releasing at clear_limit (0x20000380). Configuration constants."
+  },
+  "bms_g_4168_20000390": {
+    "name": "bms_prot_latch_cfg_ch4",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x20000390"
+    ],
+    "category": "protection",
+    "description": "Latch channel 4 of bms_prot_latch_pairs_update, sampled at record+4. Set accumulator 0x20000FD8 runs while the sample is at or above thr_a (0x20000390) and latches bit 0x2000 at set_limit (0x20000394). Clear accumulator 0x20000FDC runs while bit 0x2000 or 0x8000 is set and the sample is at or below thr_b (0x20000392), releasing at clear_limit (0x20000398). Configuration constants."
+  },
+  "bms_g_4168_200003a4": {
+    "name": "bms_prot_ref_3a4",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200003a4"
+    ],
+    "category": "protection",
+    "description": "Address-taken only: bms_prot_latch_pairs_update takes the address of this word but no decompiled line in this packet reads or writes it. Size not established; 4 bytes assumed. Probably a record or flag whose address is handed to a helper."
+  },
+  "bms_g_4139_200003ac": {
+    "name": "bms_dwell_ref_4139_3ac",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4139",
+      "0x200003ac"
+    ],
+    "category": "protection",
+    "description": "Address-taken only in BMS_4139 and BMS_4130 builds: bms_protect_dwell_flags_update takes its address and no decompiled line names it. Size not established; 4 bytes assumed. Probably a pointer target inside the dwell-flag record."
+  },
+  "bms_g_4139_200003bc": {
+    "name": "bms_dwell_words_4139_3bc",
+    "type": "u32",
+    "size": 12,
+    "anchor": [
+      "BMS_4139",
+      "0x200003bc"
+    ],
+    "category": "protection",
+    "description": "Three u32 words read through a base pointer by bms_protect_dwell_flags_update in BMS_4139 (0x200003BC, 0x200003C0, 0x200003C4; the BMS_4130 build places the same family at 0x20000364..0x2000036C). Probably dwell timers or flags of the BMS_4139 dwell record; no decompiled line names them, so the meaning is inferred from the access pattern.",
+    "count": 3
+  },
+  "bms_g_4168_200003cc": {
+    "name": "bms_prot_latch_cfg_ch5",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x200003cc"
+    ],
+    "category": "protection",
+    "description": "Latch channel 5 of bms_prot_latch_pairs_update, sampled at record+6. Set accumulator 0x20001000 runs while the sample is at or above thr_a (0x200003CC) and latches bit 0x80000 at set_limit (0x200003D0). Clear accumulator 0x20001004 runs while bit 0x80000 is set and the sample is at or below thr_b (0x200003CE), releasing at clear_limit (0x200003D4). Configuration constants."
+  },
+  "bms_g_4168_200003e4": {
+    "name": "bms_prot_latch_cfg_ch6",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x200003e4"
+    ],
+    "category": "protection",
+    "description": "Latch channel 6 of bms_prot_latch_pairs_update, sampled at record+0x12. Set accumulator 0x20001010 runs while the sample is at or above thr_a (0x200003E4) and latches bit 0x200000 at set_limit (0x200003E8). Clear accumulator 0x20001014 runs while bit 0x200000 is set and the sample is at or below thr_b (0x200003E6), releasing at clear_limit (0x200003EC). Configuration constants."
+  },
+  "bms_g_4168_200003fc": {
+    "name": "bms_prot_latch_cfg_ch7",
+    "type": "BmsLatchChannelCfg",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x200003fc"
+    ],
+    "category": "protection",
+    "description": "Latch channel 7 of bms_prot_latch_pairs_update, sampled at record+8. Set accumulator 0x20001020 runs while the sample is at or above thr_a (0x200003FC) and latches bit 0x800000 at set_limit (0x20000400). Clear accumulator 0x20001024 runs while bit 0x800000 is set and the sample is at or below thr_b (0x200003FE), releasing at clear_limit (0x20000404). Configuration constants."
+  },
+  "bms_g_4139_200003f8": {
+    "name": "bms_dwell_words_4139_3f8",
+    "type": "u32",
+    "size": 12,
+    "anchor": [
+      "BMS_4139",
+      "0x200003f8"
+    ],
+    "category": "protection",
+    "description": "Three u32 words read through a base pointer by bms_protect_dwell_flags_update in BMS_4139 (0x200003F8, 0x200003FC, 0x20000400; BMS_4130 places them at 0x200003A0..0x200003A8). Probably dwell timers or limits of the BMS_4139 dwell record; the meaning is inferred from the access pattern only.",
+    "count": 3
+  },
+  "bms_g_4168_20000464": {
+    "name": "bms_dwell_ref_464",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000464"
+    ],
+    "category": "protection",
+    "description": "Address-taken only in the BMS_4148 and BMS_4168 builds: bms_protect_dwell_flags_update takes the address and no decompiled line names it. Size not established; 4 bytes assumed."
+  },
+  "bms_g_4168_20000474": {
+    "name": "bms_dwell_pct_474",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000474"
+    ],
+    "category": "protection",
+    "description": "Percent threshold used by bms_protect_dwell_flags_update: the timer 0x20001070 arms latch 0x02 while the s16 at state+0x11A is at least this value times 100. Configuration constant; probably a percent, width inferred from the s16 comparison."
+  },
+  "bms_g_4168_20000478": {
+    "name": "bms_dwell_limits_478",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x20000478"
+    ],
+    "category": "protection",
+    "description": "Two u32 limits of bms_protect_dwell_flags_update. Element 0 (0x20000478) is the limit for accumulator 0x20001070 (latch 0x02 set side): the accumulator is clamped to it when it reaches it. Element 1 (0x2000047C) is the release limit for accumulator 0x20001074 (latches 0x02, 0x04, 0x08 and 0x10). Tick units (probably).",
+    "count": 2
+  },
+  "bms_g_4168_200004a4": {
+    "name": "bms_dwell_pct_4a4",
+    "type": "s16",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200004a4"
+    ],
+    "category": "protection",
+    "description": "Two s16 percent thresholds used by bms_protect_dwell_flags_update against the s16 at state+0x11A, each compared as value times 100 (the BMS_4148 family of element 0 is at 0x200003FC, element 1 at 0x200003FE). Element 0 (0x200004A4) and element 1 (0x200004A6) are the two limits of the dwell conditions that drive latch 0x02 and 0x04. Configuration constants; probably percent.",
+    "count": 2
+  },
+  "bms_g_4168_200004a8": {
+    "name": "bms_dwell_limits_4a8",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x200004a8"
+    ],
+    "category": "protection",
+    "description": "Two u32 limits of bms_protect_dwell_flags_update for latch 0x80. Element 0 (0x200004A8) is the set limit for accumulator 0x20001090 and element 1 (0x200004AC) is the release limit for accumulator 0x20001094. Tick units (probably).",
+    "count": 2
+  },
+  "bms_g_4168_200004b0": {
+    "name": "bms_dwell_pct_4b0",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200004b0"
+    ],
+    "category": "protection",
+    "description": "Percent threshold used by bms_protect_dwell_flags_update: the timer 0x20001098 arms latch 0x100 while the s16 at state+0x11A stays at or below this value times 100 for the time in 0x200004B4. Configuration constant; probably percent."
+  },
+  "bms_g_4168_200004b4": {
+    "name": "bms_dwell_limits_4b4",
+    "type": "u32",
+    "size": 8,
+    "anchor": [
+      "BMS_4168",
+      "0x200004b4"
+    ],
+    "category": "protection",
+    "description": "Two u32 limits of bms_protect_dwell_flags_update for latch 0x100 and the sticky byte. Element 0 (0x200004B4) is the set limit for accumulator 0x20001098, and it is also added to 5000 for the sticky test on accumulator 0x20000260 (sticky byte DAT_20000251). Element 1 (0x200004B8) is the release limit for accumulator 0x2000109C. Tick units (probably).",
+    "count": 2
+  },
+  "bms_g_4168_200004c8": {
+    "name": "bms_prot_debounce_flags",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200004c8"
+    ],
+    "category": "protection",
+    "description": "Latch-bit byte of bms_prot_debounce_quad. Bits 0x02, 0x10, 0x20 are set by the first, second and third debounced conditions, and bit 0x02 is cleared by the fourth. Probably a single byte (the family is accessed with byte-style OR masks)."
+  },
+  "bms_g_4168_200004cc": {
+    "name": "bms_prot_debounce_timers",
+    "type": "u32",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x200004cc"
+    ],
+    "category": "protection",
+    "description": "Four u32 debounce accumulators of bms_prot_debounce_quad (0x200004CC, 0x200004D0, 0x200004D4, 0x200004D8). Each accumulates the elapsed time param_3 while its trigger test holds and resets to zero otherwise, and is held at zero while its own latch bit is set. Their limits are 0x200004E0, 0x200004EC, 0x200004F8 and 0x200004FC.",
+    "count": 4
+  },
+  "bms_g_4168_200004e0": {
+    "name": "bms_prot_debounce_limit_e0",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200004e0"
+    ],
+    "category": "protection",
+    "description": "u32 limit of debounce accumulator 0x200004CC in bms_prot_debounce_quad. When the accumulator reaches this value it clamps and sets bit 0x10 in the flag byte 0x200004C8. Tick units (probably)."
+  }
+}

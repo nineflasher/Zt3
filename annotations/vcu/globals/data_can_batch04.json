@@ -1,0 +1,74 @@
+{
+  "vcu_g_0159_20001848": {
+    "name": "can_telemetry_tick_count",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001848"
+    ],
+    "category": "can",
+    "description": "Tick counter of the periodic CAN telemetry scheduler (vcu_can_periodic_telemetry_tick), incremented once per scheduler tick. Bit 0 selects the 0x100 frame on even ticks and the remainder modulo 10, 20 and 100 selects the slower frame groups. It is frozen while the countdown DAT_2000185E (loaded with 500 by frame 0x3D0) runs and is reset to 0 when that countdown ends."
+  },
+  "vcu_g_0159_2000184a": {
+    "name": "can_telemetry_burst_count",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000184a"
+    ],
+    "category": "can",
+    "description": "Step counter of a 50-tick window that runs while the flag DAT_2000185B is set (its writer is outside this packet). When it passes 50 the flag is cleared, DAT_20001854 is incremented and vcu_0159_08002980 is called. It is held at 0 while the flag is clear."
+  },
+  "vcu_g_0159_20002970": {
+    "name": "can_tp_session_table",
+    "type": "TpSessionTable",
+    "count": 1,
+    "size": 12,
+    "anchor": [
+      "VCU_0159",
+      "0x20002970"
+    ],
+    "category": "can",
+    "description": "Descriptor of the J1939 transport-protocol session table (see type TpSessionTable). proto_sessions_init fills it with five 36-byte sessions at 0x200022E0, count 5 and the callback block at 0x20001838. It is used by vcu_can_ef00_message_send for multi-frame PGN 0xEF00 messages and advanced once per timer tick by vcu_can_tp_session_table_tick. Its families 0x20002974 and 0x20002978 lie inside this object."
+  },
+  "vcu_g_0159_2000297c": {
+    "name": "can_tx_scratch_frame",
+    "type": "CanTxFrame",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "VCU_0159",
+      "0x2000297c"
+    ],
+    "category": "can",
+    "description": "Scratch CAN frame at 0x2000297C (see type CanTxFrame). vcu_record_send_chunked builds standard-ID frames of up to 8 bytes here and pushes them into the transmit queue, and vcu_can_tx_pump peeks the queue head into it before calling can_message_transmit. It is overwritten on every use and holds no state between calls."
+  },
+  "vcu_g_0159_200029a4": {
+    "name": "can_tx_queue_head",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200029a4"
+    ],
+    "category": "can",
+    "description": "Write index (head) of the 32-slot CAN transmit queue of 20-byte frames at 0x200029AC. vcu_can_tx_queue_push advances it modulo 32 and drops the frame when the queue is full (head + 1 equals tail). Zeroed by vcu_record_queues_init at start-up."
+  },
+  "vcu_g_0159_200029a8": {
+    "name": "can_tx_queue_tail",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200029a8"
+    ],
+    "category": "can",
+    "description": "Read index (tail) of the CAN transmit queue. vcu_can_tx_pump advances it modulo 32 after can_message_transmit accepts the peeked frame; a result of 4 (probably no free mailbox) keeps the frame for the next call. Zeroed by vcu_record_queues_init at start-up."
+  }
+}

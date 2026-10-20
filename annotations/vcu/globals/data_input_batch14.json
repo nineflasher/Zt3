@@ -1,0 +1,182 @@
+{
+  "vcu_g_0159_200021b8": {
+    "name": "input_sm_a_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021b8"
+    ],
+    "category": "input",
+    "description": "State byte of debounce machine A, read and written by vcu_input_sm_a_tick. Values seen: 0 idle, 6 presence debounce running, 7 absence debounce running, 8 presence again after a dip, 2 back from absence, 1 latched event (probably a press) that the key, edge and panel routines consume and clear. Machine A has no long-hold state. vcu_input_edge_actions compares it with the shadow input_sm_a_state_prev to detect changes. Codes only, not time."
+  },
+  "vcu_g_0159_200021b7": {
+    "name": "input_sm_a_state_prev",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021b7"
+    ],
+    "category": "input",
+    "description": "Shadow of input_sm_a_state (0x200021B8) from the previous tick. vcu_input_edge_actions compares the two and copies the current state here after handling a change, so a difference is one input edge. Written only by that routine in this packet."
+  },
+  "vcu_g_0159_200021c1": {
+    "name": "input_sm_b_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021c1"
+    ],
+    "category": "input",
+    "description": "State byte of debounce machine B, read and written by vcu_input_sm_b_tick. Values seen: 0 idle, 6 presence debounce running, 7 absence debounce running, 8 presence again after a dip, 2 back from absence, 1 latched event (probably a press) that the key, edge and panel routines consume and clear. State 3 is the 150-tick long-hold state read by vcu_input_b_hold_start_tick. vcu_input_edge_actions compares it with the shadow input_sm_b_state_prev to detect changes. Codes only, not time."
+  },
+  "vcu_g_0159_200021c0": {
+    "name": "input_sm_b_state_prev",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021c0"
+    ],
+    "category": "input",
+    "description": "Shadow of input_sm_b_state (0x200021C1) from the previous tick. vcu_input_edge_actions compares the two and copies the current state here after handling a change, so a difference is one input edge. Written only by that routine in this packet."
+  },
+  "vcu_g_0159_200021b5": {
+    "name": "input_sm_c_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021b5"
+    ],
+    "category": "input",
+    "description": "State byte of debounce machine C, read and written by vcu_input_sm_c_tick. Values seen: 0 idle, 6 presence debounce running, 7 absence debounce running, 8 presence again after a dip, 2 back from absence, 1 latched event (probably a press) that the key, edge and panel routines consume and clear. It also has a 150-tick long-hold state. vcu_input_edge_actions compares it with the shadow input_sm_c_state_prev to detect changes. Codes only, not time."
+  },
+  "vcu_g_0159_200021b4": {
+    "name": "input_sm_c_state_prev",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021b4"
+    ],
+    "category": "input",
+    "description": "Shadow of input_sm_c_state (0x200021B5) from the previous tick. vcu_input_edge_actions compares the two and copies the current state here after handling a change, so a difference is one input edge. Written only by that routine in this packet."
+  },
+  "vcu_g_0159_200021be": {
+    "name": "input_sm_d_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021be"
+    ],
+    "category": "input",
+    "description": "State byte of debounce machine D, read and written by vcu_input_sm_d_tick. Values seen: 0 idle, 6 presence debounce running, 7 absence debounce running, 8 presence again after a dip, 2 back from absence, 1 latched event (probably a press) that the key, edge and panel routines consume and clear. A 150-tick presence forces state 3 (long hold). vcu_input_edge_actions compares it with the shadow input_sm_d_state_prev to detect changes. Codes only, not time."
+  },
+  "vcu_g_0159_200021bd": {
+    "name": "input_sm_d_state_prev",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021bd"
+    ],
+    "category": "input",
+    "description": "Shadow of input_sm_d_state (0x200021BE) from the previous tick. vcu_input_edge_actions compares the two and copies the current state here after handling a change, so a difference is one input edge. Written only by that routine in this packet."
+  },
+  "vcu_g_0159_200021bb": {
+    "name": "input_sm_e_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021bb"
+    ],
+    "category": "input",
+    "description": "State byte of debounce machine E, read and written by vcu_input_sm_e_tick. Values seen: 0 idle, 6 presence debounce running, 7 absence debounce running, 8 presence again after a dip, 2 back from absence, 1 latched event (probably a press) that the key, edge and panel routines consume and clear. It has a 150-tick long-hold state like machines B to D (probably state 3). vcu_input_edge_actions compares it with the shadow input_sm_e_state_prev to detect changes. Codes only, not time."
+  },
+  "vcu_g_0159_200021ba": {
+    "name": "input_sm_e_state_prev",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200021ba"
+    ],
+    "category": "input",
+    "description": "Shadow of input_sm_e_state (0x200021BB) from the previous tick. vcu_input_edge_actions compares the two and copies the current state here after handling a change, so a difference is one input edge. Written only by that routine in this packet."
+  },
+  "vcu_g_0159_2000204a": {
+    "name": "input_entry_timeout_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000204a"
+    ],
+    "category": "input",
+    "description": "Timeout timer of the code entry. vcu_nibble_count_snapshot sets it to 3000, and vcu_key_sequence_entry_tick decrements it while it is nonzero; reaching zero ends the entry (probably a timeout). Units: ticks."
+  },
+  "vcu_g_0159_20002049": {
+    "name": "input_entry_armed",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002049"
+    ],
+    "category": "input",
+    "description": "Entry-armed flag. vcu_0159_080054ec sets it to 1 when a new code word is received (probably a request to enter the code); the key-sequence routine clears it when the entry ends or times out. While it is set, the key routine consumes key presses and vcu_nibble_count_snapshot uses the sequence word. Values 0 or 1."
+  },
+  "vcu_g_0159_2000204c": {
+    "name": "input_code_digits",
+    "type": "u8",
+    "count": 4,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000204c"
+    ],
+    "category": "input",
+    "description": "Four digits (0 to 9 each) of the digit-wise code entry, indexed by input_code_entry_index. vcu_code_digit_entry_tick changes the digit at the cursor with the up and down inputs (wrapping 0 and 9). Once the cursor is past digit 3 the four digits are converted to an integer and compared with input_code_stored. Cleared by vcu_nibble_count_snapshot. Entered digits, not the stored code."
+  },
+  "vcu_g_0159_20002051": {
+    "name": "input_code_status",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20002051"
+    ],
+    "category": "input",
+    "description": "Status byte of the code entry, passed by address to FUN_08008BB0, which sends it to a peer with command 0x73. Set to 3 when the entry starts and to 2 when it has finished (probably 3 = entering, 2 = result). Values 2 or 3."
+  },
+  "vcu_g_14a_200021de": {
+    "name": "input_edge_slot2_v14a",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_14a",
+      "0x200021de"
+    ],
+    "category": "input",
+    "description": "Build-14a-only byte read and written by vcu_input_edge_actions through a base register (no decompiled line names it). Purpose not established; probably the 14a/148 counterpart of an input-edge shadow."
+  }
+}

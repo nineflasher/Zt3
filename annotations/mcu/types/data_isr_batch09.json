@@ -1,0 +1,13 @@
+{
+  "structs": {
+    "CanErrorCounters": {
+      "size": 2,
+      "description": "Receive and transmit error counters of CAN1, copied from the error status register by CAN1_SE_IRQHandler (0x080032F8). Field names follow the CAN error counter names (probably REC and TEC).",
+      "fields": [
+        {"name": "rx_error_count", "offset": 0, "type": "u8", "description": "CAN1 receive error counter (probably ESR REC, bits 16..23). Sent as the first byte of telemetry request 0x341."},
+        {"name": "tx_error_count", "offset": 1, "type": "u8", "description": "CAN1 transmit error counter (probably ESR TEC, bits 24..31). Sent as the second byte of telemetry request 0x341."}
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -1,0 +1,566 @@
+{
+  "bms_g_4168_2000001c": {
+    "name": "bms_app_event_1c",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000001c"
+    ],
+    "category": "app",
+    "description": "One-shot event byte. bms_4168_080082f0 (the top-level state machine) sets it to 1 when an event should be reported, and bms_app_event_1c_take tests it and clears it to 0 in the same call, so each event is consumed once. Only the values 0 and 1 appear in this packet."
+  },
+  "bms_g_4168_2000001d": {
+    "name": "bms_app_state_1d",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000001d"
+    ],
+    "category": "app",
+    "description": "Top-level state of the BMS state machine in bms_4168_080082f0. It is written with 0 (bring-up), 1 (run), 2 (wait-for-ready, with a 500-tick timeout) and 3 (timed reset, also 500 ticks), and bms_app_flag_1d_get returns it to other code. The meaning of each value follows the state machine's branches, which is well supported by the decompile."
+  },
+  "bms_g_4168_200001c8": {
+    "name": "bms_flags_block_1c8",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200001c8"
+    ],
+    "category": "app",
+    "description": "First word of a RAM block whose address is returned by bms_ram_200001c8_addr. Callers use it as a 32-bit flag word (one sets bit 2 after reading a peripheral register) and also read its first byte as a byte, where bit 5 selects the filtering path in bms_4168_0800c80c. The cell-0 filter variables at 0x200001CC to 0x200001D2 sit just after it and belong to another object, so this object covers one word only. The rest of the block layout is not established."
+  },
+  "bms_g_4168_200004dc": {
+    "name": "bms_prot_min_level",
+    "type": "s32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200004dc"
+    ],
+    "category": "protection",
+    "description": "Signed 32-bit limit at the start of the protection configuration block. The setup routine at 0x08003CC0 writes 100 here, 10000 at 0x200004E0 and 80 at 0x200004E4. bms_4168_0800c380 (protection debounce) compares the signed 16-bit measurement at record+0x11A with it: while the measurement is below this level the first debounce counter at 0x200004CC is cleared, otherwise the counter counts up toward the limit at 0x200004E0. The unit of the measurement is not established."
+  },
+  "bms_g_4168_200004f4": {
+    "name": "bms_prot_band_low",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200004f4"
+    ],
+    "category": "protection",
+    "description": "Byte limit in the protection configuration block, next to bms_prot_min_level. bms_4168_0800c380 compares it, as an int, with the signed 16-bit value at +2 of its second argument record: the debounce counter at 0x200004D4 is cleared while that value is above this byte and the value at +4 is not above the byte at 0x200004F5, or while bit 3 of the byte at +0x198 of the measurement record is set; otherwise it counts up toward 0x200004F8. Probably the lower bound of a band. The unit is not established."
+  },
+  "bms_g_4168_20000570": {
+    "name": "bms_logger_capture_acc",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000570"
+    ],
+    "category": "app",
+    "description": "Elapsed-time accumulator of the snapshot logger, one 32-bit word. bms_snapshot_logger_tick adds its argument, the time since the previous call (probably 1 ms units), on every call. When the sum passes 4999 (so 5000 units) the function captures and queues a log record and resets the accumulator to 0."
+  },
+  "bms_g_4168_20000574": {
+    "name": "bms_logger_commit_acc",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000574"
+    ],
+    "category": "app",
+    "description": "Second elapsed-time accumulator of the snapshot logger, advanced by the same argument as its neighbour at 0x20000570. When it passes 999 (so 1000 units) bms_snapshot_logger_tick commits the history and resets it to 0. Probably the same time unit as bms_logger_capture_acc."
+  },
+  "bms_g_4168_20000578": {
+    "name": "bms_dispatch_table",
+    "type": "ptr",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x20000578"
+    ],
+    "category": "app",
+    "description": "RAM table of three handler pointers, at 0x20000578, 0x2000057C and 0x20000580. bms_dispatch_call_current calls the entry selected by the dispatch index at 0x20001340 (values 0 to 2). The entries are written elsewhere and are not in this packet. The next family at 0x20000584 belongs to another object, which is why the table ends after 12 bytes.",
+    "count": 3
+  },
+  "bms_g_4168_200005c3": {
+    "name": "bms_ctrl_request_latch",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005c3"
+    ],
+    "category": "protocol",
+    "description": "Latch byte for a control request. bms_ctrl_request_handshake sets it to 1 while the state bit 0x194.6 is high, and it is consumed (cleared) on the falling edge of that bit, so a request is held until the handshake completes. The external source of the request is not in this packet."
+  },
+  "bms_g_4168_200005dc": {
+    "name": "bms_tp_service_stamp",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200005dc"
+    ],
+    "category": "protocol",
+    "description": "Time stamp of the last run of the TP (transport) channel service, stored as a value of the time base returned by bms_tick_get. bms_chan_pool_init sets it at start-up, and bms_tp_service_tick restarts it whenever the time base has moved on, so the channel service runs at most once per tick."
+  },
+  "bms_g_4168_200005f0": {
+    "name": "bms_tp_chan_desc",
+    "type": "BmsChanDescriptor",
+    "size": 16,
+    "anchor": [
+      "BMS_4168",
+      "0x200005f0"
+    ],
+    "category": "protocol",
+    "description": "Descriptor block (16 bytes) of the TP session channel object at 0x200024C0. bms_chan_pool_init passes its address to bms_chan_bind, together with the array of five channel objects at 0x20001E30 and the count five. The bind check needs the words at offsets 0 and 12 to be nonzero. Other fields are not established. See the BmsChanDescriptor type."
+  },
+  "bms_g_4168_20000628": {
+    "name": "bms_extflash_wait_lo",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000628"
+    ],
+    "category": "flash",
+    "description": "Low byte of a 16-bit poll counter in bms_extflash_wait_ready. The routine writes 0xF4 to this byte and 1 to the byte at 0x20000629, which another object owns, so the counter starts at 500 (0x01F4). Each pass replaces the counter with the value returned by FUN_0800A55C, and when the counter reaches 0 the wait is abandoned and the flag at 0x2000062C is set to 1. The counter bounds the wait for the external flash to finish its write."
+  },
+  "bms_g_4168_2000063e": {
+    "name": "bms_afe_cfg_byte3e",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000063e"
+    ],
+    "category": "afe",
+    "description": "Byte written as the third byte of a three-byte AFE data write to address 0x3E in bms_4168_0800aae8. The first two bytes of that payload are constants in the function, and this byte is the variable part. The setup routine at 0x08003CC0 writes 3 here and also writes u16 fields at 0x20000642, 0x20000646, 0x20000648 and 0x2000064A, which belong to other objects. The value is a configuration setting, not key material."
+  },
+  "bms_g_4168_2000067c": {
+    "name": "bms_timer_countdown_a",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x2000067c"
+    ],
+    "category": "timer",
+    "description": "16-bit countdown, decremented by the TIM7/LPTIM2 interrupt (TIM7_LPTIM2_IRQHandler) while it is nonzero, and read and written through bms_u16_2000067c_get and bms_u16_2000067c_set. Its unit is the interrupt tick. In this packet the only users are the interrupt and those accessors, so the purpose is not established."
+  },
+  "bms_g_4168_2000067e": {
+    "name": "bms_timer_countdown_b",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x2000067e"
+    ],
+    "category": "timer",
+    "description": "16-bit countdown, decremented by the same TIM7/LPTIM2 interrupt while it is nonzero. bms_timeout_arm_from_record arms it from the record at 0x2000133C and bms_u16_2000067e_get reads it. Probably a timeout for the external log step that arms it. The unit is the interrupt tick."
+  },
+  "bms_g_4168_2000068f": {
+    "name": "bms_app_byte_68f",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x2000068f"
+    ],
+    "category": "app",
+    "description": "Byte whose address is returned by bms_ram_2000068f_addr. Two callers use the pointer, at 0x080064A0 and 0x0800FABC, and this packet shows no direct access. The meaning is not established."
+  },
+  "bms_g_4168_200008f8": {
+    "name": "bms_device_uid_words",
+    "type": "u32",
+    "size": 12,
+    "anchor": [
+      "BMS_4168",
+      "0x200008f8"
+    ],
+    "category": "app",
+    "description": "The 96-bit factory device identifier, held as three 32-bit words at 0x200008F8, 0x200008FC and 0x20000900. bms_uid_binding_check_reset fills them with bms_get_uid_word_by_index(0), (1) and (2). The state block keeps a 12-byte copy at offset +0x186. The 16-bit halves at 0x200008FA, 0x200008FE and 0x20000902 are the high halves of the three words. bms_uid_binding_check_reset compares the copy with the device identifier and rewrites, saves and resets on a mismatch, and bms_state_restore_or_init also writes the words when it rebuilds the defaults. The identifier is not a key. Count is 3.",
+    "count": 3
+  },
+  "bms_g_4168_20000b57": {
+    "name": "bms_app_flag_b57",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b57"
+    ],
+    "category": "app",
+    "description": "Application flag byte, cleared to 0 by bms_app_state_reset in the 4148 and 4168 builds. bms_app_flag_b57_get returns whether it is nonzero. bms_status_bit4_from_reply copies reply bit 9 only when this byte and the byte at 0x20000A53 are both zero, and bms_limit_report_cmd08 needs this byte nonzero for its limit report. The code that sets it is not in this packet."
+  },
+  "bms_g_4168_20000bdc": {
+    "name": "bms_meas_record",
+    "type": "BmsMeasRecord",
+    "size": 500,
+    "anchor": [
+      "BMS_4168",
+      "0x20000bdc"
+    ],
+    "category": "app",
+    "description": "Base of the measurement and cell record, whose address is returned by bms_ram_20000bdc_addr. Many functions reach its fields through this base with fixed offsets, for example the cell count at +0x20, the filtered average at +0x118, the signed measurement at +0x11A, the balance mask at +0x13C and the cell voltages at +0x140. The record is at least 0x1F4 bytes long, since the temperature selection is at +0x1F2. The next family at 0x20000DDC belongs to another object, so the true end is not established."
+  },
+  "bms_g_4168_20000dec": {
+    "name": "bms_cell_v_filtered",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000dec"
+    ],
+    "category": "app",
+    "description": "First word of the cell-voltage summary copy at 0x20000DEC to 0x20000DFB, written by bms_4168_0800c80c after it scans the cells. It is the sum of the cell readings divided by 10, averaged with its previous value when that value is nonzero, and the low half is also stored at record+0x118. The other fields of the copy (min and max with their indices, mean and spread) belong to other objects. The scale is not established."
+  },
+  "bms_g_4168_20000dfc": {
+    "name": "bms_temp_midpoint",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000dfc"
+    ],
+    "category": "protection",
+    "description": "Signed 16-bit midpoint, (max + min) / 2, of the temperature channels, written by bms_4168_0800c6dc. The min and max are at 0x20000DFE and 0x20000E00, owned by another object. The midpoint is compared with 20: below 20 the minimum is selected for protection, otherwise the maximum, and the choice is stored at record+0x1F2. The comparison suggests degrees Celsius, but the unit is not established."
+  },
+  "bms_g_4168_20001340": {
+    "name": "bms_dispatch_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20001340"
+    ],
+    "category": "app",
+    "description": "Dispatch index that selects an entry of the handler table at 0x20000578 (values 0 to 2). bms_extflash_journal_init sets it to 0, bms_extlog_request_dispatch sets it to 2, and bms_timeout_arm_from_record sets it to 1 or 2. bms_dispatch_index_nonzero tests it, and bms_dispatch_call_current calls the selected handler."
+  },
+  "bms_g_4168_2000051c": {
+    "name": "bms_balance_cfg",
+    "type": "u16",
+    "size": 10,
+    "anchor": [
+      "BMS_4168",
+      "0x2000051c"
+    ],
+    "category": "balancing",
+    "description": "Five 16-bit balancing parameters in address order, written together by bms_u16x5_block_store and read by bms_4168_0800be58. The record passed to bms_4168_0800be58 is the cell summary at 0x200006B0. Element 0 (0x2000051C) is the minimum spread (summary +0x0E) below which balancing is off, and element 1 (0x2000051E) is the minimum maximum cell voltage (summary +8) for the same test. Element 2 (0x20000520) is the balance period, which the accumulator at 0x20000518 is compared against after multiplying by 10. Element 3 (0x20000522) is a voltage delta: a cell that is above the minimum (summary +4) by no more than this value stops being balanced. Element 4 (0x20000524) is the number of cells, the loop bound of the balance mask (bit i is cell i). Units are probably mV and ticks, but none is established.",
+    "count": 5
+  },
+  "bms_g_4168_20000a4a": {
+    "name": "bms_app_state_a4a",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a4a"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a4b": {
+    "name": "bms_app_state_a4b",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a4b"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a4c": {
+    "name": "bms_app_state_a4c",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a4c"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a4e": {
+    "name": "bms_app_state_a4e",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a4e"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a4f": {
+    "name": "bms_app_state_a4f",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a4f"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a50": {
+    "name": "bms_app_state_a50",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a50"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000a51": {
+    "name": "bms_app_state_a51",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000a51"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset, which also writes defaults of 2 and 90 to other bytes. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000A49 to 0x20000A51."
+  },
+  "bms_g_4168_20000b4e": {
+    "name": "bms_app_state_b4e",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b4e"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b4f": {
+    "name": "bms_app_state_b4f",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b4f"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b50": {
+    "name": "bms_app_state_b50",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b50"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b52": {
+    "name": "bms_app_state_b52",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b52"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b53": {
+    "name": "bms_app_state_b53",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b53"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b54": {
+    "name": "bms_app_state_b54",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b54"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4168_20000b55": {
+    "name": "bms_app_state_b55",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000b55"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4148 and 4168 builds, cleared to 0 by bms_app_state_reset. Within this packet no other code reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application, in the block at 0x20000B4E to 0x20000B57."
+  },
+  "bms_g_4139_2000095e": {
+    "name": "bms_legacy_state_95e",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000095e"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_2000095f": {
+    "name": "bms_legacy_state_95f",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000095f"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000960": {
+    "name": "bms_legacy_state_960",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000960"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000962": {
+    "name": "bms_legacy_state_962",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000962"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000963": {
+    "name": "bms_legacy_state_963",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000963"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000964": {
+    "name": "bms_legacy_state_964",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000964"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000965": {
+    "name": "bms_legacy_state_965",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000965"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a62": {
+    "name": "bms_legacy_state_a62",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a62"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a63": {
+    "name": "bms_legacy_state_a63",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a63"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a64": {
+    "name": "bms_legacy_state_a64",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a64"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a66": {
+    "name": "bms_legacy_state_a66",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a66"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a67": {
+    "name": "bms_legacy_state_a67",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a67"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a68": {
+    "name": "bms_legacy_state_a68",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a68"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  },
+  "bms_g_4139_20000a69": {
+    "name": "bms_legacy_state_a69",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000a69"
+    ],
+    "category": "app",
+    "description": "Byte of the application state block in the 4130 and 4139 RAM layout, cleared to 0 by bms_app_state_reset_legacy. The 4168 image has no byte at this logical position, and no other code in this packet reads or writes it, so its meaning is not established. It is probably a state or flag byte of the application."
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "ble_219_0c028898": {
+    "name": "util_find_str_in_buf",
+    "summary": "Find a NUL-terminated needle inside the first n bytes of a (non-terminated) buffer",
+    "description": "memmem-style search: returns 0 if param_1 is NULL or strlen(param_3) > param_2; otherwise tries every start offset 0..param_2-strlen(needle) and returns the first pointer for which strncmp(pos, needle, strlen(needle)) == 0, or 0 when nothing matches. The haystack need not be NUL-terminated. Single caller 0x0c0288dc, the 'REMOVE LIMIT SPD CODE' check, which looks for either the fixed string \"pWEwvenFz9\" or a 10-byte code derived from a 16-bit field (ctx+0x3a) inside a received VCU payload and, on a hit, sends command 0x82 (index 3, value 2) to the VCU via 0x0c02c124.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "haystack buffer (may be NULL)"},
+      {"name": "param_2", "type": "u32", "description": "number of valid bytes in the haystack"},
+      {"name": "param_3", "type": "ptr", "description": "NUL-terminated needle string"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the first occurrence inside param_1, or 0 if absent"},
+    "confidence": "high"
+  },
+  "ble_219_0c029224": {
+    "name": "app_adv_id_block_copy",
+    "summary": "Copy n bytes out of the global block at 0x20009028 (read as 'ADV_ID' by the status readers)",
+    "description": "memcpy(param_1, &DAT_20009028, param_2): copies the first param_2 bytes of the global block starting at 0x20009028 into the caller's buffer. The two callers are the vehicle/FMNA status reader 0x0c02a8f8 (cases 0x3c/0x40, logging 'R ADV_ID len=%d' and copying 13 bytes) and the factory command handler 0x0c02cca8 (case 0x58, copying 13 bytes when the payload byte is 0x0d). The same region (records of 13 bytes from 0x20009029) is scanned by app_sn_prefix_whitelist_match, so the block is a 13-byte advertising identifier followed by the RAM serial-prefix list.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes to copy (callers use 13)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The exact layout of the 0x20009028 block (13-byte ADV_ID vs. 13-byte record list starting one byte later) is inferred from the callers only."
+  },
+  "ble_219_0c02a2e0": {
+    "name": "app_sn_prefix_whitelist_match",
+    "summary": "Return 1 if a received serial number starts with a code from the ROM or RAM prefix list",
+    "description": "Two passes with memcmp. Pass 1 (only if the count byte DAT_20003e1d is non-zero): walks DAT_20003e1d records of 13 bytes starting at ROM 0x0c080dd5 (entries such as '0TDC','0VDD','Z02K','Z03W' followed by 'NC..'); the code length is 3 if record[3] == 0 else 4, and a match sets the result to 1 (all records are still scanned). If any matched, returns 1. Pass 2: walks the 30 RAM records of 13 bytes from 0x20009029 to 0x200091af, considering only records whose byte[4] is 'N' and byte[5] is 'B' or 'C', with the same 3/4-byte compare. Returns 1 when any record matched, else 0. Called from the VCU command handler 0x0c02b480 (command 0x10, 'check reveived sn is valid') to decide whether the received 14-byte vehicle SN is acceptable before 'set sn'. Only param_1 is used; the other parameters are decompiler artefacts of the 3-argument memcmp.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "received serial-number bytes (first 3..4 compared)"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "1 if a list entry matches, 0 otherwise"},
+    "confidence": "medium",
+    "notes": "Record layout (13 bytes: 3/4-char code, then 'N' + 'B'/'C' + ...) is inferred from the compare logic and the ROM strings near 0x0c080e7e; the role as an SN prefix whitelist comes from the caller's debug strings."
+  },
+  "ble_219_0c02c0b8": {
+    "name": "app_req_timeout_timer_start",
+    "summary": "Arm the one-shot BTstack timer at 0x20009460 with a timeout in ms (handler 0x0c02c090)",
+    "description": "Removes the btstack_timer_source_t at 0x20009460 from the run loop (btstack_run_loop_remove_timer), sets its handler to 0x0c02c090, sets the timeout to param_1 ms (btstack_run_loop_set_timer) and adds it again (btstack_run_loop_add_timer), so a running timer is restarted. The handler 0x0c02c090 reports the pending request code DAT_20008f69 & 0x7f with the 16-bit value DAT_20008f6a | DAT_20008f6b << 8 through 0x0c0585a4 and then clears those three bytes. The only caller 0x0c02a8a0 starts it with 5000 ms when it records a new pending request (DAT_20008f69 = code | 0x80), i.e. this is a 5 s response timeout for a request forwarded to the VCU/host. param_2..param_4 are unused (decompiler artefacts).",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "timeout in milliseconds"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "What 0x0c0585a4 does with the pending code was not examined; 'request timeout' is inferred from the caller."
+  },
+  "ble_219_0c02c454": {
+    "name": "crc32_compute_poly",
+    "summary": "CRC-32 (reflected, init/xorout 0xffffffff) of a buffer using a table built for a given polynomial",
+    "description": "Zeroes the 1 KB table at 0x20009484 (memset 0x400), rebuilds it with crc32_make_table(param_3) for the reflected polynomial param_3, then runs the standard table-driven CRC: crc = 0xffffffff; for each byte crc = table[(byte ^ crc) & 0xff] ^ (crc >> 8); returns ~crc. Returns 0 when param_2 <= 0. With polynomial 0xedb88320 this is the usual CRC-32 (zlib). Rebuilding the table on every call makes it slow but reentrant with respect to the polynomial. Single caller 0x0c029414 (bt_app_set_name_and_advdata / vehicle SN handling).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "input bytes"},
+      {"name": "param_2", "type": "s32", "description": "length in bytes; <= 0 yields 0"},
+      {"name": "param_3", "type": "u32", "description": "reflected CRC-32 polynomial passed to crc32_make_table"}
+    ],
+    "returns": {"type": "u32", "description": "CRC-32 of the buffer, or 0 for an empty buffer"},
+    "confidence": "high"
+  },
+  "ble_219_0c02d5ec": {
+    "name": "app_gpio_dev_ioctl",
+    "summary": "ioctl on the /dev/gpio file descriptor with request 0x1010000 | param_1",
+    "description": "Calls the VFS ioctl dispatcher 0x0c0484b4 with the file descriptor stored in DAT_2000989c (set by 0x0c02d5d4 = open(\"/dev/gpio\", 0)), the request code param_1 | 0x01010000 and the argument param_2. The dispatcher maps fd 3..48 to an object in the table at 0x2000f6d8 and jumps to its ops entry at +0xc; an invalid fd sets errno = 9 (EBADF) and returns -1. Single caller: the periodic application tick 0x0c028c94, which issues request 0x500 with a boolean taken from bit 0 of a vehicle-state word, i.e. it drives a GPIO output (an indicator/enable line) each tick.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "gpio ioctl sub-command (caller uses 0x500); ORed with 0x1010000"},
+      {"name": "param_2", "type": "u32", "description": "ioctl argument (caller passes 0/1)"}
+    ],
+    "returns": {"type": "void", "description": "none (ioctl result discarded)"},
+    "confidence": "medium",
+    "notes": "Meaning of request 0x500 inside the gpio driver was not examined."
+  },
+  "ble_219_0c02d688": {
+    "name": "nvdata_ioctl_cmd_0x200",
+    "summary": "Send ioctl 0x200 (no argument) to /dev/nvdata<idx>, used last in a write sequence (flush)",
+    "description": "Reads the file descriptor byte at DAT_2000989c + 3 + param_1 (the fds of /dev/nvdata1..3 opened by 0x0c02d604 and stored at 0x200098a0..0x200098a2) and, if non-zero, calls the VFS ioctl dispatcher 0x0c0484b4(fd, 0x200, 0). Does nothing when the partition was not opened. Part of the nvdata access group with nvdata_ioctl_lock_0x106, nvdata_ioctl_get_buf_0x102, nvdata_ioctl_unlock_0x103 and nvdata_ioctl_cmd_0x104: writers (0x0c05b0a8, 0x0c05b138) run lock -> get_buf -> memcpy into the buffer -> unlock -> 0x104 -> 0x200, so 0x200 is most likely 'flush the RAM copy to flash'.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nvdata partition index (1..3)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Command semantics (flush/sync) inferred only from the call order in the writers; the nvdata driver itself was not examined."
+  },
+  "ble_219_0c02d6a4": {
+    "name": "nvdata_ioctl_get_buf_0x102",
+    "summary": "ioctl 0x102 on /dev/nvdata<idx>: return the driver's RAM buffer pointer for the partition",
+    "description": "Looks up the fd byte at DAT_2000989c + 3 + param_1 (fds of /dev/nvdata1..3 at 0x200098a0..). If it is non-zero, calls the VFS ioctl dispatcher 0x0c0484b4(fd, 0x102, &out) and returns the 32-bit value the driver wrote into out; returns 0 when the partition is not open. All callers (0x0c05b0a8, 0x0c05b0f4, 0x0c05b138, 0x0c05b380) use the result as a base pointer for memcpy at fixed offsets (+0x3c, +0x5c, ..., +0x1c5, +0x3c5), so the value is the address of the partition's in-RAM image. Used between nvdata_ioctl_lock_0x106 and nvdata_ioctl_unlock_0x103.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nvdata partition index (1..3)"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the partition's RAM image, or 0 if not opened"},
+    "confidence": "medium",
+    "notes": "Command number meaning inferred from how the callers use the returned value."
+  },
+  "ble_219_0c02d6cc": {
+    "name": "nvdata_ioctl_cmd_0x104",
+    "summary": "Send ioctl 0x104 (no argument) to /dev/nvdata<idx>, issued after an update before flush",
+    "description": "Reads the fd byte at DAT_2000989c + 3 + param_1 (fds of /dev/nvdata1..3 at 0x200098a0..) and, if non-zero, calls the VFS ioctl dispatcher 0x0c0484b4(fd, 0x104, 0); no-op otherwise. In the writers 0x0c05b0a8 and 0x0c05b138 it is always called right after nvdata_ioctl_unlock_0x103 and right before nvdata_ioctl_cmd_0x200, and never in the read-only path 0x0c05b0f4, so it most likely marks the partition image dirty / recomputes its checksum before the flush.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nvdata partition index (1..3)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Semantics inferred from call order only."
+  },
+  "ble_219_0c02d6e8": {
+    "name": "nvdata_ioctl_unlock_0x103",
+    "summary": "ioctl 0x103 with an argument on /dev/nvdata<idx>; callers pass 0 after finishing buffer access",
+    "description": "Reads the fd byte at DAT_2000989c + 3 + param_1 (fds of /dev/nvdata1..3 at 0x200098a0..) and, if non-zero, calls the VFS ioctl dispatcher 0x0c0484b4(fd, 0x103, param_2); no-op otherwise. Every caller (0x0c05b0a8, 0x0c05b0f4, 0x0c05b138, 0x0c05b380) issues it with param_2 = 0 after it is done copying to or from the buffer obtained with nvdata_ioctl_get_buf_0x102, and after having taken the partition with nvdata_ioctl_lock_0x106(idx, -1); it therefore looks like the release/unlock counterpart of 0x106.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nvdata partition index (1..3)"},
+      {"name": "param_2", "type": "u32", "description": "ioctl argument (callers pass 0)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Lock/unlock pairing of 0x106/0x103 is inferred from call order only."
+  },
+  "ble_219_0c02d704": {
+    "name": "nvdata_ioctl_lock_0x106",
+    "summary": "ioctl 0x106 with an argument on /dev/nvdata<idx>; returns -5 if the partition is not open",
+    "description": "Reads the fd byte at DAT_2000989c + 3 + param_1 (fds of /dev/nvdata1..3 at 0x200098a0..). If non-zero, returns the result of the VFS ioctl dispatcher 0x0c0484b4(fd, 0x106, param_2); otherwise returns 0xfffffffb (-5, EIO-style error). All callers invoke it first with param_2 = 0xffffffff (looks like 'wait forever') before nvdata_ioctl_get_buf_0x102 and finish with nvdata_ioctl_unlock_0x103(idx, 0), so 0x106 is most likely 'acquire the partition with timeout'. Callers: 0x0c05b0a8 (write 0x1da-byte record at +0x1c5), 0x0c05b0f4 (read 0x200 bytes from +0x1c5), 0x0c05b138 and 0x0c05b380 (field-wise read/write of partition 2, and partition 1 for id 0x1389).",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "nvdata partition index (1..3)"},
+      {"name": "param_2", "type": "u32", "description": "ioctl argument; callers pass 0xffffffff"}
+    ],
+    "returns": {"type": "s32", "description": "ioctl result, or -5 (0xfffffffb) when the partition is not open"},
+    "confidence": "low",
+    "notes": "Lock semantics inferred from call order only; the only certain facts are the fd lookup and the command number."
+  },
+  "ble_219_0c02ed80": {
+    "name": "hal_cmu_reset_set_mod99",
+    "summary": "Assert the CMU software reset of module id 0x99 (bit 8 of 0x400800c8)",
+    "description": "Calls hal_cmu_reset_set(0x99). Per the id-to-register mapping used by hal_cmu_reset_get_state, id 0x99 (153) falls in the last bank (ids >= 0x91 -> register 0x400800c8, bit 0x99-0x91 = 8), i.e. a module in the 0x40080000 'AON' CMU block. Single caller 0x0c039820, a power-down sequence run under a BASEPRI critical section (system clock config 3, PMU/analog writes 0xcafe/0x5fee to register 0x3000 through the analog interface, then this reset), so the module is most likely the Bluetooth/BLE subsystem being held in reset when the radio is powered down.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Identity of module 0x99 (probably the BT core: BES hal_cmu_bt_reset_set) is a guess from the caller's context."
+  },
+  "ble_219_0c02f328": {
+    "name": "hal_gpdma_sg_start_linear",
+    "summary": "Start a scatter-gather GPDMA transfer without 2-D descriptors (hal_gpdma_sg_start(desc, cfg, NULL))",
+    "description": "Thin wrapper: hal_gpdma_sg_start(param_1, param_2, 0), i.e. the linked-list descriptor chain param_1 is started on the channel described by param_2 with no 2-D source/destination rectangle descriptors. Return value of the underlying call (0 ok, 1 if the channel is unallocated or busy) is discarded. Callers are the UART DMA paths 0x0c032954, 0x0c0336b0 and 0x0c033e04. Corresponds to the two-argument hal_gpdma_sg_start of the BES SDK, which forwards to the 2-D variant with NULL rectangles.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "first 4-word GPDMA linked-list descriptor"},
+      {"name": "param_2", "type": "ptr", "description": "channel configuration (byte 0 = channel id, +0x14 callback)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c02f330": {
+    "name": "hal_gpdma_start",
+    "summary": "Start a single-descriptor GPDMA transfer from a channel configuration",
+    "description": "Builds one 4-word linked-list descriptor on the stack with hal_gpdma_init_desc(desc, param_1, next = 0, tc_irq = 1) and, when that returns 0, programs and starts the channel with hal_gpdma_sg_start(desc, param_1) (no 2-D descriptors). Because the descriptor lives on the stack, this is only valid for transfers whose descriptor the hardware has already latched before return, which is how the BES SDK hal_gpdma_start is written as well. Errors from either step are silently ignored. Callers: the SPI DMA transfer 0x0c032408 and the UART DMA routine 0x0c033e04.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "GPDMA channel configuration (src/dst addresses, size, channel id, callbacks)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c02f390": {
+    "name": "hal_gpdma_stop",
+    "summary": "Halt a GPDMA channel, wait (up to 10 tries) for it to go inactive, then cancel it",
+    "description": "param_1 is a channel id (controller << 4 | channel, 0..7); values >= 0x20 or with bit 3 set hang in an assert loop. Locates the channel register block (controller base from table 0x0c080a00 + channel * 0x20) and sets bit 18 (HALT) in the channel configuration register (+0x110). While bit 17 (ACTIVE) stays set it retries up to 10 times: tries 2..4 busy-wait via the RAM-patch delay thunk 0x20000348 with argument 10; later tries sleep instead: if no sleep hook is registered in DAT_2000a598 or the code runs inside an exception (IPSR != 0), it waits 1 unit via thunk 0x20000570(1) followed by thunk 0x20000334, otherwise it calls the hook (*DAT_2000a598)(1) (an OS delay/yield callback usable only from thread mode). Finally calls hal_gpdma_cancel(param_1), which disables the channel and clears its pending interrupt flags. Matches the PL080 recommended stop sequence (halt, wait for FIFO drain, disable). Single caller 0x0c033bd8 (UART DMA RX stop, which then reads the remaining size).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id (controller << 4 | channel 0..7)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Exact units of the two delay thunks (ticks vs ms) are not confirmed."
+  },
+  "ble_219_0c02f558": {
+    "name": "hal_gpdma_free_chan",
+    "summary": "Cancel a GPDMA channel and release it (clear allocation flag and its sync bit in the controller config)",
+    "description": "param_1 is a channel id (controller << 4 | channel); ids >= 0x20 or with bit 3 set hang in an assert loop, as does freeing a channel whose allocation flag DAT_2000a548[ctrl*8+ch] is 0. Calls hal_gpdma_cancel(param_1) to stop the channel, then inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address 0x0c02f590 and LR are logged to DAT_20003d70/DAT_20003d74, DAT_20003d70 is reset to 0xffffffff on exit when BASEPRI was 0, BASEPRI restored afterwards) clears the allocation flag and clears bit (12 + ch) in the controller configuration register (+0x30), undoing what hal_gpdma_get_chan set. Counterpart of hal_gpdma_get_chan; called by the SPI DMA done/cancel handlers and the UART DMA routines (12 callers).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id (controller << 4 | channel 0..7)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c02f810": {
+    "name": "hal_gpadc_adc2volt",
+    "summary": "Convert a raw GPADC code to a calibrated voltage (two-point calibration from efuse, lazily initialised)",
+    "description": "On first use (DAT_2000a5e1 == 0) it fetches the two calibration codes with 0x0c03a1b0 (efuse-derived values or defaults 0x32f0/0x4330 when no efuse data), substitutes 13099.0 for a zero first code and 17230.0 for a zero second code, and computes slope DAT_2000a5e8 = 200 / (c2 - c1) and intercept DAT_2000a5e4 = (640*c2 - 840*c1) / (c2 - c1); this maps code c1 to 640 and c2 to 840, i.e. the two calibration points are the ADC readings at 640 and 840 (mV). Then DAT_2000a5e1 is set to 1. For every call: if param_1 == 0xffff (HAL_GPADC_BAD_VALUE) it is returned unchanged; otherwise result = (float)param_1 * slope + intercept, negative results are clamped to 0 and the value is truncated to 16 bits. Uses VFP single precision. No direct callers (used through a function pointer / ADC task).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "raw ADC code (16-bit), or 0xffff for 'bad value'"}
+    ],
+    "returns": {"type": "u32", "description": "calibrated value, probably millivolts, 0..0xffff"},
+    "confidence": "medium",
+    "notes": "Unit (mV) and the efuse origin of the codes are inferred from the 640/840 reference values and the BES hal_gpadc conventions; the helper 0x0c03a1b0 masks two efuse words to 11 bits and adds 12000 / 16200."
+  },
+  "ble_219_0c02feec": {
+    "name": "hal_gpio_irq_handler",
+    "summary": "GPIO interrupt service: ack both 32-pin banks and call the per-pin handler table at 0x2000a638",
+    "description": "Reads the pending pin-interrupt words of the two GPIO banks with bes_gpio_read_status_words(buf, 2) (via thunk 0x0c041b5c); if that returned fewer than two words, the missing word is read directly from the bank's raw interrupt status register (base from table 0x0c080fec[bank] + 0x44; for bank 1 that is 0x40088044). For each bank (DesignWare APB GPIO at 0x40081000 and 0x40088000) it writes the word to the end-of-interrupt register (+0x4c) to acknowledge, then loops over set bits with util_count_trailing_zeros32: the bit must be below the bank's pin count from byte table 0x0c080ff4 (else assert loop); pin number = bit + 32*bank; if the handler pointer DAT_2000a638[pin] is non-NULL it is called, and a non-zero return sets a 'context switch needed' flag. Finally rtos_port_yield_from_isr(flag) pends PendSV if any handler asked for it. No direct callers: installed as the GPIO interrupt vector. Shares the pin handler table with the GPIO IRQ registration code.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Register identification (+0x44 RAW_INTSTATUS, +0x4c PORTA_EOI) follows the DesignWare apb_gpio layout."
+  },
+  "ble_219_0c030268": {
+    "name": "hal_i2c_clear_busy",
+    "summary": "Clear an I2C instance's bit in the busy mask DAT_2000a6c8; drop PM busy bit 2 when none remain",
+    "description": "Inside a BASEPRI critical section (BASEPRI raised to 0x40 when privileged; if it was not already 0x40 the call-site address 0x0c030276 and LR are logged to DAT_20003d70/DAT_20003d74, DAT_20003d70 reset to 0xffffffff on exit when BASEPRI was 0, BASEPRI restored afterwards) it clears bit param_1 of the byte mask DAT_2000a6c8 (one bit per I2C instance 0..5). When the mask becomes 0 it calls pm_busy_mask_clear_bit(2), so bit 2 of the global PM busy mask DAT_2000aa6c represents 'some I2C transfer in progress' and clearing it allows the system to sleep again. Called from hal_i2c_task_start_next (when no task is pending) and hal_i2c_close_internal.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "I2C instance 0..5"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0302f4": {
+    "name": "hal_i2c_irq_handler",
+    "summary": "Shared I2C ISR: for every instance whose IRQ is active, read status, handle TX abort and call its callback",
+    "description": "Iterates over the six I2C instances described by the 12-byte ROM records at 0x0c081abc (+0 register base, +10 IRQ number; instance 0 uses IRQ 14, instance 1 IRQ 29). For each instance with a non-negative IRQ it tests the NVIC Interrupt Active Bit Register (0xe000e300 + 4*(irq>>5), bit irq&31); if the IRQ is active it reads the callback DAT_2000a6cc[inst] (6 pointers at 0x2000a6cc..0x2000a6e3), reads IC_RAW_INTR_STAT (base+0x34), calls hal_i2c_check_tx_abort(base) to detect/clear a TX abort, and if the callback is non-NULL calls callback(inst, raw_status & 0xffff, abort_result). Observed register bases include 0x40005000, 0x40006000 and 0x40060000 (DesignWare I2C). No direct callers: it is the I2C interrupt entry used for all instances; the callbacks continue the interrupt-mode task state machine (hal_i2c_task_done_handler / hal_i2c_task_start_next).",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The decompiler renders the IRQ byte table as the string \"\\x1d\" (0x0c081ad2); the handler relies on IABR to find which instance interrupted."
+  },
+  "ble_219_0c030428": {
+    "name": "hal_i2c_task_start_next",
+    "summary": "Kick the next queued interrupt-mode I2C task of an instance: program TAR/thresholds, unmask IRQs, enable",
+    "description": "param_1 is the I2C instance (per-instance state stride 0x70 from 0x2000a6e4, register base from the ROM table 0x0c081abc[inst*3]). If the pending-task count DAT_2000a6f3[inst] is 0: resets it, copies the next-slot index DAT_2000a6f1 into the current index DAT_2000a6f2, sets DAT_2000a6f0[inst] = 1 and calls hal_i2c_clear_busy(inst) (drops the PM busy bit when all instances are idle), then returns. Otherwise the current slot index must be < 2 (assert loop); slot = inst*0x70 + idx*0x30. If the slot's buffer word DAT_2000a6f4[slot] is 0 the flag byte DAT_2000a6e5[inst] bit 2 must be clear (assert), else IC_RX_TL (+0x3c) = 2; if the task type byte DAT_2000a710[slot] == 2, IC_TX_TL (+0x38) = 5; IC_INTR_MASK (+0x30) = 0xaff (all sources except ACTIVITY and START_DET). If IC_ENABLE_STATUS (+0x9c) bit 0 shows the controller disabled: set IC_CON (+0) bit 5 (RESTART_EN); if flag bit 2 is set program IC_TAR (+4) from the 16-bit address field DAT_2000a70a[slot] (low 10 bits, bit 15 selects 10-bit addressing -> TAR bit 12); then set IC_ENABLE (+0x6c) bit 0. No direct callers (reached from the I2C ISR callback / task submission path); pairs with hal_i2c_task_done_handler which advances the 2-entry task ring.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "I2C instance 0..5"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Register names assume a Synopsys DesignWare I2C core; slot field meanings (type byte 2, flag bit 2 = 'address from slot') are inferred."
+  },
+  "ble_219_0c030a08": {
+    "name": "hal_i2c_close_internal",
+    "summary": "Close an I2C instance: disable its NVIC IRQ and controller, clear busy, assert resets and gate clocks",
+    "description": "Returns immediately if the open flag DAT_2000a6f0[inst*0x70] is 0. Otherwise takes the IRQ number from the ROM record byte 0x0c081ac6[inst*12]; if it is < 0x4c (76) it disables the interrupt (NVIC ICER 0xe000e180 + 4*(irq>>5), DSB, ISB) and clears its pending bit (ICPR 0xe000e280). Clears IC_ENABLE (+0x6c) bit 0 of the register block from 0x0c081abc[inst*3], calls hal_i2c_clear_busy(inst), asserts the resets of the two CMU module ids stored at record bytes +9 and +8 (hal_cmu_reset_set), gates their clocks (hal_cmu_clock_disable) and clears the open flag. Called only through the exported wrapper 0x0c03133c, which asserts inst < 6. Reverse of the open path that enables clocks/releases resets.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "I2C instance 0..5"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c030ab0": {
+    "name": "hal_i2c_master_send_poll",
+    "summary": "Polled I2C master write of n bytes with optional RESTART/STOP flags and timeouts",
+    "description": "Fails with -0x80000000 unless the instance state byte DAT_2000a6e4[inst*0x70] == 1 (opened). If IC_TAR (+4) differs from param_2 it first waits (timeout 1000 units converted to ticks by thunk 0x20000570, elapsed via thunk 0x2000031c) for IC_STATUS (+0x70) & 5 == 4 (TFE set, ACTIVITY clear), disables the controller (IC_ENABLE +0x6c bit 0), writes the new target (10-bit address field; param_2 bit 15 sets TAR bit 12 = 10-bit mode) and re-enables; a timeout returns 0x8000000 with 0 bytes sent. After a hal_i2c_check_tx_abort it writes each byte to IC_DATA_CMD (+0x10): the first byte carries 0x400 (RESTART) when param_6 != 0 and the last byte 0x200 (STOP) when param_7 != 0; before each write it waits for TFNF (status bit 1) with abort checks (any abort source is returned immediately) and a 1000-unit timeout (error 0x4000000). Afterwards it waits for TFE (status bit 2, error 0x2000000) when no STOP was requested, else for the bus to go idle ((status & 5) == 4, error 0x8000000). Whenever param_8 != 0 each polling iteration also calls hal_sys_timer_delay_us(1). The number of bytes written is stored to *param_5 when non-NULL. Returns 0 on success, otherwise the TX_ABRT_SOURCE value from hal_i2c_check_tx_abort or one of the timeout codes above. Callers: hal_i2c_send and hal_i2c_recv (write phase).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "I2C instance 0..5"},
+      {"name": "param_2", "type": "u32", "description": "target address (bits 9:0), bit 15 = 10-bit addressing"},
+      {"name": "param_3", "type": "ptr", "description": "bytes to transmit"},
+      {"name": "param_4", "type": "s32", "description": "number of bytes"},
+      {"name": "param_5", "type": "ptr", "description": "optional out: number of bytes actually written"},
+      {"name": "param_6", "type": "bool", "description": "issue RESTART before the first byte"},
+      {"name": "param_7", "type": "bool", "description": "issue STOP after the last byte"},
+      {"name": "param_8", "type": "bool", "description": "insert a 1 us delay in every poll loop"}
+    ],
+    "returns": {"type": "s32", "description": "0 ok; abort source; 0x8000000/0x4000000/0x2000000 timeouts; -0x80000000 not opened"},
+    "confidence": "high",
+    "notes": "The timeout unit of thunk 0x20000570 (ms or us -> ticks) is not confirmed."
+  },
+  "ble_219_0c030cb8": {
+    "name": "hal_i2c_master_recv_poll",
+    "summary": "Polled I2C master read of n bytes, keeping the 8-deep FIFO filled with READ commands",
+    "description": "Same preamble as hal_i2c_master_send_poll: requires DAT_2000a6e4[inst*0x70] == 1 (else -0x80000000), and if IC_TAR (+4) != param_2 waits for the bus to be idle ((IC_STATUS +0x70) & 5 == 4, timeout 1000 units -> 0x8000000), disables the controller, reprograms the target (bit 15 -> 10-bit mode, TAR bit 12) and re-enables. It then spins IC_RXFLR (+0x78) iterations as a short delay and checks for a TX abort. Main loop until param_4 bytes were received: if IC_TXFLR (+0x74) + IC_RXFLR + 1 < 8 and commands remain, it pushes up to the free FIFO space of READ commands (IC_DATA_CMD +0x10 = 0x100, ORed with 0x400 RESTART on the first command when param_6 != 0 and 0x200 STOP on the last when param_7 != 0) while TFNF (status bit 1) is set; whenever RFNE (status bit 3) is set a byte is popped into param_3[received++] and the timeout base is reset, otherwise it checks for an abort (returned immediately) and a 1000-unit timeout (error 0x1000000), with an optional hal_sys_timer_delay_us(1) when param_8 != 0. If STOP was requested it finally waits for ACTIVITY (status bit 0) to clear (timeout 0x8000000). A last hal_i2c_check_tx_abort result is the return value (0 = success); *param_5 receives the byte count when non-NULL. Single caller hal_i2c_recv (read phase after the write).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "I2C instance 0..5"},
+      {"name": "param_2", "type": "u32", "description": "target address (bits 9:0), bit 15 = 10-bit addressing"},
+      {"name": "param_3", "type": "ptr", "description": "receive buffer"},
+      {"name": "param_4", "type": "u32", "description": "number of bytes to read"},
+      {"name": "param_5", "type": "ptr", "description": "optional out: number of bytes received"},
+      {"name": "param_6", "type": "bool", "description": "issue RESTART before the first read command"},
+      {"name": "param_7", "type": "bool", "description": "issue STOP after the last read command"},
+      {"name": "param_8", "type": "bool", "description": "insert a 1 us delay in every poll loop"}
+    ],
+    "returns": {"type": "s32", "description": "0 ok; abort source; 0x8000000/0x1000000 timeouts; -0x80000000 not opened"},
+    "confidence": "high",
+    "notes": "If param_3 is NULL the received counter never advances (only the timeout ends the loop); decompiler artefact or latent bug."
+  },
+  "ble_219_0c03134c": {
+    "name": "hal_i2c_send",
+    "summary": "Exported I2C write: assert instance < 6 and tail-call hal_i2c_master_send_poll with all arguments",
+    "description": "Validates param_1 (instance) < 6, hanging in an assert loop otherwise, then tail-calls hal_i2c_master_send_poll with the unchanged register/stack arguments (instance, target address, tx buffer, length, out-count pointer, restart flag, stop flag, delay flag); its result is returned unchanged. The decompiler shows the call without arguments because they are passed through untouched. Caller 0x0c0458e4 (a device-driver write entry) uses it as write(fd, addr = buf[0], data = buf+1, len-1).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "I2C instance 0..5 (asserted)"}
+    ],
+    "returns": {"type": "s32", "description": "result of hal_i2c_master_send_poll (0 ok, error/abort code)"},
+    "confidence": "high",
+    "notes": "Remaining parameters are identical to hal_i2c_master_send_poll."
+  },
+  "ble_219_0c03136c": {
+    "name": "hal_i2c_recv",
+    "summary": "Exported I2C write-then-read: send the register/command bytes, then read rx_len bytes with RESTART+STOP",
+    "description": "Asserts param_1 < 6 (infinite loop otherwise). Calls hal_i2c_master_send_poll with the caller's arguments (instance, address, tx buffer, tx length, and the flags it was given; the decompiler drops them); if that returns non-zero the error is returned (via the caller's register) and nothing is read. Otherwise calls hal_i2c_master_recv_poll(inst, param_2, param_5, param_6, NULL, restart = 1, stop = 1, delay = 0), i.e. a repeated-START read of param_6 bytes into param_5 followed by STOP. This is the usual register-read transaction (write register index, restart, read). Caller 0x0c045940 (device-driver read entry) passes (inst, p[0] address, p+4 tx pointer, p[1] tx length, p+8 rx pointer, p[2] rx length) and returns the rx length on success.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "I2C instance 0..5 (asserted)"},
+      {"name": "param_2", "type": "u32", "description": "target address (bit 15 = 10-bit)"},
+      {"name": "param_3", "type": "ptr", "description": "bytes to write first"},
+      {"name": "param_4", "type": "u32", "description": "number of bytes to write"},
+      {"name": "param_5", "type": "ptr", "description": "receive buffer"},
+      {"name": "param_6", "type": "u16", "description": "number of bytes to read"}
+    ],
+    "returns": {"type": "void", "description": "none in the decompile; the error code of the failing phase is left in r0"},
+    "confidence": "medium",
+    "notes": "Decompiler lost the argument forwarding to the send phase; the flags used for the write phase (restart/stop) are therefore not visible."
+  },
+  "ble_219_0c0314f0": {
+    "name": "hal_sysipc_tx_done_irq_handler",
+    "summary": "IPC transmit-complete ISR: ack 0x400000a0 bits 23/24, run tx-done callbacks, send the next queued message",
+    "description": "For IPC channel 0 and 1 it tests register 0x400000a0 (bit 23 for channel 0, bit 24 for channel 1); when set it writes 1 (ch0) or 2 (ch1) to 0x400000a4 to acknowledge, then walks the list of sent message nodes whose head is DAT_2000a9cc[ch] (node: +0 next, +4 type byte 0/1 (assert if >1), +8 and +0xc payload words, +0x10 in-use byte): for each node it calls the tx-done callback DAT_2000aa54[ch*2 + type](node[0xc], node[8]) if registered and clears the in-use byte. If the pending list DAT_2000aa4c[ch] is empty it clears the head and the channel-busy byte DAT_2000a98c[ch]; when the global busy flag DAT_2000a988 is set and both channel busy bytes (0x2000a98c, 0x2000a98d) are now clear it calls pm_busy_mask_clear_bit(0) and clears DAT_2000a988 (IPC no longer vetoes sleep). Otherwise it moves the pending list to the head, empties it, and raises the doorbell by writing 4 (ch0) or 8 (ch1) to 0x400000a0 (read back to flush). No direct callers: reached from the IPC interrupt vector installed by hal_sysipc_rx_irq_setup (0x0c0314bc). Counterpart of hal_sysipc_send, which builds the nodes and the lists.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Identification as the Bestechnic inter-core IPC (hal_sysipc / hal_mcu2bt) follows the wave-1 hal_sysipc_* naming; register bit semantics of 0x400000a0/a4 are inferred from usage."
+  },
+  "ble_219_0c031884": {
+    "name": "hal_sysipc_send",
+    "summary": "Queue a two-word IPC message on channel 0/1 for user type 0/1 and ring the doorbell (0x400000a0)",
+    "description": "Returns 1 if param_1 (channel) > 1, 2 if param_2 (user/type) > 1, 3 if bit type of the open mask DAT_2000a990[ch] is clear. Inside a BASEPRI critical section (BASEPRI 0x40; call site 0x0c0318ae and LR logged to DAT_20003d70/DAT_20003d74 when not already at 0x40, DAT_20003d70 reset to 0xffffffff on exit when it was 0) it picks the first free of three 0x14-byte message slots of the channel at 0x2000a9d4 + ch*0x3c (in-use bytes at +0x10: 0x2000a9e4, 0x2000a9f8, 0x2000aa0c); if all are busy returns 0xffffffff. The slot is filled: next = 0, type byte = param_2, +8 = param_4, +0xc = param_3, in-use = 1. If the active list head DAT_2000a9cc[ch] is empty the slot becomes the head and the doorbell is rung by writing 4 (ch0) or 8 (ch1) to 0x400000a0 (read back); otherwise the slot is appended to the pending list DAT_2000aa4c[ch]. If the channel busy byte DAT_2000a98c[ch] was 0 it is set, and if the global flag DAT_2000a988 was 0 it calls pm_busy_mask_set_bit(0) and sets DAT_2000a988 (veto sleep while IPC traffic is in flight). Returns 0 on success. Callers: 0x0c03ac98 (controller/host message path), 0x0c03eb84, 0x0c0454d0 (HCI send: 'error hci send : length = %d'). Completion is handled by hal_sysipc_tx_done_irq_handler.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "IPC channel 0 or 1"},
+      {"name": "param_2", "type": "u32", "description": "user/message type 0 or 1 (selects the tx-done callback)"},
+      {"name": "param_3", "type": "u32", "description": "first payload word (stored at node+0xc, passed first to the callback)"},
+      {"name": "param_4", "type": "u32", "description": "second payload word (stored at node+8, e.g. length)"}
+    ],
+    "returns": {"type": "s32", "description": "0 ok; 1 bad channel; 2 bad type; 3 not opened; -1 no free message slot"},
+    "confidence": "medium",
+    "notes": "Which of param_3/param_4 is the data pointer vs length is not verified; the IPC identification follows wave 1."
+  },
+  "ble_219_0c031da0": {
+    "name": "hal_spi_apply_cfg_regs",
+    "summary": "Program CR1/CPSR/DMACR of an SPI instance from a derived config and select its clock source in the CMU",
+    "description": "Calls hal_spi_apply_format(inst, cfg, 0) to load CR0 and the +0x88 extension byte, then writes to the PL022 block from table 0x0c08425c[inst]: CR1 (+4) = u16 at cfg+8, CPSR (+0x10) = byte at cfg+10, DMACR (+0x24) = byte at cfg+0xb. The clock-selector byte at cfg+0x10 (1 = base clock, 2 = doubled clock, 3 = leave unchanged; produced by hal_spi_build_hw_cfg) is compared with the cached DAT_20003d20[inst]; if it changed and is not 3: for instance 1 it rewrites bits 20:18 of CMU register 0x400000a8 inside a BASEPRI critical section (call site 0x0c040e6e logged to DAT_20003d70/74 as in the other BASEPRI helpers) to 0x40000 for selector 2 or 0 otherwise and returns 0; for instance 0 it forwards the selector to bes_cmu_set_rega8_bit21 and returns its result. Returns the (unchanged) selector when nothing had to be done. Callers: hal_spi_open_common, the DMA transfer path 0x0c032408 (re-applying config after a clock change) and 0x0c032774.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "SPI instance (0 = internal/analog SPI, 1 = external SPI)"},
+      {"name": "param_2", "type": "ptr", "description": "derived hardware config (CR0 words, CR1, CPSR, DMACR, ext bytes, clock selector at +0x10)"}
+    ],
+    "returns": {"type": "u32", "description": "0 / result of bes_cmu_set_rega8_bit21, or the selector byte when no clock change was needed"},
+    "confidence": "medium",
+    "notes": "The meaning of 0x400000a8 bits 20:18 (SPI clock mux) is inferred; the decompiler mis-rendered the hal_spi_apply_format call."
+  },
+  "ble_219_0c031df4": {
+    "name": "hal_spi_dma_cancel_all",
+    "summary": "Cancel and free the RX and TX GPDMA channels of an SPI instance and release its transfer wait",
+    "description": "Inside a BASEPRI critical section (call site 0x0c031e04 logged to DAT_20003d70/DAT_20003d74) it reads and resets to 0xff the TX channel byte DAT_20003d1c[inst] and the RX channel byte DAT_20003d18[inst], and reads the user callback pointer DAT_20003d10[inst]. For each channel that was valid (!= 0xff) it calls hal_gpdma_cancel and hal_gpdma_free_chan. For instance 1 it then restores the frame format of the currently selected chip-select slot with hal_spi_apply_format(1, &DAT_20003920 + DAT_2000391e*0x14, 0). If a callback was registered it calls the RAM-patch routine 0x2000081c with the address of the per-instance byte 0x20003d04[inst], which the DMA done handlers also call (probably a wait-flag/semaphore release for the transfer owner). Single caller hal_spi_close (0x0c031ea4) when a TX DMA channel is still allocated at close time.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "SPI instance 0 or 1"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Purpose of thunk 0x2000081c and of byte 0x20003d04[inst] is a guess."
+  },
+  "ble_219_0c031f88": {
+    "name": "hal_spi_dma_rx_done_handler",
+    "summary": "GPDMA completion callback for SPI receive: free the RX channel and call the user's done callback",
+    "description": "GPDMA callback with the signature (channel id, remaining size, error flag, LLI pointer) used by hal_gpdma_chan_irq_handler. Inside a BASEPRI critical section (call site 0x0c031f98 logged) it matches param_1 against the RX channel bytes DAT_20003d18 (instance 0) and 0x20003d19 (instance 1) and marks the matching entry 0xff; an unknown channel is ignored. For a match it calls hal_gpdma_free_chan(channel), then the RAM-patch routine 0x2000081c with &0x20003d04[inst] (releases the transfer wait), and finally the registered RX callback DAT_20003d08[inst] with param_3 (the DMA error flag) if non-NULL. No direct callers: registered as the DMA completion callback by the SPI DMA receive path. Sibling of hal_spi_dma_tx_done_handler.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id that completed"},
+      {"name": "param_2", "type": "u32", "description": "remaining transfer size (unused)"},
+      {"name": "param_3", "type": "u32", "description": "DMA error flag, forwarded to the user callback"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The role of thunk 0x2000081c is inferred."
+  },
+  "ble_219_0c03200c": {
+    "name": "hal_spi_dma_tx_done_handler",
+    "summary": "GPDMA completion callback for SPI transmit: free TX (and RX) channels, restore format, call user callback",
+    "description": "GPDMA callback (channel id, remaining, error flag, LLI). Inside a BASEPRI critical section (call site 0x0c03201c logged) it matches param_1 against the TX channel bytes DAT_20003d1c (instance 0) / 0x20003d1d (instance 1); on a match it marks that entry 0xff and also fetches and resets the instance's RX channel byte DAT_20003d18[inst]. Outside the section it frees the TX channel (hal_gpdma_free_chan), and if an RX channel was allocated cancels and frees it too; for instance 1 it restores the frame format of the current chip-select slot via hal_spi_apply_format(1, &DAT_20003920 + DAT_2000391e*0x14, 0); then calls the RAM-patch routine 0x2000081c with &0x20003d04[inst] and finally the user callback DAT_20003d10[inst](param_3) if set. The DMA transfer routine 0x0c032408 installs this function (0x0c03200d) as the channel callback only when the user supplied a callback, so it only runs for asynchronous transfers. No direct callers.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "GPDMA channel id that completed"},
+      {"name": "param_2", "type": "u32", "description": "remaining transfer size (unused)"},
+      {"name": "param_3", "type": "u32", "description": "DMA error flag, forwarded to the user callback"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0320d0": {
+    "name": "hal_spi_build_hw_cfg",
+    "summary": "Translate a user SPI config (rate, bits, flags) into PL022 CR0/CR1/CPSR/DMACR values",
+    "description": "param_1 is the user config: +0 rate (Hz), +4 flags byte (bit0 SPH clk_delay_half, bit1 SPO polarity, bit2 slave, bit3 rx DMA, bit4 tx DMA, bit5 extra CR1 bit 11, bit7 = do not enable), +5 chip select 0..3, +6 tx bits, +7 rx bits, +8 rx frame bits. The source clock comes from thunk 0x2000022c; if rate*2 exceeds it the doubled clock is chosen (selector 2, clock*2) else selector 1, stored at out+0x10. Asserts (infinite loops): rate <= clock/2, rate >= clock/16256, tx/rx bits in 4..32, rx frame bits 0 or in rx_bits+1..32, cs <= 3. Divider: div = ceil(clock/rate); CPSDVSR = max(2, even-rounded (div+255)>>8, capped 254); SCR = min(ceil((div-1)/CPSDVSR) - 1, 255). Writes out+0 = CR0 = SCR<<8 | SPH<<7 | SPO<<6 | (tx_bits-1)<<16, out+8 = CR1 = slave<<2 | cs<<7 | bit5<<11 | SSE (bit1) unless flags bit7, out+10 = CPSDVSR, out+0xb = DMACR (flags bits 4:3 -> TXDMAE/RXDMAE), out+0xc = 0, and the receive variant: if rx frame bits == 0, out+0xd = 0 and out+4 = CR0 with DSS = rx_bits-1; else out+0xd = (rx_bits-1) | 0x60 and out+4 = CR0 with DSS = rx_frame_bits-1 (BES extension register +0x88: receive only rx_bits of a longer frame). Single caller hal_spi_open_common.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "user SPI configuration (HAL_SPI_CFG_T-like, see description)"},
+      {"name": "param_2", "type": "ptr", "description": "output: derived register config (0x11 bytes used)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Field names follow the BES HAL_SPI_CFG_T; the exact meaning of flags bit5/bit7 and of thunk 0x2000022c (SPI source clock) is inferred."
+  },
+  "ble_219_0c0321f8": {
+    "name": "hal_spi_open_common",
+    "summary": "Open an SPI instance for one user: build register config, enable clocks on first user, apply config",
+    "description": "param_2 is the user config, param_3 the per-instance derived-config storage (0x20003cec for instance 0; &DAT_20003920 + cs*0x14 for instance 1). Asserts that flags bit 2 (slave mode) is clear, then fills param_3 with hal_spi_build_hw_cfg. On the very first open (DAT_20003d22 == 0) it sets the flag and initialises the DMA channel bytes DAT_20003d18 (RX, two instances) and DAT_20003d1c (TX) to 0xff. If the user mask DAT_20003d00[inst] is 0 it sets it to 1 << cs (cs = config byte +5) and powers the block: hal_cmu_clock_enable and hal_cmu_reset_clear for the two module ids at ROM 0x0c084270[inst*2] and [inst*2+1]; otherwise it only ORs the user bit in. Finally hal_spi_apply_cfg_regs(inst, param_3) programs the registers. Always returns 0. Callers: 0x0c032688 (instance 0 open, the internal SPI to the analog/PMU block) and 0x0c032714 (instance 1 open with up to four chip-select configs, under a critical section). Reverse operation is 0x0c031ea4 (close).",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "SPI instance 0 or 1"},
+      {"name": "param_2", "type": "ptr", "description": "user SPI configuration"},
+      {"name": "param_3", "type": "ptr", "description": "storage for the derived register config of this instance/cs"},
+      {"name": "param_4", "type": "u32", "description": "unused (decompiler artefact)"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c0326c4": {
+    "name": "hal_ispi_send",
+    "summary": "Polled transmit on SPI instance 0 (internal analog/PMU SPI); asserts if TX DMA is configured",
+    "description": "If the DMACR byte DAT_20003cf7 of instance 0's derived config (0x20003cec + 0xb) has TXDMAE (bit 1) clear it calls hal_spi_tx_poll(0, DAT_20003cec (the CR0 word, which encodes the frame size), param_1, param_2) and returns; if TX DMA is enabled it hangs in an assert loop. Callers are the analog-interface register access routines 0x0c0401b0 (read: sends a 24-bit command word first) and 0x0c040290 (write), so instance 0 is the ISPI link to the PMU/analog die; the result of the transfer is discarded here.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "transmit buffer (one or more 32-bit frames)"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Name follows the BES hal_ispi/analogif convention; 'instance 0 = internal SPI' is inferred from the callers."
+  },
+  "ble_219_0c0326e8": {
+    "name": "hal_ispi_recv",
+    "summary": "Polled full-duplex transfer on SPI instance 0 using the receive frame format; asserts if DMA is on",
+    "description": "If both DMA bits of instance 0's DMACR byte DAT_20003cf7 (RXDMAE bit 0, TXDMAE bit 1) are clear it calls hal_spi_txrx_poll(0, DAT_20003cf0 (the alternate CR0 word at derived-config +4, i.e. the receive frame size), param_1, param_2, param_3); otherwise it hangs in an assert loop. Single caller 0x0c0401b0, the analog-interface register read, which sends a 32-bit command (reg<<18 | 0x4000000) and takes the returned word >> 2 as the 16-bit register value. Transfer status is not returned.",
+    "category": "hal_spi",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "transmit buffer"},
+      {"name": "param_2", "type": "ptr", "description": "receive buffer"},
+      {"name": "param_3", "type": "u32", "description": "length in bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Name follows the BES hal_ispi convention; mapping of instance 0 to the analog SPI is inferred from the callers."
+  }
+}

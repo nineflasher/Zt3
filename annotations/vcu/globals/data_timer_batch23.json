@@ -1,0 +1,34 @@
+{
+  "vcu_g_0159_200018ac": {
+    "name": "timer_systick_saved_enable",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["VCU_0159", "0x200018ac"],
+    "category": "timer",
+    "description": "Saved SysTick enable state, 0 or 1. vcu_systick_suspend (vcu_0159_0800ea90) copies bit 0 of SysTick.CTRL here and then clears ENABLE. vcu_systick_resume (vcu_0159_0800eab0) ORs this byte back into SysTick.CTRL, so the counter restarts only if it was running before the suspend. Only the suspend writes it. The suspend and resume pair is probably part of a sleep sequence, since the callers listed for suspend and resume include vcu_0159_0800688c. The boot value is not shown in this packet."
+  },
+  "vcu_g_0159_200018b0": {
+    "name": "timer_systick_ticks_per_us",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["VCU_0159", "0x200018b0"],
+    "category": "timer",
+    "description": "SysTick ticks per microsecond, which equals the core clock in MHz (8, 16 or 48 for the clock settings that system_clock_config writes). vcu_systick_timebase_init (vcu_0159_08002030) stores core_hz / 1000000 here. delay_us (vcu_0159_0800bb00) multiplies it by the requested microseconds and loads the product into SysTick.LOAD. The width is not visible in the decompiled code; u32 is assumed (probably). The value is only valid after timebase_init has run with the core clock already stored at 0x200018BC."
+  },
+  "vcu_g_0159_200018b4": {
+    "name": "timer_systick_ticks_per_ms",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["VCU_0159", "0x200018b4"],
+    "category": "timer",
+    "description": "SysTick ticks per millisecond: the core clock in MHz times 1000, so 8000, 16000 or 48000 for the three clock settings. vcu_systick_timebase_init (vcu_0159_08002030) stores (core_hz / 1000000) * 1000 here. delay_ms (vcu_0159_0800bab0) loads it times the chunk length, at most 50 ms, into SysTick.LOAD. The stored values do not fit in one byte, so the width is at least u16. u32 is assumed here because the decompile does not show it (probably). The function note for delay_ms calls this global byte-wide, which conflicts with these values."
+  },
+  "vcu_g_0159_200018bc": {
+    "name": "timer_core_clock_hz",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["VCU_0159", "0x200018bc"],
+    "category": "clock",
+    "description": "Core clock frequency in Hz, stored by system_clock_config (vcu_0159_0800e8e0) once it has decoded the PLL and AHB settings. The code writes 8000000, 16000000 or 48000000 here depending on the path taken. vcu_systick_timebase_init reads it to derive the SysTick tick counts in 0x200018B0 and 0x200018B4. The frame matcher in vcu_0159_08008aec uses the address 0x200018BC only as a base for pointer arithmetic on the frame buffer, which starts at 0x200018C0. Those bytes are not accesses to this word, so this word is not part of the frame buffer."
+  }
+}

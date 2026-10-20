@@ -1,0 +1,696 @@
+{
+  "bms_4168_08003290": {
+    "name": "NMI_Handler",
+    "summary": "NMI handler: services flash ECC double error, SRAM parity error and RCC clock-security faults",
+    "description": "Vector-table NMI_Handler that checks four fault sources in turn. FLASH.ECCR bit 31 (ECCD, double ECC error) sets RAM flag 0x20000680 to 1 and is cleared by writing 0x80000000 to ECCR. SYSCFG.CFGR2 bit 8 (SRAM_PEF, SRAM parity error) treats bits 17:16 of the control word at 0x200001C8 (returned by bms_ram_200001c8_addr) as a 2-bit counter: a rotate, add 0x40000000 and rotate-back sequence increments that counter modulo 4 and leaves the other bits alone. If the new counter value is 0, 1 or 2 the handler calls bms_nvm_save_state_snapshot, issues __DSB and writes SCB.AIRCR = 0x05FA0004 (VECTKEY with SYSRESETREQ); if it is 3 it forces bits 17:16 to 3 and writes 1 to CFGR2.SRAM_PEF to clear the flag. RCC.CIFR bit 8 (CSSF, clock security fault) calls bms_sysclk_hsi16_switch, sets RCC.CR bit 16 (HSEON), sets RCC.CIER bit 4 (HSERDYIE), clears CSSF through RCC.CICR bit 8, and sets bit 31 of the control word at 0x200001C8. RCC.BDCR bit 6 (LSECSSD, LSE clock-security failure) clears RCC.CICR bit 9 (LSECSSC).",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high",
+    "notes": "Register effects are exact from the decompile. The meaning of the 2-bit counter in 0x200001C8 bits 17:16 is inferred from the arithmetic; the reset path for counter values 0, 1 and 2 is not explained by the code and may be intentional. Uses the CMSIS names __DSB and SCB.AIRCR. The NMI vector is the only entry point in this packet."
+  },
+  "bms_4168_08003bf0": {
+    "name": "bms_afe_config_result_apply",
+    "summary": "Apply the AFE configuration result: on failure set fault bit 0x2000 and reset the derived state words",
+    "description": "Calls bms_afe_config_program and acts on its status. On a nonzero status it sets bit 13 (0x2000) of the u16 at state+0x194, clears the u16 words at state+0xB6, +0x118, +0x11A and +0x11E, and zeroes 2 x (u16 at state+0x20) bytes starting at state+0x140 with bms_mem_zero. On success it clears bit 13 of state+0x194. The state block is reached through the pointer in RAM 0x2000002C.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "Callers are bms_4168_080082bc and bms_4168_080082f0. The bit 0x2000 is read as a configuration-failed flag by the rest of the state block code, which is the basis for the label; the table at +0x140 is not described here."
+  },
+  "bms_4168_08003c3c": {
+    "name": "bms_uid_binding_check_reset",
+    "summary": "Check the 12-byte UID copy in the state block against the device UID; rewrite, save and reset on mismatch",
+    "description": "Runs only when bit 25 of the status word at *DAT_20000030 is set and bit 1 of the u16 at state+0x124 is clear. It copies 12 bytes from the flash address 0x0803F186 into the state block at +0x186 (bms_memcpy_args_swap, which swaps its first two arguments before calling memcpy). It then reads the three 32-bit device UID words with bms_get_uid_word_by_index(0), (1) and (2) into RAM 0x200008F8, 0x200008FC and 0x20000900. If bms_memcmp_prefix over those 12 bytes returns nonzero, it stores the UID words as six halfwords at +0x186..+0x190, saves the state block with bms_nvm_save_state_snapshot and resets through bms_nvic_system_reset_plain. The 12-byte record is a stored copy of the chip UID that binds the saved state to this board.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of bms_memcmp_prefix's return value is inferred from the write-back branch (nonzero means the buffers differ). The UID words 0x200008F8..0x20000902 are shared with bms_main_state_machine."
+  },
+  "bms_4168_080056e8": {
+    "name": "bms_can_status_tick",
+    "summary": "Periodic CAN status tick: run the 0x7F0/0x7F1/0x212 decoder when armed, then clear its pending byte",
+    "description": "If the byte at 0x200008F5 equals 1 and the helper bms_4168_0800f2e0 (not described in this packet) returns nonzero for the CAN object at 0x200006D8, it calls bms_can_status_frame_rx on that object. That routine decodes frames 0x7F0, 0x7F1 and 0x212 and ages the 0x212 status flag out after 2000 ticks. The pending byte at 0x200008F4 is cleared on every call, whether or not the decoder ran.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "No direct caller in the packet, so this is an entry point or scheduler callback. The 0x200008F5 flag is read as an enable and 0x200008F4 as a pending request, both inferred from the test-and-clear pattern."
+  },
+  "bms_4139_08006f08": {
+    "name": "bms_protect_measure_tick_4139",
+    "summary": "Per-tick measurement and protection latch update for the BMS_4130/4139 builds",
+    "description": "Per-tick routine for the BMS_4130 and BMS_4139 builds, one of two variants of the same tick (the other is bms_protect_measure_tick_4168). It runs the measurement pipeline (helpers 0x0800BBE4, 0x0800BD14 on RAM 0x200005C4, 0x0800BAC4, 0x0800C0D8, 0x0800BB40 which consumes the request byte 0x20000000, 0x0800B9D4 which fills the status byte at 0x200005C0, and bms_prot_latch_pairs_update_alt at 0x0800C560), clears the request byte 0x20000000, then runs the latch dwell logic. When bit 5 (0x20) of the u16 at state+0x194 is set and either bit 4 of state+0x124 or bit 1 of 0x200005C0 is set while 0x20000001 is clear, it adds param_1 to the accumulator at 0x20000004; past 1000 (param_2 nonzero) or 2000 ticks it sets 0x20 in state+0x194 and 0x10 in state+0x124, sets 0x20000001 and calls the latch-set helper 0x0800AE4C once. When the condition is not met it clears the accumulator, and when bit 5 is clear it clears 0x20000001 and calls the latch-release helper 0x0800AE24 once. The tail publishes a status record (byte 0 is param_1 & 0xFF divided by 100; bytes 1 to 3 are bits 2, 1 and 4 of state+0x124; then the words at +0xB2, +0x11C, +0x120, +0x122, +0x11E, +0x11A, the s16 at +0x22 times 10, and the word at +0x19C) through 0x0800CF68 and copies the 12 returned halfwords into state fields +0x28, +0x112, +0x114, +0x1C2 to +0x1C8 and +0x1EA to +0x1F0.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "tick delta added to the protection accumulator (the 4139 variant masks it to the low byte for the scale calculation)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "nonzero selects the 1000-tick latch threshold, zero selects 2000"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The 4139 decompile calls 0x0800AE4C and 0x0800AE24 on the latch edges, not 0x0800B87C and 0x0800B854 (those are the 4148/4168 calls). The packet's callee list includes 0x0800B854 and 0x0800B87C for this function, which does not match the decompile shown here, so check the caller attribution of those two helpers. The status-record field meanings are inferred from the published field offsets."
+  },
+  "bms_4168_08007a0c": {
+    "name": "bms_protect_measure_tick_4168",
+    "summary": "Per-tick measurement, protection latch and limit-status update for the BMS_4148/4168 builds",
+    "description": "Per-tick routine for the BMS_4148 and BMS_4168 builds, the 4148/4168 variant of bms_protect_measure_tick_4139. It runs the same measurement pipeline on RAM 0x200006B0 and 0x200006C4 (helpers 0x0800C6DC, 0x0800C80C, 0x0800C5BC, 0x0800CE64, 0x0800C638, 0x0800C4CC, 0x0800D2EC, 0x0800CE78, 0x0800C018, 0x0800C380), clears the request byte 0x20000000, and runs the same latch dwell logic with accumulator 0x20000008. The status byte it tests is 0x200006AC and the latch edges call bms_afe_cfg_9261_bc (0xBC, when entering the latched state or when not armed and the flag 0x20000002 is clear) and bms_afe_cfg_9261_b8 (0xB8, when the release condition holds and 0x20000002 is set). The tail publishes the same status record as the 4139 variant through 0x0800E3BC (tick is not masked before the divide by 100) and copies the same 11 halfwords into state fields, then calls bms_limit_status_update, which itself runs once per 1000 ticks.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "tick delta added to the protection accumulator (the 4139 variant masks it to the low byte for the scale calculation)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "nonzero selects the 1000-tick latch threshold, zero selects 2000"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "Same structure and thresholds as bms_protect_measure_tick_4139. The meaning of the measurement helpers is in other packets. The 1000/2000 threshold split is inferred from the code's use of param_2 as a flag."
+  },
+  "bms_4168_080082bc": {
+    "name": "bms_init_hw_stage",
+    "summary": "Boot init step: set status 0x200, apply the AFE config result, start FDCAN, then init RTC with LSI fallback",
+    "description": "One-shot hardware bring-up step. It sets bit 9 (0x200) in the status word at *DAT_20000030, calls bms_afe_config_result_apply, waits 800 units with bms_systick_wait_repeat, starts FDCAN through bms_fdcan_filters_start, and initializes the RTC with bms_rtc_hal_init. If that init returns zero it falls back to the LSI clock through bms_rtc_fallback_lsi_start.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high",
+    "notes": "Caller is bms_4168_08010558, which is not in this packet."
+  },
+  "bms_4168_080082f0": {
+    "name": "bms_main_state_machine",
+    "summary": "Top-level BMS state machine: bring-up, run, wait-for-ready and timed-reset states, plus save/reset requests",
+    "description": "Top-level state machine run once per tick, with the state byte in RAM 0x2000001D: 0 = bring-up, 1 = run, 2 = wait for ready, 3 = timed reset, and any other value resets to 1. In state 0 it runs bms_uid_binding_check_reset, sets status bit 0x20, clears 0x04000000, sets the period DAT_20000028 to 1000, clears status bits 0x416, and brings up the clocks and GPIO (RCC.IOPENR bits 0 and 3, GPIOA pin 5 as output with pull-down, GPIOD pins 0 and 3 as outputs), the ADC (bms_adc_hw_init), FDCAN (bms_fdcan_nominal_500k_setup and bms_fdcan_filters_start) and the fault timers. It moves to state 2 when bms_fault_timers_step(period/10 + 5) passes; it moves to state 1 when a flag test on the state block (bits 2 and 1 of u16 at +0x124) or on the status word (bits 10, 1 and 0) passes, after sending AFE subcommand 0x009A. In state 1 the period is 100: when bit 14 of u16 at +0x124 is set it runs bms_afe_config_result_apply, it accumulates DAT_20000040 by the period and returns to state 0 (subcommand 0x0099) once that passes 3999, and it accumulates DAT_20000044 and reruns FDCAN setup every 200 ticks. State 1 moves to state 2 on a fault-timer pass and to state 3 when status bit 30 is set. State 2 waits for FUN_0800A87C to report ready, and on a not-ready result or a 500-unit timeout from FUN_0800A528 it saves the state block if DAT_2000001F is set and waits 1000 units; state 3 does the same and then resets through bms_nvic_system_reset_plain. Last, status bit 7 requests an NVM save, and status bit 28 selects the profile (bms_profile_select_from_code), reapplies the AFE configuration, rewrites the UID record when byte +0x196 bit 5 is clear, and resets.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "State names are inferred from the transitions. Several helpers (0x0800A348 timestamp, 0x0800A74C, 0x0800A3B8, 0x0800BE30 and others) are not described in this packet, and their behavior is only implied. Sends subcommands 0x0099 and 0x009A through bms_afe_subcmd_select_99_9a."
+  },
+  "bms_4168_0800a9a0": {
+    "name": "bms_afe_cfg_write_word_83",
+    "summary": "Write a 16-bit AFE word as the four-byte record 83 lo 00 hi, folding bit 12 into bit 15",
+    "description": "Takes a 16-bit value. If bit 12 is set it clears bit 12 and sets bit 15, then writes the four-byte record {0x83, low byte, 0x00, high byte} through bms_afe_block_write_wait_ack at register 0x3E. Because the block is longer than two bytes, the checksum and length are appended and the echo at 0x3E is polled. Part of the AFE configuration group; the return value is not used.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "16-bit value; bit 12 is folded into bit 15 before the write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "low",
+    "notes": "The meaning of the 0x83 header byte and the 0x00 byte is not confirmed. The record may be a data-memory address and value pair in the TI-style interface, but the field layout is inferred."
+  },
+  "bms_4168_0800a9ce": {
+    "name": "bms_afe_read_sys_stat_byte",
+    "summary": "Read AFE register 0x00 (SYS_STAT) into a byte output, leaving it untouched on failure",
+    "description": "Reads one byte from AFE register 0x00 through bms_afe_reg_read_bytes into a scratch word whose low byte is the destination. param_4 is only a seed: its low byte is overwritten. On success the byte is stored at *param_1; on failure *param_1 is left unchanged.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:u8",
+        "description": "output byte for register 0x00"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "seed value; the low byte is discarded"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "Register 0x00 is read as the TI-style SYS_STAT status register (inferred from the register map). Callers are bms_4139_0800e4f8 and bms_4168_0800fd7c."
+  },
+  "bms_4168_0800a9ea": {
+    "name": "bms_afe_read_cc2_current",
+    "summary": "Read AFE register 0x3A as a 16-bit value and store it as minus 20 times the signed value",
+    "description": "Reads two bytes from AFE register 0x3A through bms_afe_reg_read_bytes. If the read succeeds, the raw word is treated as a signed 16-bit value and the result is minus 20 times that value. The magnitude is masked to 15 bits, so the raw value 0x8000 gives zero. The result is stored as s32 at *param_1, and the read status is returned.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:s32",
+        "description": "output: -20 x signed raw value"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "Register 0x3A is the TI-style CC2_CURR current register (inferred). The x20 scale and the sign inversion are as coded; the physical unit is not confirmed."
+  },
+  "bms_4168_0800aa26": {
+    "name": "bms_afe_reg_read_bytes",
+    "summary": "Read len consecutive single-byte AFE registers starting at a given address through the framed I2C read",
+    "description": "Reads param_3 consecutive AFE registers, one byte each, starting at address param_1, and stores them in order at param_2. The address advances modulo 256 per byte and each byte is fetched with bms_i2c_frame_read_crc8 on device address 0x10. It is the base read primitive for the AFE group: bms_afe_datamem_read reads the 0x3E echo and the 0x40 data window with it, and the cell, temperature and status readers use it for their registers.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "first AFE register address (0x00..0xFF)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "destination buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes to read"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "status of the last byte read, 0 on success"
+    },
+    "confidence": "high",
+    "notes": "The decompiled signature shows void, but every caller uses the return value as a status, so the return is taken as the status of the last framed read. Device address 0x10 is the 8-bit I2C address used throughout the group."
+  },
+  "bms_4168_0800aa80": {
+    "name": "bms_afe_read_bytes_3_5_7",
+    "summary": "Read AFE registers 0x03, 0x05 and 0x07 into three output bytes, skipping failed reads",
+    "description": "Reads one byte each from AFE registers 0x03, 0x05 and 0x07 through bms_afe_reg_read_bytes and stores each successful read in *param_1, *param_2 and *param_3. A failed read leaves its output untouched. Caller is bms_4168_0800c4cc.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:u8",
+        "description": "output for register 0x03"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "output for register 0x05"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr:u8",
+        "description": "output for register 0x07"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The role of these three registers is not identified in this packet."
+  },
+  "bms_4168_0800aae8": {
+    "name": "bms_afe_config_program",
+    "summary": "Program the AFE data-memory configuration with write-verify, then send subcommand 0x29BC",
+    "description": "AFE bring-up program. It first reads DFI byte 0x9303 as a presence check, and also 0x9239 when that byte is 7 (the value is discarded). It then makes up to five attempts. Each attempt sends subcommand 0x0097 with data 0x04 (bms_afe_block_write_checksum), writes 0x9303 = 0x06, 0x92FA = 0xB9, 0x92FB = 0xB9, 0x9304 = 0x8FFF, 0x9252 = 0, 0x9253 = 1 (shadows 0x20005448 and 0x20005449), 0x92AF from shadow 0x2000063E, 0x9282, 0x9283 (clamped to 127), 0x928D, 0x927C, 0x9278, 0x9279, 0x9301 = 0, 0x9302 = 0, 0x924D = 0 and 0x92FC = 0x22, and calls the group writers bms_afe_cfg_write_92fd, _9234, _9248, _9265, _9261, _9275, _9280, _9286 and _9308. The data values come from RAM shadows in 0x20000640 to 0x2000066E. Each attempt ends by writing 0x9239 = 0x12 and reading it back with bms_afe_datamem_read; the loop stops when the readback is 0x12. When all five attempts fail, it returns the status of the last write without sending the final command. Otherwise it sends subcommand 0x29BC (bytes 0xBC 0x29) through bms_afe_block_write_wait_ack, waits 2 units, clears DAT_2000062E and returns the status of the last write.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "Caller is bms_4168_08003bf0 through bms_afe_config_result_apply. The return value is the status of the last 0x9239 write, so after five failed readbacks the function can still return 0 while the configuration is not confirmed. The meanings of the DFI addresses and the 0x0097 and 0x29BC subcommands are not identified in this packet."
+  },
+  "bms_4168_0800aec8": {
+    "name": "bms_afe_subcmd_select_9e_9f",
+    "summary": "Send AFE subcommand 0x009E when param_1 is 1, otherwise 0x009F, with no data",
+    "description": "Writes the two-byte subcommand word 0x009E when param_1 equals 1 and 0x009F otherwise, through bms_afe_block_write_wait_ack. A two-byte block is written without a checksum or an echo poll. Callers are bms_4139_0800e4f8 and bms_4168_0800fd7c.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "1 selects 0x009E, any other value selects 0x009F"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The two subcommands are not identified in this packet. They are used as a pair of mode switches, by analogy with bms_afe_subcmd_select_99_9a."
+  },
+  "bms_4168_0800aef8": {
+    "name": "bms_afe_mode_flags_set",
+    "summary": "Compose the AFE mode flag byte from two conditions and write it as block 0x97, flags, 0x00",
+    "description": "Stores into RAM 0x20000632 the flag byte formed as 4 when param_1 is 0 (else 0), OR 1 when param_2 is 0. It then writes the three-byte block {0x97, flags, 0x00} to AFE registers 0x3E to 0x40 with bms_afe_block_write_checksum, which appends the checksum and the length. Callers are bms_4139_0800be74 and bms_4168_0800c96c.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 sets flag 0x4"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "0 sets flag 0x1"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The two flag bits are not identified in this packet. The three-byte block is written without the echo poll that bms_afe_block_write_wait_ack performs."
+  },
+  "bms_4168_0800af38": {
+    "name": "bms_afe_block_write_checksum",
+    "summary": "Write a block to consecutive AFE registers, then the complement checksum and length, without an echo poll",
+    "description": "Writes param_3 bytes from buffer param_2 to consecutive AFE registers from param_1, one framed write each through bms_i2c_frame_write_crc8 with the address advancing modulo 256. For blocks longer than two bytes it sums the bytes, writes ~sum to register 0x60 (the checksum) and writes param_3 + 2 to register 0x61 (the length). It does not check the echo at 0x3E, so the caller is responsible for verification. Callers are bms_4168_0800aae8 and bms_4168_0800aef8.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "first AFE register, normally 0x3E"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "block to write"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes in the block"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to the framed write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The 0x60 checksum and 0x61 length layout is the TI-style subcommand framing (inferred from the register addresses)."
+  },
+  "bms_4168_0800af96": {
+    "name": "bms_afe_read_u16_34_36_38",
+    "summary": "Read AFE 16-bit registers 0x36, 0x34 and 0x38 into three output words",
+    "description": "Reads 2-byte AFE registers 0x34, 0x36 and 0x38 through bms_afe_reg_read_bytes. The 0x36 value goes to *param_1, the 0x34 value to *param_2 and the 0x38 value to *param_3, each stored only if its read succeeds. Callers are bms_4139_0800e4f8, bms_4168_0800fb94 and bms_4168_0800fd7c.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr:u16",
+        "description": "output for register 0x36"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u16",
+        "description": "output for register 0x34"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr:u16",
+        "description": "output for register 0x38"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of these three registers is not identified in this packet."
+  },
+  "bms_4168_0800afe0": {
+    "name": "bms_afe_cfg_write_9234",
+    "summary": "Write data-memory word 0x9234 = 0x2C80 and mirror it into RAM 0x20005432",
+    "description": "Stores 0x2C80 in the RAM shadow DAT_20005432 and writes the data-memory word 0x2C80 to address 0x9234 through bms_afe_datamem_write_verify, as a four-byte record of the address followed by a 2-byte value. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b010": {
+    "name": "bms_afe_cfg_write_9248",
+    "summary": "Write data-memory words 0x9248 (0x0046), 0x924A (1) and 0x924B (1000) with RAM shadows",
+    "description": "Writes three configuration values, each stored in a RAM shadow and written through bms_afe_datamem_write_verify: the 16-bit value 0x0046 at 0x9248 (shadow 0x20005434), the byte 0x01 at 0x924A (shadow 0x20005436) and the 16-bit value 0x03E8 (1000) at 0x924B (shadow 0x20005438). Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b070": {
+    "name": "bms_afe_cfg_write_9261",
+    "summary": "Write data-memory bytes 0x9261 = 0xBC, 0x9262 = 0x33, 0x9263 = 0 and 0x92C2 = 0",
+    "description": "Stores 0xBC in shadow DAT_20005429 and writes it to byte 0x9261 through bms_afe_datamem_write_verify, then writes 0x33 to 0x9262 (shadow 0x2000542A), 0x00 to 0x9263 and 0x00 to 0x92C2. The first write is the same value that bms_afe_cfg_9261_bc writes, so this function also sets the 0x9261 mode byte. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b0d0": {
+    "name": "bms_afe_cfg_write_9265",
+    "summary": "Write data-memory bytes 0x9265..0x926B (six constants, mirrored into RAM 0x2000543B..0x20005440)",
+    "description": "Writes six constant data-memory bytes through bms_afe_datamem_write_verify: 0x9265 = 0x98, 0x9266 = 0xD5, 0x9267 = 0x56, 0x9269 = 0xE4, 0x926A = 0xE6 and 0x926B = 0xE2. Each value is also stored in a RAM shadow at 0x2000543B through 0x20005440 in that order. Address 0x9268 is skipped. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b16c": {
+    "name": "bms_afe_cfg_write_9275",
+    "summary": "Compute and write data-memory bytes 0x9275, 0x9276 and 0x927B from the RAM measurement shadows",
+    "description": "Computes three configuration values from RAM shadows and writes each with bms_afe_datamem_write_verify. 0x9275 = (DAT_20000640 x 10) / 506 as a u8; 0x9276 = (DAT_20000642 x 10) / 33 as a u16; 0x927B = signed (DAT_20000644 - DAT_20000640) x 10 / 506, plus one when the remainder is positive, as a u8. The divisions use bms_udiv32 and bms_sdiv32. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The divisors 506 and 33 and the x10 scale look like unit conversions (inferred). The round-up rule is read from the remainder register after bms_sdiv32."
+  },
+  "bms_4168_0800b1f8": {
+    "name": "bms_afe_cfg_write_9280",
+    "summary": "Compute and write data-memory bytes 0x9280, 0x9281 (clamped to 127), 0x9288 and 0x92B0",
+    "description": "Writes four values through bms_afe_datamem_write_verify: 0x9280 = (DAT_2000064C x 5) / 20 as a u8; 0x9281 = min(127, (DAT_2000064E x 10) / 33) as a u8, the only saturating value in the group; 0x9288 = DAT_20000650 as a u16; and 0x92B0 = DAT_20000652 as a u8. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b280": {
+    "name": "bms_afe_cfg_write_9286",
+    "summary": "Quantize DAT_2000065E into a 16-level index for 0x9286 and write 0x9287 and 0x9294",
+    "description": "Halves DAT_2000065E (computed as x 5 / 10) and finds the first of 16 ascending thresholds {10, 20, 40, 60, 80, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500} that is at least that value; if none qualifies the index is 15. The index is written to 0x9286. Then 0x9287 = DAT_20000660 / 15 as a u8 and 0x9294 = DAT_20000662 as a u8, all through bms_afe_datamem_write_verify. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b314": {
+    "name": "bms_afe_cfg_write_92fd",
+    "summary": "Write data-memory bytes 0x92FD, 0x92FF and 0x9300 from 2-bit RAM counters, with a 5-unit delay",
+    "description": "For three RAM shadows (0x20005425, 0x20005427, 0x20005428) it computes (shadow & 3) + base, with base 4, 4 and 8, writes the result to 0x92FD, 0x92FF and 0x9300, and stores the value OR 3 back into the shadow. A delay of 5 units (bms_systick_wait_repeat) separates the first and second writes. The effect is that 0x92FD and 0x92FF are 4 on the first call and 7 afterwards, and 0x9300 is 8 then 11. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The counter behavior follows from the arithmetic: the OR with 3 makes the shadow settle at a fixed value after the first call. The purpose of the three words is not identified."
+  },
+  "bms_4168_0800b384": {
+    "name": "bms_afe_cfg_write_9308",
+    "summary": "Write data-memory bytes 0x9308 = 0x2E, 0x9309 = 0x01 and word 0x9343 = 0x0010",
+    "description": "Writes 0x2E to 0x9308 (shadow 0x2000542D), 0x01 to 0x9309 (shadow 0x2000542E) and the 16-bit value 0x0010 to 0x9343 (shadow 0x20005430), each through bms_afe_datamem_write_verify. Called only from bms_afe_config_program.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800b3d8": {
+    "name": "bms_afe_subcmd_select_99_9a",
+    "summary": "Send AFE subcommand 0x0099 when param_1 is 1, otherwise 0x009A, with no data",
+    "description": "Writes the two-byte subcommand word 0x0099 when param_1 equals 1 and 0x009A otherwise, through bms_afe_block_write_wait_ack. The main state machine sends 0 when entering the run state and 1 when leaving it. Callers are bms_4139_0800e4f8, bms_4168_080082f0 and bms_4168_0800fd7c.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "1 selects 0x0099, any other value selects 0x009A"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The FET or mode meaning of the two subcommands is not confirmed."
+  },
+  "bms_4168_0800b406": {
+    "name": "bms_afe_datamem_read",
+    "summary": "Read len bytes of AFE data memory at a 16-bit address, polling the address echo at 0x3E",
+    "description": "Writes the 16-bit address (low byte to register 0x3E, high byte to 0x3F) through bms_i2c_frame_write_crc8, then reads the 0x3E..0x3F pair back up to 20 times, with a one-tick delay between attempts, until the echo matches. On a match it reads param_3 bytes from the 0x40 data window into param_2 + 2, so the echoed address occupies param_2[0..1]. It returns 0 on success and 1 on echo timeout, and does nothing and returns 0 when param_3 is zero. This is the read half of the data-memory interface that bms_afe_datamem_write_verify uses for its readback.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "16-bit data-memory address"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "buffer, at least len + 2 bytes; receives the echo and then the data"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "number of data bytes to read"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "The 0x3E/0x3F address and 0x40 data window follow the TI bq769x2 family's data-memory interface, which is inferred from the register layout and the 0x10 device address. Callers are bms_4168_0800aae8 and bms_4168_0800b57e."
+  },
+  "bms_4168_0800b484": {
+    "name": "bms_afe_read_temp_celsius",
+    "summary": "Read AFE temperature register table entry 0..5 and convert 0.1 K raw values to whole degrees Celsius",
+    "description": "Selects one of six AFE registers from the table {0x70, 0x72, 0x74, 0x76, 0x6A, 0x6C} by param_1 (the index is not range-checked), reads two bytes through bms_afe_reg_read_bytes, and divides the raw u16 by 10 with bms_udiv32. It subtracts 273 from the quotient and stores the s16 result at *param_2. Treating the raw value as 0.1 K, the quotient is in kelvin and the subtraction gives whole degrees Celsius. The output is written only on a successful read.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "table index 0..5 (not range-checked)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:s16",
+        "description": "output, whole degrees Celsius"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "The 0.1 K raw unit and the register-to-sensor mapping are inferred. Caller is bms_4168_0800c6dc."
+  },
+  "bms_4168_0800b4c8": {
+    "name": "bms_afe_cfgupdate_mode",
+    "summary": "Enter (1) or leave (0) AFE CONFIG_UPDATE mode with subcommands 0x0090 and 0x0092, polling status bit 0",
+    "description": "When param_1 is 1, it sends subcommand 0x0090 (SET_CFGUPDATE) and reads the 2-byte status word at register 0x12 up to 200 times, returning once bit 0 is set. When param_1 is 0, it sends subcommand 0x0092 (EXIT_CFGUPDATE) and polls the same word while bit 0 stays set, up to 200 times. The last status read is stored in RAM 0x2000063A. Data-memory writes are legal only in CONFIG_UPDATE mode, which is why bms_afe_datamem_write_verify wraps each write with this function.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "1 enters CONFIG_UPDATE, 0 leaves it"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The subcommand values and the 0x12 status bit follow the TI bq769x2 convention (inferred). Caller is bms_4168_0800b57e."
+  },
+  "bms_4168_0800b55c": {
+    "name": "bms_afe_read_cell_voltage_raw",
+    "summary": "Read the raw 16-bit AFE cell-voltage register at 0x14 + 2 x index",
+    "description": "Reads two bytes from register 0x14 + 2 x param_1 through bms_afe_reg_read_bytes and stores the raw u16 at *param_2 only on success. No unit conversion is done here. The 0x14 base and two-byte stride match the TI-style cell-voltage register map (inferred). Caller is bms_4168_0800c80c.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s8",
+        "description": "cell index, 0-based"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u16",
+        "description": "output, raw cell voltage register value"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The unit of the raw value is not confirmed in this packet."
+  },
+  "bms_4168_0800b57e": {
+    "name": "bms_afe_datamem_write_verify",
+    "summary": "Write a data-memory word only if the AFE readback differs, wrapping the write in CONFIG_UPDATE mode",
+    "description": "param_2 holds a 16-bit data-memory address followed by param_3 - 2 data bytes; param_1 is always the register 0x3E and is ignored. It reads back the same bytes with bms_afe_datamem_read and compares them with the buffer, including the echoed address. If everything matches it returns 0 with no bus write. Otherwise it enters CONFIG_UPDATE mode (bms_afe_cfgupdate_mode(1)), waits 2 units, writes the block with bms_afe_block_write_wait_ack, leaves CONFIG_UPDATE mode (bms_afe_cfgupdate_mode(0)) and waits 2 units again. It returns 0 on success and 1 when the readback itself times out; after a write it returns whatever value the write leaves in the return register. Its callers are the configuration writers in this packet.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "bus register, always 0x3E; ignored"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "address (2 bytes) followed by 1 or 2 data bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "total length: 3 for a 1-byte value, 4 for a 2-byte value"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when the AFE does not answer"
+    },
+    "confidence": "medium",
+    "notes": "On the write branch the return value is not defined: the write routine is void, so the status is whatever is left in r0. Callers are bms_4168_0800aae8, bms_4168_0800afe0, bms_4168_0800b010, bms_4168_0800b070, bms_4168_0800b0d0, bms_4168_0800b16c, bms_4168_0800b1f8, bms_4168_0800b280, bms_4168_0800b314, bms_4168_0800b384, bms_4168_0800b854 and bms_4168_0800b87c."
+  },
+  "bms_4168_0800b5fe": {
+    "name": "bms_afe_block_write_wait_ack",
+    "summary": "Write a block to AFE registers from 0x3E; blocks over two bytes get checksum and length and an echo poll",
+    "description": "Writes param_3 bytes from param_2 to consecutive AFE registers starting at param_1, one framed write each through bms_i2c_frame_write_crc8. For blocks longer than two bytes it also writes the complement checksum to register 0x60 and length param_3 + 2 to 0x61, then polls the 2-byte echo at 0x3E through bms_afe_reg_read_bytes, up to 200 times, until it equals the first two bytes of the block. A two-byte block (a subcommand) is only written, with no checksum and no poll. The function returns no status, so callers that need one must read back.",
+    "category": "afe",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "first AFE register, normally 0x3E"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr:u8",
+        "description": "block to write"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "number of bytes in the block"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "medium",
+    "notes": "The echo poll runs only when the block is longer than two bytes, which is why subcommand writes are fire-and-forget. The checksum and length layout is inferred as in bms_afe_block_write_checksum."
+  },
+  "bms_4168_0800b854": {
+    "name": "bms_afe_cfg_9261_b8",
+    "summary": "Set data-memory byte 0x9261 to 0xB8 (latch release) through the verified write",
+    "description": "Stores 0xB8 in RAM shadow 0x20005429 and writes it to data-memory byte 0x9261 through bms_afe_datamem_write_verify. Its counterpart bms_afe_cfg_9261_bc writes 0xBC to the same byte. In bms_protect_measure_tick_4168 it is called on the path that releases a protection latch, when flag 0x20000002 goes from 1 to 0.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high",
+    "notes": "The packet lists bms_4139_08006f08 as a caller, but the 4139 decompile shown calls 0x0800AE24 on that path instead. Check the caller attribution."
+  },
+  "bms_4168_0800b87c": {
+    "name": "bms_afe_cfg_9261_bc",
+    "summary": "Set data-memory byte 0x9261 to 0xBC (latch set or idle) through the verified write",
+    "description": "Stores 0xBC in RAM shadow 0x20005429 and writes it to data-memory byte 0x9261 through bms_afe_datamem_write_verify. In bms_protect_measure_tick_4168 it is called when a protection latch is set (flag 0x20000002 goes from 0 to 1) and when the protection state is idle with flag 0x20000002 clear.",
+    "category": "afe",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "no return value"
+    },
+    "confidence": "high",
+    "notes": "The packet lists bms_4139_08006f08 as a caller, but the 4139 decompile shown calls 0x0800AE4C on that path instead. Check the caller attribution."
+  }
+}

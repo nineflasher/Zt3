@@ -1,0 +1,35 @@
+{
+  "structs": {
+    "BmsLatchChannelCfg": {
+      "size": 12,
+      "description": "Threshold pair and dwell limits of one protection latch channel. Used by bms_prot_latch_pairs_update (channels 1 to 7) and by channel 8 of bms_protect_latch_evaluate. The two s16 thresholds are compared with one 16-bit sample field; the two u32 limits are tick counts that the channel's dwell accumulators must reach before the latch sets or clears.",
+      "fields": [
+        {
+          "name": "thr_a",
+          "offset": 0,
+          "type": "s16",
+          "description": "Threshold A. Compared with a 16-bit sample field; the arming side is 'at or below' for channels 1 and 3 and 'at or above' for channels 2, 4, 5, 6 and 7 (see the object description). Unit not established; probably the sample's own scale (mV or raw ADC-like counts)."
+        },
+        {
+          "name": "thr_b",
+          "offset": 2,
+          "type": "s16",
+          "description": "Threshold B. Compared with the same sample field on the release side while the channel latch is set (at or above for channels 1 and 3, at or below for the other channels). Probably forms a hysteresis band with thr_a."
+        },
+        {
+          "name": "set_limit",
+          "offset": 4,
+          "type": "u32",
+          "description": "Tick count the set (arming) dwell accumulator must reach before the channel latch bit is set. Probably in the same tick units as the elapsed-time argument of the caller."
+        },
+        {
+          "name": "clear_limit",
+          "offset": 8,
+          "type": "u32",
+          "description": "Tick count the clear (release) dwell accumulator must reach before the channel latch bit is cleared."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zt3re"
+version = "0.1.0"
+description = "Reverse-engineering harness for the Zt3 scooter firmware set (Ghidra/PyGhidra based)"
+requires-python = ">=3.10"
+dependencies = ["pyghidra>=3.1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+zt3 = "zt3re.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

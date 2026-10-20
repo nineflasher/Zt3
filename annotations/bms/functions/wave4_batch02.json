@@ -1,0 +1,167 @@
+{
+  "bms_4168_0800be30": {
+    "name": "bms_balance_stop",
+    "summary": "Abort cell balancing: release the balance output and clear the mask and its active flag",
+    "description": "Aborts a balancing pass. It reads the state block through bms_ram_20000bdc_addr, drives the balance output to 0 through bms_4168_0800a9a0 (the same routine that bms_balance_mask_update drives with the cell mask), clears bit 9 (0x0200) of the u16 at +0x194 that marks an active balance cycle, and zeroes the 32-bit mask word at +0x13C. It takes no arguments and checks no status first. Its only caller in this packet is bms_4168_080082f0.",
+    "category": "balancing",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 32-bit word at +0x13C is read as a per-cell balance bitmask because bms_balance_mask_update clears individual bits in it and passes it to bms_4168_0800a9a0. bms_4168_0800a9a0 is not described in this packet."
+  },
+  "bms_4168_0800be58": {
+    "name": "bms_balance_mask_update",
+    "summary": "Rebuild the per-cell balance mask once per period and trim it as cells converge",
+    "description": "Per-tick cell balancing state machine. Balancing is eligible when none of status bits 0x2, 0x10 or 0x800 of the u16 at +0x124 is set, the cell maximum is at least DAT_2000051E and the cell spread is at least DAT_2000051C. While eligible, the accumulator DAT_20000518 counts elapsed ticks up to the period DAT_20000520; at each period the mask is rebuilt from the cells whose excess over the minimum is at least DAT_2000051C and whose index is congruent to the index of the highest cell modulo 3, stored at +0x13C and driven through bms_4168_0800a9a0, and the active flag 0x200 at +0x194 is set. When not eligible but a cycle is active or the mask is nonzero, the cycle continues only while the spread is above the stop threshold DAT_20000522 and bits 1 and 11 are clear; cells whose excess is at or below DAT_20000522 drop out of the mask, the mask is re-driven every ten periods, and otherwise the cycle ends with the mask cleared and the output driven to 0. The cell count is DAT_20000524 and the five-halfword parameter block at 0x2000051C to 0x20000524 is written by bms_u16x5_block_store.",
+    "category": "balancing",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "cell statistics record: min u16 at +4, max u16 at +8, max index at +0xA, spread u16 at +0xE (the 0x20000DEC record layout)"},
+      {"name": "param_2", "type": "u32", "description": "elapsed ticks added to the period accumulator DAT_20000518"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The thresholds are known only by RAM address: 0x2000051C min spread, 0x2000051E min max, 0x20000520 period, 0x20000522 stop spread, 0x20000524 cell count, in the order written by bms_u16x5_block_store. The three-phase reading of the remainder from bms_udiv32(max index, 3) is inferred from the stride-3 loop. The latch DAT_20000514 is set outside this packet and forces one final release of the output."
+  },
+  "bms_4139_0800be74": {
+    "name": "bms_charge_gate_step_4139",
+    "summary": "Update the 4139 charge gate: top-of-charge latch, enable bits and gate outputs",
+    "description": "Per-tick charge gate for BMS_4139 (also present in 4130). In charge modes 6, 7 or 8 (mode byte at 0x20000014) a top-of-charge latch DAT_2000044A is set after 2000 ticks at SOC 100 (u16 at +0x11E) with current below 30 (s16 at +0x11A), and it clears only once SOC is below 99 and the pack voltage at +0x118 is below 5200. If no inhibit bit is set and the enables hold, the charge enable is asserted by setting bit 1 of +0x180 and bit 6 of +0x194 and calling 0x080083C4; otherwise both bits are cleared and 0x080083B4 is called. A low-current stage latch DAT_20000449 (set after 6000 ticks of non-full operation, released after 2000 ticks at current 29 or below) runs alongside through 0x080083D4 and 0x080083E0. Last, the high-current latch DAT_20000448 and any inhibit choose between hold (bit 0 of +0x180 and bit 7 of +0x194 set) and release (those bits cleared and bit 0 of the status word at 0x200001C8 cleared), and the output driver at 0x0800A4C8 (family bms_4168_0800aef8) is called with bit 6 and bit 7 of +0x194.",
+    "category": "charge",
+    "params": [
+      {"name": "param_1", "type": "s16", "description": "elapsed ticks added to the stage and top-of-charge timers"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Inhibit bits in the disable path: +0x124 bit 0x1000, bit 0x0008 and the 0x2000 check on +0x196; +0x126 bits 0x4000, 0x0010, 0x0100 and 0x0004; +0x124 bits 0x0008, 0x0020, 0x0040, 0x0080 and 0x0100. Enable also needs +0x194 bit 0x0020 set, +0x194 bit 0x0800 clear, +0x196 bits 0x0400 and 0x0200 clear, the device check at 0x0800D30C nonzero and the flag from 0x0800D304 not having bits 0 and 1 both set. The release condition additionally needs the high-current latch DAT_20000448 clear. The 4139 helper addresses 0x080083B4, 0x080083C4, 0x080083D4 and 0x080083E0 are not described in this packet, and the bit 2 of +0x124 gate on DAT_20000448 is read from the shift test. Confidence is medium because the branch structure is clear but the status-bit meanings are not established."
+  },
+  "bms_4168_0800c4cc": {
+    "name": "bms_alarm_word_build",
+    "summary": "Build the 9-bit alarm word from three alarm bytes and mirror the level flag into +0x124",
+    "description": "Builds the 9-bit alarm word at *param_1 (bits 0 to 8 are rebuilt, upper bits kept) from the three alarm bytes at 0x200001D4, 0x200001D5 and 0x200001D6, which bms_4168_0800aa80 loads; the function returns early if that loader returns nonzero. Bit 0x100 comes from d4 bit 7, 0x80 from d4 bit 5 or 6, 0x02 from d4 bit 2, 0x01 from d4 bit 3, 0x04 from d5 bit 5 and 0x08 from d5 bit 1. The bits 0x40 (from d4 bit 4), 0x10 (from d5 bit 4) and 0x20 (from d5 bit 0) are set only while bit 5 (0x20) of the state byte at +0x194 is set. Finally the level hysteresis flag from bms_level_hysteresis_update is written to bit 14 (0x4000) of the status u16 at +0x124 of the state block.",
+    "category": "protection",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "u32 alarm word to rebuild; bits 0 to 8 are overwritten"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of the three alarm bytes and of the 9 output bits is not identified in this packet; only the bit mapping is established. bms_4168_0800aa80 is not described here."
+  },
+  "bms_4168_0800c5bc": {
+    "name": "bms_current_reading_scale",
+    "summary": "Convert the raw current sample to the s16 current at +0x11A with two gain ranges",
+    "description": "Reads one signed raw current sample through bms_4168_0800a9ea (which returns 0 on success) and scales it into the s16 at +0x11A of the state block. Samples with magnitude below 3001 use the u16 gain at +0xAE, larger ones the u16 gain at +0x1E0; each gain multiplies (raw plus the signed offset at +0xB0), the product is divided by 10000 with bms_sdiv32, and the result is negated. Values from -5 to 5 are forced to 0 as a deadband. Nothing is written when the sample read fails.",
+    "category": "afe",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The arithmetic is established from the decompile. The physical unit of the raw sample and of the result is not given in the packet, and the 3001 breakpoint is the same one used by the calibration handler bms_can_rx_frame_handle."
+  },
+  "bms_4168_0800c6dc": {
+    "name": "bms_temp_scan_select",
+    "summary": "Scan the temperature and auxiliary channels and select the temperature for protection",
+    "description": "Scans the temperature sensing channels once and publishes one selected temperature. PA5 is driven high through bms_pa5_drive_level(1) for the scan and back to 0 at the end. Channels 0 and 2 are read through bms_4168_0800b484 and the channel 0 path is also converted to degrees C by bms_ntc_adc_to_celsius; these three temperature readings give a minimum and maximum, and the midpoint decides the value written to +0x1F2 of the state block: the minimum when the midpoint is below 20, otherwise the maximum, a conservative choice for the protection thresholds. Channels 3, 4 and 5 are read as raw values and stored in the result block param_1 (midpoint in [0], min in [1], max in [2], channel 5 in [3], channel 3 in [4], channel 4 in [9]). The per-channel table at state+0x12C to +0x13A is written only when the channel 5 read succeeds, while the globals DAT_20000DFC to DAT_20000E0E are written unconditionally.",
+    "category": "adc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "u16 result block of at least 10 halfwords"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The three temperature sources are inferred from the 20 and the -6 to 3 degree windows used by bms_charge_gate_step_4168 and from the name of bms_ntc_adc_to_celsius; the readings of channels 0 and 2 through bms_4168_0800b484 are not converted in this packet. Channels 3 to 5 are not identified. Fields param_1[5] to [8] are copied to the globals without being set here."
+  },
+  "bms_4168_0800c80c": {
+    "name": "bms_cell_voltage_scan",
+    "summary": "Scan all cell voltages, filter cell 0 and publish the min, max, mean and spread record",
+    "description": "Reads every cell into the u16 table at state+0x140 (cell count u16 at +0x20; each read goes through bms_4168_0800b55c and a nonzero result aborts the scan), with the last cell read from sample index 0x0F. Cell 0 passes a three-sample history at 0x200001D0 to 0x200001D2 that is reset by the flag at 0x200001CC, and when status bit 0x20 at 0x200001C8 is set a spike test may replace the sample with an older history value. The 16-byte record param_1 is filled with a smoothed sum at +0 (the sum divided by 10, averaged with the previous value once one exists), the min at +4 with its index at +6, the max at +8 with its index at +0xA, the mean at +0xC and the spread max minus min at +0xE, and the record is mirrored to 0x20000DEC to 0x20000DFA. The smoothed value is also written to the pack total at +0x118, which the protection code compares against 5200 and 5330. If bms_level_hysteresis_update returns nonzero the cell table is zeroed with bms_mem_zero, +0x118 is cleared and the function returns without updating the record.",
+    "category": "afe",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16-byte cell statistics record (sum, min, min index, max, max index, mean, spread)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The unit of the pack total at +0x118 is inferred: a 16-cell pack with cells near 3.3 V gives about 5200 to 5330 for the sum in mV divided by 10, which matches the thresholds. The spike test branch is decoded from a long condition chain and only its effect is stated. The role of sample index 0x0F is not identified."
+  },
+  "bms_4168_0800c96c": {
+    "name": "bms_charge_gate_step_4168",
+    "summary": "Update the 4148/4168 charge gate: temperature window, current latches and gate outputs",
+    "description": "Per-tick charge and discharge gate for the 4148 and 4168 builds, the counterpart of bms_charge_gate_step_4139 with different globals. It first runs the same top-of-charge latch (DAT_20000502 with the 2000-tick timer DAT_2000050A) in charge modes 6, 7 or 8 (mode byte at 0x20000024). It then applies a temperature window (the s16 at +0x1F2 selected by bms_temp_scan_select must be above -6 and below 3, or status bit 0x100 of +0x124 must be set) with current latches: pack voltage below 5330 with the reply-control flag DAT_20000DDF and a reply present, a current below -200 for 2000 ticks clears DAT_20000504 and bit 0x100, and a current above 100 for 500 ticks sets DAT_20000504 and bit 0x100, while a pack voltage of 5330 or more sets DAT_20000504. The inhibit bits and the reply decide the enable: when clear, bit 1 of +0x180 and bit 6 of +0x194 are set and GPIOB8 is driven high by bms_4168_08008f10, otherwise GPIOB8 is driven low by bms_4168_08008f00, and the GPIOA15 output (bms_4168_08008f2c and bms_4168_08008f20) is driven by the timers DAT_20000506 and DAT_20000508 and by reply bits. The function ends like the 4139 gate, releasing or holding bit 0 of +0x180 and bit 7 of +0x194 and calling bms_4168_0800aef8 with bit 6 and bit 7 of +0x194.",
+    "category": "charge",
+    "params": [
+      {"name": "param_1", "type": "s16", "description": "elapsed ticks added to the protection and gate timers"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "This 581-instruction function is decoded at the level of its branch structure only. The exact GPIOA15 conditions and the gates DAT_20000DDC, DAT_20000DDE, DAT_20000DE2, DAT_20000DE3, DAT_20000DE4 and DAT_20000DE7 are not fully traced. bms_4168_0800aef8 is not described in this packet. Field offsets are relative to the state block from bms_ram_20000bdc_addr."
+  },
+  "bms_4139_0800e4f8": {
+    "name": "bms_link_tick_4139",
+    "summary": "Debounce PB1/PB2 inputs and run the 4139 USART3 link state and sampling window",
+    "description": "Periodic link tick for BMS_4139 with param_1 as elapsed ticks. PB2 (read at 0x0800839C, gpio_pb2_read) and PB1 (read at 0x080083EC, gpio_pb1_read) are debounced with 1000-tick accumulators, latching bit 1 and bit 10 of the state word +0x194 after the input has been low for 1000 ticks and clearing them after 1000 ticks high. When status bit 0x1000 of the word at 0x200001C8 is set, a sampler is enabled through bms_4168_0800b3d8 and its status code is read through bms_4168_0800a9ce; when the code is 1, a triple read through bms_4168_0800af96 sets status bit 0x2000 after 1000 ticks of the third value being at least 400, and the sampler is stopped through bms_4168_0800aec8. Otherwise the sampler state is reset, and a window test on the triple read (3000 to 5460, with bit 2 of +0x126 clear) latches DAT_20000469 after 1000 ticks, which sets bit 5 of +0x194 and brings USART3 up once through bms_usart3_comm_init. When that latch is clear the tick clears bits 4 and 5 of +0x194 and bit 15 of +0x196, resets USART3 TX through bms_usart3_tx_setup and disarms EXTI line 11 through bms_exti11_irq_disarm.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "elapsed ticks added to the debounce and latch timers"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The PB2 to bit 1 and PB1 to bit 10 mapping follows the callee list and the call order. The 4139 helpers 0x0800A9A8, 0x08009F9E, 0x0800A566 and 0x0800A498 are treated as the same routines as bms_4168_0800b3d8, bms_4168_0800a9ce, bms_4168_0800af96 and bms_4168_0800aec8, by matching the call pattern with bms_link_tick_4168; that equivalence is inferred. The 0x08009A14 call is identified as bms_usart3_comm_init from the packet's callee list. The window bounds and the 400 threshold are inferred from the code, not from named constants."
+  },
+  "bms_4168_0800f2e0": {
+    "name": "bms_can_rx_frame_handle",
+    "summary": "Dispatch a received 29-bit CAN frame to the proprietary-A handlers or the J1939 TP layer",
+    "description": "CAN receive handler for one 29-bit extended frame; param_1 points to the frame record (ID at +0, a valid byte at +4, a length byte at +6 that counts three header bytes, data from +7). It returns 1 without acting when the valid byte is clear. Frames whose destination byte (ID bits 8 to 15) equals this node's address at state+2, or is 6, are decoded when the PDU format (ID bits 16 to 23) is 0xEF, using the opcode in data byte 1: 0x01 and 0x2A are data-block requests answered with bms_can_pack_ext_frame and bms_frame_send_when_ready, or through bms_tp_session_send for long replies; 0x02, 0x03 and 0x2C go to bms_can_cmd_set_handler; 0x07, 0x09 and 0x0A go to bms_fw_upload_handle; 0x2B goes to bms_msg_dispatch_request; 0x1A runs a 10-sample average of bms_4168_0800a9ea for calibration (offset at +0xB0 from sub-code 0x81, gains at +0xAE or +0x1E0 from sub-code 0x82, clamped to 800 to 1000); 0x80 with data byte 2 equal to 1 sets the SOC word at +0x104 to 100; and 0x16 with a 4-byte payload equal to 0x01100105 enters an endless loop that stalls the MCU. Other frames addressed to this node or to 6 are passed to bms_j1939_tp_rx_dispatch.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "CAN frame record: u32 ID at +0, valid byte at +4, length byte at +6, data from +7"}
+    ],
+    "returns": {"type": "u32", "description": "0 when the frame was handled or passed on, 1 when the frame is not valid"},
+    "confidence": "medium",
+    "notes": "Opcode and sub-code positions are read from the byte copy at param_1+7 and from the shift tests, and are medium confidence. The endless loop for payload 0x01100105 is deliberate in the code, most likely to let the watchdog reset the MCU; that purpose is inferred. The 0x7A branch (status bit 0x08000000 and a reply) and the calibration clamps are summarised, not fully traced."
+  },
+  "bms_4168_0800f8e0": {
+    "name": "bms_tp_message_handle",
+    "summary": "Handle a reassembled BMS message by type: firmware, identity unlock, dispatch or command",
+    "description": "Handles one reassembled BMS message. param_1 points to a record whose body pointer at +4 gives the type byte at body+1, the sub-code at body+2 and the payload from body+3, and whose length at +0xA counts five bytes of header. param_2 and param_3 are identifier bytes used to rebuild a 29-bit ID from the 0x1CEF0000 template. Type 8 is passed to bms_fw_upload_handle, types 2, 3 and 0x2C to bms_can_cmd_set_handler, and 0x2B to bms_msg_dispatch_request. Type 0x18 is an identity unlock: a payload of 18 bytes is accepted when the sum of its first 14 bytes and the bytes at state+4 to +17, plus the u32 at +0x18E, taken modulo 1000000 through bms_udiv32, equals the u32 formed from payload bytes 14 to 17; the 14 payload bytes are then copied to state+4, several state words are reset, bms_record_set_or_clear clears its record and status bit 0x10000000 is set. A 1 or 0 acceptance reply is sent through bms_can_pack_ext_frame and bms_frame_send_when_ready.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "reassembled message record: body pointer at +4, length at +0xA"},
+      {"name": "param_2", "type": "u32", "description": "identifier byte combined with the 0x1CEF0000 template"},
+      {"name": "param_3", "type": "u32", "description": "identifier byte combined with the 0x1CEF0000 template"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The unlock check and the copy target are decoded from the byte offsets and the modulo call. What the 14-byte block at state+4 holds is not named in this packet. The reset list is only summarised and the 0x18 reply code is taken from the body sub-code."
+  },
+  "bms_4168_0800fb94": {
+    "name": "bms_host_reply_supervisor",
+    "summary": "Supervise the host reply: reply presence, control flag and the current reference window",
+    "description": "Called once per link tick from bms_link_tick_4168 with the elapsed ticks as param_1. It reads a measurement triple through bms_4168_0800af96 and the 24-byte reply buffer through bms_reply_buffer_get, and it maintains a window latch DAT_20000528 that arms after 2000 ticks with the measurement in 3000 to 5460 and clears after 1000 ticks with the measurement at or below the pack total minus 200. The reply-control flag DAT_20000DDC is set when the reply carries bit 0 of its byte at +0x10 or the flag 0x20000B57 is set, or after the current has exceeded the reply reference at +0x12 by 100 for 5000 ticks; it is cleared when the current is within 100 of that reference and when the reply has been absent for 2000 ticks with the window latch clear. DAT_20000DE8 latches after 2000 ticks with the current above 30 while the reply is present and DAT_20000DDC is clear, and clears after 2000 ticks with the current below 20.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "elapsed ticks added to the window and reply timers"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The reply field offsets (+0x6 presence, +0x10 bits, +0x12 reference) and the flags DAT_20000DDC and DAT_20000DE8 are named by use only. Status bits cleared on a long absence are 0x8000 at +0x196 and 0x30 at +0x194. The 3000 to 5460 window and the 400 threshold in the sampler are inferred from the code."
+  },
+  "bms_4168_0800fd7c": {
+    "name": "bms_link_tick_4168",
+    "summary": "Run the 4148/4168 link tick: PB1/PB2 debounce, sampler window, then the host supervisor",
+    "description": "Periodic link tick for the 4148 and 4168 builds, the counterpart of bms_link_tick_4139 with different globals. PB2 (bms_4168_08008ee8, gpio_pb2_read) and PB1 (bms_4168_08008f38, gpio_pb1_read) are debounced with 1000-tick accumulators, latching bit 1 and bit 10 of +0x194 after 1000 ticks low and clearing them after 1000 ticks high. When status bit 0x1000 of 0x200001C8 is set the sampler is enabled through bms_4168_0800b3d8 and its status code is read through bms_4168_0800a9ce; with code 1 the triple read through bms_4168_0800af96 sets status bit 0x2000 after 1000 ticks of the third value being at least 400, and the sampler is stopped through bms_4168_0800aec8 with argument 0, or with argument 1 for any other code. When the bit is clear the sample state is reset, status bit 0x2000 is cleared and the sampler is stopped if it was active. Finally bit 0 of +0x194 is set and bms_host_reply_supervisor runs.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "elapsed ticks added to the debounce and sampler timers"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The helper mapping to bms_4168_0800b3d8, 0800a9ce, 0800af96 and 0800aec8 is taken from the packet's callee list and the call order. The 0x2000 bit is set but is cleared only when bit 0x1000 drops, as in the code. The 4139 counterpart is bms_link_tick_4139."
+  },
+  "bms_4168_08010558": {
+    "name": "bms_main_superloop",
+    "summary": "Boot sequence and endless main loop that services balancing, state machine and telemetry",
+    "description": "Firmware main after reset. It runs the one-time initialisation in order: bms_4168_080086d4, bms_state_restore_or_init, bms_seq_restart_stamp, bms_peripheral_bringup, bms_state_ptr_cache_set, bms_4168_080082bc, bms_4168_08008724, bms_tail_call_unnamed_a, bms_record_store_from_state, bms_4168_0800dfec and bms_app_state_reset, and then never returns. Each pass calls bms_4168_0800868c and bms_4168_080082f0 (which calls bms_balance_stop), reads two status values through bms_4168_080086ec and bms_4168_080086f8 and a pointer through bms_4168_08008710; a nonzero first status runs bms_4168_08007a0c (the main state machine) with it, and bms_setpoint_service_step runs in both branches. A set timer10 poll triggers bms_state_snapshot_submit and bms_comm_pool_tick_with_threshold, bms_telemetry_sched_thunk runs in the normal branch, and every pass ends with bms_timed_step_sequence_run.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "high",
+    "notes": "Only the callees named in the packet are identified here. bms_4168_080086d4, bms_4168_0800868c, bms_4168_080082f0, bms_4168_080086ec, bms_4168_08008710, bms_4168_080086f8, bms_4168_0800871c, bms_4168_08008780, bms_4168_08008778, bms_4168_080082bc, bms_4168_08008724 and bms_4168_0800dfec are not described in this packet. The behaviour of bms_4168_08007a0c is taken from its callers and was not decoded here."
+  }
+}

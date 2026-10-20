@@ -1,0 +1,10 @@
+{
+  "mcu_g_0160_20000074": {
+    "name": "pwm_c4_trigger_compare",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20000074"],
+    "category": "pwm",
+    "description": "Compare value for TMR1 channel 4 (C4DT, channel index 6 in tmr_channel_value_set), written only by mcu_pwm_trigger_and_clamp_select. Mode 0 (all three phase inputs close) sets 10, the minimum. Mode 1 sets p2 + 0x208 (520 counts), and mode 2 sets p3 + 0x208. Mode 3 sets p3 - 500, clamped to at most 10. The mode is kept in adc_phase_hold_mode. Probably the ADC trigger point inside the PWM period, since channel 4 is commonly used for ADC triggering, but this is not verified here."
+  }
+}

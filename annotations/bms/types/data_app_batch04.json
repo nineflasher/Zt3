@@ -1,0 +1,211 @@
+{
+  "structs": {
+    "BmsSnapshot": {
+      "size": 50,
+      "description": "Body of the snapshot record captured by bms_snapshot_logger_tick. Almost every field is a copy of one word or byte of the BMS state block, at the state offset named in its description.",
+      "fields": [
+        {
+          "name": "state_words",
+          "offset": 0,
+          "type": "u16",
+          "count": 13,
+          "description": "Thirteen 16-bit words copied in order from the state block at +0x140 to +0x158 (state + 0x140 + 2 * i). Meaning not visible in this packet."
+        },
+        {
+          "name": "current",
+          "offset": 26,
+          "type": "u16",
+          "description": "16-bit value copied from the state block at +0x11A (described as the current). Sign and units are not visible in the decompile."
+        },
+        {
+          "name": "state_bytes",
+          "offset": 28,
+          "type": "u8",
+          "count": 6,
+          "description": "Low bytes of the state words at +0x12C, +0x12E, +0x130, +0x134, +0x136 and +0x138. The word at +0x132 is skipped by the bit mask 0x77."
+        },
+        {
+          "name": "byte_11e",
+          "offset": 34,
+          "type": "u8",
+          "description": "Byte at state +0x11E. Balancing and charge logic compare the state words at +0x104, +0x11E and +0x19C as levels, so this is probably a percentage-like level."
+        },
+        {
+          "name": "byte_19c",
+          "offset": 35,
+          "type": "u8",
+          "description": "Byte at state +0x19C. Balancing logic treats the word at +0x19C as a threshold, so this is probably a percentage-like threshold."
+        },
+        {
+          "name": "word_124",
+          "offset": 36,
+          "type": "u32",
+          "description": "32-bit value built from the state words at +0x124 (low half) and +0x126 (high half)."
+        },
+        {
+          "name": "word_194",
+          "offset": 40,
+          "type": "u32",
+          "description": "32-bit value built from the state words at +0x194 (low half) and +0x196 (high half)."
+        },
+        {
+          "name": "word_13c",
+          "offset": 44,
+          "type": "u16",
+          "description": "16-bit state word at +0x13C, copied as is."
+        },
+        {
+          "name": "word_13e",
+          "offset": 46,
+          "type": "u16",
+          "description": "16-bit state word at +0x13E, copied as is."
+        },
+        {
+          "name": "byte_180",
+          "offset": 48,
+          "type": "u8",
+          "description": "Byte at state +0x180. Meaning not visible in this packet."
+        },
+        {
+          "name": "byte_1d2",
+          "offset": 49,
+          "type": "u8",
+          "description": "Byte at state +0x1D2. Meaning not visible in this packet."
+        }
+      ]
+    },
+    "ExtflashSlot": {
+      "size": 20,
+      "description": "One slot record of the external-flash journal. Only the fields that bms_extflash_journal_init touches are named here; bytes 2 and 3 are not described.",
+      "fields": [
+        {
+          "name": "state",
+          "offset": 0,
+          "type": "u8",
+          "description": "Set to 1 for every slot by bms_extflash_journal_init. Probably a slot in-use or valid marker."
+        },
+        {
+          "name": "flag",
+          "offset": 1,
+          "type": "u8",
+          "description": "Cleared to 0 by bms_extflash_journal_init. Meaning not visible in this packet."
+        },
+        {
+          "name": "word_04",
+          "offset": 4,
+          "type": "u32",
+          "description": "Cleared to 0 at init. Meaning not visible in this packet."
+        },
+        {
+          "name": "word_08",
+          "offset": 8,
+          "type": "u32",
+          "description": "Cleared to 0 at init. Meaning not visible in this packet."
+        },
+        {
+          "name": "word_0c",
+          "offset": 12,
+          "type": "u32",
+          "description": "Cleared to 0 at init. Meaning not visible in this packet."
+        },
+        {
+          "name": "word_10",
+          "offset": 16,
+          "type": "u32",
+          "description": "Cleared to 0 at init. Meaning not visible in this packet."
+        }
+      ]
+    },
+    "SampleWindowBlock": {
+      "size": 24,
+      "description": "Six-word result block returned by bms_sample_window_process. The writers are bms_sample_window_process itself and bms_record_set_or_clear, which presets the words from its arguments.",
+      "fields": [
+        {
+          "name": "value_lo",
+          "offset": 0,
+          "type": "u16",
+          "description": "Low half of the first word: the result of bms_4168_0800379c applied to the measurement record."
+        },
+        {
+          "name": "value_hi",
+          "offset": 2,
+          "type": "u16",
+          "description": "High half of the first word: the record's 16-bit value at +0x10 times a per-mille derate factor (1000 below 20, falling with the value at +6), divided by 1000."
+        },
+        {
+          "name": "edge_count",
+          "offset": 4,
+          "type": "u16",
+          "description": "Low half of the second word: counter of rising edges of the record byte at +3 (tracked in DAT_20000602). bms_record_set_or_clear presets it from param_4."
+        },
+        {
+          "name": "accum",
+          "offset": 8,
+          "type": "u32",
+          "description": "Third word: running value returned by bms_4168_08003868 on each call. bms_record_set_or_clear presets it from param_3."
+        },
+        {
+          "name": "derived",
+          "offset": 12,
+          "type": "u32",
+          "description": "Fourth word: the accumulator times a percentage of the record's +0x12 value, divided by 1000. Probably a scaled quantity."
+        },
+        {
+          "name": "window_wide",
+          "offset": 16,
+          "type": "u32",
+          "description": "Fifth word: state of the wide window latch, kept by bms_window_latch_wide. bms_record_set_or_clear presets it from param_1."
+        },
+        {
+          "name": "window_narrow",
+          "offset": 20,
+          "type": "u32",
+          "description": "Sixth word: state of the narrow window latch, kept by bms_window_latch_narrow. bms_record_set_or_clear presets it from param_2."
+        }
+      ]
+    },
+    "RxQueueSlot": {
+      "size": 24,
+      "description": "One record of the 256-slot receive queue. Field order follows bms_record_queue_pop, which reads the six words, clears them and builds an output record with the identifier at +0, the flags at +4 and +5, the length at +6 and up to 8 payload bytes at +7.",
+      "fields": [
+        {
+          "name": "dlc",
+          "offset": 0,
+          "type": "u32",
+          "description": "Field 0: data length of the queued frame. The pop uses its low byte as the output length and as the number of payload bytes copied."
+        },
+        {
+          "name": "flag_a",
+          "offset": 4,
+          "type": "u32",
+          "description": "Field 1: flag that the pop stores as a bool at output +4. Its meaning is not visible in this packet."
+        },
+        {
+          "name": "flag_b",
+          "offset": 8,
+          "type": "u32",
+          "description": "Field 2: second flag that the pop stores as a bool at output +5. Its meaning is not visible in this packet."
+        },
+        {
+          "name": "id",
+          "offset": 12,
+          "type": "u32",
+          "description": "Field 3: identifier, copied to the output record at +0."
+        },
+        {
+          "name": "data_0",
+          "offset": 16,
+          "type": "u32",
+          "description": "Field 4: first four payload bytes, probably. Copied with data_1 to the output record at +7."
+        },
+        {
+          "name": "data_1",
+          "offset": 20,
+          "type": "u32",
+          "description": "Field 5: payload bytes 4 to 7, probably. Copied with data_0 to the output record at +7."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

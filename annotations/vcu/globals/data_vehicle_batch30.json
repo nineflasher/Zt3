@@ -1,0 +1,652 @@
+{
+ "vcu_g_0159_20001b32": {
+  "name": "vehicle_event_flags_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b32"
+  ],
+  "category": "vehicle",
+  "description": "Packed event-flag word. vcu_latch_event_flags_b sets bits 0 to 2 once (one-shot), and bit 4 is tested by app_apply_mode_limits and vcu_drive_command_update. Probably a 16-bit word."
+ },
+ "vcu_g_0159_20001b38": {
+  "name": "vehicle_mode_level",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b38"
+  ],
+  "category": "vehicle",
+  "description": "Mode level 0 to 3, set to 3 by app_apply_mode_limits. vcu_standby_entry_timer compares it with the speed value divided by 10, and vcu_sensor_limit_derate_eval compares it with 3, so it is probably a speed-class index."
+ },
+ "vcu_g_0159_20001b3a": {
+  "name": "vehicle_mode_limit_a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b3a"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x0505 in each mode branch. Meaning not decoded (probably a limit pair of two bytes)."
+ },
+ "vcu_g_0159_20001b3c": {
+  "name": "vehicle_mode_limit_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b3c"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x0505 in each mode branch. Same kind as vehicle_mode_limit_a."
+ },
+ "vcu_g_0159_20001b3e": {
+  "name": "vehicle_mode_limit_c",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b3e"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x140F or 0x190F. Probably two bytes: a high byte of 0x14 or 0x19 and a low byte of 0x0F."
+ },
+ "vcu_g_0159_20001b40": {
+  "name": "vehicle_mode_limit_d",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b40"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x1919, 0x1414 or 0x2828. Its high byte is read by vcu_serial_parse_variant_code (DAT_20001032 = high byte + 3) and by vcu_wheel_odometer_limit_update."
+ },
+ "vcu_g_0159_20001b42": {
+  "name": "vehicle_mode_limit_e",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b42"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x140F or 0x190F. vcu_drive_command_update rewrites its low byte and reads its high byte. Same kind as vehicle_mode_limit_c."
+ },
+ "vcu_g_0159_20001b44": {
+  "name": "vehicle_mode_limit_f",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b44"
+  ],
+  "category": "vehicle",
+  "description": "Mode parameter word written by app_apply_mode_limits as 0x1919, 0x1414 or 0x2828. Bits 8 to 12 are rewritten by vcu_0159_080054ec, and vcu_drive_command_update reads and writes it."
+ },
+ "vcu_g_0159_20001b62": {
+  "name": "vehicle_speed_value",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b62"
+  ],
+  "category": "vehicle",
+  "description": "Motion magnitude per tick, probably speed in km/h (the derate and standby code compare it with thresholds 10, 30 and 60). Written by vcu_speed_mode_snapshot_update and read by most ready, derate and standby routines."
+ },
+ "vcu_g_0159_20001b68": {
+  "name": "vehicle_drive_mode_snapshot",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b68"
+  ],
+  "category": "vehicle",
+  "description": "Copy of the drive mode DAT_20001fa4 (values 1 to 4) taken by vcu_speed_mode_snapshot_update. vcu_drive_command_update branches on it to pick the mode curve."
+ },
+ "vcu_g_0159_20001b70": {
+  "name": "vehicle_speed_telemetry_a",
+  "type": "s16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b70"
+  ],
+  "category": "vehicle",
+  "description": "Signed 16-bit speed-derived value, computed by vcu_wheel_odometer_limit_update as ((value << 3) / 10) and copied to telemetry (DAT_200033ac). Probably in units of 0.1 km/h."
+ },
+ "vcu_g_0159_20001b72": {
+  "name": "vehicle_speed_telemetry_b",
+  "type": "s16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b72"
+  ],
+  "category": "vehicle",
+  "description": "Signed 16-bit value computed by vcu_wheel_odometer_limit_update and sent in the CAN telemetry payload (can_get_tx_payload_for_id). Units not decoded."
+ },
+ "vcu_g_0159_20001b78": {
+  "name": "vehicle_wheel_revolutions",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b78"
+  ],
+  "category": "vehicle",
+  "description": "Wheel revolution counter, incremented by vcu_wheel_odometer_limit_update (saturates at 0xFFFFFFFF). It is zeroed by vcu_0159_080054ec and copied by vcu_revolution_stage_tracker; the stage mark is 5000 revolutions."
+ },
+ "vcu_g_0159_20001b7c": {
+  "name": "vehicle_elapsed_time_a",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b7c"
+  ],
+  "category": "vehicle",
+  "description": "Saturating elapsed-time counter advanced once per 100 ticks by vcu_timebase_100_tick (probably seconds). It is cleared by vcu_0159_080054ec."
+ },
+ "vcu_g_0159_20001b80": {
+  "name": "vehicle_elapsed_time_b",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b80"
+  ],
+  "category": "vehicle",
+  "description": "Second saturating elapsed-time counter, advanced once per 100 ticks by vcu_timebase_100_tick (probably seconds). It is cleared by vcu_0159_080054ec."
+ },
+ "vcu_g_0159_20001b84": {
+  "name": "vehicle_angle_counter",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b84"
+  ],
+  "category": "vehicle",
+  "description": "Angle counter, incremented by vcu_wheel_odometer_limit_update and saturating at 0x7FFF. It is zeroed by vcu_0159_08009da8. vcu_angle_deg_update converts it to degrees using vehicle_angle_period."
+ },
+ "vcu_g_0159_20001b86": {
+  "name": "vehicle_elapsed_time_c",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b86"
+  ],
+  "category": "vehicle",
+  "description": "Saturating counter advanced once per 100 ticks by vcu_timebase_100_tick (up to 0x7FFF); zeroed by vcu_0159_08009da8. Units probably the same as vehicle_elapsed_time_a."
+ },
+ "vcu_g_0159_20001b88": {
+  "name": "vehicle_angle_period",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b88"
+  ],
+  "category": "vehicle",
+  "description": "Number of angle counts per wheel turn, used as the divisor in vcu_angle_deg_update. It is advanced by vcu_timebase_100_tick (saturating at 0x7FFF) and zeroed by vcu_0159_08009da8; the angle code treats 0 as invalid."
+ },
+ "vcu_g_0159_20001b8e": {
+  "name": "vehicle_angle_deg",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b8e"
+  ],
+  "category": "vehicle",
+  "description": "Wheel angle in degrees, 0 to 359, computed by vcu_angle_deg_update as (vehicle_angle_counter * 360) / vehicle_angle_period and set to 0 when the period is not positive. Written only by vcu_angle_deg_update."
+ },
+ "vcu_g_0159_20001b94": {
+  "name": "vehicle_drive_cycle_mode",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b94"
+  ],
+  "category": "vehicle",
+  "description": "Cycle mode 0, 1 or 2 set by vcu_cycle_mode_on_request (from vehicle_cycle_mode_state) and by vcu_runtime_defaults_init (default 1). vcu_drive_command_update packs it into bits 14 and 15 of the drive command word."
+ },
+ "vcu_g_0159_20001ba4": {
+  "name": "vehicle_revolution_stage",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001ba4"
+  ],
+  "category": "vehicle",
+  "description": "Revolution stage index, 1 to 4, set by vcu_revolution_stage_tracker (3, 4 or 1 in its branches). It drives the stage indicator."
+ },
+ "vcu_g_14a_20001c3c": {
+  "name": "vehicle_ready_state_code_v14a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x20001c3c"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence state code of builds 148 and 14a, set to 9, 10 or 13 by vcu_ready_sequence_step_v148_14a. The state codes are probably the values shown on the display."
+ },
+ "vcu_g_14a_20001c54": {
+  "name": "vehicle_ready_flag_c_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x20001c54"
+  ],
+  "category": "vehicle",
+  "description": "Flag of builds 148 and 14a, set to 0 or 1 by vcu_ready_sequence_step_v148_14a. Meaning not decoded."
+ },
+ "vcu_g_153_20001c76": {
+  "name": "vehicle_revolution_state_v153",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001c76"
+  ],
+  "category": "vehicle",
+  "description": "Byte in VCU_153 that vcu_revolution_stage_tracker reads and writes through a pointer. No decompiled line names it; its meaning is not decoded."
+ },
+ "vcu_g_0159_20001c88": {
+  "name": "vehicle_revolution_snapshot",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001c88"
+  ],
+  "category": "vehicle",
+  "description": "Copy of the low 16 bits of vehicle_wheel_revolutions, taken by vcu_revolution_stage_tracker. Zeroed by vcu_runtime_defaults_init. It is read back as vehicle_revolution_stage_ref."
+ },
+ "vcu_g_0159_20001cd2": {
+  "name": "vehicle_drive_scaled_value",
+  "type": "s16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001cd2"
+  ],
+  "category": "vehicle",
+  "description": "Signed 16-bit value computed by vcu_wheel_odometer_limit_update as (value * DAT_20001e62) / 100. It is probably the scaled drive-limit input for the output limit."
+ },
+ "vcu_g_0159_20001cf6": {
+  "name": "vehicle_standby_latch",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001cf6"
+  ],
+  "category": "vehicle",
+  "description": "Standby latch set to 1 by vcu_standby_entry_timer after 600 quiet ticks. vcu_sensor_limit_derate_eval and vcu_standby_entry_timer test it, and vcu_0159_08009da8 writes it."
+ },
+ "vcu_g_0159_20001cf8": {
+  "name": "vehicle_mode_gate_state",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001cf8"
+  ],
+  "category": "vehicle",
+  "description": "Mode gate state 0 or 1 (values below 2), tested by vcu_special_mode_gate and vcu_ready_sequence_step_v14b_0159. It is written by vcu_speed_mode_snapshot_update and vcu_0159_08009da8."
+ },
+ "vcu_g_0159_20001cfc": {
+  "name": "vehicle_ready_state_code",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001cfc"
+  ],
+  "category": "vehicle",
+  "description": "Ready-sequence state code of builds 14b to 0159, set to 9, 10 or 13 by vcu_ready_sequence_step_v14b_0159. Passed to the display renderer (FUN_0800c31c) by vcu_display_frame_render_tick."
+ },
+ "vcu_g_0159_20001d14": {
+  "name": "vehicle_ready_flag_d",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001d14"
+  ],
+  "category": "vehicle",
+  "description": "Flag of builds 14b to 0159 set to 0 or 1 by vcu_ready_sequence_step_v14b_0159. vcu_display_frame_render_tick copies it into bit 1 of the display status word."
+ },
+ "vcu_g_0159_20001d38": {
+  "name": "vehicle_display_flag",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001d38"
+  ],
+  "category": "vehicle",
+  "description": "Flag set to 0 or 1 by vcu_revolution_stage_tracker and vcu_0159_080054ec. vcu_display_frame_render_tick tests it when it builds the display frame."
+ },
+ "vcu_g_0159_20001e66": {
+  "name": "vehicle_rx_value_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001e66"
+  ],
+  "category": "vehicle",
+  "description": "16-bit value copied from a received message (payload offset 0x0B) by vcu_rx_frame_dispatch. It is compared against 30 after division by 100, so it is probably in hundredths of a unit (for example a voltage or current)."
+ },
+ "vcu_g_0159_20001e6a": {
+  "name": "vehicle_rx_status_flags",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001e6a"
+  ],
+  "category": "vehicle",
+  "description": "Status flags byte written by vcu_rx_frame_dispatch from a received message. Bit 3 is tested by the debounce, derate and standby routines."
+ },
+ "vcu_g_0159_20001f4c": {
+  "name": "vehicle_sensor_clamped",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f4c"
+  ],
+  "category": "vehicle",
+  "description": "Sensor value clamped by vcu_sensor_limit_derate_eval (undefined1 cast of a 16-bit result). Compared with 51 (0x33) and 50 (0x32) by vcu_drive_command_update; probably a percentage or a temperature."
+ },
+ "vcu_g_0159_20001f50": {
+  "name": "vehicle_status_bit_f50",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f50"
+  ],
+  "category": "vehicle",
+  "description": "Status flag set to 0 or 1 by vcu_sensor_limit_derate_eval. It is a readiness condition of vcu_ready_sequence_step_v14b_0159 and of vcu_special_mode_gate."
+ },
+ "vcu_g_0159_20001f62": {
+  "name": "vehicle_derate_flag_a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f62"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set or cleared by vcu_sensor_limit_derate_eval. vcu_fault_warning_evaluate sets a warning when this flag or vehicle_derate_flag_e is 1."
+ },
+ "vcu_g_0159_20001f63": {
+  "name": "vehicle_derate_flag_b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f63"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set or cleared by vcu_sensor_limit_derate_eval. vcu_special_mode_gate tests it, and vcu_fault_warning_evaluate tests it together with vehicle_derate_flag_d."
+ },
+ "vcu_g_0159_20001f64": {
+  "name": "vehicle_derate_flag_c",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f64"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set or cleared by vcu_sensor_limit_derate_eval. vcu_special_mode_gate and vcu_fault_warning_evaluate test it."
+ },
+ "vcu_g_0159_20001f66": {
+  "name": "vehicle_derate_flag_d",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f66"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set or cleared by vcu_sensor_limit_derate_eval. vcu_special_mode_gate and vcu_fault_warning_evaluate test it."
+ },
+ "vcu_g_0159_20001f67": {
+  "name": "vehicle_derate_flag_e",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f67"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set to 1 when 0x19 is less than the sensor value minus 30, and cleared otherwise by vcu_sensor_limit_derate_eval. vcu_fault_warning_evaluate tests it with vehicle_derate_flag_a."
+ },
+ "vcu_g_0159_20001f6a": {
+  "name": "vehicle_derate_flag_f",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f6a"
+  ],
+  "category": "vehicle",
+  "description": "Derate flag set or cleared by vcu_sensor_limit_derate_eval. vcu_special_mode_gate and vcu_fault_warning_evaluate test it."
+ },
+ "vcu_g_0159_20001f6f": {
+  "name": "vehicle_sensor_burst_flag",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f6f"
+  ],
+  "category": "vehicle",
+  "description": "Flag set by vcu_sensor_threshold_pulse_count when the sustained-high condition holds. It is cleared by vcu_sensor_threshold_pulse_count when DAT_2000101a is 0."
+ },
+ "vcu_g_0159_20001f72": {
+  "name": "vehicle_toggle_request",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f72"
+  ],
+  "category": "vehicle",
+  "description": "Request flag set to 1 by a key edge in vcu_input_edge_actions and cleared by vcu_toggle_special_mode after it toggles the mode byte."
+ },
+ "vcu_g_0159_20001f75": {
+  "name": "vehicle_cycle_request",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f75"
+  ],
+  "category": "vehicle",
+  "description": "Request flag set to 1 by an input edge in vcu_input_edge_actions. vcu_cycle_mode_on_request handles it and clears it."
+ },
+ "vcu_g_0159_20001f78": {
+  "name": "vehicle_status_flags_f78",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f78"
+  ],
+  "category": "vehicle",
+  "description": "Input and status flags byte. Bit 0 gates the debounce and standby routines, bit 2 is tested by vcu_drive_command_update, and bit 3 is tested by the debounce and condition routines. Written by vcu_rx_frame_dispatch."
+ },
+ "vcu_g_0159_20001f8c": {
+  "name": "vehicle_state_word_f8c",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f8c"
+  ],
+  "category": "vehicle",
+  "description": "Packed state word whose address is taken by about ten functions, including vcu_state_params_reset. Its fields are not decoded in this packet; the 16-bit words that follow it are described separately."
+ },
+ "vcu_g_0159_20001f90": {
+  "name": "vehicle_derate_word",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f90"
+  ],
+  "category": "vehicle",
+  "description": "Derate word. vcu_sensor_limit_derate_eval sets its low byte to a scaled value (sensor minus 55, times 200 divided by 125) or 0; its low byte is compared with 180 (0xB4) by vcu_ready_sequence_step_v14b_0159. Read by the input-B hold sequence."
+ },
+ "vcu_g_0159_20001f92": {
+  "name": "vehicle_request_flags",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f92"
+  ],
+  "category": "vehicle",
+  "description": "Request and status word with several bits. Bit 2 is the standby request set by vcu_standby_entry_timer, bit 7 is set and cleared by vcu_ready_sequence_step_v14b_0159, and bits 2 and 3 are written by vcu_special_mode_gate. It is cleared in its low 12 bits by vcu_status_flags_mask_low."
+ },
+ "vcu_g_0159_20001f94": {
+  "name": "vehicle_drive_command_word",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f94"
+  ],
+  "category": "vehicle",
+  "description": "Packed drive command word. Its low byte is loaded from other state bytes (DAT_200013b8 and DAT_200013a1) by vcu_drive_command_update, and vcu_state_params_reset resets it to 0x0F00 plus the cycle bits. Bits 14 and 15 hold vehicle_drive_cycle_mode, and vcu_speed_mode_snapshot_update and can_get_tx_payload_for_id read it."
+ },
+ "vcu_g_0159_20001f96": {
+  "name": "vehicle_drive_output_word",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f96"
+  ],
+  "category": "vehicle",
+  "description": "Packed output word. vcu_state_params_reset loads it with 0x2800 or 0x3200, and vcu_drive_command_update rewrites its low byte. The low byte is copied to telemetry by vcu_speed_mode_snapshot_update."
+ },
+ "vcu_g_0159_20001f98": {
+  "name": "vehicle_status_word_f98",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f98"
+  ],
+  "category": "vehicle",
+  "description": "Status word holding the PA6 and mode code in bits 9 to 11 (rewritten by vcu_pa6_output_status_update), bit 12 (set by vcu_0159_080047ac) and the pulse-sequence bits 0 to 1 (vcu_c14_c15_pulse_sequencer). Cleared in bits 9 to 11 by vcu_clear_flag_bits_9_11."
+ },
+ "vcu_g_0159_20001fac": {
+  "name": "vehicle_countdown_a",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fac"
+  ],
+  "category": "vehicle",
+  "description": "Countdown in ticks. It is reloaded by vcu_event_countdown_a (from its parameter), set to 3000 by vcu_code_nibble_entry_tick, and set to 0 by vcu_0159_080047ac. It fires at 1 and then sets the flag DAT_20001fb4."
+ },
+ "vcu_g_0159_20001fbd": {
+  "name": "vehicle_revolution_flag_a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fbd"
+  ],
+  "category": "vehicle",
+  "description": "Flag of the revolution stage tracker (VCU_0159 only). vcu_revolution_stage_tracker sets it when the stage index is non-zero and clears it; vcu_0159_080047ac clears it too."
+ },
+ "vcu_g_0159_20001fbe": {
+  "name": "vehicle_revolution_flag_b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fbe"
+  ],
+  "category": "vehicle",
+  "description": "Flag of the revolution stage tracker (VCU_0159 only). vcu_0159_080054ec and vcu_runtime_defaults_init set it to 1, and vcu_revolution_stage_tracker clears it."
+ },
+ "vcu_g_0159_20001fc0": {
+  "name": "vehicle_pa11_pulse_armed",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fc0"
+  ],
+  "category": "vehicle",
+  "description": "Armed flag of the PA11 pulse. vcu_periodic_100_tick_check, vcu_0159_080047ac and vcu_0159_080054ec set it to 1, and vcu_pa11_pulse_step runs the 5-tick high and 1-tick low pulse while it is set."
+ },
+ "vcu_g_0159_20001fd2": {
+  "name": "vehicle_countdown_b",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fd2"
+  ],
+  "category": "vehicle",
+  "description": "Countdown in ticks, reloaded to 1000 by vcu_0159_080047ac and decremented by vcu_event_countdown_b. It fires at 0 and sets the flag DAT_20001fd4."
+ },
+ "vcu_g_0159_20001fd6": {
+  "name": "vehicle_special_mode_stage",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fd6"
+  ],
+  "category": "vehicle",
+  "description": "Special mode stage, 0 or 1. vcu_special_mode_gate sets it to 1 after the gate conditions hold for 300 ticks and tests it when leaving. vcu_0159_080047ac also writes it."
+ },
+ "vcu_g_0159_20001fd9": {
+  "name": "vehicle_standby_request_flag",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fd9"
+  ],
+  "category": "vehicle",
+  "description": "Request flag set to 1 by vcu_sensor_limit_derate_eval and written 0 or 1 by vcu_ready_sequence_step_v14b_0159. vcu_standby_entry_timer tests it and clears it."
+ },
+ "vcu_g_153_200020a8": {
+  "name": "vehicle_revolution_stage_words_v153",
+  "type": "u32",
+  "size": 8,
+  "anchor": [
+   "VCU_153",
+   "0x200020a8"
+  ],
+  "category": "vehicle",
+  "description": "Two 32-bit words in VCU_153 (0x200020A8 and 0x200020AC) written by vcu_revolution_stage_tracker through a pointer. No decompiled line names them; the words are probably stage or mark values.",
+  "count": 2
+ }
+}

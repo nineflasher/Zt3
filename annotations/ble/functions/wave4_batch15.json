@@ -1,0 +1,68 @@
+{
+  "ble_219_0c0674e8": {
+    "name": "ble_ctrl_state_machine_step",
+    "summary": "Advance the controller state machine: bring-up HCI sequence, connection service, teardown",
+    "description": "Central step function of the BLE controller state machine; env is the controller environment at DAT_200190D0. It dispatches first on the phase byte env+0x198 (0 idle, 1 bring-up, 2 operational, 3 disconnect-all sub-machine, 4 stopped, 5 stop sequence) and then on the sub-state byte env+0x199. In phase 1, gated by ll_env_is_ready (0x0C066978), an even-numbered sub-state switch (0x00..0x3A) sends one HCI command per step, either a fixed ROM template passed to hci_send_cmd_no_status (0x0C06722C) or a command built in the buffer at env+0x68 and passed to ble_ctrl_hci_cmd_dispatch (0x0C066F74); waiting states arm the step timer at env+0x19C (50, 200 or 300 ms) whose handler is ble_219_0c068cc8. In phase 2 the sub-state switch is skipped: the function sends queued ACL data from the env+0x68 buffer as fragments through the transport hook env[0]+0x18 (packet type 2), checks free slots with ble_ctrl_can_send_to_handle, and then services the per-node request flags of the lists at env+0x7A and env+0x89 by issuing HCI commands. Phase changes are announced through hci_emit_event as a 3-byte internal event 0x0160 carrying the new phase, and the result is 0 on success or the status of the last command or handler (3 when the transport hook refused a packet).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "initial result; returned unchanged on the idle and no-action paths, otherwise overwritten by the status of the last action"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, otherwise the status of the last command or handler (3 = transport hook refused)"
+    },
+    "confidence": "medium",
+    "notes": "Phase and sub-state meanings are inferred from transitions, not from a spec. Only phase 1 drives the even sub-state switch. The early dispatcher (cases 0..0x3A at the top of the phase-1 branch) is used when the link callbacks env[1]/env[2] are absent and jumps to the same case labels. Fixed HCI command templates seen (ROM addresses, opcodes not decoded here): 0x0C0814BC (sub-states 0x00, 0x0A, 0x14; reset-like), 0x0C081448 (0x02, then 0x03), 0x0C081430 (0x04), 0x0C081438 (0x0E and the 0x0D timer path), 0x0C081418 (0x16), 0x0C081420 (0x18), 0x0C081440 (0x1A), 0x0C0816A4 (0x1C), 0x0C0816AC (0x1E), 0x0C08109C (0x24..0x2C path), 0x0C0818E4 (0x3F and the ';' teardown path), 0x0C08108C (connection state 2, classic 0xFD records), 0x0C0810AC (connection state 8, cancel; probably HCI_Create_Connection_Cancel, not verified), 0x0C0810B4 (connection states 5/6). Sub-state 0x06 builds a command in the env+0x68 buffer, stores its opcode (u16 at offset 0) in env+0x1AE, moves to 0x07 and dispatches it. Sub-state 0x08 calls env[2]+0x08 with that buffer: result 1 goes to 0x09 and sends the command, result 2 arms a 200 ms timer and goes to 0x07 or 0x0C. Sub-state 0x0A resets the env defaults, arms a 200 ms timer and sends 0x0C0814BC. Sub-state 0x3A is the last bring-up step: it moves to phase 2 (event 0x0160 with 2) when env+0x18C bit 5 is set or the s16 at env+0x48 is zero, and otherwise calls FUN_0C067248, which is not described yet. Phase 3 (sub-states 0x3F..0x44): 0x44 disconnects all connections with ble_ctrl_disconnect_all_connections, runs ll_env_run_stop_hooks (which clears the phase byte to 0) and emits the event with the new phase. Phase 5: sub-state ';' (0x3B) tears connections down one at a time, sub-state '=' (0x3D) calls env[3]+0x0C and moves to phase 4. Connection records: +0x0C is the address type (0xFD tested as signed -3, i.e. BR/EDR), +0x0E is the per-connection state byte. ACL chunk size: env+0x17A, or the override at env+0x180 for LE records (address type < 4). Each fragment gets a 4-byte header (handle, length); continuation fragments set the PB bits to 0x1000. Open questions: meaning of the s16 mode field at env+0x194 (values 0x05, 0x0A, 0x0F, 0x30, 0x5A and 0x7E8 are tested), FUN_0C067248 and FUN_0C052DE8 (not described), and the meanings of callback slots env[0]+0x14/0x1C/0x20 and env[2]+0x0C/0x10."
+  },
+  "ble_219_0c068c98": {
+    "name": "hci_gap_cancel_create_acl",
+    "summary": "Cancel a pending classic (0xFD) ACL connection to a peer, else Command Disallowed",
+    "description": "HCI cancel-create-connection request for a BR/EDR peer. param_1 points to the 6-byte peer BD_ADDR; the record is looked up with ble_ctrl_conn_find_by_addr using the fixed address type 0xFD, and param_2..param_4 are not used by this body. If a record exists its per-connection state byte at +0x0E is set to 8 (cancel requested) and ble_ctrl_state_machine_step (0x0C0674E8) runs, which sends the cancel command (template 0x0C0810AC) and moves the record to state 9; the function then returns 0. If no record exists it logs 'gap_cancel_create_acl, connection not exist' (hci.c line 0x694) through the log hook ble_hook_invoke_indexed (0x0C06C138) and returns 0x0C, the HCI Command Disallowed status.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "addr",
+        "type": "ptr",
+        "description": "6-byte peer BD_ADDR"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused by this function"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the cancel was queued, 0x0C (Command Disallowed) when no record exists"
+    },
+    "confidence": "medium",
+    "notes": "The fixed address type 0xFD (BR/EDR) is inferred from the find-by-address call and from the -3 tests on connection records in the step function. The candidate is that param_1 is a pointer, as in ble_ctrl_conn_find_by_addr, which is not verified from the callers. The cancel template 0x0C0810AC is not decoded in this packet. Callers 0x0C057178, 0x0C0593A4 and 0x0C05A608 are not described here."
+  },
+  "ble_219_0c068cc8": {
+    "name": "ble_ctrl_state_timer_expired",
+    "summary": "Step-timer callback: advance the controller sub-state and re-run the state machine",
+    "description": "Run-loop timer handler registered on the controller step timer at env+0x19C; the state machine passes this handler (0x0C068CC9) to btstack_run_loop_set_timer_handler. It switches on the sub-state byte env+0x199. State 1 moves to 0; state 0xC first calls the env[0]+0x20 callback and falls into state 0xB, which moves to 0xA. State 7 calls env[0]+0x1C with the connection timeout from env[1]+8 (clamped to 3000000 when the mode field env+0x194 is 0x0F) and, only when the mode is 0x0A, calls env[0]+0x20 and moves to 0xA. State 0xD sends template 0x0C081438 and moves to 0xF without re-entering the machine. States 1, 0xB and 0xC also set the command-credit byte env+0x177 to 1 before calling ble_ctrl_state_machine_step (0x0C0674E8), so the machine resumes at once; state 7 calls the step without touching the credit byte, and other states return without action.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Timer periods used by the state machine with this handler: 200 ms (sub-states 0x06 and 0x0A) and 300 ms (sub-state 0x08). The 50 ms path (sub-state 0x43) uses a different handler (0x0C068D6C). The credit-byte reading of env+0x177 is inferred: ble_ctrl_hci_cmd_dispatch decrements it per command, and ll_env_is_ready requires it to be non-zero. The meanings of env[0]+0x1C and env[0]+0x20 are not described in this packet."
+  }
+}

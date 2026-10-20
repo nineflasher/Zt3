@@ -1,0 +1,55 @@
+{
+  "structs": {
+    "BmsFdcanHandle": {
+      "size": 152,
+      "description": "FDCAN driver handle of the BMS (bms_fdcan_handle at 0x20005C50 in build 4168). Layout follows the ST HAL FDCAN handle as far as the decompile shows (probably): peripheral pointer, the init parameters (frame format, mode, nominal and data bit timing, filter counts), then the TX header buffer and the RX header buffer. Bytes 0x40 to 0x63 are not described in this packet.",
+      "fields": [
+        {"name": "instance", "offset": 0, "type": "ptr", "description": "Pointer to the FDCAN peripheral block. Ghidra labels the target FDCAN2 (set in bms_fdcan_nominal_500k_setup); the component brief calls the block FDCAN1, so the two names probably refer to the same block."},
+        {"name": "init_frame_format", "offset": 8, "type": "u32", "description": "Init parameter (probably FrameFormat). Written 0 in every build: classic CAN frame format."},
+        {"name": "init_mode", "offset": 12, "type": "u32", "description": "Init parameter (probably Mode). Written 0 in every build, probably normal operation rather than a test mode."},
+        {"name": "init_auto_retransmission", "offset": 16, "type": "u8", "description": "Init flag (probably AutoRetransmission). Written 1 in build 4168 only; the other builds write other bytes at this offset or not at all."},
+        {"name": "init_transmit_pause", "offset": 17, "type": "u8", "description": "Init flag (probably TransmitPause). Written 0 in build 4168."},
+        {"name": "init_protocol_exception", "offset": 18, "type": "u8", "description": "Init flag (probably ProtocolException handling). Written 0 in every build that writes it."},
+        {"name": "nominal_prescaler", "offset": 20, "type": "u32", "description": "Nominal bit-timing prescaler (probably). Written 4 in build 4168. With time segments 5 and 2 plus the sync segment this gives 8 time quanta per bit, i.e. the 500 kbit/s nominal rate named by bms_fdcan_nominal_500k_setup."},
+        {"name": "nominal_sync_jump_width", "offset": 24, "type": "u32", "description": "Nominal resynchronisation jump width in time quanta (probably). Written 1 in build 4168."},
+        {"name": "nominal_time_seg1", "offset": 28, "type": "u32", "description": "Nominal time segment 1 in time quanta (probably). Written 5 in build 4168."},
+        {"name": "nominal_time_seg2", "offset": 32, "type": "u32", "description": "Nominal time segment 2 in time quanta (probably). Written 2 in build 4168."},
+        {"name": "data_prescaler", "offset": 36, "type": "u32", "description": "Data-phase bit-timing prescaler (probably, CAN FD only). Written 4 in build 4168; the data phase is unused by the classic frames of this packet."},
+        {"name": "data_sync_jump_width", "offset": 40, "type": "u32", "description": "Data-phase resynchronisation jump width (probably). Written 1 in build 4168."},
+        {"name": "data_time_seg1", "offset": 44, "type": "u32", "description": "Data-phase time segment 1 (probably). Written 5 in build 4168."},
+        {"name": "data_time_seg2", "offset": 48, "type": "u32", "description": "Data-phase time segment 2 (probably). Written 2 in build 4168."},
+        {"name": "std_filters_nbr", "offset": 52, "type": "u32", "description": "Number of standard-ID acceptance filters (probably). Written 4 in build 4168; bms_fdcan_filters_start configures the filters."},
+        {"name": "ext_filters_nbr", "offset": 56, "type": "u32", "description": "Number of extended-ID acceptance filters (probably). Written 5 in build 4168."},
+        {"name": "tx_fifo_queue_mode", "offset": 60, "type": "u32", "description": "TX FIFO / queue mode (probably). Written 0 in every build: FIFO mode, probably."},
+        {"name": "tx_header", "offset": 100, "type": "BmsFdcanTxHeader", "description": "TX header buffer that bms_fdcan_send_frame fills before queueing a frame in the TX FIFO (probably the HAL TxHeader)."},
+        {"name": "rx_header", "offset": 136, "type": "BmsFdcanRxHeader", "description": "RX header buffer that the HAL read call fills for each frame taken from RX FIFO0 (probably the HAL RxHeader, first 16 bytes)."}
+      ]
+    },
+    "BmsFdcanTxHeader": {
+      "size": 36,
+      "description": "TX header of one CAN frame, nine 32-bit words as filled by bms_fdcan_send_frame (probably the ST HAL FDCAN_TxHeaderTypeDef layout).",
+      "fields": [
+        {"name": "identifier", "offset": 0, "type": "u32", "description": "Message identifier, copied from the caller's frame record before each send (probably the 11-bit or 29-bit ID)."},
+        {"name": "id_type", "offset": 4, "type": "u32", "description": "ID format: 0 for a standard 11-bit identifier, 0x40000000 for an extended identifier (probably; chosen per frame by bms_fdcan_send_frame)."},
+        {"name": "frame_type", "offset": 8, "type": "u32", "description": "Frame kind: 0 for a data frame, 0x20000000 for a remote frame (probably; chosen per frame)."},
+        {"name": "data_length", "offset": 12, "type": "u32", "description": "Data length code, placed in bits 16 and up (the decompile shows the caller's length byte shifted left by 16), probably the HAL DataLength field."},
+        {"name": "error_state_indicator", "offset": 16, "type": "u32", "description": "Error-state-indicator bit (probably). Always 0 in this packet."},
+        {"name": "bit_rate_switch", "offset": 20, "type": "u32", "description": "Bit-rate-switch bit (probably). Always 0 in this packet, so no CAN FD bit-rate switching is used for these frames."},
+        {"name": "fd_format", "offset": 24, "type": "u32", "description": "CAN FD format bit (probably). Always 0 in this packet: classic CAN frames."},
+        {"name": "tx_event_fifo_control", "offset": 28, "type": "u32", "description": "TX event FIFO control (probably). Always 0 in this packet, so no TX events are stored."},
+        {"name": "message_marker", "offset": 32, "type": "u32", "description": "User marker copied into TX events (probably). Always 0 in this packet."}
+      ]
+    },
+    "BmsFdcanRxHeader": {
+      "size": 16,
+      "description": "First 16 bytes of the RX header that the HAL read call fills for each frame from RX FIFO0 (probably the start of FDCAN_RxHeaderTypeDef). Only these four words are read by bms_fdcan_rx_fifo0_service.",
+      "fields": [
+        {"name": "identifier", "offset": 0, "type": "u32", "description": "Identifier of the received frame, written by the HAL read call and copied into the callback frame record."},
+        {"name": "id_type", "offset": 4, "type": "u32", "description": "ID format of the received frame (probably standard or extended), copied into the callback frame record."},
+        {"name": "rx_word_08", "offset": 8, "type": "u32", "description": "Next RX header word after the ID type (probably the frame type or the length), copied into the callback frame record."},
+        {"name": "rx_word_12", "offset": 12, "type": "u32", "description": "Last RX header word read here. Only its upper halfword is used: it is copied into the callback frame record as a 16-bit field (probably the receive timestamp or the length)."}
+      ]
+    }
+  },
+  "enums": {}
+}

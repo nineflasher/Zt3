@@ -1,0 +1,60 @@
+{
+ "vcu_g_0159_20001ff2": {
+  "name": "unreferenced_preset_table",
+  "type": "u16",
+  "size": 14,
+  "anchor": [
+   "VCU_0159",
+   "0x20001ff2"
+  ],
+  "category": "app",
+  "description": "Table of 16-bit parameters written by FUN_08009DA8. 0x20001FF2, 0x20001FF4 and 0x20001FF6 always get 0x0A00, 0x1400 and 0x0500. 0x20001FF8, FFA, FFC and FFE get either 0x0200, 0x006B, 0x00E6, 0x00D1 (when DAT_20001FA7 is 0 or 3) or 0x0219, 0x0021, 0x00C2, 0x00D7 (otherwise). The element at 0x20001FF0 (0x0600) is documented in another packet.",
+  "count": 7
+ },
+ "vcu_g_0159_20002000": {
+  "name": "unreferenced_preset_loaded",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20002000"
+  ],
+  "category": "app",
+  "description": "Set to 1 by FUN_08009DA8 after the parameter preset table is written. Probably a preset-loaded flag."
+ },
+ "vcu_g_0159_20002010": {
+  "name": "unreferenced_aux_key_16",
+  "type": "u8",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x20002010"
+  ],
+  "category": "crypto",
+  "description": "16-byte key material. FUN_08009DA8 copies it from flash 0x08001440, the same slot vcu_crypto_key_load reads, and FUN_080054EC copies it to a stack buffer, probably for a cipher or MAC step. The contents are secret and are deliberately not recorded here.",
+  "count": 16
+ },
+ "vcu_g_0159_200021dc": {
+  "name": "unreferenced_state_21dc",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200021dc"
+  ],
+  "category": "app",
+  "description": "Cleared to 0 by FUN_080047AC. No other access appears in this packet."
+ },
+ "vcu_g_0159_20002990": {
+  "name": "unreferenced_ctx_2990",
+  "type": "u8",
+  "size": 9,
+  "anchor": [
+   "VCU_0159",
+   "0x20002990"
+  ],
+  "category": "util",
+  "description": "Context record passed by pointer to FUN_08007B58, FUN_08006D6C and FUN_0800CFAC from FUN_08007AD4. The byte at offset 8 (0x20002998) is tested by FUN_08007AD4: 0 selects FUN_08006D6C, non-zero selects FUN_0800CFAC. The real record is probably larger than the part visible here.",
+  "count": 9
+ }
+}

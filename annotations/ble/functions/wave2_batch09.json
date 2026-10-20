@@ -1,0 +1,451 @@
+{
+  "ble_219_0c0624e8": {
+    "name": "fp_mod_2d",
+    "summary": "Big integer modulo a power of two: c = a mod 2^b",
+    "description": "wolfSSL TFM fp_mod_2d(a, b, c). If b <= 0 the result c is zeroed (used = 0, sign = 0, 96 digit bytes cleared). Otherwise a is copied to c when the pointers differ (used, sign and the 24 digits via memcpy of 0x60 bytes). If b >= 32 * a->used nothing more is done. Otherwise all digits from index b/32 (+1 when b is not a multiple of 32) up to c->used are zeroed with memset, digit b/32 is masked with 0xffffffff >> (32 - b%32), and c is clamped (used reduced past trailing zero digits, sign forced to 0 when the value becomes zero). Called from fp_div_2d (0c062f28). Part of the wolfSSL fast-math (tfm.c) big-integer group: fp_int = s32 used at +0, s32 sign at +4, u32 dp[24] at +8 (0x68 bytes, FP_SIZE = 24 digits).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source fp_int"},
+      {"name": "b", "type": "s32", "description": "number of low bits to keep"},
+      {"name": "c", "type": "ptr", "description": "destination fp_int (may equal a)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0625a0": {
+    "name": "fp_submod_ct",
+    "summary": "Constant-time modular subtraction d = (a - b) mod c for a, b < c",
+    "description": "wolfSSL TFM fp_submod_ct(a, b, c, d). Computes mask = all-ones when fp_cmp_mag_ct(a, b, c->used + 1) returns -1 (a < b), else 0. Then for i = 0 .. c->used it accumulates d->dp[i] = (i < a->used ? a->dp[i] : 0) + (mask & c->dp[i]) + carry using two CARRY4 tests per digit, stores the final carry in d->dp[c->used + 1], sets d->used = c->used + 2 and d->sign = 0, clamps d, and finally calls s_fp_sub(d, b, d) (0c061f2c; the decompiler shows the b register as extraout_s15). The result is a + (a < b ? c : 0) - b with no branch on the operand values. Always returns 0 (FP_OKAY). Called from the mp_submod_ct wrapper 0c0640e4 used by the ECC point arithmetic. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "minuend fp_int (< c)"},
+      {"name": "b", "type": "ptr", "description": "subtrahend fp_int (< c)"},
+      {"name": "c", "type": "ptr", "description": "modulus fp_int"},
+      {"name": "d", "type": "ptr", "description": "result fp_int"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (FP_OKAY)"},
+    "confidence": "high",
+    "notes": "The loop also handles the impossible c->used < 0 case by emitting a single digit; the pointer walk starts at dp[0] via pre-increment from word index 1."
+  },
+  "ble_219_0c062654": {
+    "name": "fp_addmod_ct",
+    "summary": "Constant-time modular addition d = (a + b) mod c for a, b < c",
+    "description": "wolfSSL TFM fp_addmod_ct(a, b, c, d). First calls s_fp_add(a, b, d) (0c061e70, unsigned digit addition), then mask = all-ones when fp_cmp_mag_ct(d, c, c->used + 1) is not -1 (d >= c), else 0. For i = 0 .. c->used-1 it subtracts (mask & c->dp[i]) plus the running borrow from d->dp[i] (borrow computed from two unsigned compares), then sets d->dp[c->used] = 0, d->used = c->used, d->sign = a->sign and clamps d (a fully zero result gets sign 0). Returns 0 (FP_OKAY). No branch depends on the data, so it is used by the ECC code via the mp_addmod_ct wrapper 0c0640e8. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "first addend fp_int (< c)"},
+      {"name": "b", "type": "ptr", "description": "second addend fp_int (< c)"},
+      {"name": "c", "type": "ptr", "description": "modulus fp_int"},
+      {"name": "d", "type": "ptr", "description": "result fp_int"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (FP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c062940": {
+    "name": "fp_montgomery_calc_normalization",
+    "summary": "Compute a = R mod b (R = 2^(32*used)) for Montgomery normalisation",
+    "description": "wolfSSL TFM fp_montgomery_calc_normalization(a, b). bits = number of significant bits in b's top digit (loop shifting right; 0 is treated as 32, the decompiler's odd modulo arithmetic is the '% DIGIT_BIT' of fp_count_bits). If b->used > 1, a is set to 2^((used-1)*32 + bits - 1) (inlined fp_2expt: zero a, then if the exponent is below 0x300 = 24*32 set used = exp/32 + 1 and dp[exp/32] = 1 << (exp % 32)); otherwise a = 1 and bits = 1. Then for x = bits-1 .. 31 it doubles a with fp_mul_2(a, a) (0c0620dc; a non-zero return aborts with that error) and subtracts b with s_fp_sub(a, b, a) (0c061f2c) whenever an inlined fp_cmp_mag(a, b) says a >= b (longer used count, or digit-by-digit compare from the top). Returns 0 on success. Called via the mp_montgomery_calc_normalization wrapper 0c064288 by the ECC Montgomery setup. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "output fp_int receiving R mod b"},
+      {"name": "b", "type": "ptr", "description": "modulus fp_int"},
+      {"name": "param_3", "type": "u32", "description": "unused (register noise)"},
+      {"name": "param_4", "type": "u32", "description": "unused (register noise)"}
+    ],
+    "returns": {"type": "s32", "description": "0 (FP_OKAY) or the error returned by fp_mul_2"},
+    "confidence": "high"
+  },
+  "ble_219_0c062bac": {
+    "name": "fp_read_unsigned_bin",
+    "summary": "Load a big-endian byte string into a big integer",
+    "description": "wolfSSL TFM fp_read_unsigned_bin(a, b, c) with the 32-bit little-endian fast path. Zeroes a (sign and 96 digit bytes; used is set below). If c <= 0x60 (96 bytes = 24 digits) then used = (c + 3) / 4 and the c input bytes are copied in reverse into the byte view of dp (byte index c-1 down to 0 while reading b forwards), so a big-endian input lands little-endian in the digits. If c > 96 only the last 96 bytes of b are used and used = 24 (the leading excess is silently dropped). Finally a is clamped (used reduced past zero top digits, sign cleared for 0). Always returns 0. Reached through the thunk 0c06422c (mp_read_unsigned_bin) from the ECC import routines. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "destination fp_int"},
+      {"name": "b", "type": "ptr", "description": "big-endian input bytes"},
+      {"name": "c", "type": "s32", "description": "number of input bytes"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (FP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c062d08": {
+    "name": "fp_lshd",
+    "summary": "Shift a big integer left by whole 32-bit digits",
+    "description": "wolfSSL TFM fp_lshd(a, x). If a->used + x > 24 (FP_SIZE) returns -1 (FP_VAL) without touching a. Otherwise sets used = old_used + x, moves the digits upwards from the top (dp[y] = dp[y - x] for y from used-1 down to x), zeroes the lowest x digits with memset, and clamps (reduces used past zero top digits, zero value gets sign 0). Called from fp_mul_2d (0c062d84) and fp_div (0c062fe4). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "fp_int shifted in place"},
+      {"name": "x", "type": "s32", "description": "number of digits to shift"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 (FP_OKAY) or -1 (FP_VAL) if the result would exceed 24 digits"},
+    "confidence": "high"
+  },
+  "ble_219_0c062d84": {
+    "name": "fp_mul_2d",
+    "summary": "Multiply a big integer by 2^b: c = a << b",
+    "description": "wolfSSL TFM fp_mul_2d(a, b, c). Copies a to c when the pointers differ. If b >= 32 it first calls fp_lshd(c, b / 32) and returns its error if non-zero. The remaining b % 32 bits are shifted with a carry loop over c->used digits (dp[i] = (dp[i] << s) + carry; carry = old dp[i] >> (32 - s)); a final non-zero carry becomes a new top digit when used < 24, and if used already equals 24 the function returns -1 (FP_VAL). Afterwards c is clamped. Returns 0 on success. Called from fp_div (0c062fe4). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source fp_int"},
+      {"name": "b", "type": "s32", "description": "number of bits to shift left"},
+      {"name": "c", "type": "ptr", "description": "destination fp_int (may equal a)"}
+    ],
+    "returns": {"type": "s32", "description": "0 (FP_OKAY) or -1 (FP_VAL) on overflow of the 24-digit buffer"},
+    "confidence": "high"
+  },
+  "ble_219_0c062e40": {
+    "name": "fp_rshd",
+    "summary": "Shift a big integer right by whole 32-bit digits",
+    "description": "wolfSSL TFM fp_rshd(a, x). If x >= a->used the value becomes zero (used = 0, sign = 0, all 96 digit bytes cleared with memset). Otherwise digits are moved down (dp[i] = dp[i + x] for i < used - x), the vacated top x digits are zeroed with memset, used is reduced by x and the value is clamped. Called from fp_rshb (0c062ea8), fp_div_2d (0c062f28) and fp_div (0c062fe4). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "fp_int shifted in place"},
+      {"name": "x", "type": "s32", "description": "number of digits to shift right"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c062ea8": {
+    "name": "fp_rshb",
+    "summary": "Shift a big integer right by x bits in place",
+    "description": "wolfSSL TFM fp_rshb(c, x). Negative x returns immediately. If x >= 32 it first calls fp_rshd(c, x / 32) and keeps x % 32. A zero value returns unchanged. Then it walks the digits from the most significant down: dp[i] = (dp[i] >> x) | (carry << (32 - x)) where carry is the low x bits of the previous (higher) digit (mask ~(-1 << x)). Finally the value is clamped. Called from fp_div_2d (0c062f28) and the mp_rshb wrapper 0c064284. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "c", "type": "ptr", "description": "fp_int shifted in place"},
+      {"name": "x", "type": "s32", "description": "number of bits to shift right"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "If x % 32 == 0 after the digit shift the bit loop still runs with a shift of 0, which is harmless."
+  },
+  "ble_219_0c063fb8": {
+    "name": "mp_init",
+    "summary": "Initialise a big integer to zero (NULL-safe, returns MP_OKAY)",
+    "description": "wolfSSL mp_init(a): if a is non-NULL it performs fp_init/fp_zero - used = 0, sign = 0 and the 24-digit dp array (0x60 bytes) cleared with memset. Returns 0 (MP_OKAY) in both cases. Used by the ECC routines (0c05b724, 0c05b86c, 0c05e420, 0c05f8c4, 0c0600c0 ...) to set up temporaries before arithmetic. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "mp_int to initialise, or NULL"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (MP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c063fec": {
+    "name": "fp_clear",
+    "summary": "Zero a big integer in place (NULL-safe, no return value)",
+    "description": "If a is non-NULL: used = 0, sign = 0 and the 24-digit array (0x60 bytes) cleared with memset; NULL is ignored. Same body as mp_init (0c063fb8) but void. This matches wolfSSL mp_clear(a) { if (a == NULL) return; fp_clear(a); } and is the routine the ECC code calls after every temporary (very many callers: 0c05b724, 0c05e420, 0c05e474, 0c05e4e8, 0c05e868, 0c05eb00, 0c05efc0, 0c05f1b0, 0c05f71c ...). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "fp_int to clear, or NULL"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Functionally this is wolfSSL's mp_clear; the name mp_clear was already assigned in wave 1 to the empty function 0c064000 (which is more likely mp_free/fp_free), so the inner routine's name fp_clear is used here."
+  },
+  "ble_219_0c064004": {
+    "name": "mp_init_multi",
+    "summary": "Initialise up to six big integers to zero (NULL entries skipped)",
+    "description": "wolfSSL mp_init_multi(a, b, c, d, e, f): for each of the six pointer arguments that is non-NULL it sets used = 0, sign = 0 and clears the 24-digit array (0x60 bytes) with memset. Always returns 0 (MP_OKAY). Called at the start of the ECC routines that need several temporaries (0c05e868, 0c05eb00, 0c05efc0, 0c05f164, 0c05fd18, 0c060190, 0c0601fc, 0c060828, 0c060ae4). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "mp_int or NULL"},
+      {"name": "b", "type": "ptr", "description": "mp_int or NULL"},
+      {"name": "c", "type": "ptr", "description": "mp_int or NULL"},
+      {"name": "d", "type": "ptr", "description": "mp_int or NULL"},
+      {"name": "e", "type": "ptr", "description": "mp_int or NULL"},
+      {"name": "f", "type": "ptr", "description": "mp_int or NULL"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (MP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c06422c": {
+    "name": "mp_read_unsigned_bin",
+    "summary": "Thunk to fp_read_unsigned_bin: load big-endian bytes into a big integer",
+    "description": "Single branch instruction to fp_read_unsigned_bin (0c062bac): zeroes a, copies up to 96 big-endian bytes into the little-endian digit array (used = (c + 3) / 4, extra leading bytes dropped) and clamps. Returns 0. This is wolfSSL's mp_read_unsigned_bin wrapper, called by the ECC key/point import code (0c05b86c, 0c05e420, 0c05f218, 0c0601fc, 0c060ae4). Part of the wolfSSL fast-math (tfm.c) big-integer group.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "destination mp_int"},
+      {"name": "b", "type": "ptr", "description": "big-endian input bytes"},
+      {"name": "c", "type": "s32", "description": "number of input bytes"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (MP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c064234": {
+    "name": "mp_copy",
+    "summary": "Copy a big integer: b = a",
+    "description": "wolfSSL mp_copy(a, b) / fp_copy: when the pointers differ it copies used and sign and then the 24 digits (memcpy of 0x60 bytes from +8); copying onto itself is a no-op. Always returns 0 (MP_OKAY). Used by the ECC arithmetic (0c05e558, 0c05e868, 0c05eb00, 0c05f1d8, 0c05f338, 0c05f8c4, 0c05fd18, 0c05ff44, 0c0601fc). Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source mp_int"},
+      {"name": "b", "type": "ptr", "description": "destination mp_int"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (MP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c06428c": {
+    "name": "fp_add_d",
+    "summary": "Add a single 32-bit digit to a big integer magnitude: c = a + b",
+    "description": "Copies a to c when the pointers differ (used, sign, 0x60 digit bytes). If b is non-zero it adds b into c->dp[0] and propagates the carry upwards digit by digit (carry = CARRY4 of each addition), returning 0 as soon as the carry is zero. If the carry survives all used digits it is stored as a new top digit (dp[used] = carry, used++); if the carry is still set when the index reaches 24 (FP_SIZE) the function returns -1 (FP_VAL). The sign is not considered, i.e. this is the unsigned digit-add used by fp_read_radix (0c0642f8) and exported as mp_add_d via the thunk 0c0642f4. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source fp_int"},
+      {"name": "b", "type": "u32", "description": "digit to add"},
+      {"name": "c", "type": "ptr", "description": "destination fp_int (may equal a)"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 (FP_OKAY) or -1 (FP_VAL) when the carry would need a 25th digit"},
+    "confidence": "medium",
+    "notes": "wolfSSL's reference fp_add_d goes through fp_add with a temporary; this build uses the simpler magnitude-only loop, so negative inputs are handled as magnitudes."
+  },
+  "ble_219_0c0642f4": {
+    "name": "mp_add_d",
+    "summary": "Thunk to fp_add_d: add a digit to a big integer",
+    "description": "Single branch to fp_add_d (0c06428c): c = a + b for a 32-bit digit b, carry-propagating, -1 (FP_VAL) if a 25th digit would be needed. This is wolfSSL's mp_add_d wrapper; called by the ECC routines 0c05b86c and 0c05f8c4 (e.g. adding 1 to a scalar). Part of the wolfSSL fast-math (tfm.c) big-integer group.",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "source mp_int"},
+      {"name": "b", "type": "u32", "description": "digit to add"},
+      {"name": "c", "type": "ptr", "description": "destination mp_int"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 (MP_OKAY) or -1 (MP_VAL) on overflow"},
+    "confidence": "high"
+  },
+  "ble_219_0c0642f8": {
+    "name": "fp_read_radix",
+    "summary": "Parse an ASCII number of radix 2..64 (fast path for hex) into a big integer",
+    "description": "wolfSSL TFM fp_read_radix(a, str, radix). a is zeroed first. For radix 16 the inlined fp_read_radix_16 is used: an optional leading '-' sets the sign, then the string is scanned from the end (strlen) and each hex nibble ('0'-'9', 'A'-'F' via -0x37, 'a'-'f' via -0x57) is ORed into dp[k] at bit offset j (j advances by 4, k by one digit every 8 nibbles); an invalid character or more than 24 digits returns -1 (FP_VAL); the result is clamped and the sign applied only when non-zero. For other radices in 2..64: optional '-', then per character: for radix <= 36 lowercase letters are upper-cased using the newlib _ctype_ table at 0x0c0862a9 (class bits & 3 == 2 = _L), the character is looked up in the 64-entry map \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/\", parsing stops at the first value >= radix or an unknown character, otherwise a = a * radix (fp_mul_d, 0c062168) + digit (fp_add_d, 0c06428c), propagating their error codes; the sign is set if the result is non-zero. Radix outside 2..64 returns -1. Called by the ECC code (0c05b724, 0c05b86c, 0c05bd30, 0c05e614, 0c060974) to load curve parameters and keys given as hex strings. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "destination fp_int"},
+      {"name": "str", "type": "ptr", "description": "NUL-terminated ASCII number, optional leading '-'"},
+      {"name": "radix", "type": "s32", "description": "number base, 2..64 (16 takes the fast path)"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 (FP_OKAY), -1 (FP_VAL) for bad radix / bad hex digit / overflow, or an fp_mul_d/fp_add_d error"},
+    "confidence": "high"
+  },
+  "ble_219_0c06449c": {
+    "name": "mp_set",
+    "summary": "Set a big integer to a single digit value",
+    "description": "wolfSSL mp_set(a, b) / fp_set: sign = 0, digits dp[1..23] cleared with memset (0x5c bytes from +0xc), dp[0] = b and used = (b != 0). Always returns 0 (MP_OKAY). Used by the ECC routines (0c05bd30, 0c05efc0, 0c05fd18, 0c05ff44, 0c0601fc, 0c060ae4) to initialise constants such as 0 and 1. Part of the wolfSSL fast-math (tfm.c) big-integer group (fp_int: used +0, sign +4, dp[24] +8).",
+    "category": "crypto",
+    "params": [
+      {"name": "a", "type": "ptr", "description": "destination mp_int"},
+      {"name": "b", "type": "u32", "description": "digit value"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (MP_OKAY)"},
+    "confidence": "high"
+  },
+  "ble_219_0c0645ec": {
+    "name": "btstack_crypto_ccm_next_block",
+    "summary": "Advance an AES-CCM request to its next 16-byte block, finishing it when done",
+    "description": "BTstack btstack_crypto.c btstack_crypto_ccm_next_block(ccm, state_when_done). bytes = min(ccm->block_len (u16 at +0x3c), 16); counter (u16 +0x3a) is incremented; input (+0x1c) and output (+0x20) pointers advance by bytes; block_len (+0x3c) and message_len (u16 +0x38) are reduced by bytes. If message_len reaches 0 the state byte at +0x10 becomes 6 (CCM_CALCULATE_S0, compute the final MIC); otherwise state = param_2 and, if the current block_len is now 0, the request is completed via btstack_crypto_done: the head of the pending-operation list btstack_crypto_operations (DAT_20017388) is popped with btstack_linked_list_pop and the request callback at +4 is called with the arg at +8. The engine then continues with the next queued request from the HCI event handler. Layout of btstack_crypto_ccm_t: item +0, callback +4, arg +8, operation +0xc, state +0x10, key +0x14, nonce +0x18, input +0x1c, output +0x20, x_i[16] +0x24, aad_offset +0x34, aad_len +0x36, message_len +0x38, counter +0x3a, block_len +0x3c. No direct callers (reached from the crypto state machine 0c065038 / packet handler 0c064c6c region which belongs to the btstack_crypto group with 0c064ffc random, 0c065038 aes128/ccm, 0c065148 init).",
+    "category": "crypto",
+    "params": [
+      {"name": "ccm", "type": "ptr", "description": "btstack_crypto_ccm_t request"},
+      {"name": "state_when_done", "type": "u8", "description": "CCM state to enter when more message bytes remain"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Matches the upstream source line by line (btstack_min(block_len,16), CCM_CALCULATE_S0 = 6, btstack_crypto_done pops btstack_crypto_operations)."
+  },
+  "ble_219_0c065288": {
+    "name": "btstack_hid_get_report_size_for_id",
+    "summary": "Compute the byte size of a HID report from the report descriptor",
+    "description": "BTstack btstack_hid_parser.c btstack_hid_get_report_size_for_id(report_id, report_type, descriptor_len, descriptor). Returns 0 for an empty descriptor. Otherwise it walks the descriptor with btstack_hid_parse_descriptor_item (item struct on the stack: s32 value +0, u16 size +4, u8 type +6, u8 tag +7). Global items (type 1): tag 8 Report ID sets the current id; tag 9 Report Count and tag 7 Report Size are recorded only while the current id equals report_id. Main items (type 0) with matching id: tag 8 Input / 9 Output / 0xb Feature add count*size bits to the total when report_type is 1 / 2 / 3 respectively (HID_REPORT_TYPE_INPUT/OUTPUT/FEATURE) and then reset count and size to 0. After each item the descriptor pointer/length advance by item size. Returns (total_bits + 7) / 8 (signed division). Called from hid_device.c (0c04af5a) to size outgoing/incoming reports.",
+    "category": "ble_host",
+    "params": [
+      {"name": "report_id", "type": "s32", "description": "report id to match (0 if the descriptor declares none)"},
+      {"name": "report_type", "type": "s32", "description": "1 input, 2 output, 3 feature"},
+      {"name": "hid_descriptor_len", "type": "u32", "description": "descriptor length in bytes"},
+      {"name": "hid_descriptor", "type": "ptr", "description": "HID report descriptor bytes"}
+    ],
+    "returns": {"type": "s32", "description": "report payload size in bytes (0 if not found)"},
+    "confidence": "high"
+  },
+  "ble_219_0c0653a0": {
+    "name": "btstack_hid_report_id_declared",
+    "summary": "Check whether a HID report descriptor contains a Report ID item",
+    "description": "BTstack btstack_hid_parser.c btstack_hid_report_id_declared(descriptor_len, descriptor). Returns 0 for an empty descriptor. Otherwise iterates the items with btstack_hid_parse_descriptor_item (stack item: u16 size +4, u8 type +6, u8 tag +7) and returns 1 as soon as a Global item (type 1) with tag 8 (Report ID) is found; advancing by item size until the length is exhausted returns 0. Called from hid_device.c (0c04afcc) to decide whether reports carry a leading report-id byte.",
+    "category": "ble_host",
+    "params": [
+      {"name": "hid_descriptor_len", "type": "u32", "description": "descriptor length in bytes"},
+      {"name": "hid_descriptor", "type": "ptr", "description": "HID report descriptor bytes"}
+    ],
+    "returns": {"type": "s32", "description": "1 if a Report ID item exists, else 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c065410": {
+    "name": "btstack_linked_list_add_tail",
+    "summary": "Append an item to the end of a linked list (thunk to the implementation)",
+    "description": "Two-byte thunk that falls into btstack_linked_list_add_tail_impl (0c065416): walks the list from the head cell following each item's first word, returns 0 if the item is already linked, otherwise sets item->next = NULL, stores it in the last next pointer and returns 1. This is the public BTstack btstack_linked_list_add_tail entry used by the crypto queue (0c064ffc, 0c065038 ... on btstack_crypto_operations), SM, HCI, L2CAP (0c06cb3c, 0c06dc56, 0c06ee70) and the run loop (0c065a50).",
+    "category": "ble_host",
+    "params": [
+      {"name": "list", "type": "ptr", "description": "pointer to the list head cell"},
+      {"name": "item", "type": "ptr", "description": "item whose first word is the next pointer"}
+    ],
+    "returns": {"type": "s32", "description": "1 if appended, 0 if the item was already in the list"},
+    "confidence": "high"
+  },
+  "ble_219_0c0654c4": {
+    "name": "btstack_memory_hci_connection_get",
+    "summary": "Allocate and zero an hci_connection_t from the 3-entry 800-byte pool",
+    "description": "BTstack btstack_memory_hci_connection_get(): pops a block from the pool free list at DAT_20017c64 with btstack_memory_pool_get; if one is available it is cleared with memset(block, 0, 800). The pool is created in btstack_memory_init (0c065564) as 3 blocks of 800 bytes (storage at 0x20017c68), so at most 3 ACL/LE connections exist at once. Sole caller is hci.c create_connection_for_bd_addr_and_type (0c066168), which then fills state, timer and address fields. The matching free is 0c0654e4.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "ptr", "description": "zeroed hci_connection_t or NULL when all 3 are in use"},
+    "confidence": "high"
+  },
+  "ble_219_0c0654e4": {
+    "name": "btstack_memory_hci_connection_free",
+    "summary": "Return an hci_connection_t block to its pool free list",
+    "description": "BTstack btstack_memory_hci_connection_free(connection): tail-jumps to the shared pool-free routine (0c065558, named btstack_memory_free_list_push in wave 1) with the pool head DAT_20017c64, which walks the list to its end (no-op duplicate check leftover) and head-inserts the block: *block = old head, head = block. The pool (3 x 800 bytes, storage 0x20017c68) is the one hci_connection_t blocks are taken from by 0c0654c4. Called from hci.c when a connection is torn down (0c06637a, 0c0663e8 and the HCI event handler 0c068da8).",
+    "category": "ble_host",
+    "params": [
+      {"name": "connection", "type": "ptr", "description": "hci_connection_t block to release"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The decompiler inlined the callee with the pool head 0x20017c64, which shows that 0c065558 takes the pool as a parameter (btstack_memory_pool_free style) rather than a fixed list at 0x20019088 as described in wave 1."
+  },
+  "ble_219_0c0654f0": {
+    "name": "btstack_memory_l2cap_service_get",
+    "summary": "Allocate and zero an l2cap_service_t from the 8-entry 16-byte pool",
+    "description": "BTstack btstack_memory_l2cap_service_get(): pops a block from the pool free list at DAT_20018e58 with btstack_memory_pool_get and, if non-NULL, zeroes its four 32-bit words (16 bytes: linked item, psm/mtu, packet handler, security level). The pool is created in btstack_memory_init (0c065564) as 8 blocks of 0x10 bytes (storage 0x20018e5c). Sole caller is l2cap_register_service (0c06f078), which logs 'register: no memory for l2cap_service_t' on NULL. The block pointer is returned in r0 although the decompiler shows void.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "ptr", "description": "zeroed l2cap_service_t or NULL when the pool is empty (r0)"},
+    "confidence": "high"
+  },
+  "ble_219_0c06550c": {
+    "name": "btstack_memory_l2cap_channel_get",
+    "summary": "Allocate and zero an l2cap_channel_t from the 8-entry 92-byte pool",
+    "description": "BTstack btstack_memory_l2cap_channel_get(): pops a block from the pool free list at DAT_20018b74 with btstack_memory_pool_get and clears it with memset(block, 0, 0x5c). The pool is created in btstack_memory_init (0c065564) as 8 blocks of 0x5c (92) bytes (storage 0x20018b78), i.e. up to 8 simultaneous L2CAP channels (LE CoC / classic). Sole caller is the l2cap.c channel constructor 0c06cd00 (l2cap_create_channel_entry). The matching free is 0c065528.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "ptr", "description": "zeroed l2cap_channel_t or NULL when the pool is empty"},
+    "confidence": "high"
+  },
+  "ble_219_0c065528": {
+    "name": "btstack_memory_l2cap_channel_free",
+    "summary": "Return an l2cap_channel_t block to its pool free list",
+    "description": "BTstack btstack_memory_l2cap_channel_free(channel): tail-jumps to the shared pool-free routine (0c065558) with pool head DAT_20018b74; the block is head-inserted into the free list (*block = old head, head = block) after a no-op walk to the list end. The pool (8 x 0x5c bytes, storage 0x20018b78) is the one 0c06550c allocates from. Called from l2cap.c channel teardown paths (0c06c74c, 0c06c83c, 0c06cdb8, 0c06d9b0 and the signaling handler 0c06dc56).",
+    "category": "ble_host",
+    "params": [
+      {"name": "channel", "type": "ptr", "description": "l2cap_channel_t block to release"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c065534": {
+    "name": "btstack_memory_service_record_item_get",
+    "summary": "Allocate and zero a 12-byte SDP service_record_item_t from its 8-entry pool",
+    "description": "BTstack btstack_memory_service_record_item_get(): pops a block from the pool free list at DAT_20018fd8 with btstack_memory_pool_get and, if non-NULL, zeroes its three words (linked item, service_record_handle, service_record pointer). The pool is created in btstack_memory_init (0c065564) as 8 blocks of 0xc bytes (storage 0x20018fdc). Sole caller is sdp_register_service (0c04bdc8), which rejects handles below 0x10000 (0x83), duplicates (0x80) and returns 0x56 (BTSTACK_MEMORY_ALLOC_FAILED) when this returns NULL, else stores handle and record pointer at +4/+8 and links the item into the record list at 0x2000fcb4. The pointer is returned in r0 (decompiler shows void).",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "ptr", "description": "zeroed service_record_item_t or NULL when the pool is empty (r0)"},
+    "confidence": "high"
+  },
+  "ble_219_0c06554c": {
+    "name": "btstack_memory_sm_lookup_entry_free",
+    "summary": "Return a 12-byte block to the 6-entry pool at 0x2001903c (SM address-resolution entries)",
+    "description": "Tail-jumps to the shared pool-free routine (0c065558) with pool head DAT_2001903c; the block is head-inserted into that free list. btstack_memory_init (0c065564) creates this pool as 6 blocks of 0xc bytes (storage 0x20019040). The only caller is the large security-manager routine 0c051eb8 (sm.c), and the 12-byte size matches BTstack's sm_lookup_entry_t { linked item; u8 address_type; bd_addr_t address }, which sm_address_resolution frees after resolving a peer address. Hence interpreted as btstack_memory_sm_lookup_entry_free.",
+    "category": "ble_host",
+    "params": [
+      {"name": "entry", "type": "ptr", "description": "sm_lookup_entry_t block to release"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Pool identity inferred from block size (12), count (6) and the SM caller; the matching _get wrapper is not in this packet."
+  },
+  "ble_219_0c065784": {
+    "name": "btstack_ring_buffer_write",
+    "summary": "Append bytes to a BTstack ring buffer, failing with 7 when they do not fit",
+    "description": "BTstack btstack_ring_buffer_write(ring, data, length). Layout: +0 storage, +4 size, +8 last_read_index, +0xc last_written_index, +0x10 full flag. Free space is computed inline (0 when full; otherwise read - write, plus size when write >= read). If length exceeds the free space it returns 7 (ERROR_CODE_MEMORY_CAPACITY_EXCEEDED, used in this port instead of BTSTACK_MEMORY_ALLOC_FAILED). A zero length returns 0. Otherwise the first chunk min(size - write_index, length) is memcpy'd at storage + write_index, the write index advances and wraps to 0 when it reaches size, any remainder is memcpy'd to the start of storage, and if the write index now equals the read index the full flag is set. Returns 0 on success. Used by the application-side byte queues: the UART/log sender 0c05ae14 and the mutex-protected writer 0c028b90 (ring at 0x20008aec).",
+    "category": "ble_host",
+    "params": [
+      {"name": "ring_buffer", "type": "ptr", "description": "btstack_ring_buffer_t (0x14 bytes)"},
+      {"name": "data", "type": "ptr", "description": "bytes to append"},
+      {"name": "data_length", "type": "u32", "description": "number of bytes"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, 7 if there is not enough free space"},
+    "confidence": "high"
+  },
+  "ble_219_0c06580c": {
+    "name": "btstack_ring_buffer_read",
+    "summary": "Read up to length bytes from a BTstack ring buffer and report the count",
+    "description": "BTstack btstack_ring_buffer_read(ring, buffer, length, number_read). Bytes available are computed inline (size when the full flag at +0x10 is set, else write - read wrapped by size); the count to read is min(length, available) and is stored to *number_read. If non-zero, the first chunk min(size - read_index, count) is memcpy'd from storage + read_index into buffer, the read index advances and wraps to 0 at size, any remainder is copied from the start of storage, and finally the full flag is cleared. Called by the UART/log consumers 0c05ab04, 0c05ac20 and 0c05af1c to drain the queues filled by btstack_ring_buffer_write.",
+    "category": "ble_host",
+    "params": [
+      {"name": "ring_buffer", "type": "ptr", "description": "btstack_ring_buffer_t (0x14 bytes)"},
+      {"name": "buffer", "type": "ptr", "description": "destination buffer"},
+      {"name": "length", "type": "u32", "description": "maximum bytes to read"},
+      {"name": "number_read", "type": "ptr", "description": "out: u32 number of bytes actually read"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0658d8": {
+    "name": "btstack_run_loop_embedded_remove_all_timers",
+    "summary": "Unlink every timer from the run loop timer list at 0x200190ac",
+    "description": "Initialises a removal-safe btstack_linked_list_iterator on the timer list head DAT_200190ac and, while has_next, fetches the next timer and removes it with btstack_linked_list_remove. Timer callbacks are not invoked. Part of the BES bthost_run_loop.c port of the BTstack embedded run loop (with 0c065908 add, 0c06595c process, 0c0659b0 dump, 0c065a0c next delay). Single caller is the stack restart routine 0c059180 ('bts restart timer'), which drops all pending timeouts before re-initialising the host.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Contrary to the wave 1 guess for btstack_run_loop_embedded_init, 0x200190ac is the sorted timer list (bthost_run_loop.c), while 0x200190a4 is the deferred-callback queue popped by the main loop 0c05d108."
+  },
+  "ble_219_0c065908": {
+    "name": "btstack_run_loop_embedded_add_timer",
+    "summary": "Insert a timer into the run loop timer list sorted by expiry time",
+    "description": "bthost_run_loop.c add_timer(ts) for the BTstack embedded run loop; btstack_timer_source_t = { next +0, s32 timeout +4, process +8, context +0xc }. If the list at DAT_200190ac is empty the timer becomes the head with next = NULL. Otherwise it walks the list: when ts->timeout - it->timeout (util_sub_s32, i.e. btstack_time_delta) is negative the timer is linked in front of that item and the function returns, so the list stays ordered by expiry. Reaching the end appends it with next = NULL. If the timer is already in the list it logs 'Timer %p already registered!' (bthost_run_loop.c:73, level 2 via ble_hook_invoke_indexed) and then falls into the generic insert with it->next == ts, which as decompiled links the timer to itself. Called through the run loop vtable (btstack_run_loop_add_timer, 0c065aac), so no direct callers.",
+    "category": "ble_host",
+    "params": [
+      {"name": "ts", "type": "ptr", "description": "btstack_timer_source_t to schedule (timeout at +4 already set)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The duplicate path looks like a 'break' where upstream BTstack has 'return'; the resulting self-link would corrupt the list, which may be the reason for the error log."
+  },
+  "ble_219_0c06595c": {
+    "name": "btstack_run_loop_embedded_process_timers",
+    "summary": "Fire every expired timer at the head of the run loop timer list",
+    "description": "bthost_run_loop.c timer execution step, called from the host main loop 0c05d108 with the current time in ms. Loops on the head of DAT_200190ac: if the head's timeout (+4) is 0 it logs 'exception timeout is 0' (bthost_run_loop.c:105, level 2 via ble_hook_invoke_indexed), removes that timer with btstack_linked_list_remove and returns without calling it. Otherwise if timeout - now (util_sub_s32 = btstack_time_delta) is > 0 the head has not expired and, since the list is sorted, the function returns. Expired timers are unlinked and their process callback (+8) is called with the timer pointer; the head is re-read afterwards because callbacks may add or remove timers. Part of the embedded run loop group (0c065908 add, 0c0658d8 remove all, 0c0659b0 dump, 0c065a0c next delay).",
+    "category": "ble_host",
+    "params": [
+      {"name": "now_ms", "type": "u32", "description": "current run loop time in milliseconds"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0659b0": {
+    "name": "btstack_run_loop_embedded_dump_timer",
+    "summary": "Log every pending run loop timer with its index and expiry time",
+    "description": "bthost_run_loop.c dump_timer: if the timer list DAT_200190ac is non-empty it walks it and for each timer calls the active run loop's get_time_ms (vtable slot +0x28 of the btstack_run_loop_t pointed to by DAT_200190b0) and logs 'current:[%d] timer %u (%p): timeout %lu' (bthost_run_loop.c:122, level 2 via ble_hook_invoke_indexed) with the current time, a running s16 index, the timer pointer and its timeout (+4). Reached only through the run loop vtable (btstack_run_loop_dump_timer, 0c065ad4). Part of the embedded run loop group.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c065a0c": {
+    "name": "btstack_run_loop_embedded_next_timer_delay_ms",
+    "summary": "Milliseconds until the earliest run loop timer expires (-1 if none)",
+    "description": "If the timer list DAT_200190ac is empty returns 0xffffffff. Otherwise computes delta = head->timeout (+4) - now (util_sub_s32) and clamps negative values to 0 with the mask trick delta & ~(delta >> 31). Called by the host main loop 0c05d108 right after processing timers to choose the wait time of its event wait (negative -> wait forever or 100 ms, otherwise min(delta, 100) ms depending on DAT_20017284). Part of the bthost_run_loop.c embedded run loop group.",
+    "category": "ble_host",
+    "params": [
+      {"name": "now_ms", "type": "u32", "description": "current run loop time in milliseconds"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "u32", "description": "ms until the next timer (>= 0), or 0xffffffff when no timer is pending"},
+    "confidence": "high"
+  }
+}

@@ -1,0 +1,262 @@
+{
+ "vcu_g_0159_20001350": {
+  "name": "util_soft_timer_tick",
+  "type": "u32",
+  "size": 4,
+  "anchor": [
+   "VCU_0159",
+   "0x20001350"
+  ],
+  "category": "util",
+  "description": "Free-running 32-bit software tick counter. TMR5_GLOBAL_IRQHandler adds 1 on each TMR5 overflow (probably one tick per 1 ms). It is the time base of all software timers: soft_timer_poll and soft_timer_start compare it with SoftTimer.start and period. Only incremented in the code seen here, never reset after boot. In VCU_148 the same counter is at 0x20001354."
+ },
+ "vcu_g_14b_20001fb0": {
+  "name": "util_soft_timer1_oneshot_v14b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14b",
+   "0x20001fb0"
+  ],
+  "category": "util",
+  "description": "One-shot flag of software timer slot 1 in VCU_14b (probably SoftTimer.oneshot, slot 1 = offset +8 from 0x20001fa8). 1 = the timer disarms after it fires. Written by soft_timer_start, read by soft_timer_poll."
+ },
+ "vcu_g_14b_20001fb1": {
+  "name": "util_soft_timer1_armed_v14b",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14b",
+   "0x20001fb1"
+  ],
+  "category": "util",
+  "description": "Armed flag of software timer slot 1 in VCU_14b (probably SoftTimer.armed, offset +9). 1 = the callback is pending. soft_timer_start sets it, soft_timer_poll clears it after a one-shot fires."
+ },
+ "vcu_g_14b_20001fb4": {
+  "name": "util_soft_timer1_callback_v14b",
+  "type": "ptr",
+  "size": 4,
+  "anchor": [
+   "VCU_14b",
+   "0x20001fb4"
+  ],
+  "category": "util",
+  "description": "Callback function pointer of software timer slot 1 in VCU_14b (probably SoftTimer.callback, offset +12). Called without arguments by soft_timer_poll when the timer fires; 0 = no callback."
+ },
+ "vcu_g_14e_20001fb0": {
+  "name": "util_soft_timer1_oneshot_v14e",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14e",
+   "0x20001fb0"
+  ],
+  "category": "util",
+  "description": "One-shot flag of software timer slot 1 in VCU_14e (probably SoftTimer.oneshot, slot 1 = offset +8 from 0x20001fa8). 1 = the timer disarms after it fires. Written by soft_timer_start, read by soft_timer_poll."
+ },
+ "vcu_g_14e_20001fb1": {
+  "name": "util_soft_timer1_armed_v14e",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14e",
+   "0x20001fb1"
+  ],
+  "category": "util",
+  "description": "Armed flag of software timer slot 1 in VCU_14e (probably SoftTimer.armed, offset +9). 1 = the callback is pending. soft_timer_start sets it, soft_timer_poll clears it after a one-shot fires."
+ },
+ "vcu_g_14e_20001fb4": {
+  "name": "util_soft_timer1_callback_v14e",
+  "type": "ptr",
+  "size": 4,
+  "anchor": [
+   "VCU_14e",
+   "0x20001fb4"
+  ],
+  "category": "util",
+  "description": "Callback function pointer of software timer slot 1 in VCU_14e (probably SoftTimer.callback, offset +12). Called without arguments by soft_timer_poll when the timer fires; 0 = no callback."
+ },
+ "vcu_g_14f_20001fb0": {
+  "name": "util_soft_timer1_oneshot_v14f",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001fb0"
+  ],
+  "category": "util",
+  "description": "One-shot flag of software timer slot 1 in VCU_14f (probably SoftTimer.oneshot, slot 1 = offset +8 from 0x20001fa8). 1 = the timer disarms after it fires. Written by soft_timer_start, read by soft_timer_poll."
+ },
+ "vcu_g_14f_20001fb1": {
+  "name": "util_soft_timer1_armed_v14f",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001fb1"
+  ],
+  "category": "util",
+  "description": "Armed flag of software timer slot 1 in VCU_14f (probably SoftTimer.armed, offset +9). 1 = the callback is pending. soft_timer_start sets it, soft_timer_poll clears it after a one-shot fires."
+ },
+ "vcu_g_14f_20001fb4": {
+  "name": "util_soft_timer1_callback_v14f",
+  "type": "ptr",
+  "size": 4,
+  "anchor": [
+   "VCU_14f",
+   "0x20001fb4"
+  ],
+  "category": "util",
+  "description": "Callback function pointer of software timer slot 1 in VCU_14f (probably SoftTimer.callback, offset +12). Called without arguments by soft_timer_poll when the timer fires; 0 = no callback."
+ },
+ "vcu_g_0159_20002054": {
+  "name": "util_soft_timer_table",
+  "type": "SoftTimer",
+  "size": 80,
+  "anchor": [
+   "VCU_0159",
+   "0x20002054"
+  ],
+  "category": "util",
+  "description": "Table of five software timer slots (SoftTimer, 16-byte stride) used by soft_timer_start and soft_timer_poll in VCU_0159. Slot i: period at +16i, start +16i+4, one-shot flag +16i+8, armed flag +16i+9, callback pointer +16i+12. Slot 0 starts at 0x20002054, slot 1 at 0x20002064.",
+  "count": 5
+ },
+ "vcu_g_148_20002088": {
+  "name": "util_soft_timer1_oneshot_v148",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20002088"
+  ],
+  "category": "util",
+  "description": "One-shot flag of software timer slot 1 in VCU_148 (probably SoftTimer.oneshot; table base 0x20002070, slot 1 base 0x20002080). 1 = disarm after firing. Written by soft_timer_start, read by soft_timer_poll."
+ },
+ "vcu_g_148_20002089": {
+  "name": "util_soft_timer1_armed_v148",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x20002089"
+  ],
+  "category": "util",
+  "description": "Armed flag of software timer slot 1 in VCU_148 (probably SoftTimer.armed). soft_timer_start sets it, soft_timer_poll clears it after a one-shot fires."
+ },
+ "vcu_g_148_2000208c": {
+  "name": "util_soft_timer1_callback_v148",
+  "type": "ptr",
+  "size": 4,
+  "anchor": [
+   "VCU_148",
+   "0x2000208c"
+  ],
+  "category": "util",
+  "description": "Callback function pointer of software timer slot 1 in VCU_148 (probably SoftTimer.callback). Called without arguments when the timer fires; 0 = no callback."
+ },
+ "vcu_g_14a_200020a4": {
+  "name": "util_soft_timer1_oneshot_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200020a4"
+  ],
+  "category": "util",
+  "description": "One-shot flag of software timer slot 1 in VCU_14a (probably SoftTimer.oneshot; table base 0x2000208c, slot 1 base 0x2000209c). 1 = disarm after firing."
+ },
+ "vcu_g_14a_200020a5": {
+  "name": "util_soft_timer1_armed_v14a",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200020a5"
+  ],
+  "category": "util",
+  "description": "Armed flag of software timer slot 1 in VCU_14a (probably SoftTimer.armed). soft_timer_start sets it, soft_timer_poll clears it after a one-shot fires."
+ },
+ "vcu_g_14a_200020a8": {
+  "name": "util_soft_timer1_callback_v14a",
+  "type": "ptr",
+  "size": 4,
+  "anchor": [
+   "VCU_14a",
+   "0x200020a8"
+  ],
+  "category": "util",
+  "description": "Callback function pointer of software timer slot 1 in VCU_14a (probably SoftTimer.callback). Called without arguments when the timer fires; 0 = no callback."
+ },
+ "vcu_g_0159_200029ac": {
+  "name": "util_record_queue_b_slots",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_0159",
+   "0x200029ac"
+  ],
+  "category": "util",
+  "description": "Second record queue (initialised second by vcu_record_queues_init) in VCU_0159: 32 entries of 20 bytes. Its two 32-bit head/tail indices are probably at 0x200029a4 and 0x200029a8 (not in this packet). Entries are zeroed at boot; their use is not decoded here.",
+  "count": 32
+ },
+ "vcu_g_0159_20002c34": {
+  "name": "util_record_queue_a_slots",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_0159",
+   "0x20002c34"
+  ],
+  "category": "util",
+  "description": "First record queue (initialised first by vcu_record_queues_init) in VCU_0159: 32 entries of 20 bytes. Its two 32-bit head/tail indices are probably at 0x20002c2c and 0x20002c30 (not in this packet). Entries are zeroed at boot; their use is not decoded here.",
+  "count": 32
+ },
+ "vcu_g_148_20002c3c": {
+  "name": "util_record_queue_a_slots_v148",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_148",
+   "0x20002c3c"
+  ],
+  "category": "util",
+  "description": "First record queue in VCU_148 (probably the same queue as util_record_queue_a_slots, header at 0x20002c34 and 0x20002c38): 32 entries of 20 bytes, zeroed at boot by vcu_record_queues_init.",
+  "count": 32
+ },
+ "vcu_g_14b_20002b64": {
+  "name": "util_record_queue_a_slots_v14b",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_14b",
+   "0x20002b64"
+  ],
+  "category": "util",
+  "description": "First record queue in VCU_14b (header at 0x20002b5c and 0x20002b60): 32 entries of 20 bytes, zeroed at boot by vcu_record_queues_init. Probably the same queue as util_record_queue_a_slots.",
+  "count": 32
+ },
+ "vcu_g_14e_20002b64": {
+  "name": "util_record_queue_a_slots_v14e",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_14e",
+   "0x20002b64"
+  ],
+  "category": "util",
+  "description": "First record queue in VCU_14e (header at 0x20002b5c and 0x20002b60): 32 entries of 20 bytes, zeroed at boot by vcu_record_queues_init. Same layout as VCU_14b.",
+  "count": 32
+ },
+ "vcu_g_14a_20002c58": {
+  "name": "util_record_queue_slots_v14a",
+  "type": "RecordSlot",
+  "size": 640,
+  "anchor": [
+   "VCU_14a",
+   "0x20002c58"
+  ],
+  "category": "util",
+  "description": "Record queue slots in VCU_14a: 32 entries of 20 bytes starting at 0x20002c58 (probably the first queue, with head/tail just below it), zeroed at boot by vcu_record_queues_init.",
+  "count": 32
+ }
+}

@@ -1,0 +1,90 @@
+{
+  "bms_g_4168_2000001e": {
+    "name": "bms_period1000_expired",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x2000001e"],
+    "category": "timer",
+    "description": "Flag that a 1000-tick period has expired. bms_counter_1000_tick sets it to 1 in the call where the time base has advanced 1000 ticks past the stamp at 0x20000034 (probably 1 s if the time base is 1 ms), and in the same call increments the signed 16-bit counter that 0x2000002C points to. The next call clears it and restarts the period from the current time base. Only bms_counter_1000_tick accesses it in this packet."
+  },
+  "bms_g_4168_20000020": {
+    "name": "bms_timer10_request",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000020"],
+    "category": "timer",
+    "description": "Request byte for the 10-tick periodic timer. bms_timer10_poll tests it on each call; when it is non-zero the function clears it, restarts the timer stamp at 0x2000003C, sets the period value at 0x20000028 to 10 and returns 1. Nothing in this packet sets it, so another routine or the application probably does."
+  },
+  "bms_g_4168_20000028": {
+    "name": "bms_timer_period_ms",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x20000028"],
+    "category": "timer",
+    "description": "16-bit period and last-interval value, probably in milliseconds (not established). bms_timer10_poll sets it to 10 when a request at 0x20000020 is taken and stores the elapsed time in time-base ticks each time the 10-tick timer expires. bms_4168_080082f0 sets it to 1000 at init and to 100 in its later state, and passes it to the timer and wait helpers. bms_app_value_28_get returns it to the application layer."
+  },
+  "bms_g_4168_20000034": {
+    "name": "bms_period1000_stamp",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000034"],
+    "category": "timer",
+    "description": "Time-base stamp that starts the current 1000-tick period. bms_counter_1000_tick sets it to the current time base (bms_tick_get) when the expired flag at 0x2000001E is cleared, and bms_tick_timeout_check compares the time base minus this stamp against the threshold 1000 on each call."
+  },
+  "bms_g_4168_2000003c": {
+    "name": "bms_timer10_stamp",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x2000003c"],
+    "category": "timer",
+    "description": "Time-base stamp of the 10-tick timer used by bms_timer10_poll. It is set when the timer is armed through the request byte at 0x20000020 and again each time the timer expires; bms_tick_timeout_check tests the time base minus this stamp against the threshold 10."
+  },
+  "bms_g_4139_20000595": {
+    "name": "bms_pb11_hold_latched",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4139", "0x20000595"],
+    "category": "gpio",
+    "description": "Latched output of the PB11 hold timer in builds 4130 and 4139; the routine also returns it. bms_pb11_hold_timer_step sets it to 1 when the accumulator at 0x20000596 passes 2000 while GPIOB pin 11 is high (IDR bit 11 at 0x50000410), and sets it to 0 on each call where the pin is low."
+  },
+  "bms_g_4139_20000596": {
+    "name": "bms_pb11_hold_accum",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4139", "0x20000596"],
+    "category": "gpio",
+    "description": "Accumulator of the PB11 hold timer in builds 4130 and 4139. While GPIOB pin 11 is high, bms_pb11_hold_timer_step adds its signed step argument to it (probably the elapsed time per call); when it exceeds 2000 it is reset to 0 and the latch at 0x20000595 is set. A low pin does not reset it, so it keeps its value across low periods and only the latch is cleared."
+  },
+  "bms_g_4168_20000678": {
+    "name": "bms_time_base_ticks",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000678"],
+    "category": "timer",
+    "description": "Free-running 32-bit time base, incremented by one in each TIM7/LPTIM2 update interrupt (TIM7_LPTIM2_IRQHandler), probably once per millisecond (not established). bms_tick_get returns it, and bms_tick_timeout_check computes elapsed time as the base minus a stamp. The same interrupt also decrements the 16-bit down-counters at 0x2000067C and 0x2000067E."
+  },
+  "bms_g_4168_20000688": {
+    "name": "bms_systick_counts_per_us",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000688"],
+    "category": "timer",
+    "description": "SysTick counts per microsecond, used by the busy-wait helpers. bms_systick_wait_repeat waits this value times 1000 SysTick counts per repetition, and bms_systick_wait_scaled waits this value times its argument. bms_systick_base_set stores it, and the timer initialisation passes 16, which is probably the 16 MHz HSI16 clock (not verified)."
+  },
+  "bms_g_4168_2000069c": {
+    "name": "bms_systick_1khz_priority",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x2000069c"],
+    "category": "timer",
+    "description": "Interrupt priority (0 to 3) that bms_systick_1khz_start programmed for SysTick (exception -1) when it started the 1 kHz tick, through the priority helper at 0x080022B0. bms_systick_1khz_start stores it only when the enable byte at 0x20000698 is set and the priority is below 4. Nothing in this packet reads it."
+  },
+  "bms_g_4168_2000133c": {
+    "name": "bms_slot_list_head",
+    "type": "ptr",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x2000133c"],
+    "category": "flash",
+    "description": "Head pointer of the linked list of tagged slot records, or 0 when the list is empty. bms_slot_pool_register takes entries from a 10-slot pool and appends them to this list; bms_timeout_arm_from_record and bms_extlog_request_dispatch walk it. A record has a type or state byte at +1 (value 5 is tested by bms_timeout_arm_from_record) and a pointer at +4 to its payload. bms_extflash_journal_init also writes this word; the value it writes is not established."
+  }
+}

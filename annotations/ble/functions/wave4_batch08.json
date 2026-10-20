@@ -1,0 +1,748 @@
+{
+  "ble_219_0c053a48": {
+    "name": "ble_secure_ctx_restore_from_nv",
+    "summary": "Verify and unwrap the stored secure context at boot and rebuild its RAM copies",
+    "description": "Boot-time restore of the secure link context; it has no direct callers. The record at 0x200122E4 is checked and loaded through ble_219_0c05be98 (its result gates everything), and on success it is saved back as NV record 0xFAF (ble_nv_record_write, 32 bytes). An 80-byte snapshot is then assembled at 0x2001150C: 16 bytes from 0x20011A00, 32 bytes from 0x200109E0 at +0x10 and 32 bytes from 0x2001091D at +0x30. The 0x410-byte blob at 0x2001050D is copied to 0x200115ED and transformed by ble_219_0c05bf00 with the key at 0x200122E4 into a 0x400-byte output at 0x20011A10 (probably decryption with an integrity check); the output is then handled by ble_219_0c05c860, ble_219_0c065c88 and ble_219_0c05c8a8, a second record is loaded by ble_219_0c05baf0 and folded into the snapshot, and the output is memcpy'd to 0x200115BD. Finally ble_219_0c05c13c encodes message 0x4B5 from the snapshot into 0x20011004 (capacity 0x506) using context 0x20004030. The function returns 0 on success and 0xC if any step fails.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC if any step fails"
+    },
+    "confidence": "medium",
+    "notes": "Callees ble_219_0c05be98, ble_219_0c05b984, ble_219_0c05bfa4, ble_219_0c05bf00, ble_219_0c05baf0, ble_219_0c05c860, ble_219_0c05c8a8, ble_219_0c05c13c and ble_219_0c065c88 are not described yet, so the cipher, the integrity check and the meaning of message ids 0x59 and 0x4B5 are inferred from the call shape only."
+  },
+  "ble_219_0c053c94": {
+    "name": "ble_record_a_reload",
+    "summary": "Reload the 32-byte record at 0x200101E4 from its backing store into RAM",
+    "description": "Reads the 32-byte record through ble_219_0c05bcc0, which takes the record address and returns the content in a caller buffer. Only when that read returns 0 are the eight words copied into the RAM copy at 0x200101E4..0x20010200; on failure the RAM copy is left unchanged. The function writes the 8 global words and returns 0, or 0xC on read failure. The backing store behind ble_219_0c05bcc0 is not described yet.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC if the read fails"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c053ccc": {
+    "name": "ble_record_b_reload",
+    "summary": "Reload the 32-byte record at 0x20010204 from its backing store into RAM",
+    "description": "Same pattern as ble_record_a_reload for the second 32-byte record at 0x20010204..0x20010220: read through ble_219_0c05bcc0 into a stack buffer and copy the eight words into RAM only when the read returns 0. Returns 0 on success and 0xC on read failure, with the RAM copy untouched on failure. The helper ble_219_0c05bcc0 is shared with the record A reload and is not described yet.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC if the read fails"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c053d04": {
+    "name": "ble_record_a_derive_and_commit",
+    "summary": "Reload record A, derive its 28-byte and 16-byte blocks and commit them to NV",
+    "description": "Reloads record A at 0x200101E4 (ble_219_0c05bcc0) and, on success, derives a 28-byte block at 0x20012B90 from it with ble_219_0c05bd30 (parameter block 0x20012220). On success the 32-bit generation counter at 0x20012B8C is incremented, the 28-byte block is passed through ble_219_0c065c88, and a 16-byte block at 0x20012BAC is derived with ble_219_0c05bce4 and passed through ble_219_0c065c88 and ble_219_0c053740. Record A is then written to NV 0xFAD (ble_nv_record_write, 32 bytes) and the 48-byte composite [counter, 28-byte block, 16-byte block] starting at 0x20012B8C is written to NV 0xFB0. The empty hook ble_hook_noop_05cba8 runs last and the function returns 0; any failed step returns 0xC without writing NV.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC if a reload or derive step fails (no NV write)"
+    },
+    "confidence": "medium",
+    "notes": "Helpers ble_219_0c05bd30, ble_219_0c05bce4, ble_219_0c065c88 and ble_219_0c053740 are not described yet; the meaning of the 28-byte and 16-byte blocks is inferred from where they are stored."
+  },
+  "ble_219_0c053da4": {
+    "name": "ble_record_b_derive_and_commit",
+    "summary": "Reload record B, derive its 28-byte block, bump its counter and commit to NV",
+    "description": "Reloads record B at 0x20010204 (ble_219_0c05bcc0) and derives a 28-byte block at 0x20012BC0 from it with ble_219_0c05bd30 (parameter block 0x20012220). On success the 32-bit counter at 0x20012BBC is incremented, the block is passed through ble_219_0c065c88, and two NV records are written: record B itself to 0xFAE (ble_nv_record_write, 32 bytes) and the 32-byte composite [counter, 28-byte block] to 0xFB1. Returns 0 on success and 0xC if the reload or the derive step fails, with no NV write on failure.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC if the reload or derive step fails"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c053e1c": {
+    "name": "ble_session_msg_build",
+    "summary": "Build the 141-byte session message for tap (0) or bt (1) and encode it",
+    "description": "param_1 selects an ASCII tag written into the 28-byte block at 0x200122A4 and 0x200122E0: 0 writes 'tap' and 1 writes 'bt' (keeping the byte after it), and any other value restores the previous block, stores the counters and returns 0xC. The 64-bit counter at 0x20012308/0x2001230C is incremented into 0x2001229C/0x200122A0 and copied to 0x200122B8/0x200122BC. The 16-byte value at 0x2001227C is copied to 0x2001228C and to 0x200122A8, the input of the message. ble_219_0c05c088 then computes a 4-byte value over the 28-byte block at 0x2001228C with the key at 0x200122E4 and stores it at 0x200122C0. Finally ble_219_0c05c13c encodes message 0x3C from 0x200122A8 into the 141-byte buffer at 0x20010424 (capacity 0x8D); on failure that buffer is zeroed and 0xC is returned. The 1 mode is requested by the 0x404 command in ble_app_req_406_handle.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 = tap tag, 1 = bt tag, any other value restores state and fails"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC on failure"
+    },
+    "confidence": "medium",
+    "notes": "Whether 0x200122E0 and 0x200122A4 are one message header or two copies is not confirmed. ble_219_0c05c088 is probably a MAC or check value; the names tap and bt are the literal tags in the code."
+  },
+  "ble_219_0c053ee4": {
+    "name": "ble_secure_blob_wipe_1k",
+    "summary": "Clear the 1 KB secure buffer at 0x20011A10 through the wipe helper",
+    "description": "Calls ble_219_0c05c860 with the buffer at 0x20011A10, length 0x400 and fill value 0. It is the cleanup step reached from ble_219_0c05c8a8 for the 1 KB decrypted output that ble_219_0c053a48 also clears directly. Whether ble_219_0c05c860 is a plain memset or a secure wipe is not confirmed, but the zero fill value suggests a clear.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c053f24": {
+    "name": "ble_host_rx_chunk_handle",
+    "summary": "Append one host chunk to the reassembly buffer and dispatch it on the last chunk",
+    "description": "Takes the frame length in param_2 and the frame in param_3, whose first byte is a flag (1 marks the last chunk). If the slot manager is not ready (ble_slot_mgr_is_ready returns 0) it returns 0xF. Otherwise the bytes after the flag are appended to the host buffer at 0x20012608 with ble_host_rx_buf_append. When the appended chunk carries the last-chunk flag, a total length under 3 bytes clears the buffer with ble_host_ctx_clear_2608 and returns 0xE; a longer message is dispatched by ble_host_rx_msg_dispatch and the function returns 0. Non-final chunks always return 0.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "unused in this function"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "frame length including the flag byte"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "frame bytes; byte 0 is the last-chunk flag, the rest is payload"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 ok, 0xE short final chunk (buffer cleared), 0xF slot manager not ready"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0540f4": {
+    "name": "ble_app_frame_dispatch_406",
+    "summary": "Dispatch an inbound 0x406-channel frame to the request handler or send status",
+    "description": "Frame dispatcher for the 0x406 channel; status replies carry message id 0x406. Frames shorter than 3 bytes are status-only: the entry at index = ble_counter_20012344_step() of the 11-entry table at 0x2001231C is set to 0xFFFF0000, and if any slot is in use (ble_slot_count_used) a 4-byte reply is sent with ble_app_queue_message; the function returns 0xE. For longer frames whose first byte is not 1, the 16-bit value from bytes 1-2 is stored as (3 << 16) | value in the same table entry and sent as the 0x406 reply when a slot is in use; the function returns 1. Frames whose first byte is 1 are passed to ble_app_req_406_handle with the payload, and the function returns 0. The counter at 0x20012344 is the last table entry (index 10).",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "reply context passed to ble_app_queue_message"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "frame length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "frame bytes; byte 0 is the command type"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to the request handler"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when dispatched to the request handler, 1 or 0xE for status frames"
+    },
+    "confidence": "medium",
+    "notes": "The return values of the three ble_app_frame_dispatch_* functions are not uniform: here short frames return 0xE and long non-1 frames return 1, the reverse of ble_app_frame_dispatch_20b and ble_app_frame_dispatch_302 for the status path."
+  },
+  "ble_219_0c054180": {
+    "name": "ble_app_frame_dispatch_20b",
+    "summary": "Dispatch an inbound 0x20B-channel frame to its handler or send status",
+    "description": "Same structure as ble_app_frame_dispatch_406 for the 0x20B channel (replies carry id 0x20B). Frames shorter than 3 bytes write 0xFFFF0000 into the table at 0x2001231C and send a 4-byte status reply when a slot is in use, returning 1. Type-1 frames are passed to ble_219_0c053018 (not yet described) and return 0. Other frames store (3 << 16) | value in the table and send the 0x20B reply when a slot is in use, returning 0xE in both cases.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "reply context passed to ble_app_queue_message"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "frame length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "frame bytes; byte 0 is the command type"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to the type-1 handler"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when dispatched to the type-1 handler, 1 for short status frames, 0xE for other frames"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05420c": {
+    "name": "ble_app_frame_dispatch_302",
+    "summary": "Dispatch an inbound 0x302-channel frame to its handler or send status",
+    "description": "Same structure as ble_app_frame_dispatch_406 for the 0x302 channel (replies carry id 0x302). Frames shorter than 3 bytes write 0xFFFF0000 into the table at 0x2001231C, send a 4-byte status reply when a slot is in use and return 1. Type-1 frames are handed to ble_app_req_302_handle and return 0. Other frames store (3 << 16) | value in the table, send the 0x302 reply when a slot is in use and return 0xE.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "reply context passed to ble_app_queue_message"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "frame length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "frame bytes; byte 0 is the command type"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to the request handler"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when dispatched to the request handler, 1 for short status frames, 0xE for other frames"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c054534": {
+    "name": "ble_fmna_found_url_update",
+    "summary": "Set one field of the Find My found-URL source and rebuild the lookup URL",
+    "description": "param_1 selects the field: 0 stores one byte into 0x2000407A (the b value), 1 copies 16 raw bytes from param_2 to 0x2000408D (the serial, NUL-terminated at 0x2000409D), 2 hex-encodes the 140 bytes at param_2 into the string at 0x20004080 and passes that buffer with length 0x11A to ble_219_0c065c88, and 4 hex-encodes 5 bytes into the same string. The 397-byte URL buffer at 0x20012478 is cleared with memset and filled with 'found.apple.com/accessory?pid=%04x&b=%02x&fv=%08x' from the 16-bit pid at 0x20004078, the byte at 0x2000407A and the 32-bit value at 0x2000407C. It then appends either '&e=%s&op=%s' (the hex string and the string at 0x2000419B) when the slot manager is ready, or '&bt=%s&sr=%s' (the hex string and the serial at 0x2000408D) when it is not.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "field selector: 0, 1, 2 or 4"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "field value (byte, 16-byte serial, or byte array depending on param_1)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in this function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed to the fill helper, value not used by this code path"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The Find My URL format string and its field names are literal firmware strings. The meaning of the 16-byte serial and the 5-byte value in mode 4 are inferred from the printed field names."
+  },
+  "ble_219_0c054668": {
+    "name": "ble_app_req_302_handle",
+    "summary": "Handle a 0x302-channel command (0x300, 0x301, 0x304) and reply or queue an event",
+    "description": "Handles the 16-bit command word in *param_2 on the 0x302 channel. It proceeds only when ble_state_12c81_is_2 is false and ble_slot_test_flag_any on slot param_1 with bit 5 is clear; otherwise it replies with status 0xFFFF. The command is validated with ble_pair_table_lookup against the table at 0x200041A0. Command 0x300, when bit 2 of slot 0xFE is clear, sets that bit with ble_slot_set_flag, queues event 0x0A and replies with status 0; if the bit is set it replies with status 1. Command 0x301, when bit 2 is set, queues event 0x0B and sends no reply; otherwise it replies with status 1. Command 0x304 sets DAT_20012605 to 1, which ble_fmna_pair_adv_service consumes, and replies with status 0. Other commands are dropped without a reply. Replies go through ble_slot_store_and_queue with id 0x302, carrying the command and the status, and a failed lookup replies with the lookup code (3 or 0xFFFF).",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "slot or context handle used for the flag tests"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "frame: u16 command word followed by arguments"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "frame payload length"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c054734": {
+    "name": "ble_app_req_406_handle",
+    "summary": "Handle a 0x406-channel request: answer commands 0x400, 0x401 and 0x404",
+    "description": "Handles requests on the 0x406 channel (frames with type byte 1). The command word is checked with ble_pair_table_lookup against the table at 0x200041AC; on failure it sends an error frame 0x406 carrying the command. Command 0x401 replies with frame 0x403 carrying a 60-byte identity string, read from ROM at 0x0C07462C when the slot manager is not ready and from RAM at 0x2001093D when it is ready. Command 0x400 replies with frame 0x402 carrying a 28-byte block, read from ROM at 0x0C074810 or RAM at 0x20012B90 by the same test. Command 0x404 replies with 0x406 status 1 when flag byte 0x20012606 is set or the slot manager is not ready; otherwise it calls ble_219_0c053e1c(1) (the bt session message) and replies with frame 0x405 carrying 141 bytes. Replies are queued with ble_app_queue_message only when a slot is in use; other commands are ignored.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "reply context passed to ble_app_queue_message"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "frame: u16 command word followed by arguments"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "frame payload length"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05482c": {
+    "name": "ble_host_rx_buf_append",
+    "summary": "Append bytes to the 0x574-byte host receive buffer, calling the overflow handler when full",
+    "description": "Appends param_2 bytes from param_1 to the host receive buffer whose u16 length sits at 0x20012608 and whose payload starts at 0x2001260A (capacity 0x572 bytes; the whole block is 0x574 bytes). If used + param_2 exceeds 0x572 it first calls ble_219_0c0537b4(1) (not yet described, an overflow handler) and re-reads the length, then memcpy's the bytes to the end of the payload and advances the length. Always returns 0.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "bytes to append"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "number of bytes to append"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05486c": {
+    "name": "ble_host_rx_msg_dispatch",
+    "summary": "Dispatch a completed host message by command word and clear the receive buffer",
+    "description": "Consumes the complete message in the host buffer at 0x20012608. The command word is the u16 at 0x2001260A and the body starts at 0x2001260C. The command is checked with ble_pair_table_lookup against the table at 0x200041B8 using the buffer length: command 0x102 accepts lookup codes 0 and 3 and then copies 0x529 bytes to 0x200104B4, writes the 60-byte identity string at 0x2001093D to NV record 0xFB2 (ble_nv_record_write) and queues event 0x0F. Command 0x104 queues event 0x10, and command 0x100 copies 0x91 bytes into the record A area at 0x200109E0 and queues event 0x0E. Other commands do nothing. Commands other than 0x102 require lookup code 0. When the check fails the function calls ble_219_0c0537b4(1) and returns without the final clear; otherwise the 0x574-byte buffer is zeroed with memset.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 0x0C0537B4 handler is not described yet, so whether it also resets the buffer is unknown. Event numbers 0x0E and 0x0F are not named in other packets yet."
+  },
+  "ble_219_0c055244": {
+    "name": "ble_fmna_adv_open",
+    "summary": "Open Find My advertising: run two helpers and arm the 600000-unit timer",
+    "description": "Opens Find My advertising for debug command '1' and for the start-pair path of command '9'. It calls ble_219_0c052ee4 and ble_219_0c05c480 (neither described yet), then arms the BTstack timer source at 0x20012C5C through ble_host_timer_restart with timeout 600000 and handler LAB_0C054BB4. The restart helper only arms the timer when the env state byte is 2. If the timeout is in milliseconds the timer is 10 minutes. The matching close routine is ble_fmna_adv_close.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The time unit of the timeout is not confirmed; 600000 is read as milliseconds because the timer source is a BTstack run-loop timer."
+  },
+  "ble_219_0c055268": {
+    "name": "ble_fmna_adv_close",
+    "summary": "Close Find My advertising: remove the timer and run the stop helper",
+    "description": "Removes the timer source at 0x20012C5C through the btstack_run_loop_remove_timer thunk (thunk_FUN_0c065ab8) and then calls ble_219_0c05c548 (not described yet, presumably the stop action for advertising). This is the counterpart of ble_fmna_adv_open and is called for debug command '2' and for the stop path of command '9'.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0552c4": {
+    "name": "ble_evt_post_u16_ctx",
+    "summary": "Store a context word at 0x20012C94 and post a 16-bit event to the packet queue",
+    "description": "Stores param_2 in the 32-bit word at 0x20012C94, then posts the 16-bit value param_1 as a 2-byte packet through ble_pktq_enqueue with completion handler LAB_0C054E58. The stored word is presumably read by that handler, which is not described yet. Called only from ble_219_0c053018 in this packet.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "16-bit event word to post"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "context word stored at 0x20012C94"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c055330": {
+    "name": "ble_record_sync_step",
+    "summary": "Advance the record A sync step: derive record A, sync record B, post a kick",
+    "description": "Scheduled sync step. It copies the target generation from 0x20012C7C to 0x20012B7C, calls ble_219_0c043f1c, runs ble_record_a_derive_and_commit, calls ble_219_0c043f1c again, and passes 0x20012B90 to ble_219_0c065c88. It returns early, without posting, unless the record A generation at 0x20012B8C now equals the target. When the state byte at 0x20012C80 is 2, the word at 0x20012B88 is cleared and the 48-byte block at 0x20012BDC is zeroed. It then computes page = generation / 0x60 + 1; if the record B counter at 0x20012BBC is below page it runs ble_record_b_derive_and_commit and sets the counter to page. Finally it calls ble_219_0c043f1c, passes the 4-byte block at 0x20012BC0 to ble_219_0c065c88 and posts a zero-length packet with handler LAB_0C054904 through ble_pktq_enqueue.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of ble_219_0c043f1c (called around the record work) and of the 96-byte page size is inferred from the arithmetic only."
+  },
+  "ble_219_0c0553d0": {
+    "name": "ble_record_sync_tick",
+    "summary": "Run one record sync step, latch slot 0xFE flag bit 5 and post event 2",
+    "description": "Periodic tick entry; it has no direct callers. It calls ble_219_0c043f1c, runs ble_record_sync_step, stores the result of ble_slot_test_flag_any(0xFE, 5) in byte 0x20012B84, and posts the 16-bit value 2 through ble_pktq_enqueue with the same completion handler LAB_0C0554F4 used by ble_evt_post_u16.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c055440": {
+    "name": "ble_evt_post_u16",
+    "summary": "Post a 16-bit event word to the packet queue",
+    "description": "Copies the 16-bit argument into a 2-byte buffer and enqueues it with ble_pktq_enqueue using completion handler LAB_0C0554F4. It is the event-notification primitive of the host command and record code in this packet; events 0x0A, 0x0B, 0x0E, 0x0F and 0x10 are queued through it.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "16-bit event word"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0555d4": {
+    "name": "ble_fmna_pair_adv_service",
+    "summary": "Service pair advertising from the 0x20012BE0 block and the 0x304 latch",
+    "description": "Scans the 27 bytes from 0x20012BE0 for the first non-zero byte. If one is found it calls ble_219_0c052f28 with the block at 0x20012BE0, the mode byte at 0x20012B95, that byte and the counter at 0x20012B8C. If none is found it zeroes the 4-byte block at 0x20012BC0 and calls ble_219_0c052f28 with that block. Then, if the flag byte at 0x20012605 is set (latched by command 0x304 in ble_app_req_302_handle), it clears the flag and calls ble_219_0c05c480; otherwise it calls ble_219_0c05c320. It always returns 0x2000000. Callers are ble_219_0c02a8f8, ble_fmna_debug_cmd_dispatch and ble_219_0c05cf1c.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0x2000000"
+    },
+    "confidence": "low",
+    "notes": "The purpose of the 0x20012BE0 block and of the 0x2000000 return code is not confirmed."
+  },
+  "ble_219_0c055634": {
+    "name": "ble_parse_csv_u8x4",
+    "summary": "Parse up to four comma-separated decimal fields into byte outputs",
+    "description": "Tokenises the string in param_1 with strtok-style calls on ',' (ble_219_0c071790, not yet named) and converts each token with atol, storing the low byte into param_2, param_3, param_4 and param_5 in order. param_2 is always written from the first token. Tokens after the fourth are ignored, and it has no direct callers in this packet.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "NUL-terminated comma-separated string; modified by the tokenizer"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "output byte for field 0"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "output byte for field 1"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "output byte for field 2"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "output byte for field 3"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05569c": {
+    "name": "ble_parse_u8x3_bdaddr",
+    "summary": "Parse three comma-separated decimal bytes and a trailing Bluetooth address",
+    "description": "Like ble_parse_csv_u8x4, but the fourth field is a Bluetooth device address. The first three tokens are converted with atol into one-byte outputs param_2, param_3 and param_4. The fourth token, when present, is parsed with bt_bdaddr_from_string into the 6-byte output param_5; when it is absent param_5 is zeroed. In both cases ble_hook_noop_05a9c0 is then called with the address, which is an empty hook in this build.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "NUL-terminated comma-separated string; modified by the tokenizer"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "output byte for field 0"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "output byte for field 1"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "output byte for field 2"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "6-byte Bluetooth device address output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0558ec": {
+    "name": "ble_host_status_dump_text",
+    "summary": "Format the link status record into a text dump and log it",
+    "description": "Clears the 512-byte caller buffer and formats the link record from ble_get_state_ptr_42f8 (the object at 0x200042F8) one line at a time with sprintf-style formatting, appending each line with strcat. Fields: user index (byte +0), connection status (u32 +4), br_handle (u32 +0x40), bonded (byte +0x36), unlock_enable (byte +8), br rssi ref and br rssi_rt (signed bytes +0x37 and +0x38), ble rssi ref and ble rssi_rt (signed bytes +0x1E and +0x1F), disconnect_reason (u16 +0x44), disconnect_time (u32 +0x48) and the six-byte BR address (+0x30 to +0x35). The assembled text is then printed with the debug printf ble_219_0c035d0c using the format string at 0x0C086184.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "512-byte output buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c055b90": {
+    "name": "ble_fmna_debug_cmd_dispatch",
+    "summary": "Dispatch a Find My debug command string selected by its first character",
+    "description": "Debug and command interpreter for Find My. It logs the string with 'bts_fmna_debug' and switches on the first character. '1' opens advertising (ble_219_0c05cdcc, then ble_fmna_adv_open). '2' closes it (ble_fmna_adv_close, then ble_mode_nv_disable). '3' resets the state machine (ble_219_0c05ce14 and ble_219_0c041d28(0)). '4' writes NV record 0xFAA with a 1-byte invalid marker. '5' calls ble_219_0c029230 (buzzer) when the argument is 0 or 1. '6' handles the PPID and related fields: sub-op 0 prints the 8-byte PPID and, if the argument hex-parses to 8 bytes with ble_util_hex_string_to_bytes, stores it; sub-op 1 gets the category and then sets it from the argument; sub-op 2 stores a model name of up to 15 characters. '7' reads the power level (ble_get_value_407a) and sets two values from the arguments. '9' selects a function: 1 stops advertising when ble_mode_nv_is_inactive is 0 and otherwise starts pair advertising, 2 starts pair advertising, 3 resets the state machine, 4 calls ble_host_timer_arm_5min (logged as 'look up sn') and 5 logs ble_get_flag_12606 as the serial report status.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "NUL-terminated command string; first character is the command"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Command '9' sub-op 4 logs 'look up sn' but calls ble_host_timer_arm_5min, which an earlier wave described as a 300 s timer re-arm; the two descriptions disagree and should be checked. Helpers ble_219_0c05cdcc, ble_219_0c05ce14, ble_219_0c041d28, ble_219_0c029230, ble_219_0c05ce48/ce38/ce74/ce54/cea8/ce98, ble_219_0c05cf04, ble_219_0c05cf1c and ble_219_0c0532dc are not described yet."
+  },
+  "ble_219_0c0567d8": {
+    "name": "ble_link_flag10_update",
+    "summary": "Set or clear link flag 0x10 and start or stop the link when allowed",
+    "description": "param_1 == 0 clears busy byte 0x20012ED0 and, if flag bit 0x10 of the word at 0x200042FC is set and the handle at 0x200042F4 is valid (not -1), calls ble_219_0c06b818; a nonzero result is returned, otherwise ble_flags_clear(0x10) runs and the function returns 0. For nonzero param_1 it sets 0x20012ED0 to 1 and, when bit 0x10 is clear and the handle is valid, calls ble_219_0c06b7bc(handle, 0) and returns its result. When no action applies it returns 2.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 = clear and stop, nonzero = set and start"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 2 when no action applies, otherwise the error of the lower layer"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0569a0": {
+    "name": "ble_link_pending_consume",
+    "summary": "Consume the pending bit 0 of the link state and run the completion helper",
+    "description": "Gets the state object at 0x200042F8 (ble_get_state_ptr_42f8). If the u16 at +0x10 is nonzero and bit 0 of the flags word at +4 is set, it clears that bit and returns the result of ble_219_0c06b8bc. Otherwise it returns 0xFFFFFFFF. Callers are ble_219_0c029df8, ble_219_0c05a804 and ble_219_0c05a91c.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "result of ble_219_0c06b8bc, or 0xFFFFFFFF when nothing is pending"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0569dc": {
+    "name": "ble_link_handles_ensure",
+    "summary": "Ensure link handles 0x200042F4..F6 exist, creating any that are missing",
+    "description": "Checks the handles at 0x200042F4 and 0x200042F6. Each one that is -1 (invalid) is created with ble_219_0c06b5a0 from the parameter block at 0x20012ED4 or 0x20012FAC, and a failed creation returns its error. When both are valid and the handle at 0x200042F5 is -1, it creates the third handle from the block at 0x20012F64 and returns that result; otherwise it returns 0.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 or the error code of a failed creation"
+    },
+    "confidence": "low",
+    "notes": "ble_219_0c06b5a0 is not described yet, so the meaning of the three handles is inferred from the names of their creation blocks only."
+  },
+  "ble_219_0c056a50": {
+    "name": "ble_adv_set_a_apply_mode",
+    "summary": "Build advertising and scan-response data for set A and apply it",
+    "description": "Builds the advertising payload at 0x20012FF4 (flags 02 01 06, then either a complete local name or manufacturer data, then a service entry) and the scan response at 0x20013014, which carries the 128-bit UUID 6E400001-B5A3-F393-E0A9-E50E24DCCA9E (Nordic UART Service) with length 0x12. The local address is refreshed with ble_random_addr_advance. Mode 0 adds a complete local name from the app block (ble_app_block16_f3b8_read, 14 or 16 bytes, length from ble_ctrl_get_sanitized_setting_20004344) and a manufacturer field built from the constant at 0x200042E0. Mode 1 adds manufacturer data from the state bytes at 0x200042BC..0x200042C6 and from the app block. The interval (param_2, in 0.625 ms units) and advertising type (param_3) are applied with ble_219_0c06b64c, ble_219_0c06b6b4, ble_219_0c06b70c and ble_219_0c06b764 for set A (handle 0x200042F4); the optional hook at 0x20014608 can raise the interval to 0xC80. On success the mode is stored at byte 0x38 of the context at 0x20014580. Any other mode value builds only the flags record.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "payload form: 0 = name form, 1 = manufacturer form"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "advertising interval in 0.625 ms units"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "advertising type"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Units of the interval are assumed to be 0.625 ms per BLE convention; 0x140 is then 200 ms and 0x500 is 800 ms. The meaning of the 0x20 and 0x0E constants is inferred. ble_219_0c06b64c, ble_219_0c06b6b4, ble_219_0c06b70c and ble_219_0c06b764 are not described yet."
+  },
+  "ble_219_0c056d5c": {
+    "name": "ble_adv_mode_request",
+    "summary": "Apply the set A advertising payload and start it when the link flags allow",
+    "description": "param_2 selects the advertising type: 1 gives interval 0x500 and type 0 (connectable), any other value gives 0x140 and type 2 (scannable). If the optional hook at 0x20014608 reports 3 in its output byte, the interval becomes 0xC80. When param_3 is 1 it calls ble_adv_set_a_apply_mode with param_1 and sets busy byte 0x20012ED0 to 1; it then starts advertising with ble_219_0c06b7bc(handle, 0) and returns when flag 0x10 is clear and handle A is valid. When param_3 is 1 the busy byte stays 1; otherwise it is left unchanged.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "payload form passed to ble_adv_set_a_apply_mode"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "1 = connectable (0x500, type 0), otherwise scannable (0x140, type 2)"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "1 = apply the payload and try to start it"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c056dd0": {
+    "name": "ble_adv_set_b_apply_payload",
+    "summary": "Build advertising and scan-response data for set B and push it to handle 0x200042F6",
+    "description": "Builds the advertising payload at 0x20013034 and the scan response at 0x20013054. The flags record is always written. For param_1 == 0 a complete local name of 14 characters starting 'NBLT' is assembled from immediate constants and the payload length is 29. For param_1 == 1 a 25-byte manufacturer-style block is copied from the context at 0x20014580+0x18..0x24 and the state bytes at 0x200042BC..0x200042C6, and the length is 30. Any other value gives length 3. The scan response carries a 128-bit UUID assembled from immediate constants. A random static address is built with ble_random_static_addr_build and set through ble_219_0c06b6b4 for handle 0x200042F6. The parameters are applied with ble_219_0c06b64c, the payload with ble_219_0c06b70c and the scan response with ble_219_0c06b764 (length 0x12). The mode is not stored in the context.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "payload form: 0 = name form, 1 = context manufacturer form"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "advertising interval in 0.625 ms units"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "advertising type"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The full 16-byte second UUID is not matched to a known service. ble_219_0c06b64c, ble_219_0c06b6b4, ble_219_0c06b70c and ble_219_0c06b764 are not described yet."
+  },
+  "ble_219_0c057178": {
+    "name": "ble_pending_msg_flush",
+    "summary": "Flush the pending message at 0x20004328 when its pending bit is set",
+    "description": "If bit 2 of the flags word at 0x200042FC is set, it calls the empty hook ble_hook_noop_05a9c0 on the record at 0x20004328, passes the record to ble_219_0c068c98 (not yet described) and clears bit 2. Otherwise it returns with no effect. The record and its pending bit are set by ble_pending_peer_addr_set.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0571d4": {
+    "name": "ble_ctrl_feature_enable",
+    "summary": "Enable controller feature bit 0 at 0x200145CA and run two setup helpers",
+    "description": "Calls ble_219_0c06b178(1) and ble_219_0c06b1e0(1), neither described yet, and then sets bit 0 of the byte at 0x200145CA. Returns 0. Callers are ble_219_0c0593a4 and ble_219_0c05a608.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "The purpose of the two helpers is not known; the value 1 is read as an enable argument."
+  },
+  "ble_219_0c057288": {
+    "name": "ble_pending_peer_addr_set",
+    "summary": "Store a pending 6-byte peer address and flag it when resolution is deferred",
+    "description": "Saves the 6-byte address at param_3 (4 bytes at 0x20004328 and 2 bytes at 0x2000432C), the address type from param_1 at 0x200042F9, and marks the record valid at 0x2000432E. ble_219_0c06b498 is then called with the record (not yet described). If it returns 0x56, ble_219_0c059180(5) is called (not yet described). For any other result the pending bit 2 is set in 0x200042FC so that ble_pending_msg_flush processes it later.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "address type byte"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused in this function"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  }
+}

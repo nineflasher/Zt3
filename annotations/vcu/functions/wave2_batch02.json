@@ -1,0 +1,523 @@
+{
+  "vcu_0159_08002ae0": {
+    "name": "vcu_pa6_output_status_update",
+    "summary": "Drive PA6 from the output latch and rewrite the mode code in status word DAT_20001f98",
+    "description": "Per-tick controller for the PA6 output (GPIOA pin 0x40), driven only through vcu_pa6_output_set, and for the 16-bit status word DAT_20001f98. Bits 9-11 of that word hold a 3-bit mode code that is rewritten on each call: 1 (0x200) when debounced condition DAT_20001f69 is active and DAT_20001e68 bit 6 is set, 2 (0x400) while the output latch is set or the variant path keeps the pin high, 3 (0x600) when DAT_20001fec is set or DAT_20001f4f is set with DAT_20001b6e zero, and 4 (0x800) when DAT_20001f4f is set with DAT_20001b6e nonzero. Bit 14 is set from DAT_20001b12 bit 1 (except when DAT_2000123e is 7 or 8) and cleared on most other paths. The output latch DAT_20001340 is set when mode byte DAT_20001fa4 is 4 and DAT_2000123e is not 7, cleared once the condition is gone, and DAT_20001cfa mirrors the pin level. Variant codes DAT_20001fa7 == 2 or 5 take a separate branch that keeps the pin high while DAT_20001f53 is set, and DAT_20001fd4 forces the pin low in the debounced branch.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The load behind PA6 is not identified. The meanings of mode codes 1-4 are inferred from the code paths alone. Callers are not in this packet. The mode field has the same shape in every build, only the RAM addresses differ."
+  },
+  "vcu_14a_08002bb0": {
+    "name": "vcu_ready_sequence_step_v148_14a",
+    "summary": "Ready/arm/run/disarm state machine for builds 148 and 14a",
+    "description": "Tick handler for a ready-to-run sequence with a quiet timer, an arm step, a 250-tick confirm, a run phase and a disarm. Counter DAT_200013a6 counts ticks while input flag DAT_20001e8f is low and sub-state DAT_20001c38 is clear, and latches DAT_2000138b once it passes 100. The arm test needs DAT_20001e90 and DAT_20001e8f high, DAT_2000138a clear, DAT_20001aa2 below 10, DAT_20001f11 clear, status DAT_20001a2e bit 10 set, mode byte DAT_20001ee4 equal to 3, DAT_20001da6 / 100 above 30, DAT_20001f12 clear and DAT_2000138b set; then sub-state DAT_20001c3c becomes 10 and a confirm counter runs to 250. At the end of the confirm, if DAT_20001a2c bit 11 or DAT_20001a2e bit 10 is clear, or DAT_2000123b is nonzero, it aborts (sub-state 9, flags cleared, app_set_state(1), DAT_20001c54 cleared); otherwise it sets DAT_2000138a and DAT_20001389, calls app_set_state(4) and goes to sub-state 13. When DAT_20001e90 and DAT_20001e8f both fall with DAT_2000138a set, it enters the run phase (DAT_20001f11 and DAT_20001c54 set, bit 7 of DAT_20001ed2 set); the run phase uses sub-state 12 while DAT_20001ed0 is at least 180, leaves when DAT_20001a84 high byte minus 5 is at most DAT_20001aa2 / 10 or after 1000 ticks, and disarms when DAT_200013ac passes 100 with DAT_20001e8f high, DAT_200013aa passes 3000 with DAT_20001e90 low, or DAT_20001ee4 is not 3.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Same logic as vcu_ready_sequence_step_v14b_0159 with the RAM relocated for this build, so the two form one group (arming state machine). In this build the app_set_state call appears as FUN_080017f4, which the family map places at the app_set_state address of VCU_14a. Input flags DAT_20001e8f and DAT_20001e90 are unnamed."
+  },
+  "vcu_0159_08002d18": {
+    "name": "vcu_fault_codes_4_5_eval",
+    "summary": "Set or clear fault codes 4 and 5 from the reading in DAT_20001f36",
+    "description": "Maps the byte DAT_20001f36 (the 0x425 message field, see vcu_rx_frame_dispatch) onto two fault codes. The sentinel value 0x5aa5 returns at once. With sVar1 = value - 50, fault code 4 is set through vcu_fault_code_set when sVar1 is at least 60 (value 110 or more) and otherwise cleared through vcu_error_code_clear. Fault code 5 is set when sVar1 is below -12 (value below 38) and otherwise cleared. There is no hysteresis, so both codes follow the reading on every call.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The unit of DAT_20001f36 is not established. The 0x425 handler derives DAT_20001b8a = (value - 50) * 10 from the same byte, which suggests a temperature-like reading with a 50 offset."
+  },
+  "vcu_0159_08002d64": {
+    "name": "vcu_alert_tone_sequencer",
+    "summary": "Play the alert beep pattern selected by the app state byte DAT_2000101a",
+    "description": "Steps the buzzer, a TMR2 channel-1 PWM output started by vcu_0159_08001ba8 and stopped by tmr2_pwm_output_disable, through a pattern chosen by app state byte DAT_2000101a (written by app_set_state). Counter DAT_2000101c advances once per call and the state returns to 0 when a pattern ends. Patterns, in calls (on/off): 1 = one 51-call beep; 2 = two 100-call beeps with a 100-call gap; 3 = one 10-call beep; 4 = two 10-call beeps with a 10-call gap; 5 = three 10-call beeps; 6 = three 100-call beeps; 7 = 20 on, 10 off, then 100 on; 8 = stop (output off, state 0); 0 = idle. If DAT_20002022 or DAT_20002023 is set while bit 11 of DAT_20001aee is set, the state is cleared at once without calling the tone-off routine.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The call period is not established, so the patterns are counted in calls. The buzzer identification is inferred from the single caller of tmr2_pwm_set_frequency and the on/off pattern. The abort branch does not turn the PWM off, so a tone that was sounding may keep sounding; check whether another path stops it. The decompiler shows vcu_0159_08001ba8 and tmr2_pwm_output_disable both with and without an argument (0xaaa), so the argument is not meaningful here."
+  },
+  "vcu_0159_08002fc0": {
+    "name": "vcu_ready_sequence_step_v14b_0159",
+    "summary": "Ready/arm/run/disarm state machine for builds 14b to 0159",
+    "description": "Tick handler for the same ready-to-run sequence as vcu_ready_sequence_step_v148_14a, using the RAM of builds 14b to 0159: quiet counter DAT_200013a8 with latch DAT_2000138f, arm flag DAT_2000138e, sub-state DAT_20001cfc (9 idle, 10 arming, 12 run, 13 armed), run flag DAT_20001fd5, confirm counter DAT_200013aa and run timer DAT_200013a6. The arm test uses mode byte DAT_20001fa4 equal to 3 and the same ready conditions, and the confirm, abort and disarm steps match the other build. The run phase tests the byte DAT_20001f90 low byte against 180 and the derate flags DAT_20001f50 and DAT_20001f4f from vcu_sensor_limit_derate_eval. It also sets DAT_20001d14 while armed, DAT_20001fd9 when a restart is requested, and bit 7 of DAT_20001f92 while the sequence is armed, and app_set_state(4) on arming and app_set_state(1) on abort or disarm.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Twin of vcu_ready_sequence_step_v148_14a: same logic with different RAM and the mode byte at DAT_20001fa4 rather than DAT_20001ee4. Callers are not in this packet. DAT_20001fd9 is used as a restart request by vcu_standby_entry_timer."
+  },
+  "vcu_0159_08003254": {
+    "name": "vcu_alarm_edge_trigger",
+    "summary": "Raise alert 4 on the rising edge of DAT_20001f69 or of DAT_20001e68 bit 6",
+    "description": "Edge detector that starts alert pattern 4 through app_set_state(4). It compares the debounced condition DAT_20001f69 with its previous copy DAT_20001f6c and alerts when the condition becomes 1. When status bit 4 of DAT_20001af2 is set, it also watches bit 6 of DAT_20001e68 through the copy DAT_20001882 and alerts when that bit changes to 1, then returns. When the af2 bit is clear it clears DAT_20001882.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The two edge checks are separate: the f69 check runs first on every call, and the e68 check runs only when af2 bit 4 is set."
+  },
+  "vcu_0159_080032c4": {
+    "name": "vcu_threshold_alarm_latch",
+    "summary": "Latch a threshold alarm: alert 4 once while DAT_20001e62 is over its limit",
+    "description": "Compares DAT_20001e62 (the frame 0x420 value divided by 10, see vcu_rx_frame_dispatch) with the low byte of DAT_20001e48 (frame 0x423 field) and with 100. When DAT_20001e62 is below 100 and below that limit, it clears the step bytes DAT_20001878 and DAT_20001879 and the flag DAT_20001fec. Otherwise it sets DAT_20001cc4 = 3 and DAT_20001fec = 1, sets DAT_20001fbc once, and runs a two-step latch: the first call calls app_set_state(4) and moves DAT_20001878 from 0 to 1, a second call moves it to 2, and later calls return without a new alert.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of DAT_20001e62 (frame 0x420 value / 10) and DAT_20001e48 (frame 0x423 field) is taken from vcu_rx_frame_dispatch. The unit is not established."
+  },
+  "vcu_0159_08003444": {
+    "name": "vcu_warning_list_rebuild",
+    "summary": "Rebuild the active warning code list when the four-word warning bitmap changes",
+    "description": "Compares the four 16-bit words of the warning bitmap at DAT_20001cd8..DAT_20001cde with a cached copy at DAT_200022ce..DAT_200022d4. On any change it copies the new words, clears the list count DAT_200021e6, sets the rebuild flag DAT_200022d8 and calls app_set_state(2) (alert 2) if any word is nonzero. When the flag is set it rebuilds a byte list at DAT_20002248: one entry per set bit, with word 0 giving codes 10-25, word 1 giving 26-41, word 2 giving 42-57 and word 3 giving 58-73. Warning code n is bit n - 10 of the bitmap (see vcu_warning_code_clear).",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Each word is tested with 0 < word on a signed value, so a word with bit 15 set is skipped entirely, and codes 25, 41, 57 and 73 would be missing from the list. Entries are written through a byte pointer, so each code is stored as one byte."
+  },
+  "vcu_0159_08003594": {
+    "name": "vcu_sensor_limit_derate_eval",
+    "summary": "Evaluate three scaled sensor words into limit flags and the derate word DAT_20001f90",
+    "description": "Reads three 16-bit words through app_get_u16_2000329c, app_get_u16_2000329e and app_get_u16_200032a0, scales each by 1/14 (1/15 when DAT_20001feb is set) and keeps the raw values at DAT_20003346..DAT_2000334a. Hard limit flags DAT_20001f62, DAT_20001f63 and DAT_20001f6a are set outside the window 30 to DAT_20001393 (or DAT_20001395), which is 220 when DAT_20001feb is set and 215 otherwise. Soft band flags DAT_20001f67, DAT_20001f66 and DAT_20001f64 take the window 30-55 (channel 1) or 30-60 (channels 2 and 3) and, when mode is nonzero, use hysteresis. When channel 1 is inside its limits, the low byte of DAT_20001f90 ramps from 0 at 56 to 200 at 180 ((value - 55) * 200 / 125), except that bit 3 of DAT_20001f92 holds it at 0; channels 2 and 3 use the larger reading, ramped from 61 to 180 ((value - 60) * 200 / 120) into the high byte. DAT_20001f50 and DAT_20001f4f flag the two ramps, and DAT_20001fbc is requested when either is active.",
+    "category": "vehicle",
+    "params": [
+      {
+        "name": "mode",
+        "type": "u32",
+        "description": "0 evaluates the soft bands without hysteresis; 2 forces the low byte of DAT_20001f90 to zero after the ramp; any other value applies hysteresis to the soft bands"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The physical quantity is not established: the 30, 55, 60 and 180 limits could be temperatures, and 215 or 220 as a high limit is unusual for that. The window constants are also written to DAT_20001392, DAT_20001394 and DAT_20001396 (180, 60, 180) for other code to read. When DAT_20001fd6 is set or bit 3 of DAT_20001e6a is set, the low byte of DAT_20001f90 is cleared."
+  },
+  "vcu_0159_080038a4": {
+    "name": "vcu_special_mode_gate",
+    "summary": "Enter and leave special mode stage DAT_20001fd6 after a 300-tick hold",
+    "description": "Gate for the special mode stage DAT_20001fd6: 0 idle, 1 entered after DAT_20001364 counts past 299 while the gate holds, and 2 when the entry latch DAT_20001359 has cleared. It runs a quiet counter DAT_20001366 that latches DAT_2000135a after more than 100 ticks while DAT_20001cf8 is clear and DAT_20001f4f is low. The gate needs bit 5 of DAT_20001aee set, DAT_20001f66, DAT_20001f64, DAT_20001f63 and DAT_20001f6a all clear, DAT_20001f4f set, DAT_20001f50 clear and DAT_2000135a set, and then sets DAT_20001359 and DAT_20001fd6 = 1, sets DAT_20001d04, sets bits 2 and 3 of DAT_20001f92 and calls app_set_state(4). When the gate fails, the counters and flags clear; stage 2 drops back to 0, clears DAT_20001d04 and bits 2-3 of DAT_20001f92, and calls app_set_state(1). A second path, selected by the one-shot request DAT_20001f71, performs the same entry and exit.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of stage 1 and stage 2 is not established. On the one-shot DAT_20001f71 path the stop call app_set_state is shown with no argument, so the state written there is unknown."
+  },
+  "vcu_0159_08003f40": {
+    "name": "vcu_fault_warning_evaluate",
+    "summary": "Per-tick evaluator that sets or clears warning and fault codes from sensor and message state",
+    "description": "Runs every tick and sets or clears codes through vcu_warning_code_set/clear, vcu_fault_code_set/store and vcu_error_code_clear. Silence timers DAT_2000102c (capped at 500) and DAT_20001030 (capped at 1500) and the fault-duration counter DAT_2000102e (capped at 4000, counting while DAT_2000123e is 2 or 3) are advanced here. Warnings 14, 15 and 16 follow the channel 1, 2 and 3 flags from vcu_sensor_limit_derate_eval, warning 10 is set when DAT_2000102c reaches 300, fault 21 when DAT_20001030 reaches 500, and fault 9 is stored after DAT_20001b62 / 10 exceeds DAT_20001032 for more than 100 ticks. When DAT_2000102e reaches 1500 it stores fault 25 and, once per latch in DAT_2000147e, pulses GPIOA pin 0x1000 low for 1000 ms (gpio_bits_reset, delay_ms, gpio_bits_set), which blocks the tick. Fault 34 is set for DAT_20001f7e of 0xfd or 0xfe, fault 40 after 100 ticks at DAT_20001f7e of 196 or more, and fault 41 for DAT_20001f84 of 156 or more (not 0xfd or 0xfe). Warnings 11, 13, 18, 24, 55 and 56 come from the byte DAT_20001f80, warning 30 from bits 3 and 12 of DAT_20001e6a and DAT_20001e68, and warning 35 from DAT_2000123e == 3 with DAT_20001f68. Finally DAT_20001b64 and DAT_20001b66 copy the warning and fault codes when DAT_2000123e is nonzero.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 1000 ms pulse blocks the caller for a full second once per latch. Which physical circuit PA12 drives is not established. Code 9 uses vcu_fault_code_store and not the bitmap set, so it is not latched. The 0xfd and 0xfe values in DAT_20001f7e set fault 34, while the same values in DAT_20001f84 are excluded from fault 41; they look like error sentinels from the sender."
+  },
+  "vcu_0159_0800422c": {
+    "name": "vcu_pair_pulse_pattern_step",
+    "summary": "Run a 60-tick two-output pulse pattern after a change of DAT_20001fb5",
+    "description": "When mode byte DAT_20001fa7 is not 4 or 6 and no inhibit is set (DAT_20002022 or DAT_20002023, or DAT_20001fe8 equal to 10), it watches DAT_20001fb5: a change to a nonzero value while bit 2 of DAT_20001aee is set arms the countdown DAT_20001344 at 60 if bit 14 of DAT_20001af0 is also set, and otherwise cancels it. Each call decrements the countdown and calls vcu_0159_08008a28 and vcu_0159_08008a0c with the same argument: 1 while the remaining count is 41-59 or 1-20, and 0 while it is 21-40 and at 0. The outputs are therefore on for about 39 of 60 calls per trigger.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The two output routines are not described in this packet, so only their arguments are recorded. The trigger source DAT_20001fb5 is set by the EXINT handlers (see vcu_0159_080058ac and vcu_0159_080058f0), which is consistent with a button or switch input, not confirmed."
+  },
+  "vcu_0159_080051e8": {
+    "name": "vcu_standby_entry_timer",
+    "summary": "Enter standby after 600 quiet ticks and manage request bit 2 of DAT_20001f92",
+    "description": "Tracks the standby request DAT_20001cf6. While DAT_20001f48 is clear and special stage DAT_20001fd6 is 0, it counts DAT_200013a4 when the quiet conditions hold (DAT_20001cf6 clear, bit 0 of DAT_20001f78 clear, DAT_20001b62 below 30, DAT_20001fd5 and DAT_20001f4f clear, mode byte DAT_20001fa4 not 4) and either DAT_20001b38 is below 3 or DAT_20001f70 is set. After more than 600 ticks, or at once when DAT_20001f70 is set, it sets DAT_20001cf6 = 1 and calls app_set_state with the argument not recovered. While DAT_20001cf6 is 1 it leaves standby when DAT_20001f4f is set, the mode byte is 4, DAT_20001b62 exceeds 29 or DAT_20001f70 is set, calling app_set_state(4) and clearing the counter. Bit 2 of DAT_20001f92 is set on the path where DAT_20001b64 is zero and the DAT_20001b62 / 10 versus DAT_20001b38 test fails, and cleared on the other paths; when DAT_20001f48 is set, bit 1 of DAT_20001aec is set.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The app_set_state call that enters standby has no recovered argument. DAT_20001fd9 (a restart request from the ready sequence) is cleared here when DAT_20001f50 is clear. The meaning of DAT_20001f48 is not established."
+  },
+  "vcu_0159_080056e8": {
+    "name": "vcu_pb13_input_active_low",
+    "summary": "Return 1 when GPIOB pin 0x2000 (PB13) reads low",
+    "description": "Calls vcu_gpio_pins_all_high on GPIOB with mask 0x2000 and returns 1 only when PB13 is low, so the input is active-low. Returns 0 when PB13 is high. The only caller in the family is vcu_0159_08007e28, which is outside this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when PB13 is low, else 0"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08005704": {
+    "name": "vcu_dma_tx_queue_service",
+    "summary": "Start the next queued DMA transmit record when DMA1 channel 7 is free",
+    "description": "Service function for an 8-slot transmit queue of 256-byte records. Read index DAT_20000008 wraps at 8, and write index DAT_20000009 is set elsewhere. If the queue is not empty and neither the hold flag DAT_2000000b nor the re-entry guard DAT_2000000c is set, it sets the guard, calls vcu_dma_tx_start with the data at 0x20000014 + 256 * read index and its 16-bit length at 0x20000010 + 256 * read index, and on success advances the read index and counts sent records in DAT_2000000a. The guard is cleared at the end, so a record that could not be started stays queued and is retried on the next call.",
+    "category": "dma",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Callers are not in this packet. The queue layout is read from the code and no names for it exist in wave 1."
+  },
+  "vcu_0159_08005754": {
+    "name": "vcu_dma_tx_start",
+    "summary": "Re-arm DMA1 channel 7 with a new memory address and count if the last transfer completed",
+    "description": "Starts a transfer on DMA1 channel 7 (registers at 0x40020080). It returns 0 without doing anything while the busy flag DAT_200018a4 is set and the transfer-complete flag for channel 7 (0x02000000 in the DMA1 status register, read through dma_flag_get) is still clear. Otherwise it sets the busy flag, clears the flag with dma_flag_clear, disables the channel with dma_channel_enable(0), writes the memory address to C7MADDR (0x4002008C), loads the transfer count with dma_data_number_set and enables the channel again. It returns 1 once the channel is re-armed.",
+    "category": "dma",
+    "params": [
+      {
+        "name": "buffer_addr",
+        "type": "u32",
+        "description": "memory address written to DMA1 channel 7 MADDR"
+      },
+      {
+        "name": "count",
+        "type": "u16",
+        "description": "transfer count loaded into DTCNT"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the channel was started, 0 when the previous transfer is still running"
+    },
+    "confidence": "high",
+    "notes": "The peripheral address and transfer direction are set elsewhere, not in this function."
+  },
+  "vcu_0159_08005874": {
+    "name": "ERTC_WKUP_IRQHandler",
+    "summary": "ERTC wakeup interrupt: latch the wake event, clear pending bits and count wakeups",
+    "description": "If ertc_flag_get(0x400) reports the ERTC wakeup flag, it sets the event latch DAT_20001fea to 1, clears the flag with ertc_flag_clear(0x400), clears the EXINT line 22 pending bit with exint_flag_clear(0x400000) and increments the wakeup counter DAT_20001018 (byte). When the flag is clear it does nothing.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_080058ac": {
+    "name": "EXINT15_10_IRQHandler",
+    "summary": "EXINT lines 12 and 14: record an input event code and latch DAT_20001fb8",
+    "description": "Line 12 (mask 0x1000) sets the event code DAT_20001fb7 to 2 and clears its pending bit. Line 14 (mask 0x4000) sets DAT_20001fb8 to 1 and, when no event code is pending, sets DAT_20001fb7 to 4, then clears its pending bit and returns. Both lines are tested with exint_flag_get and cleared with exint_flag_clear.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of the event codes is set by the consumer of DAT_20001fb7, which is not in this packet."
+  },
+  "vcu_0159_080058f0": {
+    "name": "EXINT3_IRQHandler",
+    "summary": "EXINT line 3 handler: set event code 5 and clear the pending bit",
+    "description": "If EXINT line 3 (mask 0x8) is pending, it clears the pending bit, zeroes DAT_20001fc6 and sets the event code DAT_20001fb7 to 5. When the line is not pending it does nothing.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08005d9c": {
+    "name": "vcu_pa6_output_set",
+    "summary": "Drive GPIOA pin 6 high when the argument is nonzero, low when it is zero",
+    "description": "Writes GPIOA pin 0x40 (PA6) with gpio_bits_set when the argument is nonzero and with gpio_bits_reset when it is zero. It is the only function that touches that pin in this packet, and both the output controller vcu_pa6_output_status_update and the special-mode gate use it.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "high",
+        "type": "u32",
+        "description": "nonzero drives PA6 high, zero drives it low"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08006538": {
+    "name": "vcu_crypto_key_load",
+    "summary": "Load the 16-byte key at RAM 0x200020DC from flash 0x08001440, or the built-in default",
+    "description": "Clears a block of RAM variables at 0x20001490 to 0x200014b8 (the byte and word values listed in the packet), then compares the built-in 16-byte default key, a constant on the stack, with the 16 bytes at flash 0x08001440 using util_mem_equal. If they match, it copies the default into RAM at 0x200020DC and sets DAT_20001495 to 1; otherwise it copies the flash bytes to 0x200020DC with __aeabi_memcpy and leaves DAT_20001495 at 0. The 128-bit value at 0x200020DC is probably the TEA key used by vcu_153_08006490 (not confirmed in this packet).",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "u64",
+      "description": "leftover value of the stack copy of the default key (its first 8 bytes); not a meaningful result"
+    },
+    "confidence": "medium",
+    "notes": "The key bytes are deliberately not recorded here. DAT_20001495 = 1 means the default key is in use."
+  },
+  "vcu_0159_080065dc": {
+    "name": "vcu_fault_alert_repeat",
+    "summary": "Repeat alert 4 every 300 ticks for fault 15 and alert 1 about every 1000 ticks for fault 9",
+    "description": "Runs while the warning code DAT_2000123d is zero and the fault code DAT_2000123c is nonzero. Counter DAT_20001486 counts those ticks; each time it reaches a multiple of 300 it resets, and if the fault is 15 it calls app_set_state(4). For fault 9 it uses the countdown DAT_20001482, loaded with 1000 and decremented per tick, and calls app_set_state(1) when it reaches zero. A change of the warning code (last value in DAT_2000147d) clears DAT_2000147c and DAT_20001480, and while a warning is active DAT_20001486 is held at 0. When DAT_20001f48 is set, the counters are cleared.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The alert numbers follow from the app_set_state values used here. DAT_20001f48 is not identified."
+  },
+  "vcu_14f_08006628": {
+    "name": "vcu_crypto_state_clear",
+    "summary": "Zero 18 bytes of key RAM from 0x200020E4, overlapping the last 8 bytes of the key",
+    "description": "Calls the zero-fill helper vcu_0159_08001240 (memclr style) for 0x12 bytes at 0x200020E4. That range covers the last 8 bytes of the 16-byte key at 0x200020DC that vcu_crypto_key_load writes, plus 10 bytes after it, so it is probably the key wipe after a decryption step.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The present-in list covers builds 148 to 14f only, so this is probably specific to those builds. The zero-fill helper vcu_0159_08001240 is not described yet; its description in wave 1 is an inference."
+  },
+  "vcu_0159_08006994": {
+    "name": "vcu_pb11_input_active_low",
+    "summary": "Return 1 when GPIOB pin 0x800 (PB11) reads low",
+    "description": "Calls vcu_gpio_pins_all_high on GPIOB with mask 0x800 and returns 1 only when PB11 is low, so the input is active-low. Returns 0 when PB11 is high. Called from vcu_0159_0800809c, which is outside this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when PB11 is low, else 0"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08006ae0": {
+    "name": "vcu_alert_tone_start_if_idle",
+    "summary": "Start the tone with argument 0xAAA only while the TMR2 channel 1 output is off",
+    "description": "Reads TMR2.CCTRL (register at 0x40000020) and, when bit 0 (channel 1 compare output enable) is clear, calls vcu_0159_08001ba8 with 0xaaa to start the tone. When the output is already enabled it does nothing. Called from vcu_0159_080042f8, which is outside this packet.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08006d6c": {
+    "name": "vcu_rx_frame_dispatch",
+    "summary": "Decode one received message record by its 32-bit ID and store its payload fields",
+    "description": "Takes a pointer to a received record whose first word is the message ID and whose payload begins at byte offset 0x0b. It selects a handler by ID: 0x421 decodes four ASCII hex characters into DAT_20001ae6 through util_hex_char_to_nibble (copied to DAT_20001d60) and stores two 16-bit fields in DAT_20001d6a and DAT_20001ee6; 0x420 stores DAT_20001b5e = value / 10 and copies it to DAT_20001e62 and DAT_20001d08; 0x425 stores the byte DAT_20001f36 and DAT_20001b8a = (DAT_20001f36 - 50) * 10; 0x311 clamps two bytes to DAT_20001fdb and DAT_20001fdc into DAT_20001f9c; 0x3d0 (listed as 0x7f1) sets DAT_2000185e = 500 and bit 0 of DAT_2000185c. Group A IDs 0x341, 0x211, 0x212, 0x342, 0x344 and 0x401 clear the silence timer DAT_2000102c and set the freshness counter DAT_20001868 to 200 with bit 1 of DAT_2000186e cleared; group B IDs (0x310, 0x311, 0x420, 0x421, 0x422-0x425, 0x500, 0x501, 0x502) clear DAT_20001030 and set DAT_2000186a to 200 with bit 2 of DAT_2000186e cleared. Unknown IDs are ignored.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "record",
+        "type": "ptr",
+        "description": "received record: 32-bit message ID followed by payload; the payload fields are read at byte offsets 0x0b to 0x12"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The ID-to-field table is the main content: 0x211 writes DAT_20001f7a from a bit-packed byte and DAT_20001cc6 when the 16-bit value is below 600; 0x212 writes DAT_20001ae4, DAT_20001f78, DAT_2000334c, DAT_20001f7c, the low byte of DAT_20001f80, DAT_20001f7e and DAT_2000334e; 0x310 writes DAT_20001e66, DAT_20001e6e and DAT_20001e50; 0x401 writes DAT_20001f84 and DAT_20001f88; 0x500 writes the eight bytes DAT_20001e70..DAT_20001e7e. The record layout is inferred from the offsets used by the code."
+  },
+  "vcu_0159_08007a48": {
+    "name": "vcu_nibble_count_snapshot",
+    "summary": "Snapshot the packed 32-bit counter word and count its nonzero hex nibbles",
+    "description": "Clears the counters DAT_20002044, DAT_20002047, DAT_2000202d, DAT_20002030, DAT_2000202e and DAT_20002050, packs DAT_20001b96 (low half) and DAT_20001b98 (high half) into the 32-bit word DAT_20002034, and then sets DAT_20002046 to vcu_count_nonzero_nibbles of a 32-bit value. When DAT_20002049 is set it counts the nibbles of DAT_20002038 and sets the timer DAT_2000204a to 3000; otherwise it calls the count routine with no argument, so the value it counts is whatever the register holds. It finally clears DAT_20001cec and DAT_2000204c.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The argument of the no-flag call is not recovered; the packed word is the likely value. The meanings of the packed words are not established."
+  },
+  "vcu_0159_08007a9c": {
+    "name": "vcu_pa1_input_high",
+    "summary": "Return 1 when GPIOA pin 0x2 (PA1) reads high",
+    "description": "Calls vcu_gpio_pins_all_high on GPIOA with mask 0x2 and returns 1 when PA1 is high, 0 when it is low. Called from vcu_0159_080020a4, which is outside this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when PA1 is high, else 0"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08007ab8": {
+    "name": "vcu_pb12_input_active_low",
+    "summary": "Return 1 when GPIOB pin 0x1000 (PB12) reads low",
+    "description": "Calls vcu_gpio_pins_all_high on GPIOB with mask 0x1000 and returns 1 only when PB12 is low, so the input is active-low. Returns 0 when PB12 is high. Called from several places outside this packet.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when PB12 is low, else 0"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08007b08": {
+    "name": "vcu_can_tx_pump",
+    "summary": "Pump one frame from the CAN1 transmit queue into a free mailbox",
+    "description": "Gate: if the ring count from vcu_0159_08007c8c is zero it returns 0. Otherwise, while CAN1.MSTS bit 8 (CUSS, currently sending) is set it returns the count without acting. Otherwise it peeks the oldest 20-byte frame with vcu_can_tx_queue_peek, transmits it on CAN1 with can_message_transmit, and advances the read index DAT_200029a8 (modulo 32) when the result is not 4, which removes the frame from the queue; a result of 4 leaves the frame for the next call. It returns the same ring count it gated on.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "the gate value from the ring count routine"
+    },
+    "confidence": "medium",
+    "notes": "The gate calls vcu_0159_08007c8c, which wave 1 named uart_rx_ring1_count. A CAN transmit pump gated on a UART receive count looks wrong, so either the name or the gate needs checking. The meaning of result 4 from can_message_transmit is inferred from the code only."
+  },
+  "vcu_0159_08007b58": {
+    "name": "vcu_rx_ring0_pop_record",
+    "summary": "Pop one 20-byte record from receive ring 0 into a caller buffer",
+    "description": "If receive ring 0 is not empty (DAT_20002c30 differs from DAT_20002c2c), it copies the 20-byte record at 0x20002C34 + 20 * tail into the buffer argument and advances the tail DAT_20002c30 modulo 32. An empty ring is left alone. The producer is vcu_rx_ring0_push_record.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination buffer of 20 bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08007b90": {
+    "name": "vcu_can_tx_queue_peek",
+    "summary": "Copy the oldest queued CAN frame (20 bytes) without removing it",
+    "description": "If the CAN transmit queue is not empty (DAT_200029a8 differs from DAT_200029a4), it copies the 20-byte entry at 0x200029AC + 20 * DAT_200029a8 into the buffer argument and leaves the read index unchanged. vcu_can_tx_pump advances the index after a transmit.",
+    "category": "can",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination buffer of 20 bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "vcu_0159_08007bb0": {
+    "name": "vcu_rx_ring0_push_record",
+    "summary": "Push one 20-byte record into receive ring 0 if it is not full",
+    "description": "When ring 0 is not full (tail DAT_20002c30 differs from head + 1 modulo 32), it copies 20 bytes from the argument into the slot at 0x20002C34 + 20 * head (head DAT_20002c2c) and advances the head modulo 32. A full ring drops the record without any report. The consumer is vcu_rx_ring0_pop_record.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source record of 20 bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Caller vcu_0159_08002904 is outside this packet."
+  },
+  "vcu_0159_08007bec": {
+    "name": "vcu_can_tx_queue_push",
+    "summary": "Append one 20-byte CAN frame to the transmit queue if it is not full",
+    "description": "When the queue is not full (write index plus 1 modulo 32 differs from the read index DAT_200029a8), it copies 20 bytes from the argument into the slot at 0x200029AC + 20 * DAT_200029a4 and advances the write index DAT_200029a4 modulo 32. A full queue drops the frame. The consumer is vcu_can_tx_pump, through vcu_can_tx_queue_peek.",
+    "category": "can",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source frame of 20 bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Callers vcu_0159_0800ac44 and vcu_0159_0800b088 are outside this packet."
+  },
+  "vcu_0159_08007c20": {
+    "name": "vcu_record_queues_init",
+    "summary": "Reset both 32-entry record queues and zero their 20-byte slots",
+    "description": "Sets the receive ring 0 head and tail (DAT_20002c2c and DAT_20002c30) and the CAN transmit queue read and write indices (DAT_200029a8 and DAT_200029a4) to zero, then zero-fills all 32 slots of 20 bytes at 0x20002C34 (ring 0) and at 0x200029AC (CAN transmit queue) with the zero-fill helper vcu_0159_08001240.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Zero-fill helper vcu_0159_08001240 is not yet described."
+  },
+  "vcu_153_08007d90": {
+    "name": "vcu_level_hold_latch",
+    "summary": "Latch flag 0x200021B4 after ten consecutive ticks at or above 60 in the value shifted right by 4",
+    "description": "Takes the 16-bit value from app_get_u16_2000329e and shifts it right by 4. While the shifted value is at least 60, counter DAT_200014be counts consecutive calls, and once the count passes 9 (the tenth call) it sets DAT_200021b4 to 1 and holds the counter. When the shifted value is below 60, both the counter and DAT_200021b4 are cleared at once.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The unit of the 16-bit value is not established; a shift of 4 suggests a 12-bit ADC or a count scaled by 16. Callers are not in this packet."
+  }
+}

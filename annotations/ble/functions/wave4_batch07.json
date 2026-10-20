@@ -1,0 +1,359 @@
+{
+  "ble_219_0c051eb8": {
+    "name": "sm_pairing_engine_step",
+    "summary": "Run one SMP pairing step: pick next link or RPA target, match DB identities, advance states",
+    "description": "Periodic SMP pairing engine. It is reached from sm_pdu_rx_handler when the event-4 hook receives the byte 0x79 (a run-loop tick) and does nothing unless the controller env state byte (ble_ctrl_env_get_u8_at_0x198) is 2, ll_env_is_ready succeeds, DAT_2000FEF4 is clear and the predicates at 0x0C04FB64 and 0x0C04F7B8 both return 0. Phase 1 (DAT_2000FD8C == 0) selects the next target: the first connection whose state byte +0x1BE is 1 (set to 2), or else the head of the 12-byte SM address-resolution list at 0x2000FD88 (returned to its pool with 0x0C06554C). The target's address type, its address bytes (0x2000FD7C and 0x2000FD80) and handle are latched, and an 11-byte frame 0xCD 0x09 is published with ble_evt_publish. Phase 2 walks LE device DB slots 0 to le_device_db_tlv_max_count-1 with le_device_db_tlv_read_identity: a full type-plus-address match calls sm_pairing_step_complete(0), no match in any slot calls sm_pairing_step_complete(1), and a random-type target with no match starts an asynchronous IRK (RPA) check through the job submitter 0x0C065038, guarded by the busy flag DAT_2000FDC4. Phase 3 moves the global sequence DAT_2000FF34 from 2 to 3 through 0x0C04F894 when DAT_2000FDC6 is idle. Phase 4 walks the connections and switches on each link's SMP state byte +0x1BD: 0x0B and 0x0D build the c1 input with sm_c1_build_t1 and submit a confirm job; 0x0F and 0x10 send Pairing Confirm and Pairing Random (opcodes 3 and 4); 0x1B sends Security Request (opcode 0x0B); 0x17 sends one pending key-distribution PDU per pass (Encryption Information 6, Master Identification 7, Identity Information 8, Identity Address 9, Signing Information 0x0A) chosen from the bits of DAT_2000FF56, then waits for the peer keys (state 0x18), or once both directions are complete calls sm_device_db_resolve_peer. State 0x20 (after a Pairing Request) negotiates the key size (failure reason 6 when the peer maximum is below the local minimum DAT_2000FEB2) and sets the association model DAT_2000FF5A (0 Just Works, 1-3 passkey variants, 4 numeric comparison, 5 out-of-band) from the 5x5 IO-capability table at 0x0C0842C8 (legacy) or 0x0C0842E4 (Secure Connections). State 0x31 sends the 65-byte Pairing Public Key (opcode 0x0C, X and Y from 0x2000FD18 and 0x2000FD38), and states 0x3C to 0x47 (DHKey and key derivation) submit asynchronous crypto jobs with 0x50-, 0x20-, 0x35- and 0x41-byte inputs.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Phase 2 match and the phase 4 state meanings are inferred from stores and SMP opcode layouts. The states 0x34 and 0x37 passkey commitment steps are only partly traced. 0x0C04FB64, 0x0C04F7B8, 0x0C04FC10, 0x0C04F894, 0x0C065038 and 0x0C065078 are not described in this packet. The call to 0x0C066554 has no visible key argument; the pending handle DAT_20003FAA is the likely one."
+  },
+  "ble_219_0c051ef0": {
+    "name": "sm_pdu_rx_handler",
+    "summary": "SMP receive handler: validate opcode and length, then advance the link's pairing state machine",
+    "description": "Subscriber for event classes 4 and 9. Class 4 whose first byte is 0x79 runs sm_pairing_engine_step. Class 9 carries one SMP PDU: param_3 is the PDU, param_2 the connection handle and param_4 the length. The opcode in byte 0 must be at most 0x0E and the length must match the fixed-length table at 0x0C084208, and the connection is found with ble_ctrl_conn_find_by_handle. Opcode 5 (Pairing Failed) notifies the host through ble_link_notify_id_flag and ble_link_notify_local_ext, clears the pending pairing handle DAT_20003FAA (stopping timer 0x2000FF44, and when DAT_2000FF6C is set starting the ECC job 0x0C0650C0 with DAT_2000FD15 = 1), and moves the link to state 0x1A or 0x29 depending on +0x1AC. Opcode 0x0E (Keypress Notification) is forwarded to the host as a 5-byte 0xD2 event carrying the handle and the notification byte. Otherwise the link's SMP state byte +0x1BD picks the handler: state 0x18 stores incoming key distribution (LTK from opcode 6 at 0x20010118, EDIV and Rand from opcode 7 at 0x2001010E and 0x20010110, IRK from opcode 8 at 0x20010128, address type and address from opcode 9 at 0x20010148 and 0x20010149, CSRK from opcode 0x0A at 0x20010138) and sets the matching bit in DAT_2000FF59. States 0x1A, 0x1B and 0x1F take a Pairing Request (opcode 1), copy its io, oob, authreq, maximum key size and key-distribution fields into the link record (+0x1C4, +0x1C8, +0x1CA), and go to state 0x20 when the role byte +0x1BE is 3 or 4, otherwise 0x21. State 0x23 stores the peer Pairing Confirm at 0x2000FFBB, state 0x24 stores the peer Pairing Random at 0x2000FFAB, and state 0x32 takes the peer's 64-byte public key (X at +1, Y at +0x21), rejects it when memcmp against the local key at 0x2000FD18 matches, and otherwise starts ECDH through 0x0C065108. States 0x39 and 0x3B take the confirm and random in the passkey and OOB paths, and states 0x3C to 0x4B take the DHKey Check (opcode 0x0D) into 0x2001006A and set bit 2 of DAT_2000FFE9. Any opcode not expected in the current state sets reason 8 (Unspecified Reason) and state 1, so that a Pairing Failed is sent. Whenever a handler runs and DAT_2000FEB0 is set, the run-loop timer at 0x2000FF0C is re-armed with zero delay.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "event class: 4 = periodic hook (the byte 0x79 triggers the engine), 9 = SMP PDU received"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "connection handle the PDU belongs to"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "SMP PDU bytes: byte 0 is the opcode, the parameters follow"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "PDU length in bytes, must equal the fixed length for the opcode"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The opcode-to-field mapping follows the SMP PDU layouts and is high confidence. The meanings of the state numbers and the targets of 0x0C0650C0, 0x0C04F894 and 0x0C04FC10 are inferred or undescribed. The key-distribution bit masks are DAT_2000FF58 (expected), DAT_2000FF59 (received), DAT_2000FF56 (pending send) and DAT_2000FF57 (sent)."
+  },
+  "ble_219_0c052d30": {
+    "name": "sm_crypto_done_resume",
+    "summary": "Crypto completion step: set result flag DAT_2000FF54 to 2 and resume the link's pairing state",
+    "description": "Completion step for an SMP crypto job. It sets the result flag DAT_2000FF54 to 2 and looks up the connection with ble_ctrl_conn_find_by_handle. If the link is in state 4 and DAT_2000FF6C (Secure Connections in use) is set, it moves to state 0x31 (send our public key); otherwise it starts the 16-byte AES job 0x0C064FFC (queue 0x2000FE84, callback 0x0C04FD90) and re-reads the state. State 0x49 moves to 0x3F when DAT_2000FFE9 bit 2 (peer DHKey Check received) is set and to 0x3E otherwise. If DAT_2000FEB0 is set, the run-loop timer 0x2000FF0C is re-armed with zero delay.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The lookup 0x0C066554 is called with no visible argument in the decompile; the pending pairing handle DAT_20003FAA is the likely one. Callers are callbacks, not listed."
+  },
+  "ble_219_0c052de8": {
+    "name": "ble_adv_addr_restart",
+    "summary": "Restart the local address mode: stop timer 0x2000FD58, set mode 1, store a new 6-byte address",
+    "description": "Restarts the local address mode. It removes run-loop timer 0x2000FD58 (btstack_run_loop_remove_timer), sets the mode byte DAT_2000FD68 to 1 and calls 0x0C06B868; if that call leaves the mode above 1, it re-arms the interval timer through ble_host_timer_arm_interval. The first 4 bytes of the 6-byte record at param_1 are stored in DAT_2000FEF8 and the next 2 bytes in DAT_2000FEFC, then 0x0C06B890 is called with the record pointer, the register value from 0x0C06B868 and param_4. sm_pairing_engine_step uses the same mode byte when it sends Identity Address Information: values below 2 read the own address with 0x0C066D34 and values 2 and 3 use the public address from 0x0C066F60. Callers include 0x0C05C320 (also called after slot-limit changes) and 0x0C056A50, 0x0C056DD0, 0x0C05C480, 0x0C066C2C and 0x0C0674E8.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to a 6-byte address record (4 bytes then 2 bytes are copied)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused by this function (passed on in a register)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "forwarded to 0x0C06B890"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The meaning of mode values is inferred from their uses in sm_pairing_engine_step. 0x0C06B868, 0x0C06B890 and 0x0C05C320 are not described in this packet."
+  },
+  "ble_219_0c052ec0": {
+    "name": "ble_host_init_static_random_addr",
+    "summary": "Generate a static random device address (top bits 11) and cache it at 0x20004977",
+    "description": "Calls ble_gen_static_random_addr to produce a 6-byte address in a local buffer, ORs 0xC0 into its first byte so that the two most significant bits are 11 (the static random address form), and stores it through ble_peer_bdaddr_cache_set, which caches it at 0x20004977 and marks it valid. It is called from ble_fmna_reset_gen_keypair (0x0C0537B4). It takes no parameters and returns nothing.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The cache is named 'peer' by an earlier wave; here it holds the device's own static random address."
+  },
+  "ble_219_0c052ee4": {
+    "name": "ble_fmna_adv_payload_init",
+    "summary": "Build the Find My advertising data (UUID 0xFD44 service data) and the 'ninebot_fmna' scan response",
+    "description": "Initialises the Find My (FMNA) advertising configuration. It calls 0x0C05C548, then loads the 8-byte NV record 0xFA8 (ble_nv_load_8byte_block) and the one-byte flag from NV record 0xFA7 (ble_nv_load_flag_byte) into the globals at 0x20010154 to 0x2001015C, stores the state byte from ble_state_407a_read at 0x20010168, and clears DAT_200170AB. The advertising data at 0x2001706C is a 16-bit service UUID list (length 3, type 0x03, UUID 0xFD44) followed by a service data element (length 0x18, type 0x16, UUID 0xFD44) whose payload is copied from the block at 0x20010154 with memcpy; the 0x1D-byte block is submitted through 0x0C06B70C for the advertising set index in DAT_200042C7. The scan response at 0x2001708C is a Complete Local Name element (length 0x10, type 0x09) holding the ASCII string 'ninebot_fmna', submitted through 0x0C06B764. DAT_20017046 is set to 1 to mark the payload as configured. Its only listed caller is 0x0C055244.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The byte count of the memcpy that fills the service-data payload is not visible in the decompile. The 0x1D length is the value passed to 0x0C06B70C."
+  },
+  "ble_219_0c052f28": {
+    "name": "ble_fmna_adv_offline_ad_build",
+    "summary": "Build the 31-byte Apple offline-finding advertisement from a key record and set it as adv data",
+    "description": "Builds the legacy advertisement for Apple offline finding from a 28-byte key record at param_1. Its first byte, with the two top bits forced to 11, plus the next five bytes are cached as the advertising address through ble_peer_bdaddr_cache_set, so the first six bytes are the address and bytes 6 to 27 are the remaining 22 bytes of a P-224 public key. The 27-byte payload at 0x2001016C is laid out as 0x12 0x19 (offline-finding type and length 25), a status byte ((state byte from 0x2000407A << 6) | 0x20), those 22 key bytes copied as 4-byte and 2-byte words, the top two bits of the record's first byte (DAT_20010185), and the hint byte param_2 (DAT_20010186). It is wrapped in a manufacturer-specific element at 0x200170AC (length 0x1E, type 0xFF, company ID 0x004C, Apple) and submitted through 0x0C06B70C with the length kept in DAT_200170CB (31 bytes). The advertising set is reset with 0x0C06B64C first, the parameter bytes 0x200042CA and 0x200042CC are copied from 0x20003FBC, and DAT_20017046 is set to 3.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "28-byte key record: bytes 0-5 are the address, bytes 6-27 the rest of the public key"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "hint byte written as the last byte of the offline-finding payload"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The field layout is reasoned from the store offsets and the 0x12 0x19 header. The Apple interpretation (offline finding, P-224 key) is an inference from that layout and from the 0x004C company ID."
+  },
+  "ble_219_0c052fb0": {
+    "name": "ble_fmna_adv_status_ad_build",
+    "summary": "Build the 8-byte Apple offline-finding status advertisement and set it as adv data",
+    "description": "Builds the short Apple manufacturer advertisement used for the offline-finding status when the accessory is not presenting its key. It calls ble_peer_bdaddr_cache_set and sets DAT_20010153 to the top two bits of param_1's first byte. The element at 0x2001704C is length 7, type 0xFF, company 0x004C, then the header bytes 0x12 0x02 and four status bytes at 0x20010150 to 0x20010153: the 0x12 0x02 header, a status byte of (state byte from 0x2000407A << 6) | 0x20 with bit 2 added when ble_get_byte_12b84 is nonzero, and the address bits. The 8-byte block is submitted through 0x0C06B70C after 0x0C06B64C resets the advertising set. The adv parameter bytes 0x200042CA and 0x200042CC are copied from 0x20003FB4, and DAT_20017046 is set to 2. The address argument is the BLE address record at 0x20012B90 when called from ble_slot_cmd_dispatch.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte BLE address record; only the top two bits of byte 0 are used in the payload"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The stack buffer passed to ble_peer_bdaddr_cache_set (0x0C05C2FC) is not filled in the decompile, probably a decompiler artifact. The cache is written with that buffer's contents."
+  },
+  "ble_219_0c053018": {
+    "name": "ble_slot_cmd_dispatch",
+    "summary": "Dispatch app control command 0x200-0x209 for slot id param_1 and queue its 0x20B/0x20C/0x20E reply",
+    "description": "Command dispatcher for the app and UART control channel. param_1 is the slot id (0xFE in the helper calls means every slot), param_2 points to the request (u16 command code at +0, u16 argument at +2, a byte at +2 for flags), and param_3 is forwarded to the duplicate lookup. Requests are refused with status 1 unless the slot manager is ready (ble_slot_mgr_is_ready) and the slot has flag bit 5. First, ble_pair_table_lookup checks the command against a 10-entry table at 0x20003FC0; a hit replies with the stored status (0xFFFF becomes command 0). Commands: 0x200 sets flag 2 for the slot and schedules 0x0C055440(10) when no slot has flag 2; 0x201 schedules 0x0C055440(11) when a slot has it; 0x202 sets flag 0 when the byte argument is nonzero (only if no slot has it; then, if the host enable byte 0x20012B85 is set and fewer slots are used than the limit, rebuilds the status advertisement with ble_fmna_adv_status_ad_build and 0x0C05C320, and disables timer 0x20012C6C), or clears flag 0; 0x203 stores the u16 argument times 1000 at 0x200041C8 when it is below 3601 (ble_set_timeout_ms_to_us) and otherwise answers status 4; 0x204 stores a byte at 0x200101E0 when the limit is one and exactly one slot is used; 0x205 checks a time window against 0x20012B8C and 0x200041C4, restarts timer 0x20012C3C through ble_host_timer_restart and sends no reply; 0x206 copies the staging block at 0x20012B8C into the active block (0x20012B88 and 0x20012BDC to 0x20012C08) and replies 0x20E with 4 bytes; 0x207 sets the slot limit DAT_20003FE8 to min(argument, 4) and, for argument 1, tears down the other occupied slots with 0x0C05C850, replying 0x20B only when none were torn down; 0x208 acknowledges; 0x209 replies 0x20C with the OR of the slot flag words, plus 0x40 when another slot has flag 5. Replies go through ble_slot_store_and_queue (0x20B with command and status) or ble_app_queue_message (0x20C and 0x20E frames). Other opcodes do nothing.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "slot id (low byte); 0xFE addresses all slots in the helper calls"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "request record: u16 command code at +0, u16 argument at +2 (byte at +2 for flag commands)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "value forwarded to the duplicate-command lookup"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The helpers 0x0C055440, 0x0C05C320 and 0x0C05C850 take their slot or delay argument implicitly in the decompile. The byte stored by 0x0C053830 for command 0x204 is not visible. The write to 0x200101D8 used as a teardown flag in command 0x207 is an odd location and is inferred."
+  },
+  "ble_219_0c0532dc": {
+    "name": "ble_slot_teardown_all",
+    "summary": "Tear down every occupied entry of the 4-slot table at 0x20010198",
+    "description": "Walks the four 16-byte slot entries at 0x20010198 and calls 0x0C05C850 for every entry whose id byte (at 0x200101A4 and then every 16 bytes) is not 0xFF. The slot id is passed to that call in r0, which the decompile does not show. It is called from 0x0C02A8F8 and 0x0C055B90.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The slot argument of 0x0C05C850 is implicit in the decompile and is taken from the entry."
+  },
+  "ble_219_0c053558": {
+    "name": "ble_slot_alloc_entry",
+    "summary": "Claim slot entry index for owner id and u16 value, stamping it with the current tick count",
+    "description": "Fills slot entry index param_3 (0 to 3) of the 16-byte slot table at 0x20010198 for owner id param_1 and the u16 value param_2. Unless the entry is free (its id byte at +0x0C is 0xFF) while the global count DAT_20013073 is below 4, it first calls 0x0C05C850 with the owner id to release the previous occupant. It then writes the tick count from xTaskGetTickCount to +0x00, zeroes the word at +0x04 and the flag word at +0x08, stores the owner id at +0x0C and the u16 value at +0x0E, and schedules 0x0C055440(5).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "owner slot id stored in the entry"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "16-bit value stored at entry offset +0x0E"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "slot entry index, 0 to 3"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of DAT_20013073 is inferred from its comparison with 4 as a slot count."
+  },
+  "ble_219_0c053740": {
+    "name": "ble_host_cache_key16",
+    "summary": "Cache a 16-byte value at 0x20010188 and run the 16-byte routine 0x0C065C88 on it",
+    "description": "Copies four 32-bit words from the 16-byte argument into 0x20010188 to 0x20010193 (in order), then calls 0x0C065C88 on that 16-byte buffer, a routine not described here that is probably an in-place byte reversal. It is called from 0x0C053D04, which is not described. The purpose of the buffer is not confirmed by this packet.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "16-byte value (four u32 words)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c05376c": {
+    "name": "ble_slot_mgr_set_ready",
+    "summary": "Set the slot-manager ready marker (0xA5 on, 0 off) at 0x200101D9 and persist it to NV 0xFAB",
+    "description": "Sets the slot-manager ready marker byte at 0x200101D9 to 0xA5 when param_1 is nonzero and to 0 otherwise. When switching off from 0xA5 it first calls 0x0C029230(2). The marker is then persisted with ble_nv_record_write(0xFAB, 1 byte, param_4). ble_slot_mgr_is_ready tests for 0xA5 before the slot service accepts commands, so this is the enable switch for that service. Callers are 0x0C05CCB4 and 0x0C05CE14.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "nonzero enables the slot manager, zero disables it"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "forwarded to ble_nv_record_write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of 0xA5 as an enabled marker is inferred from ble_slot_mgr_is_ready."
+  },
+  "ble_219_0c0537b4": {
+    "name": "ble_fmna_reset_gen_keypair",
+    "summary": "Reset host state and generate the P-224 Find My key pair with wolfSSL, returning 0 or an error",
+    "description": "Host reset and key generation. It calls the no-op hook 0x0C05CBC0, generates the static random address (ble_host_init_static_random_addr), stops the host timers (ble_host_timers_stop_pair, then ble_host_timer_set_enabled with 0) and sets the slot limit DAT_20003FE8 to 1. When param_1 is nonzero, it first tears down every occupied slot with 0x0C05C850. If the slot-manager marker is 0xA5 it calls 0x0C029230(2); it then clears the marker and persists it to NV record 0xFAB. It resets the host context (ble_host_ctx_reset_b88, ble_host_ctx_clear_2608) and zeroes the 512-byte area at 0x20010224, which holds a wolfSSL ecc_key. It then opens a wolfSSL RNG (0x0C061828), acquires a crypto handle from 0x0C05F1A8 (zero aborts with -1), fills 32 random bytes at 0x200103E0 (0x0C061834), runs wc_ecc_init (0x0C060190) and generates the key with 0x0C0600C0 using keysize 0x1C (28 bytes) and curve id 0x0E. On failure the key is freed with wc_ecc_free and the handle with 0x0C05F1B0; the RNG is freed with 0x0C06156C in every case, and the function returns 0 or the error code.",
+    "category": "fmna",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "nonzero tears down all occupied slots before the reset"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused by this function"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused by this function (passed to the memset call in the decompile)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success; -1 when no crypto handle is available; otherwise the wolfSSL or helper error code"
+    },
+    "confidence": "medium",
+    "notes": "The P-224 identification comes from keysize 0x1C and curve id 0x0E passed to 0x0C0600C0, together with the Find My payload layout in ble_fmna_adv_offline_ad_build. 0x0C0600C0, 0x0C05F1A8, 0x0C05F1B0 and 0x0C029230 are not described in this packet."
+  },
+  "ble_219_0c053848": {
+    "name": "ble_host_stage_blob",
+    "summary": "Stage a caller blob in 0x20011E10 (up to 0x410 bytes) and clear the 0x400-byte area at 0x20011E20",
+    "description": "Stages a blob from the caller into the 0x410-byte buffer at 0x20011E10. It clears the whole buffer with memset, copies param_2 bytes from param_1 with memcpy, runs the 16-byte routine 0x0C065C88 on the buffer start, and calls 0x0C05C860 on the 0x400-byte area at 0x20011E20 with fill value 0. No record id is written here. The caller 0x0C0297B0 is not described.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source blob"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "number of bytes to copy from param_1, at most 0x410 in practice"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The layout of the staging buffer is inferred from the clear and copy sizes. 0x0C065C88 and 0x0C05C860 are not described in this packet."
+  },
+  "ble_219_0c053954": {
+    "name": "ble_fmna_state_save",
+    "summary": "Assemble the 0x52E-byte Find My state record and store it as NV record 0x4DD; returns 0 or 0xC",
+    "description": "Assembles the Find My persistent state record and stores it under NV record id 0x4DD. It exports the public key from the P-224 key at 0x20010224 through 0x0C05BA6C into 0x20010A74 (non-zero aborts), reads the identity block at 0x2001225C through 0x0C05C10C (non-zero aborts) and loads the 8-byte NV record 0xFA8 with ble_nv_load_8byte_block. It then copies 32 bytes of key state from 0x200109E0 to 0x2001150C to 0x2001152B, the 0x400-byte table at 0x20011A10 to 0x2001152C, 16 bytes from 0x20011A00 to 0x2001192C, identity words from 0x2001227C to 0x20012288 into 0x2001193C to 0x20011948, 0x71 bytes from 0x20010A00 into 0x20011958, and a series of identity fields from 0x2001225C to 0x20012278 into 0x200119C9 to 0x200119E5. It also stores the word from ble_get_packed_word_12cb0 (0x0C055604) at 0x20011954 and the NV-loaded words at 0x2001194C and 0x20011950, and then writes the 0x52E-byte record through 0x0C05C13C with id 0x4DD, context 0x20004030 and output buffer 0x20010A94. It returns 0 on success and 0xC when any step fails.",
+    "category": "fmna",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0xC when any step fails"
+    },
+    "confidence": "low",
+    "notes": "The field offsets are taken from the decompile; the meaning of the 0x52E-byte record and of record id 0x4DD is inferred. 0x0C05BA6C, 0x0C05C10C and 0x0C05C13C are not described in this packet."
+  }
+}

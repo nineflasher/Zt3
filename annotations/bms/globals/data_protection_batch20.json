@@ -1,0 +1,18 @@
+{
+  "bms_g_4168_20001c7c": {
+    "name": "bms_fault_window_start",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20001c7c"],
+    "category": "protection",
+    "description": "32-bit start stamp of the fault sub-state window. bms_fault_record_service stores the value returned by FUN_0800a348 (a tick read) each time it starts a new run, then passes it to FUN_0800a528 with a 20-tick window (0x14) to decide whether the window has expired. The unit of the tick is not stated in this packet. Read and written only by bms_fault_record_service."
+  },
+  "bms_g_4168_20001c8b": {
+    "name": "bms_fault_timed_out",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20001c8b"],
+    "category": "protection",
+    "description": "Flag set to 1 by bms_fault_record_service when the 20-tick fault window expires while the fault sub-state handler still returns 1. The same call then commits the fault record, so the flag marks a timed-out fault run. The only write in this packet is the set to 1, so clearing it is probably done elsewhere in the firmware (not shown here)."
+  }
+}

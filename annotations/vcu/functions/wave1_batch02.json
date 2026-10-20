@@ -1,0 +1,386 @@
+{
+  "vcu_0159_08002f08": {
+    "name": "vcu_serial_match_set_flag",
+    "summary": "Compare two 14-byte strings and set a flag when they are identical",
+    "description": "Compares param_1 and param_2 byte by byte over exactly 14 bytes (index kept in a u8 loop counter, stops at the first difference). If all 14 bytes match, writes 1 to the global flag DAT_20001f68; otherwise the flag is left untouched (it is never cleared here). The 14-byte length matches the 14-character product/serial string handled by vcu_serial_check_default and vcu_serial_parse_variant_code, so this is most likely a serial-number-equals-stored-copy check. Called from the large configuration/communication routine vcu_0159_08009da8.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "first 14-byte buffer"},
+      {"name": "param_2", "type": "ptr", "description": "second 14-byte buffer"}
+    ],
+    "returns": {"type": "void", "description": "nothing; result is the side effect on DAT_20001f68"},
+    "confidence": "medium",
+    "notes": "That the buffers are serial numbers is inferred from the length 14 and the caller, not proven."
+  },
+  "vcu_0159_0800332c": {
+    "name": "vcu_debounce_condition_a",
+    "summary": "Up/down debounce counter (limit 20) that drives the output flag DAT_20001f69",
+    "description": "Part of a family of small per-tick condition/flag helpers (see vcu_condition_b_latch_flags) called from the main loop handlers. When DAT_20001b62 < 10 (likely a speed value), bit0 of status word DAT_20001f78 is clear and bit3 of DAT_20001f78 or of DAT_20001e6a is set, the saturating counter DAT_20001880 is incremented; once it has reached 0x14 (20 calls) DAT_20001f69 is set to 1. Otherwise, when bit3 of DAT_20001f78 or bit3 of DAT_20001e6a is clear, the counter is decremented and DAT_20001f69 is cleared when it is already 0. This gives hysteresis so the flag only changes after about 20 consecutive calls.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Meaning of the status bits (f78 bit0/bit3, e6a bit3) and of b62 as speed is unknown; the decompiled OR/AND mixture of the bit tests is reproduced literally."
+  },
+  "vcu_0159_0800339c": {
+    "name": "vcu_condition_b_latch_flags",
+    "summary": "Set or clear flag bit 2 of DAT_20001aec and DAT_20001875 from status bits",
+    "description": "Companion of vcu_debounce_condition_a. If bit6 of DAT_20001e68 is set, DAT_20001b62 < 10, bit0 of DAT_20001f78 is clear and bit3 of DAT_20001e6a is set, it ORs 4 into the flag word DAT_20001aec and sets DAT_20001875 to 1. If instead bit6 of e68 is clear or bit3 of e6a is clear it clears bit 2 of aec (AND 0xFFFB) and clears DAT_20001875. In all other cases the state is left unchanged (latching behaviour). No counter is involved, so the change is immediate.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Semantics of the individual bits are not known."
+  },
+  "vcu_0159_08003400": {
+    "name": "vcu_periodic_100_tick_check",
+    "summary": "Every 100 calls of the counter DAT_2000102c, raise DAT_20001fc0 if conditions hold",
+    "description": "DAT_2000102c is a free-running tick counter incremented elsewhere (the access is flagged as address-taken/RW). When it reaches 100 it is reset to 0 and, if bit6 of DAT_20001e68 and bit4 of DAT_20001af2 are both set, or DAT_2000123e equals 6, the request flag DAT_20001fc0 is set to 1 (consumed elsewhere). Below 100 nothing happens. Acts as a 100-period timed event generator.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Tick period (and whether 0x123e is a state/mode byte) not determined."
+  },
+  "vcu_0159_08003b00": {
+    "name": "vcu_event_countdown_a",
+    "summary": "Countdown timer reloaded on input change; sets DAT_20001fb4 on expiry",
+    "description": "One of a group of countdown helpers (see vcu_event_countdown_b). If DAT_20001f48 is 0 and DAT_20001b62 < 30: when DAT_200021b5 == 3 it sets DAT_20001fb4 = 1; when the event latch DAT_20001fbc differs from the remembered copy DAT_2000134c, it copies it into 134c, clears fbc and reloads the countdown DAT_20001fac with param_1. A nonzero countdown is decremented each call and when it reaches 0 sets DAT_20001fb4 = 1. If the guard fails, the countdown is zeroed and DAT_200021b5 is cleared if it was 3. At the end a pending latch value of 1 in fbc is cleared. param_1 is the timeout in calls.",
+    "category": "vehicle",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "countdown reload value in calls (timeout)"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "DAT_20001fbc looks like a shared change/event latch (button or input edge) but its source is unknown."
+  },
+  "vcu_0159_08003b74": {
+    "name": "vcu_event_countdown_b",
+    "summary": "Countdown timer reloaded on event latch change; sets DAT_20001fd4 at expiry",
+    "description": "Sibling of vcu_event_countdown_a. When the latch DAT_20001fbc differs from the stored copy DAT_2000134d it copies it, clears the latch, reloads the 16-bit countdown DAT_20001fd2 with param_1 and, if DAT_20001fd4 was 1, clears DAT_20001fd4 and DAT_200021b8. Then, while the countdown is nonzero it decrements it and sets DAT_20001fd4 = 1 when it reaches 0; if it is already 0 it re-arms it with param_1. Effectively a repeating timer whose expiry flag is DAT_20001fd4.",
+    "category": "vehicle",
+    "params": [
+      {"name": "param_1", "type": "s16", "description": "countdown reload value in calls"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Purpose of DAT_200021b8 and the consumer of fd4 not identified."
+  },
+  "vcu_0159_08003bc8": {
+    "name": "vcu_deferred_system_reset",
+    "summary": "After 20 calls with DAT_20001f52 == 1, trigger a Cortex-M system reset",
+    "description": "If the request byte DAT_20001f52 equals 1, increments the counter DAT_2000134e; once it exceeds 0x13 (i.e. on the 20th call) it executes a DSB, writes SCB->AIRCR (0xE000ED0C) with VECTKEY 0x5FA and SYSRESETREQ (bit 2) while preserving PRIGROUP (mask 0x700), executes another DSB and spins forever until the reset occurs. This is the CMSIS NVIC_SystemReset() sequence preceded by a debounce delay. Used to restart the VCU (e.g. after a configuration/update command); called from the main handler vcu_0159_0800a1d0.",
+    "category": "power",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return once the reset condition is met"},
+    "confidence": "high",
+    "notes": "The counter is not cleared when DAT_20001f52 is not 1, so non-consecutive requests also accumulate."
+  },
+  "vcu_0159_08003bf0": {
+    "name": "vcu_cycle_mode_on_request",
+    "summary": "On a request flag, step a 3-state selector and map it to DAT_20001b94",
+    "description": "When the request flag DAT_20001f75 is nonzero it is cleared and the selector DAT_2000135c (0,1,2) is mapped to the output DAT_20001b94 as 0 -> 2, 1 -> 1, 2 -> 0, then the selector is incremented and wrapped back to 0 after 2. So each request cycles through three values, in the order 2, 1, 0 for the output. Looks like a three-level setting (e.g. riding/speed mode or light level) toggled by a button press; called from the main handlers vcu_0159_0800a15c and 0800a1d0.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "What DAT_20001b94 controls (speed mode / light level) is unverified."
+  },
+  "vcu_0159_08004714": {
+    "name": "vcu_serial_parse_variant_code",
+    "summary": "Decode the variant letter of a '1K1x' serial prefix into DAT_20001fa7",
+    "description": "param_1 points to a character string. If it begins with \"1K1\", the 4th character is mapped to a variant index stored in DAT_20001fa7: 'A'->0, 'E'->1, 'D'->2, 'U'->3, 'Z'->4, 'I'->5, 'G'->6, anything else -> 1. If the prefix is not \"1K1\" the index is 4. It then sets DAT_20001fa5 = 1 (variant valid/changed) and stores ((DAT_20001b40 >> 8) + 3) & 0xFF into DAT_20001032. The index is consumed by vcu_apply_variant_config to select the feature flag words; both are called from vcu_0159_08009da8.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pointer to the serial/model string (at least 4 chars)"}
+    ],
+    "returns": {"type": "void", "description": "nothing; results in DAT_20001fa7, DAT_20001fa5, DAT_20001032"},
+    "confidence": "medium",
+    "notes": "The letters are likely market/region or model variants; exact meaning is a guess. The role of DAT_20001b40>>8 (+3) is unknown."
+  },
+  "vcu_0159_08004f74": {
+    "name": "vcu_toggle_special_mode",
+    "summary": "Toggle mode byte DAT_20001fa4 between its current value and the special value 4",
+    "description": "Active only when bit4 of DAT_20001aee is set and the request flag DAT_20001f72 is nonzero; the flag is consumed (cleared). If the mode DAT_20001fa4 is already 4, it is restored from the saved value DAT_20001354. Otherwise, if DAT_20001b62 < 0x32, the current mode is saved in DAT_20001354 and DAT_20001fa4 is set to 4. Called from the main handlers (vcu_0159_0800a15c, 0800a1d0).",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "DAT_20001b62 < 50 is a gate, probably a speed limit in some unit; meaning of mode 4 unknown."
+  },
+  "vcu_0159_08005380": {
+    "name": "vcu_error_code_clear_if_current",
+    "summary": "Clear the active error code DAT_2000123c when it equals the given code",
+    "description": "If the currently displayed/active error code DAT_2000123c equals param_1 it is set to 0. Does not touch the error bitmap (vcu_error_code_clear does that). Called from vcu_0159_080029d0 and vcu_0159_08003f40.",
+    "category": "diagnostics",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "error code to retire"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Interpretation of DAT_2000123c as an error code is inferred from the sibling functions with 48-bit bitmaps."
+  },
+  "vcu_0159_08005394": {
+    "name": "vcu_error_code_clear",
+    "summary": "Clear error code from active slot and bit i-1 of the 48-bit error bitmap",
+    "description": "First clears the active error code DAT_2000123c if it equals param_1. Then for codes 1..48 (param_1 != 0 and < 0x31) clears bit (param_1-1) in a 48-bit pending-error set spread over three u16 words: bits 0-15 in DAT_20001ce0, 16-31 in DAT_20001ce2 and 32-47 in DAT_20001ce4. Out-of-range codes only affect the active slot. Paired with vcu_warning_code_clear which does the same for codes 10..57 in DAT_20001cd8..cde and DAT_2000123d; reset together by vcu_error_state_reset. Callers: vcu_0159_08002d18, vcu_0159_08003f40.",
+    "category": "diagnostics",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "error code, 1..48 (0 and larger values ignored for the bitmap)"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Which of the two bitmap groups is 'error' versus 'warning' is a guess; both are fault-code sets."
+  },
+  "vcu_0159_080053ec": {
+    "name": "vcu_error_state_reset",
+    "summary": "Zero the active error code, DAT_20001b66 and the 3-word error bitmap",
+    "description": "Writes 0 to DAT_2000123c (active code), DAT_20001b66 and the three bitmap words DAT_20001ce0, DAT_20001ce2 and DAT_20001ce4 used by vcu_error_code_clear. Called from vcu_0159_0800a39c together with vcu_warning_state_reset, vcu_aux_flags_reset and the other clear helpers, i.e. a global reset of fault state.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "DAT_20001b66 is probably a mirror of the active error code or a count; unknown."
+  },
+  "vcu_0159_08005410": {
+    "name": "vcu_warning_state_reset",
+    "summary": "Zero the active warning code, DAT_20001b64 and the 4-word warning bitmap",
+    "description": "Writes 0 to DAT_2000123d (active code), DAT_20001b64 and the four u16 bitmap words DAT_20001cd8, cda, cdc and cde used by vcu_warning_code_clear. Called from vcu_0159_0800a39c together with vcu_error_state_reset.",
+    "category": "diagnostics",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Error vs warning naming is a guess."
+  },
+  "vcu_0159_08005434": {
+    "name": "vcu_warning_code_clear",
+    "summary": "Clear warning code from active slot and bit (code-10) of the warning bitmap",
+    "description": "Clears the active code DAT_2000123d if it equals param_1. For codes 10..57 (9 < param_1 < 0x3a) the bit index idx = param_1 - 10 is cleared in a bitmap of u16 words: idx 0-15 in DAT_20001cd8, 16-31 in cda, 32-47 in cdc, 48-63 in cde (the last word is reachable only for idx >= 48, which the range check prevents, so it is effectively dead). Sibling of vcu_error_code_clear with a different code range and storage. Callers: vcu_0159_08003f40, vcu_0159_0800a500.",
+    "category": "diagnostics",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "warning code, 10..57"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Code range 10..57 suggests the warning numbering is offset from the error numbering; unverified."
+  },
+  "vcu_0159_080054a4": {
+    "name": "vcu_clear_flag_bits_9_11",
+    "summary": "Clear bits 9..11 of the 16-bit flag word DAT_20001f98",
+    "description": "Performs DAT_20001f98 &= 0xF1FF, clearing the three-bit field at bits 9-11. Part of the group of clear/reset helpers called together from vcu_0159_0800a39c. DAT_20001f8c is address-taken nearby so f98 is probably a member of a status structure.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Field meaning unknown."
+  },
+  "vcu_0159_080054b4": {
+    "name": "vcu_aux_flags_reset",
+    "summary": "Zero five auxiliary state bytes (DAT_20002028, 2023, 2022, 200021be, 200021bb)",
+    "description": "Stores 0 to DAT_20002028, DAT_20002023, DAT_20002022, DAT_200021be and DAT_200021bb in that order. Called only from vcu_0159_0800a39c alongside vcu_error_state_reset and vcu_warning_state_reset, so it is a state-clear helper of the same reset event.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "Meaning of the five variables is unknown."
+  },
+  "vcu_0159_080054d0": {
+    "name": "vcu_frame_checksum",
+    "summary": "Ones'-complement of the 16-bit sum of bytes (Ninebot-style frame checksum)",
+    "description": "Sums param_2 bytes starting at param_1 into a 16-bit accumulator (wraparound) and returns the bitwise NOT of the sum. This is the typical Ninebot/Xiaomi frame checksum (0xFFFF ^ sum). Called from vcu_0159_08008a9e, a frame build/verify routine. The result is returned as a ushort, low byte then high byte presumably appended to the frame.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "start of data (u8 array)"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes"}
+    ],
+    "returns": {"type": "u16", "description": "~sum of bytes, 16 bit"},
+    "confidence": "high",
+    "notes": "Which bytes of the frame (e.g. length..data) are included is decided by the caller."
+  },
+  "vcu_14f_080055d0": {
+    "name": "DebugMon_Handler",
+    "summary": "Debug monitor exception handler: empty, returns immediately",
+    "description": "Cortex-M DebugMonitor exception vector (vector 12). The handler is a single return instruction, so debug monitor events are ignored. Present only in the older builds 148..14f.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  },
+  "vcu_14f_080056d4": {
+    "name": "EXINT0_IRQHandler",
+    "summary": "EXINT line 0 interrupt handler: empty stub",
+    "description": "Vector for external interrupt line 0 (EXINT0). The body is a single return and does not clear the EXINT pending bit, so the interrupt is evidently not enabled in practice. Present only in builds 148..14f.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  },
+  "vcu_14f_08005740": {
+    "name": "EXINT9_5_IRQHandler",
+    "summary": "EXINT lines 9..5 shared interrupt handler: empty stub",
+    "description": "Vector for the shared external interrupt of EXINT lines 5-9. The body is a single return and does not clear any pending flag, so it is a placeholder for an unused interrupt. Present only in builds 148..14f.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  },
+  "vcu_0159_08005914": {
+    "name": "vcu_sum_s16_minus_trailer",
+    "summary": "Sum an array of s16 and subtract the two s16 words at index 250 and 251",
+    "description": "Adds up the first param_2 signed 16-bit values of the array at param_1 and returns that sum minus the s16 at byte offset 500 (index 250) and minus the s16 at byte offset 0x1F6 (index 251). It looks like a block integrity check: a 512-byte block of 16-bit words whose last words hold stored check values, the return being 0 when valid. Callers vcu_0159_08005bb4 and vcu_0159_08007d88, which also use vcu_flash_page_count and vcu_copy_bytes_src_dst, so this belongs to the stored-parameter/firmware-image handling code.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "array of s16 words"},
+      {"name": "param_2", "type": "s32", "description": "number of words to sum"}
+    ],
+    "returns": {"type": "s32", "description": "sum minus trailer words; 0 expected when consistent"},
+    "confidence": "medium",
+    "notes": "Whether param_2 includes the two trailer words (e.g. 250 vs 252) is decided by callers; purpose is inferred."
+  },
+  "vcu_0159_08005b2c": {
+    "name": "vcu_flash_page_count",
+    "summary": "Ceiling division of a byte count by 1024",
+    "description": "Returns param_1 >> 10, plus 1 if any of the low 10 bits are set, i.e. ceil(param_1 / 1024). 1 KiB is the AT32F415 flash erase page size, so this converts an image length to the number of pages to erase/program. Called from vcu_0159_08005b40.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "size in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "number of 1 KiB pages"},
+    "confidence": "high"
+  },
+  "vcu_0159_08005b7e": {
+    "name": "vcu_copy_bytes_src_dst",
+    "summary": "Byte-wise copy of param_3 bytes from param_1 to param_2",
+    "description": "Simple forward byte loop copying from src (param_1) to dst (param_2). Note the argument order is source first, unlike memcpy. No overlap handling. Called from vcu_0159_08005bb4, 080060b8 and 08009da8.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source"},
+      {"name": "param_2", "type": "ptr", "description": "destination"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  },
+  "vcu_0159_08005d9a": {
+    "name": "HardFault_Handler",
+    "summary": "HardFault exception handler: infinite loop",
+    "description": "Cortex-M HardFault vector. Spins forever; the watchdog (if running) will reset the device, otherwise the MCU hangs. No fault status is saved.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_08005db8": {
+    "name": "vcu_apply_variant_config",
+    "summary": "Build four 16-bit option words from the variant index DAT_20001fa7 and publish them",
+    "description": "Starts from default values (DAT_20001034 = 0x279F, DAT_20001036 = 0xA5A1, DAT_20001038 base 0x83DD, DAT_2000103a with bits 4-5 cleared and bit 1 set) and switches on the variant index DAT_20001fa7 (set by vcu_serial_parse_variant_code, values 0..6, default for other values) to override bit fields in these four words and, for cases 1, 2, 5 and default, to clear bit 12 of DAT_20001aee (case 2 also sets bit 11). Finally the words are copied into the output/shadow words DAT_20001aea, DAT_20001b14, DAT_20001b16 and DAT_20001b18 (4 x u16 = 8 bytes, likely a feature/option mask sent in a protocol frame). Cases 4 and 6 share one configuration, case 3 keeps the defaults. Called from vcu_0159_08009da8 and vcu_0159_0800b294.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "medium",
+    "notes": "Meaning of the individual bits of the four words is unknown; they could be feature enables per model/market variant."
+  },
+  "vcu_153_08006490": {
+    "name": "vcu_tea_decrypt_block",
+    "summary": "TEA decryption of one 64-bit block with a 128-bit key (32 rounds)",
+    "description": "Tiny Encryption Algorithm decrypt: v0 = param_1[0], v1 = param_1[1], sum starts at 0xC6EF3720 (= 32 * delta, delta 0x9E3779B9; the code adds 0x61C88647 each round, i.e. subtracts delta). Each of 32 rounds does v1 -= ((v0<<4)+k[2]) ^ (v0+sum) ^ ((v0>>5)+k[3]) then v0 -= ((v1<<4)+k[0]) ^ (v1+sum) ^ ((v1>>5)+k[1]). The result is written back in place. No direct callers in the image (called indirectly or the call was optimised away); not present in the 0159 build.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pointer to two u32 words (the 8-byte block, decrypted in place)"},
+      {"name": "param_2", "type": "ptr", "description": "pointer to four u32 key words"}
+    ],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high",
+    "notes": "Plain TEA (not XTEA): the key index is fixed per half-round, no key schedule on sum. What data it protects is not known from this function."
+  },
+  "vcu_0159_080066dc": {
+    "name": "vcu_serial_check_default",
+    "summary": "Classify the stored serial string at DAT_20001ad4 against the default '1K1E0000000001'",
+    "description": "Builds the 14-character template \"1K1E0000000001\" on the stack and compares it with the string at DAT_20001ad4, character by character. Returns 1 if all 14 characters match (factory default / unprogrammed serial), 2 if a non-alphanumeric character (not 0-9, A-Z, a-z) is found before 14 characters were matched (invalid serial), and 0 if an alphanumeric character differs from the template (a real, different serial). Called from vcu_0159_08005bb4.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 = different valid serial, 1 = equals default template, 2 = invalid (non-alphanumeric) character"},
+    "confidence": "medium",
+    "notes": "Role of the string as a serial number follows from its '1K1' prefix and the sibling parser; return code meanings derived from control flow."
+  },
+  "vcu_14f_08006710": {
+    "name": "vcu_latch_event_flags_a",
+    "summary": "One-shot: set bit0 then bit1 of DAT_20001a7a, setting bit 11 of DAT_20001a38/20001a36",
+    "description": "If bit0 of the latch byte DAT_20001a7a is clear it sets it and ORs 0x800 into the flag word DAT_20001a38; if bit1 is clear it sets it and ORs 0x800 into DAT_20001a36. So each flag word gets bit 11 set exactly once, guarded by a latch. The duplicated test in the decompilation is an artifact of an atomic/exclusive access. Older-build (148..14f) counterpart of vcu_latch_event_flags_b; no direct callers (invoked indirectly).",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "The meaning of bit 11 of these words is unknown."
+  },
+  "vcu_0159_08006814": {
+    "name": "vcu_count_nonzero_nibbles",
+    "summary": "Count how many of the 8 nibbles of a u32 are nonzero",
+    "description": "Iterates over the 8 hexadecimal digits of param_1 (shift right by 4 each time) and increments a counter for each nibble not equal to 0. Returns the count (0..8). Called from vcu_0159_08007a48.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value whose nibbles are tested"}
+    ],
+    "returns": {"type": "u8", "description": "number of nonzero nibbles, 0..8"},
+    "confidence": "high"
+  },
+  "vcu_0159_0800686c": {
+    "name": "vcu_sanitize_mode_1_to_4",
+    "summary": "Force the byte at param_1 into the range 1..4 (default 1)",
+    "description": "If *param_1 is not one of 1, 2, 3 or 4, it is replaced by 1. Used to validate a 4-valued setting loaded from stored configuration. Called from vcu_0159_08009da8.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pointer to the u8 setting to validate"}
+    ],
+    "returns": {"type": "void", "description": "nothing; modifies *param_1"},
+    "confidence": "high"
+  },
+  "vcu_0159_0800691c": {
+    "name": "vcu_latch_event_flags_b",
+    "summary": "One-shot: set bits 0..2 of DAT_20001b32 and the matching flags in aee/af0/b12",
+    "description": "Three independent latches in DAT_20001b32. If bit0 is clear it sets it and ORs 0x800 into DAT_20001af0; if bit1 is clear it sets it and ORs 0x800 into DAT_20001aee; if bit2 is clear it sets it and ORs 2 into DAT_20001b12. The duplicate tests are decompiler artifacts. Newer-build (152/153/0159) version of vcu_latch_event_flags_a with an additional third latch. Called from vcu_0159_0800d858.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "low",
+    "notes": "The meaning of the flag bits is unknown; it might be a one-time announcement/feature-present flag."
+  },
+  "vcu_0159_08006990": {
+    "name": "MemManage_Handler",
+    "summary": "MemManage fault handler: infinite loop",
+    "description": "Cortex-M MemManage exception vector. Spins forever without saving fault status.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "never returns"},
+    "confidence": "high"
+  },
+  "vcu_0159_080069b0": {
+    "name": "NMI_Handler",
+    "summary": "NMI exception handler: empty, returns immediately",
+    "description": "Cortex-M Non-Maskable Interrupt vector. Single return instruction; NMI events (e.g. clock failure detect) are ignored.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  },
+  "vcu_0159_08006b00": {
+    "name": "vcu_digits4_to_int",
+    "summary": "Convert four decimal-digit bytes (d0 d1 d2 d3) to a 4-digit integer",
+    "description": "Computes ((d0*10 + d1)*10 + d2)*10 + d3 from param_1[0..3], with no subtraction of '0', so the bytes are raw digit values 0..9 (not ASCII), and returns the result sign-extended from 16 bits. Called from vcu_0159_080069b4.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pointer to 4 digit bytes, most significant first"}
+    ],
+    "returns": {"type": "s32", "description": "value 0..9999"},
+    "confidence": "high"
+  },
+  "vcu_0159_08007ab4": {
+    "name": "PendSV_Handler",
+    "summary": "PendSV exception handler: empty, returns immediately",
+    "description": "Cortex-M PendSV vector. A single return instruction; the firmware does not use an RTOS context switch through PendSV.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "nothing"},
+    "confidence": "high"
+  }
+}

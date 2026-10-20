@@ -1,0 +1,459 @@
+{
+  "ble_219_0c03fb1c": {
+    "name": "segger_rtt_write_overwrite_nolock",
+    "summary": "Write NumBytes into RTT up-buffer n, overwriting the oldest unread data if it does not fit",
+    "description": "Operates on SEGGER RTT up buffer param_1 of the control block initialised by SEGGER_RTT_Init (aUp[] starts at 0x2000BE48, 24-byte entries: pBuffer +4 = 0x2000BE4C, SizeOfBuffer +8 = 0x2000BE50, WrOff +0xC = 0x2000BE54, RdOff +0x10 = 0x2000BE58). First computes the free space exactly like SEGGER's _GetAvailWriteSpace (Size-1 if WrOff==RdOff, RdOff-WrOff-1 if WrOff<RdOff, else Size+RdOff-WrOff-1). If that is smaller than param_3 it advances RdOff by the shortfall (wrapping modulo SizeOfBuffer in a while loop), i.e. the oldest unread bytes are discarded instead of blocking or trimming. Then copies the data with memcpy in chunks: up to Size-WrOff bytes at WrOff, then from offset 0, updating WrOff after each chunk, and always returns param_3. Not a stock SEGGER mode (SKIP/TRIM/BLOCK); no locking is done, callers must hold SEGGER_RTT_LOCK. No direct callers (reached through a function pointer or the trace back-end).",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "up-buffer index into _SEGGER_RTT.aUp[]"},
+      {"name": "param_2", "type": "ptr", "description": "source bytes"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes to write"}
+    ],
+    "returns": {"type": "u32", "description": "always param_3 (number of bytes written)"},
+    "confidence": "medium",
+    "notes": "Layout and _GetAvailWriteSpace match SEGGER_RTT.c; the overwrite-oldest policy is a local modification, so the exact original name is unknown."
+  },
+  "ble_219_0c03fcfc": {
+    "name": "SEGGER_RTT_SetTerminal",
+    "summary": "SEGGER RTT: switch the active virtual terminal of up-buffer 0 by sending the 0xFF,<id> escape",
+    "description": "Identical to SEGGER_RTT_SetTerminal(TerminalId). Lazily runs SEGGER_RTT_Init when acID[0] at 0x2000BE30 is still 0 (the INIT() macro). Rejects TerminalId >= 16, otherwise builds the two-byte escape {0xFF, _aTerminalId[TerminalId]} where _aTerminalId is the string '0123456789ABCDEF'. Under SEGGER_RTT_LOCK (BASEPRI raised to 0x40, old value restored afterwards) it looks at up buffer 0 (0x2000BE48, Flags at 0x2000BE5C): if the mode bits (Flags & 3) are SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL (2) it stores _ActiveTerminal (byte 0x2000BE2F) and calls _WriteBlocking (0x0c03f97c); otherwise it computes _GetAvailWriteSpace from WrOff/RdOff/SizeOfBuffer (0x2000BE54/58/50) and, if at least 2 bytes are free, stores _ActiveTerminal and calls _WriteNoCheck (0x0c03f934, 2 bytes), else fails. Returns 0 on success, -1 on invalid terminal or full buffer. No direct callers (called from the trace/printf back-end, probably via SEGGER_RTT_TerminalOut-style code).",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "TerminalId 0..15"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 (0xffffffff) if TerminalId >= 16 or the buffer cannot take 2 bytes"},
+    "confidence": "high",
+    "notes": "0x0c03f934 = _WriteNoCheck, 0x0c03f97c = _WriteBlocking (SEGGER_RTT.c statics)."
+  },
+  "ble_219_0c03feac": {
+    "name": "clock_gettime",
+    "summary": "POSIX clock_gettime built on the FreeRTOS tick: CLOCK_MONOTONIC (4) raw, CLOCK_REALTIME (1) plus epoch offset",
+    "description": "Fills a struct timespec with 64-bit tv_sec (param_2[0] low, param_2[1] high) and 32-bit tv_nsec (param_2[2]). Inside the critical section at 0x0c03f640/0x0c03f65c it reads xTaskGetTickCount() (1 ms ticks): tv_sec = ticks/1000, tv_nsec = (ticks%1000)*1000000 + the sub-millisecond nanosecond value returned by 0x0c03f790 (hardware timer fraction). If tv_nsec exceeds 1000000000 it subtracts 1e9 (adds 0xC4653600) and carries into the 64-bit seconds. clockid 4 (newlib CLOCK_MONOTONIC) returns 0 with the monotonic value; clockid 1 (CLOCK_REALTIME) adds the 64-bit real-time offset DAT_2000C5E0/DAT_2000C5E4 (seconds since the epoch at boot, set by the time-setting routine) with carry and returns 0; any other clockid returns -1 (no errno). Caller 0x0c03ff38 prints 's.ns: %u.%u, hwclock=%u'. Same tick-to-time arithmetic as gettimeofday at 0x0c0400cc.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "clockid_t: 1 = CLOCK_REALTIME, 4 = CLOCK_MONOTONIC"},
+      {"name": "param_2", "type": "ptr", "description": "struct timespec out: s64 tv_sec, s32 tv_nsec"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 (0xffffffff) for an unsupported clock id"},
+    "confidence": "high",
+    "notes": "The overflow test uses '>' rather than '>=' 1e9. 0x0c03f790 is assumed to return the elapsed nanoseconds within the current tick."
+  },
+  "ble_219_0c0400cc": {
+    "name": "gettimeofday",
+    "summary": "POSIX gettimeofday from the FreeRTOS tick plus the real-time epoch offset",
+    "description": "Returns -1 when the timeval pointer is NULL. Otherwise, inside the critical section at 0x0c03f640/0x0c03f65c, reads xTaskGetTickCount() (1 ms ticks) and stores tv_sec (64-bit: param_1[0] low, param_1[1] high) = DAT_2000C5E0:DAT_2000C5E4 (epoch offset in seconds) + ticks/1000 with carry, and tv_usec (param_1[2]) = (ticks%1000)*1000 + (sub-tick nanoseconds from 0x0c03f790)/1000. If tv_usec exceeds 1000000 it subtracts 1000000 and increments the 64-bit seconds. The timezone argument (param_2) and the remaining parameters are ignored. Always returns 0 for a non-NULL pointer. Unlike clock_gettime (0x0c03feac) the real-time offset is always applied. Called from 0x0c071a70 (newlib time glue).",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "struct timeval out: s64 tv_sec, s32 tv_usec; NULL rejected"},
+      {"name": "param_2", "type": "ptr", "description": "timezone, ignored"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused (passed through to 0x0c03f790 by register reuse only)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 if param_1 is NULL"},
+    "confidence": "high",
+    "notes": "Carry test uses '>' 1000000 rather than '>='."
+  },
+  "ble_219_0c0401b0": {
+    "name": "hal_analogif_reg_read",
+    "summary": "Read a 16-bit analog/PMU/RF register over the internal SPI (ISPI) with page selection",
+    "description": "param_1 encodes the target: bits 15:12 select the ISPI chip/bank (written to DAT_20003D80 and programmed through hal_periph_9000_set_field_10_7 when it changes), bits 11:8 a page 0..4 (values > 4 return -1) and bits 7:0 the register number. Runs under BASEPRI 0x40 with the lock-owner trace (DAT_20003D70 = own PC 0x0c0401d2, DAT_20003D74 = caller LR when not already locked; DAT_20003D70 reset to 0xFFFFFFFF on exit). For page 0 it issues one ISPI transfer via 0x0c0326e8 with the 32-bit read command (1 << 26) | (reg << 18) and, on success, stores the received word >> 2 as the 16-bit value. For other pages it first sends the page-select word from the u16 table at 0x0c0834fc[page] << 2 through 0x0c0326c4 (ISPI send), performs the same read, then sends 0x28000 (page-select restore). Returns the ISPI result (0 = ok, value stored). Used by the many analog/PMU register helpers (0x0c02f73c ... 0x0c038250); the write counterpart is 0x0c040290.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "register address: bank << 12 | page << 8 | reg"},
+      {"name": "param_2", "type": "ptr", "description": "u16 out: register value (received word >> 2)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 for page > 4, otherwise the ISPI transfer status from 0x0c0326e8"},
+    "confidence": "medium",
+    "notes": "Command encoding (read = bit 26, reg at bits 25:18, data >> 2) matches BES hal_analogif.c; 0x0c0326c4/0x0c0326e8 are assumed to be hal_ispi send/recv."
+  },
+  "ble_219_0c040290": {
+    "name": "hal_analogif_reg_write",
+    "summary": "Write a 16-bit analog/PMU/RF register over the internal SPI (ISPI) with page selection",
+    "description": "Counterpart of hal_analogif_reg_read (0x0c0401b0). param_1 bits 15:12 = ISPI bank (DAT_20003D80, re-programmed via hal_periph_9000_set_field_10_7 when it changes), bits 11:8 = page 0..4 (else return -1), bits 7:0 = register. Under BASEPRI 0x40 with the DAT_20003D70/74 lock-owner trace it sends the write word ((reg << 16) | value) << 2 with 0x0c0326c4 (ISPI send). For pages != 0 it first sends the page-select word from the u16 table at 0x0c0834fc[page] << 2 and afterwards sends 0x28000 to restore page 0. Bank 2 with a non-zero page is special: bes_iomux_reg44_clear_bits(1) is called before the sequence and bes_iomux_reg44_set_bits(1) after it (bit 0 of 0x40086044 gates that chip select). Returns the status of the data transfer. Called by the same analog/PMU helper group as the read routine.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "register address: bank << 12 | page << 8 | reg"},
+      {"name": "param_2", "type": "u16", "description": "value to write"},
+      {"name": "param_3", "type": "u32", "description": "unused (register clobbered by the lock trace)"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 for page > 4, otherwise the ISPI send status"},
+    "confidence": "medium",
+    "notes": "Write encoding ((reg << 16 | val) << 2) matches BES hal_analogif.c."
+  },
+  "ble_219_0c0404ac": {
+    "name": "hal_cmu_pll_enable",
+    "summary": "Power up and enable PLL 0..2 for a user id with reference counting in DAT_20003D84[]",
+    "description": "Selects per-PLL constants: pll 0 -> power-up 0x4000, lock-check mask 0x1000, enable bit 0x1, PLL-select 1; pll 1 -> 0x800, 0x8000, 0x400, 2; else -> 0x8000, 0x2000, 0x20, 4. Under BASEPRI 0x40 (lock-owner trace in DAT_20003D70/74): if no user holds the PLL (byte DAT_20003D84[pll] == 0) or user == 5 (HAL_CMU_PLL_USER_ALL) it powers it up - writing 0x40000 to CMU 0x40000060 when the PLL is the selected clock source (DAT_2000354D == pll, see hal_cmu_select_pll_source) or the power-up constant to AON-CMU 0x40080004 otherwise - then delays 20 units via the RAM thunk 0x0c073ae0 and sets bit user in the user map (unless user == 5). If already powered it only sets the user bit and clears the lock-check mask. It then polls for up to 200 (converted by thunk 0x0c073c20) sys-timer ticks: with no check mask it waits for 0x40000060 bit 17 or 0x40080004 & enable bit; with a check mask it reads 0x4008004c each pass. Finally it enables the clock (0x40000060 = 0x20000 or 0x40080004 = enable bit), writes the PLL-select value to 0x400800a0 and returns 0 if 0x4008004c & check-mask is set, else 2. Called from 0x0c040cfc; counterpart hal_cmu_pll_release_user (0x0c0405f4) uses the same constants.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "PLL id 0..2 (index into DAT_20003D84[])"},
+      {"name": "param_2", "type": "u32", "description": "user id bit 0..4, 5 = all users"}
+    ],
+    "returns": {"type": "u32", "description": "0 if the lock bit (0x4008004c & mask) is set, 2 otherwise (also when the PLL was already in use, since the mask is zeroed)"},
+    "confidence": "medium",
+    "notes": "Structure matches BES hal_cmu_pll_enable(). In the decompilation the check-mask branch of the poll loop never breaks early; this may be a decompiler artefact."
+  },
+  "ble_219_0c04092c": {
+    "name": "hal_cmu_reset_pulse",
+    "summary": "Range-check a CMU module id (<= 0x99) and pulse its reset line",
+    "description": "Public entry of the reset-pulse operation: returns 1 for module ids above 0x99, otherwise continues into hal_cmu_reset_pulse_nocheck (0x0c040934), whose body the decompiler has duplicated here: if hal_cmu_reset_get_state(id) reports the module held in reset it just calls hal_cmu_reset_clear(id); otherwise it writes 1 << (id - base) to the *_RESET_PULSE register of the bank the id falls in (0x40000028 for id < 0x20, 0x4000002c for < 0x3B, 0x40000030 for < 0x5B, 0x4000014c for < 0x67, AON-CMU 0x4008000c for < 0x91, 0x400800c4 above; the AON banks are followed by three dummy reads of 0x40080000), spins a 3-iteration delay loop and returns 0. Same bank split as hal_cmu_reset_get_state/hal_cmu_reset_clear (set side 0x34/0x3c/0x44/0x150/0x40080010/0x400800c8, clear side 0x38/0x40/0x48/0x154/0x40080014/0x400800cc). Called from 0x0c032408.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "HAL_CMU module id 0..0x99"}
+    ],
+    "returns": {"type": "u32", "description": "1 for an invalid id, otherwise the result of the pulse routine (0, or hal_cmu_reset_clear's result)"},
+    "confidence": "medium",
+    "notes": "Register names follow the BES reg_cmu layout (HRESET/PRESET/ORESET_PULSE at 0x28/0x2c/0x30)."
+  },
+  "ble_219_0c040934": {
+    "name": "hal_cmu_reset_pulse_nocheck",
+    "summary": "Pulse the software reset of CMU module id (no range check), or release it if currently held in reset",
+    "description": "Body of hal_cmu_reset_pulse (0x0c04092c) without the id range check. Calls hal_cmu_reset_get_state(id); if the module's reset bit is not set it returns hal_cmu_reset_clear(id) instead of pulsing. Otherwise writes a one-hot bit to the pulse register of the bank containing id: 0x40000028 bit id (id < 0x20), 0x4000002c bit id-0x20 (< 0x3B), 0x40000030 bit id-0x3B (< 0x5B), 0x4000014c bit id-0x5B (< 0x67), AON-CMU 0x4008000c bit id-0x67 (< 0x91) or 0x400800c4 bit id-0x91; for the two AON banks it reads 0x40080000 three times to flush the write. A volatile 3-iteration loop gives the hardware a few cycles before returning 0. Part of the hal_cmu reset group with hal_cmu_reset_set (0x0c040804), hal_cmu_reset_clear and hal_cmu_reset_get_state.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "HAL_CMU module id (caller guarantees <= 0x99)"}
+    ],
+    "returns": {"type": "u32", "description": "0 after pulsing, or hal_cmu_reset_clear's result when the module was in reset"},
+    "confidence": "medium",
+    "notes": "Which polarity of the status bit means 'in reset' depends on the BES set/clear convention; the code calls reset_clear when get_state returns 0."
+  },
+  "ble_219_0c040cfc": {
+    "name": "hal_cmu_sys_pll_restart",
+    "summary": "Release all users of PLL 0, reselect source 0, clear 0x4000010c bits 31:30 and re-enable PLL 0",
+    "description": "Clock re-initialisation step used by the CMU setup routine 0x0c03ab80. Sequence: hal_cmu_pll_release_user(0, 5) (5 = all users, powers PLL 0 down), hal_cmu_select_pll_source(0), then under BASEPRI 0x40 with the DAT_20003D70/74 lock-owner trace clears bits 31:30 of CMU register 0x4000010c (read-modify-write with mask 0x3FFFFFFF), then hal_cmu_pll_enable(0, <user not visible in the decompilation, r1 left over>) to power PLL 0 back up, and finally bes_cmu_bit29_ctrl() and bes_cmu_bit30_ctrl(0), which write 0x20000000 and 0x40000000 to the CMU set register 0x40000060. Always returns 0. Only caller: 0x0c03ab80.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "low",
+    "notes": "Purpose (PLL re-lock after crystal/frequency change?) inferred only from the call sequence; the argument passed in r1 to hal_cmu_pll_enable is not shown by the decompiler."
+  },
+  "ble_219_0c0410c4": {
+    "name": "hal_cmu_osc_x2_enable",
+    "summary": "Power up the crystal x2 clock (0x40000060 = 0x4000), wait 60 us, then enable it (0x2000)",
+    "description": "Writes 0x4000 to the CMU set register 0x40000060 (power-up bit of the OSCX2 block), converts 60 (us) to sys-timer ticks through the RAM thunk 0x0c073c20 and delays that long via the RAM thunk 0x0c073cc0 (hal_sys_timer_delay), then writes 0x2000 to 0x40000060 (clock-enable bit). Mirrors BES hal_cmu_osc_x2_enable(): CMU_PU_OSCX2_ENABLE, delay US_TO_TICKS(60), CMU_EN_OSCX2_ENABLE. Called once from the CMU setup routine 0x0c03ab80.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Bit meanings taken from the BES hal_cmu source pattern; 0x40000060 is the CMU 'set' register also used by bes_cmu_bit29/30_ctrl."
+  },
+  "ble_219_0c041264": {
+    "name": "hal_cmu_clk_block_8c_enable",
+    "summary": "Configure and power up the clock block controlled by 0x4000008c in one of three modes (0..2)",
+    "description": "Rejects mode > 2 (returns 1) and returns -1 if 0x4000008c already shows an active mode (bits 0x5000 == 0x1000 or bits 0xA000 == 0x2000, i.e. a request bit 12/13 set without its matching status bit 14/15). Mode 0: power-up word 0x80, enable word 0x780, and clears bit 12 of AON-CMU 0x40080018. Modes 1 and 2 (words 0x1080/0x1780 and 0x3080/0x3780): clear bit 9 of 0x40000054, mask 0x40000018 with 0xF0FFFF08 (clears bits 27:24 and 7:3) and set bit 12 of 0x40080018. Common tail: set bits 22, 23 and 26 of 0x40080018, replace its bits 21:14 with 0x200000 (only bit 21 set), write the power-up word to 0x4000008c, delay 60 (converted by thunk 0x0c073c20, slept by thunk 0x0c073cc0 = hal_sys_timer_delay), then write the enable word (bits 10:7 set) to 0x4000008c. Returns 0. Called from the CMU setup routine 0x0c03ab80.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "mode 0, 1 or 2 (selects bits 13:12 of the 0x4000008c word)"}
+    ],
+    "returns": {"type": "s32", "description": "0 ok, 1 invalid mode, -1 (0xffffffff) if the block is already active in a mode"},
+    "confidence": "low",
+    "notes": "Which clock this is (OSCX4, USB or audio PLL input?) is unknown; registers 0x40000018/0x54/0x8c and 0x40080018 are undocumented BES CMU/AON-CMU registers."
+  },
+  "ble_219_0c04146c": {
+    "name": "hal_cmu_aonclk9_user_enable",
+    "summary": "Reference-counted enable of AON-CMU clock bit 9 (0x40080004 = 0x200) for user 0..3",
+    "description": "Ignores users > 3. For user 0 it first calls the empty stub 0x0c0398a8 with argument 1 (a removed hook, e.g. analog power-up). If the user map byte DAT_20003BF0 is still 0 it writes 0x200 to the AON-CMU clock-enable (set) register 0x40080004, then ORs 1 << user into DAT_20003BF0. No locking. The matching disable is hal_cmu_aonclk9_user_disable (0x0c0414ac), which writes 0x200 to the clear register 0x40080008 when the last user leaves. Callers: 0x0c02fb54 (analog/PMU helper) and 0x0c03a2a0.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "user id 0..3 (bit index in DAT_20003BF0)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Probably the codec/audio-related clock enable of BES hal_cmu (hal_cmu_codec_clock_enable-style); the exact clock behind bit 9 is unknown."
+  },
+  "ble_219_0c0414ac": {
+    "name": "hal_cmu_aonclk9_user_disable",
+    "summary": "Reference-counted disable of AON-CMU clock bit 9 (0x40080008 = 0x200) for user 0..3",
+    "description": "Counterpart of hal_cmu_aonclk9_user_enable (0x0c04146c). For user < 4: if the user map byte DAT_20003BF0 is non-zero, clears bit user; when the map becomes 0 it writes 0x200 to the AON-CMU clock-disable (clear) register 0x40080008. For user 0 it then calls the empty stub 0x0c0398a8 with (1, 0) (removed power-down hook). Users > 3 are ignored. No locking. Called from 0x0c039820.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "user id 0..3 (bit index in DAT_20003BF0)"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "medium",
+    "notes": "Same uncertainty about the identity of the clock as the enable routine."
+  },
+  "ble_219_0c0414e0": {
+    "name": "bes_iomux_reg0c_set_level",
+    "summary": "Under lock, wait for the 0x40086000 block to be idle and program nibbles 11:8 and 15:12 of 0x4008600c to param_1",
+    "description": "Enters a BASEPRI 0x40 critical section with the DAT_20003D70/74 lock-owner trace, then spins until the RAM thunk 0x0c073c40 (0x20000244) returns non-zero with argument 0 (a ready/idle poll). It then sets bits 1:0 of 0x40086050, rewrites 0x4008600c so that bits 11:8 and 15:12 both hold param_1 (mask 0xFFFF00FF), sets bit 18 of 0x4008602c and then clears bit 19 of it (two separate read-modify-writes), clears bits 19:18 of 0x40086030 and calls the RAM thunk 0x0c073ba0 (0x2000025C) with 0, before restoring BASEPRI. Called with 2 from bes_iomux_init_level2 (0x0c041884) and from 0x0c0456c0. The 0x40086000 block is the one accessed by bes_iomux_reg44_set_bits/clear_bits.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "4-bit level/selector value written to both nibbles 11:8 and 15:12 of 0x4008600c"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Register semantics unknown (BES-specific); the thunk pair 0x0c073c40/0x0c073ba0 looks like a bus-idle wait and a commit/flush."
+  },
+  "ble_219_0c041884": {
+    "name": "bes_iomux_init_level2",
+    "summary": "Program the 0x40086000 block to level 2 and then clear bits 19:18 of 0x4008602c and 0x40086030",
+    "description": "Calls bes_iomux_reg0c_set_level(2) (0x0c0414e0), then inside its own BASEPRI 0x40 critical section (lock-owner trace in DAT_20003D70/74) waits for the RAM thunk 0x0c073c40(0) to return non-zero, clears bits 19:18 of both 0x4008602c and 0x40086030 and calls the RAM thunk 0x0c073ba0(0) (commit). Part of the CMU/board setup performed by 0x0c03ab80, its only caller.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "Register meaning unknown; grouped with bes_iomux_reg0c_set_level and the bes_iomux_reg44_* helpers."
+  },
+  "ble_219_0c041a68": {
+    "name": "bes_aon_reg38_staged_release",
+    "summary": "Write the 0xCAFE02xx key sequence FF->F7->F3->F1->F0 to 0x40085038 with delays",
+    "description": "Writes 0xCAFE02FF to register 0x40085038 (upper half 0xCAFE acts as a write key), waits one unit (thunk 0x0c073cb0(1) converts the value, thunk 0x0c073cc0 = hal_sys_timer_delay sleeps), writes 0xCAFE02F7 (bit 3 cleared), waits again, then writes 0xCAFE02F3, 0xCAFE02F1 and 0xCAFE02F0 back to back, clearing bits 2, 1 and 0 in turn. This is a staged release of four control bits (reset/isolation/power gates of a sub-block in the 0x40085000 AON peripheral) in a fixed order. Called from 0x0c03bb70.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "low",
+    "notes": "0x40085000 also hosts the AON GPIO status words (bes_gpio_read_status_words); what the four bits gate is unknown."
+  },
+  "ble_219_0c041b5c": {
+    "name": "thunk_bes_gpio_read_status_words",
+    "summary": "Tail-branch thunk to bes_gpio_read_status_words (0x0c041ab0)",
+    "description": "Single-instruction trampoline that jumps to bes_gpio_read_status_words with its arguments unchanged: copies up to three 32-bit words from 0x4008508c, 0x40085090 and (0x40085094 & 0xffff) into param_1 and returns min(param_2, 3). Exists as a separate symbol (probably a linker-level alias or veneer). Called from 0x0c02feec.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "u32 out buffer for up to 3 status words"},
+      {"name": "param_2", "type": "u32", "description": "number of words requested"}
+    ],
+    "returns": {"type": "u32", "description": "min(param_2, 3), number of words written"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c041e10": {
+    "name": "app_dev_ioctl_cmd_101",
+    "summary": "Issue request 0x101 with a 20-byte stack argument on the global device handle DAT_20003EC8, else -EIO",
+    "description": "If the global descriptor DAT_20003EC8 (an fd/handle from the '/dev/...' device layer, valid when > 0) is open, calls 0x0c0484b4(DAT_20003EC8, 0x101, &buf) where buf is an uninitialised 20-byte stack area and returns its result; otherwise returns -5 (-EIO). The eight small callers 0x0c045d60 ... 0x0c045fa8 are device-control wrappers of the same module. The handle is opened elsewhere by the file-descriptor layer that prints '/dev/%s%d' and 'Unsupport: /dev/%s%d reopen'.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "s32", "description": "result of the request, or -5 (0xfffffffb, -EIO) when the handle is not open"},
+    "confidence": "low",
+    "notes": "0x0c0484b4 is assumed to be the ioctl-like entry of the LibWhale device layer; command 0x101 and the argument structure are unknown."
+  },
+  "ble_219_0c041ed4": {
+    "name": "hwtimer_handler",
+    "summary": "Sys-timer alarm ISR of the hwtimer list: expire due timers, re-arm the alarm and run callbacks",
+    "description": "Interrupt handler of the BES hwtimer list module (static timer pool 0x2000C5F4..0x2000C720, 20-byte nodes: state +0, next +4, ticks +8 (delta to predecessor, head = armed value), handler +0xC, param +0x10; states 1 = allocated/idle, 2 = active, 3 = expired, 4 = in callback). Runs under BASEPRI 0x40 with the DAT_20003D70/74 lock trace. If the active list head DAT_2000C724 is NULL it counts a spurious interrupt in DAT_2000C5E8 and traps (infinite loop) if hal_sys_timer_alarm_is_running() is still set. Otherwise reads hal_sys_timer_alarm_elapsed(); if elapsed+1 < head->ticks the alarm fired early: DAT_2000C5EC++ and trap if the alarm is not running. Else over = elapsed - head->ticks (0 if not past), marks the head expired (3) and walks the list: nodes whose delta <= over are also marked expired and consume it; the first node with delta > over becomes the new head with delta reduced by over and hal_sys_timer_alarm_start(delta) re-arms; if none remains the active list becomes NULL and hal_sys_timer_alarm_stop() is called. The expired chain is moved to DAT_2000C728 and processed in order: node state = 4, next = NULL, and if a handler is set BASEPRI is restored, handler(param) is called, the lock is re-taken and, if the node is still in state 4 (not restarted/stopped by the callback), it returns to state 1. Siblings: hwtimer_start_internal (0x0c04200c), hwtimer_start (0x0c042170), hwtimer_stop (0x0c04219c). No direct caller: registered with the sys-timer alarm interrupt.",
+    "category": "hal",
+    "params": [],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": "Matches BES hwtimer_list.c (hwtimer_handler). DAT_2000C5E8/EC look like the module's spurious/early-interrupt counters."
+  },
+  "ble_219_0c04200c": {
+    "name": "hwtimer_start_internal",
+    "summary": "Insert a hwtimer into the delta-sorted active list and (re)arm the sys-timer alarm (BES __hwtimer_start)",
+    "description": "Under BASEPRI 0x40 (DAT_20003D70/74 lock trace) requires the node to be in state 1 (allocated) or 4 (in callback), otherwise returns 3. Sets state 2 (active); if param_2 is non-zero it also updates handler (+0xC) and param (+0x10) from param_3/param_4. A timeout of 0 becomes 1 tick. If the active list DAT_2000C724 is empty the node becomes head with next = NULL and hal_sys_timer_alarm_start(ticks) arms the alarm. Otherwise it reads the remaining count of the running alarm via hal_sys_timer_alarm_get_count() and traps (infinite loop) if it exceeds the head's delta (and is > 1). If the new timeout is shorter than the remaining count the node becomes the new head (head delta = remaining - timeout, alarm stopped and restarted with the new timeout); else timeout -= remaining and the list is walked, subtracting each predecessor's delta until a node with delta >= timeout is found, whose delta is reduced by timeout, and the node is linked in before it (or at the tail). The node's ticks field receives its final delta. Returns 0. Called by hwtimer_start (0x0c042170) with update = 0 and presumably by hwtimer_update_then_start with update = 1. Group: hwtimer_handler (0x0c041ed4), hwtimer_stop (0x0c04219c).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "hwtimer node (20 bytes: state, next, ticks, handler, param)"},
+      {"name": "param_2", "type": "s32", "description": "non-zero: also store the new handler/param"},
+      {"name": "param_3", "type": "ptr", "description": "callback handler(param) stored at +0xC when param_2 != 0"},
+      {"name": "param_4", "type": "ptr", "description": "callback argument stored at +0x10 when param_2 != 0"},
+      {"name": "param_5", "type": "u32", "description": "timeout in sys-timer ticks (0 is treated as 1)"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 3 if the timer is not in state 1 or 4"},
+    "confidence": "high",
+    "notes": "Matches BES hwtimer_list.c __hwtimer_start(id, update, handler, param, ticks)."
+  },
+  "ble_219_0c042170": {
+    "name": "hwtimer_start",
+    "summary": "Validate a hwtimer id against the static pool and start it with the given tick timeout",
+    "description": "Accepts only pointers inside the timer pool 0x2000C5F4..0x2000C70C (15 nodes of 20 bytes); any other id returns 2 (invalid id). Valid ids are forwarded to hwtimer_start_internal(id, 0, NULL, NULL, ticks) (0x0c04200c), so the handler/param stored in the node are kept. Returns that call's status (0 ok, 3 wrong state). Called from 0x0c03ac44, which also uses hwtimer_stop. BES hwtimer_list.c API.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "hwtimer id (node pointer inside 0x2000C5F4..0x2000C70C)"},
+      {"name": "param_2", "type": "u32", "description": "timeout in sys-timer ticks"}
+    ],
+    "returns": {"type": "u32", "description": "0 ok, 2 invalid id, 3 timer not startable"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c04219c": {
+    "name": "hwtimer_stop",
+    "summary": "Remove a hwtimer from the active or expired list, fixing deltas and re-arming the alarm",
+    "description": "Returns 2 for ids outside the pool 0x2000C5F4..0x2000C70C. Under BASEPRI 0x40 (DAT_20003D70/74 lock trace) acts on the node state: 1 (idle) -> returns 0 unchanged; 4 (callback running) -> returns 4; other unknown states -> 3. State 2 (active): if the node is not the head DAT_2000C724 it is searched in the list, unlinked and its delta is added to its successor (not found -> trap loop). If it is the head: reads hal_sys_timer_alarm_get_count() (trap if larger than head delta and > 1), hal_sys_timer_alarm_stop(), and if a successor exists either adds the remaining count to the successor's delta (count > 0) or, when the alarm already expired (count == 0), computes over = hal_sys_timer_alarm_elapsed() - head delta (trap if elapsed+1 < delta) and subtracts it along the list, zeroing deltas that are fully consumed; then hal_sys_timer_alarm_start(successor delta) and the successor becomes head. State 3 (expired, in DAT_2000C728 list): unlinked from the expired list (head or searched; not found -> trap). In all handled cases the node ends in state 1 with next = NULL and 0 is returned. Group: hwtimer_handler (0x0c041ed4), hwtimer_start (0x0c042170), hwtimer_start_internal (0x0c04200c). Called from 0x0c03ac44.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "hwtimer id (node pointer inside the static pool)"}
+    ],
+    "returns": {"type": "u8", "description": "0 stopped/idle, 2 invalid id, 3 bad state, 4 timer is executing its callback"},
+    "confidence": "high",
+    "notes": "Matches BES hwtimer_list.c hwtimer_stop."
+  },
+  "ble_219_0c04281c": {
+    "name": "xEventGroupCreateStatic",
+    "summary": "FreeRTOS: initialise a caller-provided StaticEventGroup_t and return it as the event group handle",
+    "description": "If the buffer is non-NULL: uxEventBits (+0) = 0, vListInitialise(&xTasksWaitingForBits) at +4 (20-byte List_t), and ucStaticallyAllocated at +0x1C = pdTRUE (the offset implies configUSE_TRACE_FACILITY = 1, with uxEventGroupNumber at +0x18). Returns the same pointer (NULL in, NULL out). Called from 0x0c047f70 and 0x0c048260 (CMSIS-RTOS2 / LibWhale wrappers). Companion: xEventGroupClearBits at 0x0c042900.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "StaticEventGroup_t storage (32 bytes)"}
+    ],
+    "returns": {"type": "ptr", "description": "EventGroupHandle_t = param_1, or NULL"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042900": {
+    "name": "xEventGroupClearBits",
+    "summary": "FreeRTOS: clear bits in an event group inside a critical section and return the previous value",
+    "description": "taskENTER_CRITICAL (0x0c03f640), uxReturn = pxEventBits->uxEventBits (word at +0), uxEventBits &= ~uxBitsToClear, taskEXIT_CRITICAL (0x0c03f65c), return uxReturn. Exactly FreeRTOS event_groups.c xEventGroupClearBits without the trace macros. Called from 0x0c048298 (CMSIS-RTOS2 osEventFlagsClear-style wrapper).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "EventGroupHandle_t (uxEventBits at offset 0)"},
+      {"name": "param_2", "type": "u32", "description": "uxBitsToClear"}
+    ],
+    "returns": {"type": "u32", "description": "event bits before clearing"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042a3c": {
+    "name": "prvCopyDataToQueue",
+    "summary": "FreeRTOS queue.c: copy an item into the queue at back/front/overwrite position, or release a mutex",
+    "description": "Queue_t layout: pcHead +0, pcTail +4, pcWriteTo +8, pcReadFrom +0xC, uxMessagesWaiting +0x38, uxLength +0x3C, uxItemSize +0x40. If uxItemSize == 0 and pcHead == NULL (mutex) it calls xTaskPriorityDisinherit (0x0c0446e4) on the holder stored in +4 (pxMutexHolder) and clears it, returning that result. For xPosition == queueSEND_TO_BACK (0): memcpy(pcWriteTo, item, uxItemSize), advance pcWriteTo and wrap to pcHead when it reaches pcTail. Otherwise (queueSEND_TO_FRONT 1 / queueOVERWRITE 2): memcpy(pcReadFrom, item, uxItemSize), move pcReadFrom back one item wrapping to pcTail - uxItemSize; for queueOVERWRITE the message count is first decremented if non-zero so the net count becomes max(1, count). Finally uxMessagesWaiting is incremented. Must be called with the critical section held. Callers: xQueueGenericSend (0x0c042c8c) and xQueueGenericSendFromISR (0x0c042eb4).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Queue_t *pxQueue"},
+      {"name": "param_2", "type": "ptr", "description": "pvItemToQueue"},
+      {"name": "param_3", "type": "s32", "description": "xPosition: 0 back, 1 front, 2 overwrite"}
+    ],
+    "returns": {"type": "u32", "description": "pdFALSE, or xTaskPriorityDisinherit's result for a mutex give"},
+    "confidence": "high",
+    "notes": "Field offsets correspond to FreeRTOS 10.x with configUSE_TRACE_FACILITY and without queue sets."
+  },
+  "ble_219_0c042aac": {
+    "name": "prvUnlockQueue",
+    "summary": "FreeRTOS queue.c: unlock a queue, waking tasks blocked on receive/send for each pending lock count",
+    "description": "Two critical sections (taskENTER/EXIT_CRITICAL at 0x0c03f640/0x0c03f65c). First: while cTxLock (byte +0x45) > 0 and xTasksWaitingToReceive (List_t at +0x24) is non-empty, xTaskRemoveFromEventList (0x0c044264) wakes one receiver and vTaskMissedYield() is called if that task has higher priority; the counter is decremented each pass; then cTxLock = queueUNLOCKED (0xFF). Second: the same for cRxLock (byte +0x44) with xTasksWaitingToSend (List_t at +0x10). Called after a queue operation with the scheduler suspended, from xQueueGenericSend (0x0c042c8c) and the receive/peek/semaphore-take functions 0x0c042fa4, 0x0c0430a8, 0x0c043224, 0x0c043380.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Queue_t *pxQueue"}
+    ],
+    "returns": {"type": "void", "description": ""},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042b38": {
+    "name": "xQueueGenericReset",
+    "summary": "FreeRTOS queue.c: reset a queue to empty and (optionally) re-initialise its wait lists",
+    "description": "Inside taskENTER/EXIT_CRITICAL (0x0c03f640/0x0c03f65c): uxMessagesWaiting (+0x38) = 0, cRxLock (+0x44) and cTxLock (+0x45) = queueUNLOCKED (0xFF), pcTail (+4) = pcHead + uxLength*uxItemSize (+0x3C * +0x40), pcWriteTo (+8) = pcHead, pcReadFrom (+0xC) = pcTail - uxItemSize. If xNewQueue == pdFALSE and a task is blocked in xTasksWaitingToSend (+0x10), xTaskRemoveFromEventList (0x0c044264) unblocks it and, if it has higher priority, rtos_pendsv_trigger() (queueYIELD_IF_USING_PREEMPTION) requests a context switch; if xNewQueue is true both wait lists (+0x10 and +0x24) are initialised with vListInitialise. Always returns pdPASS (1). No direct callers in the image (the create path at 0x0c042ba0 inlines the same code).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Queue_t *xQueue"},
+      {"name": "param_2", "type": "s32", "description": "xNewQueue: non-zero for a freshly created queue"}
+    ],
+    "returns": {"type": "u32", "description": "pdPASS (1)"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042ba0": {
+    "name": "prvInitialiseNewQueue",
+    "summary": "FreeRTOS queue.c: fill a static Queue_t (length, item size, storage, type) and reset it",
+    "description": "If pxNewQueue is non-NULL: for uxItemSize == 0 the storage pointer is set to the queue structure itself (mutex/semaphore convention), uxLength (+0x3C) = param_1, uxItemSize (+0x40) = param_2, pcHead (+0) = storage, ucStaticallyAllocated (+0x46) = pdTRUE, then the body of xQueueGenericReset(xNewQueue = pdTRUE) is inlined inside taskENTER/EXIT_CRITICAL (0x0c03f640/0x0c03f65c): pcTail, pcWriteTo, pcReadFrom computed from head/length/item size, uxMessagesWaiting = 0, both locks = 0xFF, vListInitialise on xTasksWaitingToSend (+0x10) and xTasksWaitingToReceive (+0x24). Finally ucQueueType (+0x4C, trace facility layout) = param_5. Returns pxNewQueue. Called from the queue/semaphore creators 0x0c02d724, 0x0c02e420, 0x0c0355c8, 0x0c044aa4 and 0x0c045250, which supply static buffers.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "uxQueueLength"},
+      {"name": "param_2", "type": "u32", "description": "uxItemSize (0 for semaphores/mutexes)"},
+      {"name": "param_3", "type": "ptr", "description": "pucQueueStorage (ignored when item size is 0)"},
+      {"name": "param_4", "type": "ptr", "description": "Queue_t *pxNewQueue (StaticQueue_t storage)"},
+      {"name": "param_5", "type": "u8", "description": "ucQueueType (queueQUEUE_TYPE_*)"}
+    ],
+    "returns": {"type": "ptr", "description": "QueueHandle_t = param_4"},
+    "confidence": "medium",
+    "notes": "Parameter order differs from stock FreeRTOS (queue pointer before type) and the static flag is set here rather than in xQueueGenericCreateStatic, so this is a merged/customised version."
+  },
+  "ble_219_0c042f38": {
+    "name": "xQueueGiveFromISR",
+    "summary": "FreeRTOS queue.c: give a semaphore from an ISR, waking a waiting receiver if the queue is unlocked",
+    "description": "Masks interrupts with rtos_enter_critical() (portSET_INTERRUPT_MASK_FROM_ISR). If uxMessagesWaiting (+0x38) < uxLength (+0x3C): increments the count; if cTxLock (+0x45) is not queueUNLOCKED (-1) it just increments the lock counter (a later prvUnlockQueue will wake receivers); otherwise, if xTasksWaitingToReceive (+0x24) is non-empty and xTaskRemoveFromEventList (0x0c044264) reports a higher-priority task and pxHigherPriorityTaskWoken is non-NULL, *pxHigherPriorityTaskWoken = pdTRUE. Returns pdPASS (1). If the queue is full returns errQUEUE_FULL (0). Interrupt mask restored with rtos_exit_critical in every path. No data copy (semaphore only). Called from 0x0c04533c (HCI/ISR glue).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "QueueHandle_t (semaphore) xQueue"},
+      {"name": "param_2", "type": "ptr", "description": "BaseType_t *pxHigherPriorityTaskWoken, may be NULL"}
+    ],
+    "returns": {"type": "u32", "description": "pdPASS (1) or errQUEUE_FULL (0)"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043320": {
+    "name": "uxQueueMessagesWaiting",
+    "summary": "FreeRTOS: number of items currently in the queue, read inside a critical section",
+    "description": "taskENTER_CRITICAL (0x0c03f640), read uxMessagesWaiting (Queue_t +0x38), taskEXIT_CRITICAL (0x0c03f65c), return it. No direct callers in the image (reached through the CMSIS-RTOS2 wrapper table or inlined elsewhere). Sibling: uxQueueSpacesAvailable (0x0c043338).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "QueueHandle_t xQueue"}
+    ],
+    "returns": {"type": "u32", "description": "uxMessagesWaiting"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043338": {
+    "name": "uxQueueSpacesAvailable",
+    "summary": "FreeRTOS: free slots in a queue (uxLength - uxMessagesWaiting) read inside a critical section",
+    "description": "taskENTER_CRITICAL (0x0c03f640), computes uxLength (+0x3C) - uxMessagesWaiting (+0x38), taskEXIT_CRITICAL (0x0c03f65c). Called from 0x0c0422d4 (CMSIS-RTOS2 osMessageQueueGetSpace-style wrapper). Sibling: uxQueueMessagesWaiting (0x0c043320).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "QueueHandle_t xQueue"}
+    ],
+    "returns": {"type": "s32", "description": "number of free item slots"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0433d0": {
+    "name": "prvWriteBytesToBuffer",
+    "summary": "FreeRTOS stream_buffer.c: copy xCount bytes into the circular buffer at xHead with wrap-around",
+    "description": "StreamBuffer_t layout: xTail +0, xHead +4, xLength +8, xTriggerLevelBytes +0xC, xTaskWaitingToReceive +0x10, xTaskWaitingToSend +0x14, pucBuffer +0x18, ucFlags +0x1C, uxStreamBufferNumber +0x20 (0x24 bytes). Copies min(xLength - xHead, xCount) bytes with memcpy to pucBuffer + xHead, then the remainder (if any) to the start of pucBuffer, advances xHead by xCount wrapping modulo xLength and returns xCount. No space check: callers (xStreamBufferSend at 0x0c043554 and the ISR variant 0x0c043658) have already verified the free space.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "StreamBuffer_t *pxStreamBuffer"},
+      {"name": "param_2", "type": "ptr", "description": "const uint8_t *pucData"},
+      {"name": "param_3", "type": "u32", "description": "xCount bytes to write"}
+    ],
+    "returns": {"type": "u32", "description": "xCount"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043414": {
+    "name": "prvReadBytesFromBuffer",
+    "summary": "FreeRTOS stream_buffer.c: copy min(xMaxCount, xBytesAvailable) bytes out of the circular buffer at xTail",
+    "description": "xCount = min(xMaxCount, xBytesAvailable); returns 0 immediately if that is 0. Otherwise copies min(xLength - xTail, xCount) bytes from pucBuffer (+0x18) + xTail (+0) to pucData with memcpy, then the remaining bytes from the start of pucBuffer, advances xTail by xCount wrapping modulo xLength (+8) and returns xCount. Called from the receive path prvReadMessageFromBuffer/xStreamBufferReceive at 0x0c0436f8. Partner of prvWriteBytesToBuffer (0x0c0433d0).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "StreamBuffer_t *pxStreamBuffer"},
+      {"name": "param_2", "type": "ptr", "description": "uint8_t *pucData destination"},
+      {"name": "param_3", "type": "u32", "description": "xMaxCount"},
+      {"name": "param_4", "type": "u32", "description": "xBytesAvailable in the buffer"}
+    ],
+    "returns": {"type": "u32", "description": "bytes copied"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043498": {
+    "name": "xStreamBufferGenericCreateStatic",
+    "summary": "FreeRTOS: initialise a static stream/message buffer (size, trigger level, storage, flags)",
+    "description": "Returns NULL if the storage area (param_4) is NULL. Otherwise, when the StaticStreamBuffer_t (param_5) is non-NULL, it does the work of prvInitialiseNewStreamBuffer: memset(pxStreamBuffer, 0, 0x24), xLength (+8) = xBufferSizeBytes, xTriggerLevelBytes (+0xC) = max(1, xTriggerLevelBytes), pucBuffer (+0x18) = storage and ucFlags (+0x1C) = sbFLAGS_IS_STATIC (2) | (xIsMessageBuffer ? sbFLAGS_IS_MESSAGE_BUFFER (1) : 0), i.e. 3 for a message buffer and 2 for a stream buffer. Returns param_5 (NULL if it was NULL). Callers: the UART dispatcher start routine 0x0c02e420, 0x0c0355c8 and the HCI intersys open 0x0c04542c, all supplying static storage.",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "xBufferSizeBytes"},
+      {"name": "param_2", "type": "u32", "description": "xTriggerLevelBytes (0 becomes 1)"},
+      {"name": "param_3", "type": "s32", "description": "xIsMessageBuffer"},
+      {"name": "param_4", "type": "ptr", "description": "pucStreamBufferStorageArea"},
+      {"name": "param_5", "type": "ptr", "description": "StaticStreamBuffer_t *pxStaticStreamBuffer (0x24 bytes)"}
+    ],
+    "returns": {"type": "ptr", "description": "StreamBufferHandle_t = param_5, or NULL when no storage was given"},
+    "confidence": "high",
+    "notes": "Assert-style checks of stock FreeRTOS are compiled out; the NULL-storage check replaces them."
+  },
+  "ble_219_0c0434e8": {
+    "name": "xStreamBufferReset",
+    "summary": "FreeRTOS: empty a stream buffer if no task is blocked on it, keeping buffer, length, trigger level and number",
+    "description": "If xTaskWaitingToReceive (+0x10) or xTaskWaitingToSend (+0x14) is non-NULL returns pdFAIL (0). Otherwise saves pucBuffer (+0x18), xLength (+8), xTriggerLevelBytes (+0xC), ucFlags (+0x1C) and uxStreamBufferNumber (+0x20), memsets the 0x24-byte StreamBuffer_t to 0 and restores those fields, which resets xHead/xTail to 0. The flags byte is rebuilt as 1 if sbFLAGS_IS_MESSAGE_BUFFER was set and 0 otherwise, so the sbFLAGS_IS_STATIC bit (2) is dropped (harmless here because the image only creates static buffers and never deletes them). Returns pdPASS (1). No critical section around the check (differs from stock FreeRTOS). No direct callers (used through a function pointer / wrapper).",
+    "category": "rtos",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "StreamBufferHandle_t xStreamBuffer"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "u32", "description": "pdPASS (1) if reset, pdFAIL (0) if a task is blocked on the buffer"},
+    "confidence": "high",
+    "notes": "Corresponds to FreeRTOS 10.0.x xStreamBufferReset where the message-buffer flag is passed as a BaseType_t."
+  }
+}

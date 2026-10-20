@@ -1,0 +1,589 @@
+{
+  "vcu_g_0159_2000101a": {
+    "name": "app_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000101a"
+    ],
+    "category": "app",
+    "description": "Application state byte. app_set_state() stores the requested state here whenever it changes; vcu_alert_tone_sequencer switches on it, and vcu_sensor_threshold_pulse_count only counts while it is 0. The individual state codes are not named in the code."
+  },
+  "vcu_g_0159_2000101c": {
+    "name": "app_state_substep",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000101c"
+    ],
+    "category": "app",
+    "description": "Sub-step counter of the current app state. app_set_state() clears it on every state change; vcu_alert_tone_sequencer counts it up and treats values above 50 (0x32) as the end of a step."
+  },
+  "vcu_g_0159_20001034": {
+    "name": "variant_option_words",
+    "type": "u16",
+    "size": 6,
+    "anchor": [
+      "VCU_0159",
+      "0x20001034"
+    ],
+    "category": "app",
+    "description": "Three 16-bit variant option words: word 0 at 0x20001034, word 1 at 0x20001036, word 2 at 0x20001038. vcu_apply_variant_config builds them from the variant index in 0x20001fa7 with fixed per-variant masks and writes them back; word 0 is mirrored at 0x20001aea and words 1..2 at 0x20001b14 and 0x20001b16. Word 3 is variant_option3. In builds 148..14f these words sit 8 bytes lower (0x2000102c..0x20001030); the meaning of each bit is not named in the code.",
+    "count": 3
+  },
+  "vcu_g_0159_2000103a": {
+    "name": "variant_option3",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000103a"
+    ],
+    "category": "app",
+    "description": "Fourth 16-bit variant option word, present in builds 152, 153 and 0159 only. vcu_apply_variant_config builds it from the variant index and mirrors it at 0x20001b18. It is a separate object because the other option words sit at different addresses in builds 148..14f, where this word has no counterpart."
+  },
+  "vcu_g_0159_20001aea": {
+    "name": "variant_option0_shadow",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001aea"
+    ],
+    "category": "app",
+    "description": "Copy of variant option word 0 (0x20001034), made by vcu_apply_variant_config. can_get_tx_payload_for_id copies it into the static CAN payload buffer at 0x2000184c, so it is probably sent to the peer as part of a status frame."
+  },
+  "vcu_g_0159_20001af2": {
+    "name": "status_flags_af2",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001af2"
+    ],
+    "category": "app",
+    "description": "16-bit application status flag word. Bit 1 (0x0002) is set by the boot routine and tested by the PA6 output logic, bit 4 (0x0010) is tested by vcu_alarm_edge_trigger and vcu_periodic_100_tick_check, and bit 10 (0x0400) is tested by the main state machine. Meanings are inferred from usage only; timed-window and runtime-init code also read and write it."
+  },
+  "vcu_g_0159_2000123e": {
+    "name": "main_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000123e"
+    ],
+    "category": "app",
+    "description": "Main operating state of the VCU, switched by vcu_0159_080047ac (cases 0..11 appear). Case 1 runs vcu_double_pulse_indicator_step, case 2 runs vcu_state2_periodic_tick, case 0 runs vcu_0159_0800a5c8. Written by the state handlers, the display renderer and the input actions; read by the PA6 output, the fault evaluation and the periodic check. Reset to 0 by the state machine on its change path."
+  },
+  "vcu_g_0159_20001340": {
+    "name": "pa6_output_latch",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001340"
+    ],
+    "category": "output",
+    "description": "One-shot latch for the PA6 output path. vcu_pa6_output_status_update sets it to 1 when a request is accepted and clears it to 0 once the request has been consumed (probably a toggle request). Its address is also passed to vcu_pair_pulse_pattern_step."
+  },
+  "vcu_g_0159_20001344": {
+    "name": "pair_pulse_ticks",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001344"
+    ],
+    "category": "lighting",
+    "description": "Tick counter of the 60-tick two-output pulse pattern in vcu_pair_pulse_pattern_step. Reloaded to 60 (0x3c) when a pattern starts and cleared to 0 when it ends or is cancelled."
+  },
+  "vcu_g_0159_20001348": {
+    "name": "pair_pulse_last_input",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001348"
+    ],
+    "category": "lighting",
+    "description": "Last sampled value of the pulse trigger input 0x20001fb5, kept for edge detection in vcu_pair_pulse_pattern_step. A pattern starts when the input differs from this value and the new value is non-zero."
+  },
+  "vcu_g_0159_20001359": {
+    "name": "special_mode_gate_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001359"
+    ],
+    "category": "app",
+    "description": "0/1 flag of the special-mode gate (vcu_special_mode_gate): set to 1 when the gate step is entered and cleared when it is left. The gate also reads 0x2000135a; the display flag 0x20001d04 is set alongside it."
+  },
+  "vcu_g_0159_2000135a": {
+    "name": "special_mode_hold_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000135a"
+    ],
+    "category": "app",
+    "description": "0/1 hold flag of the special-mode gate, set to 1 and cleared inside vcu_special_mode_gate. The gate only acts when this flag is set, bit 5 (0x0020) of status word 0x20001aee is set, and the value at 0x20001b5e is above 4 (probably a latched 'hold active' flag)."
+  },
+  "vcu_g_0159_2000135b": {
+    "name": "state2_arm_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000135b"
+    ],
+    "category": "app",
+    "description": "0/1 flag set by vcu_state2_periodic_tick when the state-2 entry condition holds (no bit 0 in 0x20001f78, and the counter 0x20001b62 below 30) and cleared when that condition is lost; probably an armed latch for state 2."
+  },
+  "vcu_g_0159_20001362": {
+    "name": "state2_step_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001362"
+    ],
+    "category": "app",
+    "description": "Counter of the state-2 tick. vcu_state2_periodic_tick increments it and tests it against 2; vcu_0159_080047ac clears it on every state change."
+  },
+  "vcu_g_0159_20001364": {
+    "name": "special_mode_hold_ticks",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001364"
+    ],
+    "category": "app",
+    "description": "Tick counter of the special-mode gate. Incremented each tick while the gate is active, cleared on exit, and the gate acts once it exceeds 299 (a 300-tick hold in vcu_special_mode_gate)."
+  },
+  "vcu_g_0159_20001366": {
+    "name": "special_mode_aux_ticks",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001366"
+    ],
+    "category": "app",
+    "description": "Second tick counter of the special-mode gate. Incremented while the gate is active and cleared on exit; its threshold is 100 (probably the release or re-arm time). The u8 width is inferred from the 100-count limit."
+  },
+  "vcu_g_0159_2000136a": {
+    "name": "state2_aee_bit7_prev",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000136a"
+    ],
+    "category": "app",
+    "description": "Previous value of bit 7 (mask 0x80) of status byte 0x20001aee, kept by vcu_state2_periodic_tick for edge detection: the transition fires when the bit becomes 0x80."
+  },
+  "vcu_g_14a_200013a2": {
+    "name": "standby_timer_600_14a",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_14a",
+      "0x200013a2"
+    ],
+    "category": "app",
+    "description": "Build 14a/148 counterpart of standby_quiet_ticks: the 600-tick quiet timer incremented by vcu_standby_entry_timer (decompiled 14a version tests it against 600). Cleared when it passes 600 or when the standby request flag is set."
+  },
+  "vcu_g_0159_200013a4": {
+    "name": "standby_quiet_ticks",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200013a4"
+    ],
+    "category": "app",
+    "description": "Quiet-tick counter of the standby entry in vcu_standby_entry_timer. Incremented each tick and cleared on activity; standby is entered once it exceeds 600 or the standby request flag 0x20001f70 is set. In build 14a the same role uses 0x200013a2."
+  },
+  "vcu_g_14a_200013ae": {
+    "name": "standby_counter_100_14a",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_14a",
+      "0x200013ae"
+    ],
+    "category": "app",
+    "description": "Build 14a/148 counter in vcu_standby_entry_timer: incremented, cleared when it exceeds 100 (0x64), and cleared on activity. The u8 width is inferred from the limit; its role is probably a debounce for the standby test."
+  },
+  "vcu_g_0159_200013b0": {
+    "name": "standby_ramp_ticks",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200013b0"
+    ],
+    "category": "app",
+    "description": "Ramp counter of the standby logic in vcu_standby_entry_timer. Counts up to 50 (0x32) while the standby condition holds and is cleared to 0 by the logic; the standby entry test also requires it to be 0 in the 14a build (probably a 50-tick settle time)."
+  },
+  "vcu_g_14a_200013b0": {
+    "name": "standby_ramp_ticks_14a",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_14a",
+      "0x200013b0"
+    ],
+    "category": "app",
+    "description": "Build 14a/148 counterpart of standby_ramp_ticks: counts up to 50 (0x32) and down to 0, and the standby entry test requires it to be 0."
+  },
+  "vcu_g_0159_2000148a": {
+    "name": "flag_word_shadow",
+    "type": "u16",
+    "size": 6,
+    "anchor": [
+      "VCU_0159",
+      "0x2000148a"
+    ],
+    "category": "app",
+    "description": "Shadow copies of the three 16-bit flag words 0x20001ce0, 0x20001ce2 and 0x20001ce4 (one element each, in order). vcu_flag_bitmap_expand copies the live words here and expands their set bits into the item list (flag_list) when they change. A second shadow of the same words is flag_word_prev at 0x200022c8.",
+    "count": 3
+  },
+  "vcu_g_0159_200014da": {
+    "name": "level_hold_ticks",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014da"
+    ],
+    "category": "vehicle",
+    "description": "Tick counter of vcu_level_hold_timer_update: counts while the scaled level stays at or above 60 and clears when it drops; sets level_threshold_state (0x200021c4) to 3 at 250 ticks, and the count is capped at 299."
+  },
+  "vcu_g_0159_200014e4": {
+    "name": "c14_c15_active_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200014e4"
+    ],
+    "category": "lighting",
+    "description": "0/1 flag of the C14/C15 pulse sequencer (vcu_c14_c15_pulse_sequencer). It is checked together with the request flags 0x20002022 and 0x20002023 and cleared when a sequence step is taken."
+  },
+  "vcu_g_0159_200014e5": {
+    "name": "c14_c15_latch_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x200014e5"
+    ],
+    "category": "lighting",
+    "description": "0/1 latch of the C14/C15 sequencer: set to 1 in the step code and tested for non-zero before the next step; cleared when that step ends (probably 'pulse armed')."
+  },
+  "vcu_g_0159_200014e6": {
+    "name": "c14_c15_accumulator",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014e6"
+    ],
+    "category": "lighting",
+    "description": "Running sum of a signed 16-bit per-tick reading in vcu_c14_c15_pulse_sequencer. It is compared as (value >> 2) against 500 and cleared when the test fails, so it times a sustained condition (probably the sustained low analog reading named in the function's summary)."
+  },
+  "vcu_g_0159_200014e8": {
+    "name": "c14_c15_step_word",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014e8"
+    ],
+    "category": "lighting",
+    "description": "Second 16-bit accumulator of the C14/C15 sequencer, updated from a signed value plus its previous value and cleared at the end of the sequence. Its exact purpose is not determined."
+  },
+  "vcu_g_0159_200014ea": {
+    "name": "c14_c15_count_a",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014ea"
+    ],
+    "category": "lighting",
+    "description": "Tick counter of the C14/C15 sequencer, incremented while the phase runs and cleared on reset. The sequence treats a value above 4 as reached (probably a count of pulses or edges)."
+  },
+  "vcu_g_0159_200014ec": {
+    "name": "c14_c15_count_b",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014ec"
+    ],
+    "category": "lighting",
+    "description": "Tick counter of the C14/C15 sequencer, incremented per tick and cleared on reset. Its limit is 40 (0x28), probably the duration of one output phase in ticks."
+  },
+  "vcu_g_0159_200014ee": {
+    "name": "c14_c15_count_c",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200014ee"
+    ],
+    "category": "lighting",
+    "description": "Second 40-tick (0x28) counter of the C14/C15 sequencer, with the same structure as c14_c15_count_b for the other output phase (probably)."
+  },
+  "vcu_g_148_200017cc": {
+    "name": "timed_window_schedule_word_148",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "VCU_148",
+      "0x200017cc"
+    ],
+    "category": "schedule",
+    "description": "Build 148 counterpart of timed_window_schedule_word (0x2000188c in build 0159): the packed daily-window word built by the timed-window tick from the window start and end and the flag bits 22 and 23, sent through the frame helper FUN_0800c18c. Its address is passed to that helper."
+  },
+  "vcu_g_0159_20001874": {
+    "name": "timed_window_armed",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001874"
+    ],
+    "category": "schedule",
+    "description": "0/1 flag of the daily-window logic: set to 1 when a new window value is received (vcu_0159_080054ec) and cleared by vcu_timed_window_schedule_tick once the schedule word has been handled (probably a resend-pending flag). vcu_alarm_edge_trigger also takes its address."
+  },
+  "vcu_g_0159_2000187a": {
+    "name": "timed_window_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000187a"
+    ],
+    "category": "schedule",
+    "description": "Counter of the daily-window logic: incremented each tick while 0x20001f48 is 0, and cleared after it passes 9, which gives a 10-tick debounce before a window change is sent (probably)."
+  },
+  "vcu_g_0159_2000187b": {
+    "name": "timed_window_input_prev",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000187b"
+    ],
+    "category": "schedule",
+    "description": "Previous value of bit 3 (mask 0x8) of status word 0x20001e6a, kept by vcu_timed_window_schedule_tick for edge detection."
+  },
+  "vcu_g_0159_2000187c": {
+    "name": "schedule_bit22_prev",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000187c"
+    ],
+    "category": "schedule",
+    "description": "Cached copy of bit 22 of the schedule word 0x2000188c. When the live bit differs from this copy, the tick updates the copy and re-sends the schedule word."
+  },
+  "vcu_g_0159_2000187d": {
+    "name": "schedule_bit23_prev",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000187d"
+    ],
+    "category": "schedule",
+    "description": "Cached copy of bit 23 of the schedule word 0x2000188c, with the same role as schedule_bit22_prev for the second flag bit."
+  },
+  "vcu_g_0159_20001882": {
+    "name": "alarm_bit6_prev",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001882"
+    ],
+    "category": "alert",
+    "description": "Previous value of bit 6 (mask 0x40) of status byte 0x20001e68, kept by vcu_alarm_edge_trigger to detect the rising edge that raises alert 4."
+  },
+  "vcu_g_0159_20001884": {
+    "name": "timed_window_clock_snap",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20001884"
+    ],
+    "category": "schedule",
+    "description": "Snapshot of the clock word 0x20001f40 (rx_clock_word) taken by vcu_timed_window_schedule_tick on each tick. Its hour field (bits 12..16) is compared with the window end hour."
+  },
+  "vcu_g_0159_20001888": {
+    "name": "timed_window_wait_ticks",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001888"
+    ],
+    "category": "schedule",
+    "description": "Counter of the daily-window logic: incremented each tick and tested against 30 (0x1e); cleared on reset. Probably the wait before the schedule word is re-sent."
+  },
+  "vcu_g_0159_2000188c": {
+    "name": "timed_window_schedule_word",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x2000188c"
+    ],
+    "category": "schedule",
+    "description": "Packed daily-window word built by vcu_timed_window_schedule_tick from the active window start (0x20001b4a) and end (0x20001b4c) and the clock snapshot, then sent to the peer when it changes. vcu_0159_080054ec also passes its address to the sender. Probable layout from the shift and mask use: bits 0..5 start minute, bits 6..10 start hour, bits 11..16 end minute, bits 17..21 end hour, bit 22 and bit 23 window flags, bit 24 set on one path."
+  },
+  "vcu_g_0159_20001890": {
+    "name": "timed_window_rx_start",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001890"
+    ],
+    "category": "schedule",
+    "description": "Window start time as received in a configuration record by vcu_0159_080054ec, packed like the schedule word (minute in bits 0..5, hour in bits 8..12). vcu_timed_window_schedule_tick copies it into the active start 0x20001b4a."
+  },
+  "vcu_g_0159_20001892": {
+    "name": "timed_window_rx_end",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001892"
+    ],
+    "category": "schedule",
+    "description": "Window end time as received in the same configuration record as timed_window_rx_start, packed the same way. vcu_timed_window_schedule_tick copies it into the active end 0x20001b4c."
+  },
+  "vcu_g_0159_20001ad4": {
+    "name": "serial_head",
+    "type": "char",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ad4"
+    ],
+    "category": "serial",
+    "description": "First two characters of the 14-character unit serial/model string at 0x20001ad4 (ASCII, no terminator in RAM; the built-in default begins with the '1K' prefix). vcu_0159_080054ec copies the whole string from a configuration record, vcu_0159_08009da8 rewrites it from the default at boot, and vcu_serial_parse_variant_code, vcu_serial_check_default and vcu_serial_match_set_flag read it. The later characters 0x20001ad6..0x20001ae1 have their own families in other packets and are not described here.",
+    "count": 2
+  },
+  "vcu_g_0159_20001b12": {
+    "name": "latch_flags_b",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b12"
+    ],
+    "category": "app",
+    "description": "16-bit flag word. Bit 1 (0x0002) is set by vcu_latch_event_flags_b, a one-shot that also sets bits 0..2 of 0x20001b32 and matching flags in 0x20001aee, 0x20001af0 and 0x20001af2. Tested by the PA6 output, the double-pulse indicator and the CAN payload builder; vcu_runtime_defaults_init also writes it."
+  },
+  "vcu_g_0159_20001b14": {
+    "name": "variant_option_shadow",
+    "type": "u16",
+    "size": 6,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b14"
+    ],
+    "category": "app",
+    "description": "Shadow copies of variant option words 1..3, written by vcu_apply_variant_config in the same order: element 0 = option 1 (0x20001036), element 1 = option 2 (0x20001038), element 2 = option 3 (0x2000103a). The readers are not visible in this packet.",
+    "count": 3
+  },
+  "vcu_g_0159_20001b4a": {
+    "name": "timed_window_start",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b4a"
+    ],
+    "category": "schedule",
+    "description": "Active daily-window start time, packed as minute in bits 0..5 and hour in bits 8..12. vcu_timed_window_schedule_tick copies it from timed_window_rx_start; vcu_runtime_defaults_init clears it to 0."
+  },
+  "vcu_g_0159_20001b4c": {
+    "name": "timed_window_end",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b4c"
+    ],
+    "category": "schedule",
+    "description": "Active daily-window end time, packed like timed_window_start. Its hour is the end test in vcu_timed_window_schedule_tick. vcu_runtime_defaults_init sets it to 0x0100 (hour 1, minute 0) at boot."
+  },
+  "vcu_g_0159_20001b5e": {
+    "name": "rx_scaled_b5e",
+    "type": "s16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b5e"
+    ],
+    "category": "vehicle",
+    "description": "Signed 16-bit value taken from a received frame by vcu_rx_frame_dispatch (payload field at byte 15) and divided by 10. It is copied to 0x20001d08 and 0x20001e62, and vcu_special_mode_gate tests it against 4 (probably a speed or throttle value in tenths)."
+  },
+  "vcu_g_153_20001b5e": {
+    "name": "pa6_gate_b5e_153",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_153",
+      "0x20001b5e"
+    ],
+    "category": "output",
+    "description": "Variable at 0x20001b5e in builds 148, 14a, 14b, 14e, 14f, 152 and 153 (a different family from rx_scaled_b5e, which is the build 0159 meaning of that address). vcu_pa6_output_status_update reads it and vcu_runtime_defaults_init clears it; its purpose is not determined (probably a PA6 output gate). Width inferred."
+  },
+  "vcu_g_0159_20001b6e": {
+    "name": "pa6_gate_b6e",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b6e"
+    ],
+    "category": "output",
+    "description": "Flag in build 0159 only. vcu_pa6_output_status_update tests it (the output branch runs when it is 0), and vcu_runtime_defaults_init clears it at boot (probably a PA6 enable gate)."
+  },
+  "vcu_g_0159_20001ba6": {
+    "name": "settings_default_ba6",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ba6"
+    ],
+    "category": "app",
+    "description": "Selector byte in build 0159 only. vcu_0159_08009da8 sets it to 2 when it is zero, and vcu_runtime_defaults_init sets it to 2 at boot. Its purpose is not determined."
+  },
+  "vcu_g_0159_20001ba8": {
+    "name": "settings_default_ba8",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ba8"
+    ],
+    "category": "app",
+    "description": "Selector byte in builds 14a and 0159. vcu_0159_08009da8 sets it to 2 when it is zero, and vcu_runtime_defaults_init sets it to 2 at boot. Its purpose is not determined; it has the same structure as settings_default_ba6."
+  }
+}

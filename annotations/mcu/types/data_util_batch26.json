@@ -1,0 +1,40 @@
+{
+  "structs": {
+    "McuFreeNode": {
+      "size": 8,
+      "description": "Free-list node of the first-fit 200-byte block pool. Word 0 is the size of the free region and word 1 is the next free node, or 0 for none (probably). Layout inferred from mcu_block200_alloc, which writes 0xFF8 to word 0 and 0 to word 1 at pool setup in build 0160.",
+      "fields": [
+        {"name": "size", "offset": 0, "type": "u32", "description": "Size in bytes of this free region (0xFF8 = 4088 at pool setup in build 0160)."},
+        {"name": "next", "offset": 4, "type": "ptr", "description": "Next free node, or 0 when this is the last one (probably)."}
+      ]
+    },
+    "XferQueueCtx": {
+      "size": 12,
+      "description": "Context of the five-entry transfer queue, three words in build 0160. Set by mcu_xfer_queue_init and read by the sender mcu_0160_0800cdcc, which passes the configuration pointer to FUN_0800d10a.",
+      "fields": [
+        {"name": "queue", "offset": 0, "type": "ptr:XferReq", "description": "Address of the request table (XferReq x 5), set to 0x2000212C by mcu_xfer_queue_init."},
+        {"name": "count", "offset": 4, "type": "u32", "description": "Number of queue entries, 5 at init. Compared as the loop bound by the sender mcu_0160_0800cdcc."},
+        {"name": "cfg", "offset": 8, "type": "ptr", "description": "Address of the control words at 0x200006F0 (xfer_ctrl_word0), passed to FUN_0800d10a by the sender."}
+      ]
+    },
+    "XferReq": {
+      "size": 36,
+      "description": "One transfer request record of 36 bytes (0x24), one per queue entry. FUN_0800d0e8 initialises each record from its arguments (mode 1, a 300-byte buffer, length 300, and 0). Field layout is not decoded here.",
+      "fields": [
+        {"name": "bytes", "offset": 0, "type": "u8", "count": 36, "description": "Raw 36-byte request record; sub-fields are not decoded yet."}
+      ]
+    },
+    "McuMsgRecord": {
+      "size": 20,
+      "description": "One message ring record of five 32-bit words, used by both message rings. The push functions copy the five words of the pushed record unchanged (probably a CAN-style message: header plus payload words). Meaning not confirmed.",
+      "fields": [
+        {"name": "w0", "offset": 0, "type": "u32", "description": "Word 0 of the record, the first word of the pushed record (probably the message header or identifier)."},
+        {"name": "w1", "offset": 4, "type": "u32", "description": "Word 1 of the record, copied from the pushed record's word 1 (probably the message id or command)."},
+        {"name": "w2", "offset": 8, "type": "u32", "description": "Word 2 of the record, copied from the pushed record's word 2 (probably payload)."},
+        {"name": "w3", "offset": 12, "type": "u32", "description": "Word 3 of the record, copied from the pushed record's word 3 (probably payload)."},
+        {"name": "w4", "offset": 16, "type": "u32", "description": "Word 4 of the record, copied from the pushed record's word 4 (probably payload or length)."}
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -1,0 +1,34 @@
+{
+  "mcu_g_0160_20000679": {
+    "name": "gpio_indicator_fault_ticks",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000679"],
+    "category": "gpio",
+    "description": "Debounce counter of the indicator fault, used only by mcu_indicator_update (0x0800A90C). It is cleared to 0 when the drive-mode bits 0..1 of hall_status_word (0x20001FDA) are zero or when the value returned by FUN_080021FC (not yet named) is above 299. Otherwise it counts up once per call and saturates at 50 (0x32). At 50, bit 0x4 of gpio_indicator_flags (0x20001FF8) is latched on every call. The tick is probably the main periodic tick."
+  },
+  "mcu_g_0160_20001fee": {
+    "name": "gpio_status_flags",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001fee"],
+    "category": "gpio",
+    "description": "Status bit word rebuilt every tick by mcu_0160_0800E238 and sent in telemetry requests 0x211 and 0x212 (mcu_telemetry_group_get). Bit 0 = bit 0 of 0x20000A3D; bit 1 = bit 0 of 0x20000B24; bit 2 = bit 0 of 0x20000E33; bit 3 = bit 0 of 0x20000E1C (mirrored by mcu_poll_pc9_input_and_flag, probably the PC9 input); bit 4 = bit 0 of 0x20000E31 AND 0x20000E34; bit 5 is kept from the previous tick; bit 6 = result of mcu_0160_08004B1C (drive enabled and both 0x20000024/0x20000026 at or below 0x200003EA - 10); bit 7 = bit 0 of 0x20000EF0; bit 8 = set when neither 0x20000024 nor 0x20000026 is above 0x200003EA - 10 (probably the phase-current limit check); bits 9..15 = 7-bit field from bits 15..21 of 0x200000E8 (probably a speed or load magnitude). Zeroed at init by mcu_0160_0800B324."
+  },
+  "mcu_g_0160_20001ff8": {
+    "name": "gpio_indicator_flags",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001ff8"],
+    "category": "gpio",
+    "description": "Indicator and status word. Bit 0x4 is the indicator fault latch: mcu_indicator_update sets it when gpio_indicator_fault_ticks reaches 50 and clears it when the drive-mode bits are zero or the speed check fails. Other bits are set outside the functions of this packet. The word is copied into the telemetry buffer for request 0x211 (mcu_telemetry_group_get, together with 0x20001FF4), and zeroed at init by mcu_0160_0800B324."
+  },
+  "mcu_g_0160_20001ffc": {
+    "name": "gpio_pulse_burst_decoder",
+    "type": "PulseBurstDecoder",
+    "size": 42,
+    "anchor": ["MCU_0160", "0x20001ffc"],
+    "category": "gpio",
+    "description": "Pulse-burst decoder that counts pulses on GPIOC pin 3 (PC3). mcu_0160_08008998 initialises it (6-sample debounce, gap threshold 40, long-high threshold 400). mcu_pulse_burst_sample_pc3 (0x08008978) feeds it one raw PC3 sample per call and stores the returned byte at 0x20002026. The return value is the number of pulses in a finished burst, 0 while a burst is still open, and 0xFF while a high level has lasted 400 samples or more. The full layout is in types/data_gpio_batch07.json (struct PulseBurstDecoder)."
+  }
+}

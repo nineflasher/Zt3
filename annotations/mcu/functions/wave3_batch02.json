@@ -1,0 +1,679 @@
+{
+  "mcu_0160_08006028": {
+    "name": "mcu_board_clock_gpio_init",
+    "summary": "Board clock and GPIO setup: HEXT bypass, LEXT off, pin modes, initial output levels",
+    "description": "Start-up routine that sets the board clock sources and the pin configuration of the controller board. It enables the IOMUX clock (APB2EN bit 0), enables HEXT with its bypass bit set (CRM.CTRL HEXTBYPS, an external clock input rather than a crystal), clears the LEXT bypass bit, disables LEXT, and turns off write access to the battery-powered backup domain. It then configures twelve pins of GPIOB and GPIOC through mcu_gpio_pin_setup (PC14, PC10, PC8, PB2, PC7, PB7, PB6, PC12, PC11, PC3, PC9 and PC15, with mode argument 0x10 except PC3 and PC9 which use 0) and sets their initial levels: the CLR register (offset 0x14) is written for PC7, PC8, PC10, PC11, PC12, PC14, PC15, PB6 and PB2, and the SCR register (offset 0x10) sets PB7 high. It is a one-shot initialiser that takes no meaningful arguments.",
+    "category": "startup",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not used; the decompile passes it on only as an extra argument to crm_periph_clock_enable"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not used (same as param_1)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not used (same as param_1)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "not used (same as param_1)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Packed clock codes: the high byte 0x18 is APB2EN, 0x1C is APB1EN, 0x14 is AHBEN and the low byte is the bit number, which matches GPIOA (APB2 bit 2), GPIOB (bit 3), TMR1 (APB2 bit 11) and CAN1 (APB1 bit 25). The packet lists the two pin-write helpers as mcu_ctx_set_field_0x14 and mcu_ctx_set_field_0x10 (context-struct setters). Here they are called as FUN_0800cec4(&GPIOC, mask) and FUN_0800cec8(&GPIOB, mask), i.e. plain stores to GPIOx.CLR (offset 0x14) and GPIOx.SCR (offset 0x10) per the SDK gpio_type layout, so the context-struct name does not fit these call sites. The first crm_clock_source_enable call shows only the source (1 = HEXT per CRM_CLOCK_SOURCE_HEXT); its new-state argument is not visible in the decompile. Mode codes given to mcu_gpio_pin_setup are not verified against the function body."
+  },
+  "mcu_0160_08006648": {
+    "name": "mcu_flash_erase_region",
+    "summary": "Erase a flash range with interrupts masked; returns 0 on success, 2 on failure",
+    "description": "Wrapper that runs mcu_flash_erase_range with interrupts disabled (disableIRQinterrupts, then enableIRQinterrupts). The decompile shows no parameters, but its only caller mcu_0160_0800672c passes the start address 0x08010800 and the image length plus 0x80, and those registers reach the erase routine unchanged. It returns 2 when the erase reports failure and 0 when every page in the range was erased. The firmware download uses it to clear the staging area before the image is written.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 2 when mcu_flash_erase_range reports failure"
+    },
+    "confidence": "high",
+    "notes": "Parameter names are not in the decompile; the start address and length are known only from the caller."
+  },
+  "mcu_0160_0800665c": {
+    "name": "mcu_flash_record_restore_check",
+    "summary": "Load the 12-byte flash state record, save it if stale, then check the identity text",
+    "description": "Start-up step for the upgrade state. It copies the 12-byte record stored in the flash page at 0x0801F800 into RAM at 0x20002048 with mcu_copy_bytes. If its first word differs from the shadow word at 0x200006E4, the three shadow words at 0x200006E4, 0x200006E8 and 0x200006EC are copied into the record and it is saved with mcu_flash_record_save. It then compares the first 16 bytes of the text SCOOTER_MCU_3THX with the flash bytes at 0x08001440 using mcu_bytes_equal_n8, storing 1 on a match at 0x20001F5E (copied to 0x20001F50), and writes the six-byte constant jrN6X7 (bytes 6A 72 4E 36 58 37) into two RAM copies at 0x20001F52 and 0x20001F58. Finally it clears the four status words at 0x20001F70, 0x20001F74, 0x20001F78 and 0x20001F7C and calls mcu_state_reset_load_key16 with argument 1.",
+    "category": "upgrade",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The packet string literal reads SCOOTER_MCU_3THXH with a trailing space; only the first 16 bytes, SCOOTER_MCU_3THX, are copied to the stack and compared. The layout of the 12-byte record is inferred from this function and from mcu_0160_0800672c, which saves the same three words at commit. The meaning of the 0x20001F5x words is not stated in the code."
+  },
+  "mcu_0160_0800672c": {
+    "name": "mcu_fw_update_frame_handler",
+    "summary": "Firmware download frame handler: start, decrypt and flash blocks, check, commit or reset",
+    "description": "Per-frame handler of the firmware download protocol. Byte 0 of the frame is the payload length, byte 1 a reply id, byte 3 the command, byte 4 the sequence number and bytes 5 onward the payload, and a busy flag at 0x200006B8 rejects re-entry with status 6. Command 7 starts a download: its 4-byte payload is the image size, which must be a multiple of 8 and below 0xE800; the record is saved with mcu_flash_record_save and the staging area at 0x08010800 is erased for size plus 0x80 bytes through mcu_flash_erase_region. Command 8 carries one data block whose sequence number must equal the expected counter (the previous number is accepted without effect, any other number fails with 5); each 8-byte block is decrypted in place with XTEA in CBC mode from the 16-byte key at 0x20002054 (zero IV for the first block), programmed with verify at 0x08010800 plus the image offset through mcu_flash_program_verify, and folded into a running word checksum. The first word of the image must look like a RAM address (word AND 0x2FFE0000 equals 0x20000000), the decrypted bytes at payload offsets 0 to 15, 0x30 to 0x35 and 0x40 to 0x4F are checked against flash constants at 0x08001400, 0x08001430 and 0x08001440 when the offset reaches 0x400, and at every 1 KiB boundary the key bytes are advanced as key[i] += i. Command 9 commits a fully received image whose last word equals the complement of the sum rotated left by 16 bits, by saving the size and a valid flag; command 10 acts only when the record flag at 0x2000204C is set and the verified flag 0x200006BB is clear, and then resets the MCU through SCB AIRCR if byte 0x20001FCF is zero or calls mcu_set_request_flags otherwise.",
+    "category": "upgrade",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "received frame buffer (length, reply id, command, sequence, payload from byte 5); decrypted in place"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "interface index passed to the reply path; value 1 also arms a 500-count timeout at 0x20000322 and sets bit 1 of 0x20000320"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Reply status codes taken from cVar2: 1 size or overflow, 3 flash write or record failure, 5 bad sequence, 6 busy re-entry, 7 bad command, bad header or bad state, 8 checksum mismatch, 9 no download active, 11 and 12 constant mismatch at 0x08001430 and 0x08001440 respectively. The reply helper FUN_080089A4 is named mcu_callback_slot_dispatch in earlier waves, but it is called here with seven arguments starting with 2, so the reply mapping is not confirmed. The XTEA key at 0x20002054 is the ASCII string <redacted constant> written by mcu_state_reset_load_key16 (called at entry through mcu_0160_08006ae0), so the image is encrypted with that key ratcheted once per KiB. Frame field offsets are inferred from the decompiled indexing. While this download is armed, mcu_can_periodic_tx_recover suspends its normal CAN work and counts the 500-tick timeout."
+  },
+  "mcu_0160_08006b34": {
+    "name": "mcu_flash_record_save",
+    "summary": "Save the 12-byte state record at 0x20002048 to flash page 0x0801F800, verified, one retry",
+    "description": "Writes the 12-byte RAM record at 0x20002048 (three words) to the flash page at 0x0801F800 with interrupts masked. It erases that page with mcu_flash_erase_range, programs and verifies the record with mcu_flash_program_verify, and repeats the erase and program sequence once if either step fails, so at most two attempts are made. The function returns nothing, so a failed save is silent and callers cannot tell whether the record reached flash. It is called from mcu_flash_record_restore_check and at the start and commit steps of mcu_fw_update_frame_handler.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08007700": {
+    "name": "mcu_foc_mode_loops_apply",
+    "summary": "Reset the FOC state, then enable the PID blocks selected by the flag arguments",
+    "description": "Helper of the FOC mode group, used by mcu_foc_mode_select. It calls mcu_foc_state_reset on the controller object and then mcu_foc_loops_enable with the same object and the flag arguments: argument 2 enables the PID block at +0x7C, argument 3 the block at +0xC0 and argument 5 the block at +0x15C, while argument 4 is not used by that call. Each flag is passed through unchanged, so a zero clears that block's enable. The return value is the r0 left by the reset call and is not a defined result.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "FOC controller object"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "enable flag for the PID block at +0x7C"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "enable flag for the PID block at +0xC0"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "not used by the loop enable call"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "enable flag for the PID block at +0x15C"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "r0 left by mcu_foc_state_reset; not a defined result"
+    },
+    "confidence": "medium",
+    "notes": "The decompile declares mcu_foc_state_reset as void, so the returned value is undefined and callers should not use it."
+  },
+  "mcu_0160_080077e0": {
+    "name": "mcu_foc_state_reset",
+    "summary": "Disable the three FOC PID blocks and clear the loop state words of the controller",
+    "description": "Resets the FOC controller object. It calls mcu_foc_loops_enable with all flags zero, which disables the PID blocks at +0x7C, +0xC0 and +0x15C, then writes zero to eleven 32-bit words at offsets 0x1E8, 0x208, 0x20C, 0x210, 0x214, 0x218, 0x21C, 0x224, 0x228, 0x22C and 0x230 of the object. Those words are the integrator and state fields the loops keep between ticks, so the next enable starts from a clean state; this is inferred from the offsets and the reset role. It is called by mcu_foc_mode_loops_apply and by mcu_foc_mode_select for mode 1 and for unknown modes.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "FOC controller object"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08007878": {
+    "name": "mcu_foc_mode_select",
+    "summary": "Select the FOC control mode: reset state, or enable the PID block set for modes 2 to 5",
+    "description": "Mode selector of the FOC controller object. Mode 1 resets the state through mcu_foc_state_reset; mode 2 enables the PID blocks at +0x7C and +0xC0, modes 3 and 4 enable only +0xC0, and mode 5 enables +0x7C, +0xC0 and +0x15C, each through mcu_foc_mode_loops_apply. Any other mode only resets the state. The mode byte is written to +0x238 only when the selected step returns a non-zero value, so a refused or unknown mode keeps the previous mode.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "FOC controller object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "requested mode code, 1 to 5 are handled"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "For mode 1 and for unknown modes the tested value is the r0 left by mcu_foc_state_reset (decompiled as void), so whether +0x238 is written for mode 1 is not determined. Modes 3 and 4 produce the same enables because the fourth argument of mcu_foc_mode_loops_apply is unused."
+  },
+  "mcu_0160_08008204": {
+    "name": "mcu_pid_block_configure",
+    "summary": "Configure one PID block: clear flags, store limits and gains, report whether the gains are valid",
+    "description": "Initialises one PID block object from the arguments, as part of the FOC PID set. It clears the flag bytes at +0x3C, +0x3D, +0x3E, +0x3F and +0x42, stores arguments 5, 6 and 7 as 32-bit words at +0x18, +0x1C and +0x20 and argument 11 as a byte at +0x41, then calls mcu_pid_set_limits with min from argument 9 and max from argument 8. Because +0x3E was cleared first, the limit call does not clamp the live output here. It stores the float argument 10 at +0x2C and converts the float arguments 2 to 4 into six Q15 controller words with mcu_gain_triple_q15_from_float, which scales by the float at +0x2C. The return value is the byte at +0x42, which is 1 only when that conversion succeeded.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "PID block object"
+      },
+      {
+        "name": "param_2",
+        "type": "f32",
+        "description": "first gain value, stored as Q15 at +0x00 and +0x0C"
+      },
+      {
+        "name": "param_3",
+        "type": "f32",
+        "description": "second value, divided by the scale in the Q15 stage"
+      },
+      {
+        "name": "param_4",
+        "type": "f32",
+        "description": "third value, multiplied by the scale in the Q15 stage"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "stored at +0x18"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "stored at +0x1C"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "stored at +0x20"
+      },
+      {
+        "name": "param_8",
+        "type": "u32",
+        "description": "output maximum, passed to mcu_pid_set_limits as max"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "output minimum, passed to mcu_pid_set_limits as min"
+      },
+      {
+        "name": "param_10",
+        "type": "f32",
+        "description": "reference float stored at +0x2C"
+      },
+      {
+        "name": "param_11",
+        "type": "u8",
+        "description": "stored at +0x41"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "1 when the gains were converted and stored, else 0"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the words at +0x18, +0x1C, +0x20 and of the byte at +0x41 is not shown by this function. The argument roles follow the calls only."
+  },
+  "mcu_0160_08008a14": {
+    "name": "mcu_startup_timeout_gate",
+    "summary": "Start-up wait gate: release on a 120000-poll timeout or on an edge and gain check",
+    "description": "Polled gate that holds the drive during start-up. While the byte at 0x20001FCE is zero (mcu_flag_1fce_is_clear returns 1) it counts polls in 0x2000068C and returns 1 at once when the count passes 119999, or when the byte from mcu_get_var_2026 is zero after a previous -1 latch at 0x20000676, unless bit 1 of 0x20000320 (update in progress) is set; the count then holds at 120000. While the byte is non-zero it clears the count instead. In both cases it then steps the phase counter at 0x20000DDC with mcu_edge_counter_step, driven by bit 4 of 0x20001FD4, the flag 0x20001FCD being zero and 0x200003BE above 5, and returns 1 only when that edge output is set and mcu_cfg_gain_10c_q15 is below 0x18000.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the timeout fired or the release condition holds, else 0"
+    },
+    "confidence": "medium",
+    "notes": "The 120000 limit is a count of calls; the time it represents depends on the caller's tick rate, which is not in this packet. The meaning of the byte at 0x20002026 is not known."
+  },
+  "mcu_0160_08008f34": {
+    "name": "mcu_hall_rotor_ctx_init",
+    "summary": "Initialise the hall rotor context: allocate it, load parameters, start TMR3, set the sector angle",
+    "description": "Start-up initialiser of the rotor position object of the hall sensor group. It allocates a 200-byte block with mcu_block200_alloc and stores the pointer in the global at 0x2000002C, converts the integer at 0x200003D4 to float and multiplies it by 0x3C8EFA35 (about 0.0174533, pi/180, so the integer is treated as degrees and converted to radians into 0x20000048; this reading is inferred from the constant). It then calls mcu_hall_rotor_params_load and mcu_hall_tmr3_init, and reads the current hall sector through the object's function pointer at +0x0C, which indexes the six-entry angle table at 0x20000714. The table angle goes to +0x5C and +0x60, the offset at +0x48 is added to give +0x4C, and the electrical angles at +0x3C, +0x40 and +0x44 are wrapped into the range 0 to 0x6487E (2 pi in 16.16 radians).",
+    "category": "hall",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "mcu_0160_08009160": {
+    "name": "mcu_hall_edge_update",
+    "summary": "TMR3 hall edge processing: sector step, period, speed and angle update, status codes",
+    "description": "Hall-sensor position tracker, called from the TMR3 interrupt handler on each update or capture event as part of the hall group. It reads the hall pattern through the object's function pointer at +0x0C, stores the sector index at +0x00 and the table angle from 0x20000714 at +0x5C, and on a TMR3 flag event counts timer overflows at +0x36 (limit at +0x34). On a capture event it reads the capture value, clears the flag and forms a 32-bit period at +0x90 from the capture plus the overflow count times 0x10000, which is smoothed by mcu_moving_average6_update on the average at +0x10. It checks the 60-degree step with mcu_hall_sector_transition, which sets the direction at +0x38 to +1 or -1, updates the fault window with mcu_hall_sector_window_update, and sets status codes 7, 8 or 9 in byte +0x01 for an invalid sector code, a speed above the limit at +0x84 while the direction sum is zero, or a direction reversal. The signed speed in DAT_20000700 is direction times (the scale at +0xB8 times 0x10C15), divided by the averaged period, and the averaged and raw angle words go to DAT_20000704 and DAT_20000708.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "rotor position object (200 bytes)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "This is the largest routine of the hall group. The thresholds at +0x80 and +0x84 and the window at +0x50 and +0x54 are used here without being named in this function. The status-code conditions are read from the branches and may be incomplete."
+  },
+  "mcu_0160_080093f8": {
+    "name": "mcu_hall_rotor_params_load",
+    "summary": "Fill the rotor object from the parameter block: zero state, load floats, window and gains",
+    "description": "Initialises the 200-byte rotor object from a block of configuration words (argument 2) as part of the hall group. It zeroes the state bytes at +0x01, +0x02, +0x36 to +0x3F, +0x58 to +0x67, +0x70 to +0x73 and +0x8C to +0xAB, sets the flag at +0x8E to 1 and the flags at +0x04 and +0x05 to their start values, and copies word 7 into the byte at +0x08. It converts words 0 to 9 with the soft-float helpers into the fields +0x30, +0x34, +0x48, +0x68, +0x78, +0x80, +0x84, +0x88, +0xB0, +0xB4, +0xB8, +0xBC and +0xC0, sets the fault window bounds at +0x50 and +0x54 to the value at +0x48 plus and minus 0x4305, and fills a six-slot average at +0x14 to +0x28 with the float at +0x2C. It stores word 0x0E as the pointer at +0x0C. The meaning of each configuration word is not visible in this function.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "rotor position object (200 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "configuration words; indices 0 to 14 are read"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Field meanings are taken from how the object is used by mcu_hall_edge_update and mcu_hall_rotor_ctx_init; the conversions are soft-float helper calls whose exact operations are not named in this packet."
+  },
+  "mcu_0160_08009800": {
+    "name": "mcu_hall_tmr3_init",
+    "summary": "Set up TMR3 as the hall capture timer on PB0, PB4 and PB5 with partial remap",
+    "description": "Initialises TMR3 for the three hall sensors. It enables the APB2 IOMUX and GPIOB clocks and the APB1 TMR3 clock, applies a partial remap through gpio_pin_remap_config (code 0x24080402) that moves channels 1 to 3 to PB4, PB5 and PB0, and sets those three pins as inputs through mcu_gpio_pin_setup. It sets the period to 0xFFFF with prescaler 0 (tmr_base_init) and selects slave reset mode with SMSEL = 4, so that a hall edge restarts the counter (tmr_sub_mode_select). It configures channel 1 with mcu_tmr_output_channel_setup from the record {0, 0, 3, 0}, sets the clock division code and the overflow request source, enables the interrupts with mask 3, and starts the counter with tmr_counter_enable. The capture data is consumed by mcu_hall_edge_update from the TMR3 interrupt handler.",
+    "category": "hall",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The channel-to-pin mapping assumes the usual TIM3 partial remap (CH1 to PB4, CH2 to PB5, CH3 to PB0) and is not checked against the remap table. The interrupt mask 3 is read as overflow and channel-1 capture from the tmr_interrupt_enable call shape. Some tmr_* helper calls are not identified individually."
+  },
+  "mcu_0160_08009a8c": {
+    "name": "mcu_svpwm_duty_update",
+    "summary": "Space-vector PWM update: sector 1 to 6 and three centred TMR1 compare values from alpha and beta",
+    "description": "Converts a two-axis voltage command (arguments 2 and 3) into three phase values with an inverse Clarke transform, a = beta, b = (sqrt(3) alpha - beta)/2 and c = -(sqrt(3) alpha + beta)/2, using 0xDDB3/2^15 for sqrt(3) and 45 counts per unit as the common scale, then sorts the phases and picks one of six sectors from their signs. The sector is returned as 1 to 6 and stored at +0x01 of the output object. A common-mode term is added in the sector branch, mcu_duty_pair_limit keeps the pair inside the 4500-count period, and each compare is written as 0x1194 minus the phase value to +0x34, +0x38 and +0x3C of the output object (the last two swapped when DAT_200003D7 is set) and to the sorted words DAT_20000084, DAT_20000088 and DAT_2000008C. The smallest sorted value is passed to mcu_pwm_trigger_and_clamp_select, which sets the channel-4 trigger compare and the clamp code.",
+    "category": "pwm",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output object: sector at +0x01, compare values at +0x34, +0x38 and +0x3C"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "first axis command (alpha-like)"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "second axis command (beta-like)"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "sector number 1 to 6"
+    },
+    "confidence": "medium",
+    "notes": "The units of the inputs are not given in the packet; the constants 0x1194 (4500, the full period), 0x8CA (2250, the centre) and 45 come from the code. The sign convention, the swap under DAT_200003D7 and the exact three-phase mapping are inferred and should be checked against the control-loop packets."
+  },
+  "mcu_0160_08009ec4": {
+    "name": "mcu_duty_pair_limit",
+    "summary": "Keep a duty triplet inside the period: zero a negative offset and rescale the other pair",
+    "description": "Helper of mcu_svpwm_duty_update. When the first value is negative it sets that value to zero and takes the sum of the other two; if the sum exceeds 0x1194 (the 4500-count period), both are scaled by 0x1194 divided by the sum. It then computes a float with the soft-float helpers and compares its bit pattern with 0x45A26138; when the float is above that, an integer amount is moved between the two values, with both kept within 0 to 0x1194. When the first value is not negative the function changes nothing.",
+    "category": "pwm",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "signed offset value; set to zero when negative"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "first duty value, rescaled in place"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "second duty value, rescaled in place"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The float constant 0x45A26138 and the integer conversions are used as found; their physical meaning is not named in the code."
+  },
+  "mcu_0160_0800a6b8": {
+    "name": "mcu_tmr1_pwm_init",
+    "summary": "Configure TMR1 as centre-aligned complementary PWM timer, phase outputs left disabled",
+    "description": "Initialises TMR1 for three-phase complementary PWM, part of the motor PWM group. It enables the APB2 clocks of TMR1, GPIOA and GPIOB and puts PA8 to PA10 (TMR1 channels 1 to 3) and PB13 to PB15 (their complementary outputs) into alternate-function mode code 8 through mcu_gpio_pin_setup. It sets the period to 0x1193 (4500 counts), centre-aligned counting mode 2, compare values of 0x8C9 on channels 1 to 3 and 10 on channel 4 (the trigger), and configures the channels in PWM output mode code 7. The break and dead-time record is written with the byte 0x8A or 0x99 depending on DAT_200003F8, channel 4 and the main output (BRK.OEN) are enabled, the counter is started, and finally the CCTRL enable bits of channels 1 to 3 (CC1EN, CC1NEN, CC2EN, CC2NEN, CC3EN, CC3NEN) are cleared with mask 0x3AAA, so the phase outputs stay off until mcu_tmr1_pwm_outputs_enable runs.",
+    "category": "pwm",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Output mode code 7 is read as PWM mode B from the SDK enum. The CCTRL bit positions are from at32f415_tmr.h (c1en bit 0, c1p bit 1, c4en bit 12, c4p bit 13)."
+  },
+  "mcu_0160_0800a82c": {
+    "name": "TMR3_GLOBAL_IRQHandler",
+    "summary": "TMR3 interrupt: run the hall edge update and record its duration in SysTick counts",
+    "description": "Vector handler for TMR3, the hall capture timer. It reads the SysTick current value before and after calling mcu_hall_edge_update on the rotor object at 0x2000002C, and stores the elapsed SysTick count, minus a fixed 6 counts of overhead, at 0x20000010. If that difference is negative because the 24-bit SysTick counter wrapped, it adds the wrap constant 0xFFFFF9 instead. The callee clears the TMR3 flags it handles, so this handler does not touch the timer status.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "SysTick VAL is at 0xE000E018. The value at 0x20000010 is therefore the hall handler's run time in SysTick cycles, presumably kept for load monitoring; the use of that value is not in this packet."
+  },
+  "mcu_0160_0800a9dc": {
+    "name": "mcu_usart3_dma_init",
+    "summary": "USART3 bring-up for DMA: pins PB10 and PB11, 115200 8N1, DMA1 channels 4 and 6",
+    "description": "Brings up USART3 for DMA transfers. It sets the state byte at 0x20001656 to 3, configures PB10 as the transmit pin (mode argument 8) and PB11 as the receive pin through mcu_gpio_pin_setup, and calls mcu_usart_port_enable on USART3 with baud 0x1C200 (115200). It then starts two DMA1 channels with mcu_dma_channel_start: channel 4 from the USART3 data register into the buffer at 0x20001657, and channel 6 from the buffer at 0x20001751 to the USART3 data register, using the channel control registers DMA1.C4CTRL and DMA1.C6CTRL and the trailing argument 0 for channel 4 and 0x10 for channel 6.",
+    "category": "uart",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The trailing arguments 0x1D and 0x1E of the two calls are not identified. The 0x0 and 0x10 values match the SDK direction constants for peripheral-to-memory and memory-to-peripheral, which gives channel 4 as receive and channel 6 as transmit; the DMA request mapping on AT32F415 was not checked."
+  },
+  "mcu_0160_0800aa78": {
+    "name": "mcu_request_submit",
+    "summary": "Submit a request to the 4-slot request queue at 0x20001250",
+    "description": "Thin wrapper that forwards its six 32-bit arguments unchanged to mcu_req_queue_submit with the queue object at 0x20001250. The queue, its busy guard and the slot rules are described on mcu_req_queue_submit. It returns nothing, so the caller cannot tell whether the request was queued.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "forwarded to mcu_req_queue_submit"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_0800ac52": {
+    "name": "mcu_usart_port_enable",
+    "summary": "Enable a USART for DMA: clock, baud rate, 8N1, TX and RX, DMA request bits, UEN",
+    "description": "Enables one USART for DMA use. It turns on the peripheral clock for the code in argument 2 (0x1C0012, USART3 on APB1) and programs the baud rate of argument 4 through mcu_usart_baud_format_set with word length 0 (8 data bits). It then sets CTRL3 bits 6 and 7 (DMA receive and DMA transmit request enables), CTRL1 bits 2 and 3 (receiver and transmitter enable), and forces CTRL1 bit 13 (UEN) to 1 last. Argument 3 is the USART base; the caller passes &USART3.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not used by the body"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "peripheral clock code (0x1C0012 = USART3 on APB1)"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "USART base address"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "baud rate (0x1C200 = 115200)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Four one-bit helpers used here are named mcu_tmr_swevt_trgswtr_set, mcu_tmr_swevt_brkswtr_set, mcu_tmr_iden_c2ien_set and mcu_tmr_iden_c3ien_set in earlier waves. Their bodies write bit 6 and bit 7 of offset 0x14 and bit 2 and bit 3 of offset 0x0C of the pointer they receive, and this call passes the USART3 base, so they are generic single-bit writers and the TMR names are misleading here. The fourth argument of mcu_usart_baud_format_set (stop bits) is not set at this call site, so the stop-bit field keeps whatever the register held and should be treated as unconfirmed."
+  },
+  "mcu_0160_0800adde": {
+    "name": "mcu_drive_tick_update_a",
+    "summary": "Per-tick drive status update, variant A: mode bits, edge flags and speed command ramp",
+    "description": "Once per control tick, after mcu_drive_target_ramp_update and mcu_cmd_ramp_update, it rebuilds the drive status byte at 0x2000065D: bit 2 is the output of the edge counter at 0x20000DA0 (input bit 3 of 0x20001FD4), bits 3 and 4 hold the two-bit field at bits 2 and 3 of 0x20001FE0, bit 1 is the inverse of bit 0 of 0x20001FD4, and bit 0 is the output of the edge counter at 0x20000E04 (input bit 7 of 0x20001FD4). Bit 2 is cleared when the mode field is not 3, 0x20000026 is above 0x81 and 0x20000A7C is zero. It moves the speed ramp at 0x2000067C toward the target at 0x20000680 with a step that grows with the distance (0x16D5, 0x1A18, 0x1E71 or 0x16D57, and a fixed jump of 0xB24CB5 for very large gaps), holds it at the target while the counter at 0x20000673 is positive, and clamps it to 0 through 0x6458000. It also scales the byte command at 0x20001FD2 into 0x20000654 (limited to 0xC8B), stores the Q15 ratio from mcu_ratio_110_to_q15 at 0x20000650 with its flag at 0x200001BC, and records the previous mode code at 0x20000677 before setting 0x2000065A to 2 or 3.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Variant A is present in the MCU_152 and MCU_0160 builds; variant B (mcu_drive_tick_update_b) is in the MCU_12b and MCU_143 builds. The two differ in the variables they use, as far as the decompile shows. The step table and the 0xB24CB5 jump are read from the code and their purpose is not named."
+  },
+  "mcu_143_0800aeae": {
+    "name": "mcu_drive_tick_update_b",
+    "summary": "Per-tick drive status update, variant B for the MCU_12b and MCU_143 builds",
+    "description": "Variant B of the per-tick drive status update, present in the MCU_12b and MCU_143 builds. It runs mcu_drive_target_ramp_update and mcu_cmd_ramp_update, then rebuilds the status byte at 0x20000649: bit 2 is the output of the edge counter at 0x20000D80 (input bit 3 of 0x20001FB0), bit 1 is the inverse of bit 0 of 0x20001FB0, and bit 0 is the output of the edge counter at 0x20000DE4, which is driven when bit 7 of 0x20001FB0 or bit 0 of 0x20001FBE is set. It stores the command word at 0x20001FAE, scaled by 0x103C/0xFF and limited to 0xC8B, at 0x20000640, takes the value from the function at 0x0800C9EC (not described in this packet) into 0x2000063C with its flag at 0x200001B0, and records the previous mode at 0x2000065F while setting 0x20000646 to 2 or 3 from bit 13 of 0x20001FB6 and bit 1 of 0x20001FBE.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Variant of mcu_drive_tick_update_a for the MCU_12b and MCU_143 builds. The data addresses differ, and the 0x0800C9EC helper plays the role of mcu_ratio_110_to_q15 in variant A."
+  },
+  "mcu_0160_0800b10c": {
+    "name": "mcu_drive_target_ramp_update",
+    "summary": "Compute the per-tick speed target and its rate limit, and the status thresholds",
+    "description": "Computes the drive target for the speed loop every tick; both per-tick status updates call it. If the byte at 0x20001FCE is non-zero it sets the update flag at 0x2000066D, clears the integrator at 0x20000660 and returns. Otherwise it picks an increment: 0x1999 plus 0x4000 times the byte at 0x20001FDC, the same plus a float-derived term from the word at 0x20001FE6 when the word at 0x20001FE8 is at least 0x14B, or 0x4000 plus the byte times 0x4000 when bit 13 of 0x20001FDA is set, or a fixed 0x78000 while the flag at 0x200003AC is set and the word at 0x20000688 is at least 16. The result is stored as the target at 0x20000208 (with headroom from 0x2000041C or 0x20000420) and at 0x20000224 and 0x20000688, and the integrator at 0x20000660 is moved toward it by mcu_ramp_toward_target_s32 at 0x51E or 0x20 per tick, switched by the hysteresis flag at 0x20000675. Finally it sets the thresholds at 0x2000066E and 0x2000066F from the top bits of 0x20000660, with a minimum of 0x14 and offsets of 4 and 2, or 10 and 7 when bit 2 of 0x20001FE2 is set.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Which helper computes the float term and what the thresholds protect against are not named in this function. The branch conditions are read directly from the decompile."
+  },
+  "mcu_0160_0800cc22": {
+    "name": "mcu_flash_erase_range",
+    "summary": "Erase the 1 KiB flash pages covering a byte count from a base address, with unlock and lock",
+    "description": "Erases a flash region one 1 KiB page at a time, as part of the flash group with mcu_flash_program_verify. The page count is mcu_ceil_div_1024 of the byte count in argument 2, and each page at base plus 0x400 times the index is erased with flash_sector_erase after flash_unlock; the loop stops at the first page whose status is not 3 (operate done). A program error (status 1) is cleared with flash_flag_clear mask 0x04 before the loop stops, and flash_lock runs on every exit. It returns 1 when all pages were erased and 0 otherwise; a zero byte count returns 1 without erasing anything.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash base address of the region"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "byte count of the region"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when every page was erased, else 0"
+    },
+    "confidence": "high",
+    "notes": "flash_status_type values from at32f415_flash.h: 0 busy, 1 program error, 2 EPP error, 3 operate done, 4 timeout. The helper FUN_0800CB98 with argument 4 clears FLASH_PRGMERR_FLAG (0x04)."
+  },
+  "mcu_0160_0800ccc4": {
+    "name": "mcu_flash_program_verify",
+    "summary": "Program a byte block into flash in halfwords and verify each one by read-back",
+    "description": "Programs a byte block into internal flash in halfword steps, as part of the flash group with mcu_flash_erase_range, with flash_unlock and flash_lock around it. For each halfword it calls flash_halfword_program and continues only when the status is 3 (operate done), then reads the flash halfword back and compares it with the source, stopping at the first mismatch or failure. A program error (status 1) is cleared with flash_flag_clear mask 0x04 before the loop stops. It returns 1 when all requested bytes were programmed and verified and 0 otherwise, so the caller can retry.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "flash destination address (halfword aligned)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "source data in RAM"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "byte count, processed two bytes at a time"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 when all bytes were programmed and verified, else 0"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_0800cdcc": {
+    "name": "mcu_can_tp_sender_tick",
+    "summary": "Give every CAN J1939 transport-protocol sender session one step with the current event",
+    "description": "Loops over the transport-protocol sender session table of the CAN group: it starts at 0x200027BC, has DAT_200027C0 entries of 0x24 bytes each, and passes each session with the event or time value at 0x200027C4 to mcu_can_tp_sender_step. The index is a 16-bit counter and the loop runs only when the count is non-zero. It is called from mcu_0160_0800a320 (not described in this packet) and returns no value.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_0800ce80": {
+    "name": "mcu_angle_err_mag_u8",
+    "summary": "Magnitude of an angle term scaled by 0.6 with a deadband of 2, as an unsigned byte",
+    "description": "Computes an 8-bit magnitude from the value at 0x20000F30. It takes that value through mcu_0160_08004700 (not described in this packet), divides the result by the constant 0x3243F with mcu_q15_div_sat, multiplies by 6/10 and shifts right by 15 to get an integer, sets results from -1 to 1 to zero, and returns the absolute value masked to 8 bits. Its result is written to 0x20001FF0 by mcu_status_telemetry_build as a telemetry byte.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "magnitude 0 to 255 of the scaled value"
+    },
+    "confidence": "low",
+    "notes": "What 0x20000F30 holds and what the constant 0x3243F represents (close to pi in 16.16 but not equal to it) are not established by this packet. The 0.6 factor and the deadband are read from the code."
+  },
+  "mcu_0160_0800dc08": {
+    "name": "mcu_can_periodic_tx_recover",
+    "summary": "CAN periodic broadcast, heartbeat timeout tracking and CAN1 recovery re-initialisation",
+    "description": "Runs once per control tick for the CAN side. While bit 1 of 0x20000320 (update in progress) is set it counts down the 500-tick timeout at 0x20000322 and returns without sending; when that reaches zero the bit is cleared and the tick count restarts. Otherwise it advances the tick count at 0x2000030C and fills payloads through the RAM callback at 0x20000328, sending CAN IDs 0x212, 0x211 and 0x343 every 10 ticks, 0x341, 0x342 and 0x344 every 20 ticks and 0x401 every 50 ticks, via mcu_msg_ring2_enqueue_frames. It tracks two heartbeat timeouts (bits 0 and 2 of 0x2000033C, counters at 0x2000032C and 0x20000332) and, once both have expired, counts the hits at 0x20000336 and raises the CAN fault flag 0x2000031F after more than five. When that flag is set it waits 51 ticks, increments the recovery count at 0x20000318, pulses the CAN1 reset (mcu_can1_reset_pulse), re-initialises the GPIOA pins PA11 and PA12 and CAN1 with the same steps as mcu_can_init, and re-enables the CAN1 interrupt masks 0x2, 0x800, 0x8000 and 0x400.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The first argument of the RAM callback (0x20000328) is the CAN ID, and the meaning of its other arguments is not shown. The heartbeat is inferred from the countdown and latch pattern, not from a named protocol. The 500-tick limit and the reply code path are shared with mcu_fw_update_frame_handler."
+  },
+  "mcu_0160_0800e1c0": {
+    "name": "mcu_usart_baud_format_set",
+    "summary": "Set USART BAUDR from the peripheral clock and baud rate, plus word length and stop bits",
+    "description": "Programs the baud rate and framing of one USART. It reads the clock frequencies with crm_clocks_freq_get, takes the APB2 clock for USART1 and the APB1 clock for the other USARTs, computes the divisor as clock times 10 divided by the baud rate, rounds it to the nearest integer and writes it to the low half of BAUDR (the high half is kept). It sets CTRL1 bit 12 (word length) from argument 3 and CTRL2 bits 13 to 12 (stop bits) from argument 4 masked to 2 bits, leaving the other bits of those registers unchanged.",
+    "category": "uart",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "USART base address"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "baud rate"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "word length, bit 0 (0 = 8 data bits)"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "stop bit code, bits 1 to 0"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "crm_clocks_freq_type field order (sclk, ahb, apb2, apb1, adc) from at32f415_crm.h matches the decompile's choice of APB2 for USART1 and APB1 for the others."
+  },
+  "mcu_0160_0800e238": {
+    "name": "mcu_status_telemetry_build",
+    "summary": "Pack the drive status word and telemetry bytes, and copy the CAN1 error counters",
+    "description": "Refreshes the status and telemetry bytes once per tick. It packs the status word at 0x20001FEE from bit 4 (0x20000E31 and 0x20000E34), bit 2 (0x20000E33), bit 6 (mcu_cond_mode_bit0_and_level_ok), bit 1 (0x20000B24), bits 9 to 15 (bits 15 to 21 of 0x200000E8), bit 0 (0x20000A3D) and bit 7 (0x20000EF0), with bit 8 set only when both 0x20000024 and 0x20000026 are at least 10 counts below 0x200003EA. It stores the angle magnitude from mcu_angle_err_mag_u8 at 0x20001FF0, the 8-bit values of 0x20000026 and 0x20000024 plus 0x14 at 0x20001FF4 and 0x20001FF5 (unless the override bytes 0x20000A7C and 0x20000B18 are non-zero), copies 0x200003BC to 0x20001FF6, and copies the CAN1 error status fields REC, TEC and LEC and the fault flag 0x2000031F to 0x20001E48, 0x20001E4A, 0x20001E4C and 0x20001E4E from CAN1.ESTS.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "REC (bits 23 to 16), TEC (bits 31 to 24) and LEC (bits 6 to 4) of ESTS are taken from the shifts in the decompile and the usual CAN error status layout. The meaning of the status bits is not named in the packet."
+  }
+}

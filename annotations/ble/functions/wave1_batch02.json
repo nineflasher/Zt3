@@ -1,0 +1,686 @@
+{
+ "ble_219_0c031d78": {
+  "name": "hal_spi_apply_format",
+  "summary": "Load SPI frame-format word and extra byte config into an SPI instance",
+  "description": "Looks up the SPI register block for instance param_1 in the pointer table at 0x0c08425c and writes two values from a config struct: the 32-bit word goes to register +0x00 (CR0, frame format/clock fields) and a byte goes to register +0x88 (BES-specific extension register). param_3 selects between two sub-records of the config: 0 uses word at param_2+0x0 and byte at param_2+0xc, non-zero uses word at param_2+0x4 and byte at param_2+0xd. Table at 0x0c08425c holds the register-block base pointers of the SPI instances; register layout matches an ARM PrimeCell PL022 SSP (CR0 +0, CR1 +4, DR +8, SR +0xc, ICR +0x20) with a BES extension at +0x88. Called from SPI open/configure routines and from the transfer wrapper at 0x0c0460e8.",
+  "category": "hal_spi",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "SPI instance index into the register-pointer table"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "config struct holding the two (word, byte) records"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "0 = first record, non-zero = second record"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Which two records the config holds (e.g. master vs slave / two chip-select profiles) is not visible from this function; the semantics of register +0x88 are undocumented."
+ },
+ "ble_219_0c032288": {
+  "name": "hal_spi_txrx_poll",
+  "summary": "Polled full-duplex SPI transfer of N bytes using an 8-deep FIFO window",
+  "description": "Derives the frame size in bits from ((param_2 & 0x1fffff) >> 16) + 1 and maps it to an element width of 1 (<=8 bits), 2 (<=16 bits) or 4 bytes; returns -1 if param_5 (byte count) is zero or not a multiple of the element width. Returns -11 (0xfffffff5) if the SPI status register (+0xc) BSY bit4 is set, otherwise waits for SR bit2 to clear, clears all interrupt flags (ICR +0x20 = 0xffffffff) and runs a loop: while the enable/active flag (reg +4 bit1) is set it pushes the next tx element into DR (+8) when SR bit1 (TX not full) is set, never more than 8 bytes ahead of what was received, using zero as dummy data when param_3 (tx buffer) is NULL, and pops an element from DR into param_4 (rx buffer, must be non-NULL) when SR bit2 (RX not empty) is set. On completion it waits for the busy/active state to end. Table at 0x0c08425c holds the register-block base pointers of the SPI instances; register layout matches an ARM PrimeCell PL022 SSP (CR0 +0, CR1 +4, DR +8, SR +0xc, ICR +0x20) with a BES extension at +0x88.",
+  "category": "hal_spi",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "SPI instance index"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "SPI format/CR0 value; bits 20:16 give frame size minus one"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "tx buffer or NULL for dummy zero data"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "rx buffer"
+   },
+   {
+    "name": "param_5",
+    "type": "u32",
+    "description": "transfer length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 = all bytes exchanged, 1 = transfer ended early (active flag dropped), -1 = bad length/alignment, -11 = SPI busy"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of register +4 bit1 as a loop-continue flag (PL022 CR1.SSE) and the return value 1 are inferred from the control flow."
+ },
+ "ble_219_0c032378": {
+  "name": "hal_spi_tx_poll",
+  "summary": "Polled transmit-only SPI transfer of N bytes",
+  "description": "Same frame-size decoding and argument validation as the full-duplex routine (element width 1/2/4 bytes from bits 20:16 of param_2; returns -1 if length is 0 or not width-aligned). Loops while the active flag (reg +4 bit1) is set and bytes remain, writing the next element to DR (+8) whenever SR (+0xc) bit1 (TX not full) is set; received data is not read. After the loop it waits until reg+4 bit1 clears or SR bit4 (BSY) drops, and returns 1 if not all bytes were sent else 0. Table at 0x0c08425c holds the register-block base pointers of the SPI instances; register layout matches an ARM PrimeCell PL022 SSP (CR0 +0, CR1 +4, DR +8, SR +0xc, ICR +0x20) with a BES extension at +0x88.",
+  "category": "hal_spi",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "SPI instance index"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "SPI format/CR0 value; bits 20:16 give frame size minus one"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "tx buffer"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "length in bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 = sent, 1 = ended early, -1 = bad length/alignment"
+  },
+  "confidence": "medium",
+  "notes": "Single caller 0x0c0326c4 (SPI send wrapper)."
+ },
+ "ble_219_0c0326a8": {
+  "name": "hal_periph_9000_set_field_10_7",
+  "summary": "Set a 4-bit field (bits 10:7) in the register at 0x40009004",
+  "description": "Read-modify-write of 0x40009004: clears bits 10:7 (mask 0xfffff87f) and ORs in param_1 << 7. Values >= 15 are rejected by spinning forever (assert-style trap). Called three times from the 0x0c0401b0-0x0c040378 group; the register block at 0x40009000 is BES-specific and undocumented, the field looks like a divider/selector index 0..14.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "field value, must be < 15"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Peripheral identity of 0x40009000 is unknown; the divider/selector interpretation is a guess."
+ },
+ "ble_219_0c032d64": {
+  "name": "hal_cmu_get_freq_name",
+  "summary": "Map a CMU frequency index (0..7) to its name string",
+  "description": "Returns the entry at index param_1 of the pointer table at 0x0c080924 whose strings are \"CMU_FREQ_32K\", \"CMU_FREQ_6P5M\", \"CMU_FREQ_13M\", \"CMU_FREQ_26M\", \"CMU_FREQ_52M\", \"CMU_FREQ_78M\", \"CMU_FREQ_104M\", \"CMU_FREQ_208M\"; returns NULL for index >= 8. Used for trace output of the system clock selection (single caller 0x0c0459fc).",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "CMU frequency enum index 0..7"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "C string name or NULL"
+  },
+  "confidence": "medium",
+  "notes": "Function name is derived (BES SDK style) - the string table is the evidence."
+ },
+ "ble_219_0c033030": {
+  "name": "hal_sys_timer_delay_us",
+  "summary": "Busy-wait for param_1 microseconds on the hardware tick counter",
+  "description": "Converts param_1 to float, computes ticks = (us / 1000.0) * DAT_20003548 + 0.99 where DAT_20003548 holds ticks per millisecond, then samples the free-running counter at 0x40002004 and spins until (start - now) is no longer below the tick count (counter counts downward / difference taken unsigned). Negative or zero tick counts return immediately. Always returns 0. Callers are the BLE controller code at 0x0c030ab0/0x0c030cb8 and the delay at 0x0c033328.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "delay in microseconds"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "medium",
+  "notes": "Direction of the counter at 0x40002004 is inferred from the (start - now) comparison."
+ },
+ "ble_219_0c03308c": {
+  "name": "hal_sys_timer_alarm_start",
+  "summary": "Arm the 0x4000200x timer for a one-shot wake after param_1 ticks",
+  "description": "Clamps the tick count: values 0 and 1 become 1, larger values become param_1 - 1. Saves the negated current counter (0x40002004) into DAT_20003c10 as the reference for later elapsed-time reads, writes the clamped value to the load register 0x40002020 and sets bit7 (enable) in the control register 0x40002028. Counterparts: stop at 0x0c0330b8, elapsed at 0x0c0330fc.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "timer ticks until the alarm fires"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0330b8": {
+  "name": "hal_sys_timer_alarm_stop",
+  "summary": "Stop the alarm timer and clear its pending interrupt",
+  "description": "Clears bit7 (enable) in 0x40002028, writes 1 to 0x4000202c (interrupt acknowledge) and writes 0x2000 to NVIC ICPR0 (0xe000e280), clearing the pending state of IRQ 13. Complements the alarm start at 0x0c03308c.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0330e0": {
+  "name": "hal_sys_timer_alarm_is_running",
+  "summary": "Return whether the alarm timer enable bit is set",
+  "description": "Reads control register 0x40002028 and returns bit7 (value 0 or 1), the enable flag that the alarm start routine sets and the stop routine clears.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "1 if the alarm is armed, else 0"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0330f0": {
+  "name": "hal_sys_timer_alarm_get_count",
+  "summary": "Read the alarm timer current-value register",
+  "description": "Returns the raw 32-bit value of register 0x40002024 (current/remaining count of the alarm timer whose load register is 0x40002020).",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "raw timer count"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0330fc": {
+  "name": "hal_sys_timer_alarm_elapsed",
+  "summary": "Ticks elapsed on the free-running counter since the alarm was armed",
+  "description": "Computes -(counter + DAT_20003c10), where counter is the register at 0x40002004 and DAT_20003c10 holds the negated counter value stored when the alarm was started, i.e. start_value - current_value, giving elapsed ticks of a down-counting timer.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "s32",
+   "description": "elapsed ticks since alarm start"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c033d18": {
+  "name": "hal_uart_putc_poll",
+  "summary": "Write one byte to a UART transmit register, waiting for FIFO space",
+  "description": "param_1 selects one of 3 UART instances (register-block pointers in a table at 0x0c085890, stride 12 bytes); larger values trap in an infinite loop. Spins until flag register +0x18 bit5 (TXFF, PL011 layout) is clear, then, if bit1 of register +0x48 is not set, stores param_2 into the data register (+0x00); if that bit is set (probably TX DMA active) the code traps in an infinite loop. Used by the trace/print path (0x0c045ac8, 0x0c033150).",
+  "category": "hal_uart",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "UART instance 0..2"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "byte to transmit"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Offset +0x48 bit1 meaning (DMA enable) is a guess; layout is PL011-like."
+ },
+ "ble_219_0c033d50": {
+  "name": "hal_uart_set_irq_mask",
+  "summary": "Write the UART interrupt mask register and return its previous value",
+  "description": "param_1 selects UART 0..2 from the table at 0x0c085890 (otherwise trap). Reads the old value of register +0x38 (PL011 IMSC), then writes param_2. If bit6 (receive timeout) is being newly enabled while the per-UART DMA channel slot DAT_2000aa8c[param_1] is not -1 (i.e. an RX DMA is configured) the function traps in an infinite loop as an assertion. Returns the old mask.",
+  "category": "hal_uart",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "UART instance 0..2"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "new interrupt mask"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "previous interrupt mask value"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of DAT_2000aa8c as an RX DMA channel array (-1 = none) is inferred."
+ },
+ "ble_219_0c033d94": {
+  "name": "hal_uart_install_irq_handler",
+  "summary": "Store UART callback, argument and ISR entry for instance param_1",
+  "description": "For instance 0..2 (else infinite-loop trap) stores param_2 into the word array at 0x2000aaac, param_3 into the byte array at 0x2000aac8 and writes the address of the code at 0x0c033c34 (the common UART interrupt service routine) into the 4-byte-entry handler table at 0x2000aa80. No direct callers - invoked indirectly during UART open.",
+  "category": "hal_uart",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "UART instance 0..2"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "callback / context value stored per instance"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "small per-instance value stored in a byte array (low byte only)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Exact roles of param_2/param_3 are not clear; entry reached via function pointer."
+ },
+ "ble_219_0c0342b8": {
+  "name": "hal_irq_get_handler_table",
+  "summary": "Return the base address of the RAM handler table at 0x2000aa80",
+  "description": "Returns the constant pointer 0x2000aa80, the table of 4-byte ISR entry addresses that the UART install routine (0x0c033d94) fills. Single caller 0x0c0467b8.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "address 0x2000aa80"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0342d4": {
+  "name": "hal_wdt_write_load",
+  "summary": "Write the stored reload value of watchdog param_1 to the watchdog LOAD register",
+  "description": "Runs in a critical section by raising BASEPRI to 0x40; if it was not already 0x40 it records the caller PC and LR in DAT_20003d70/20003d74 (lock-owner debug record) and, when BASEPRI was originally 0, resets DAT_20003d70 to 0xffffffff on exit; the previous BASEPRI is restored. Unlocks the block by writing 0x1acce551 to 0x40082c00, stores the value from table DAT_2000aad4[param_1] into 0x40082000 (LOAD) and relocks by writing 1 to 0x40082c00. SP805-style watchdog block at 0x40082000: LOAD +0x00, CONTROL +0x08, LOCK +0xc00 (0x1acce551 unlocks). Called from the watchdog start/feed routines (0x0c034328, 0x0c046830).",
+  "category": "hal_wdt",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "watchdog index into the timeout table at 0x2000aad4"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Identification as an SP805 watchdog is based on the 0x1acce551 unlock key and register offsets."
+ },
+ "ble_219_0c034388": {
+  "name": "hal_wdt_stop",
+  "summary": "Disable the watchdog counter and clear the running flag",
+  "description": "Runs in a critical section by raising BASEPRI to 0x40; if it was not already 0x40 it records the caller PC and LR in DAT_20003d70/20003d74 (lock-owner debug record) and, when BASEPRI was originally 0, resets DAT_20003d70 to 0xffffffff on exit; the previous BASEPRI is restored. Unlocks 0x40082c00 with 0x1acce551, writes 0 to 0x40082008 (CONTROL: counter and reset disabled), relocks with 1, then clears the running flag DAT_2000aadc. SP805-style watchdog block at 0x40082000: LOAD +0x00, CONTROL +0x08, LOCK +0xc00 (0x1acce551 unlocks).",
+  "category": "hal_wdt",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c03442c": {
+  "name": "hal_wdt_irq_enable",
+  "summary": "Install watchdog IRQ vector and callback, then enable NVIC IRQ 5",
+  "description": "Reads VTOR (0xe000ed08) and copies the handler address from table DAT_20003e28[param_1] into vector slot 0x54 (exception 21 = IRQ 5), issues a DSB, sets NVIC priority byte 0xe000e405 (IRQ5) to 0, clears pending (ICPR 0xe000e280 = 0x20) and enables the interrupt (ISER 0xe000e100 = 0x20). Finally stores the callback param_2 in DAT_2000aad8[param_1]. IRQ 5 is presumed to be the watchdog interrupt, matching the SP805 block used by neighbouring routines.",
+  "category": "hal_wdt",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "index into handler table 0x20003e28 and callback table 0x2000aad8"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "callback invoked from the watchdog interrupt"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c034818": {
+  "name": "bes_image_format_name",
+  "summary": "Return a name string for a section image-format magic value",
+  "description": "Maps a 32-bit ASCII magic to a text label: 0x4d494152 (\"RAIM\") -> \"romfs\", 0x20574152 (\"RAW \") -> \"raw\", 0x34574152 (\"RAW4\") -> \"raw4k\", 0x50495a47 (\"GZIP\") -> \"gzip\", anything else -> \"unknwon\" (sic, typo in firmware). Used by the code at 0x0c03655c/0x0c0365a4 when printing the format of an image/partition record.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "format magic (little-endian four-character tag)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "constant C string"
+  },
+  "confidence": "medium",
+  "notes": "Calling context (boot image / romfs section dump) inferred from the labels only."
+ },
+ "ble_219_0c035684": {
+  "name": "hal_trace_buf_putc",
+  "summary": "Append a byte to a line buffer and flush through a write callback when full",
+  "description": "param_1 points to an output-stream object: write callback at +0x50, capacity (u16) at +0x54, fill count (u16) at +0x56, buffer pointer at +0x58. If room remains, stores param_2 at buffer[fill++]; returns 0 if still not full. When the buffer is full (or already was) and non-empty, repeatedly calls the callback with the buffer (the decompiler shows only the buffer pointer as argument, the length presumably in r1), advancing by the number of bytes consumed and decreasing the fill count, until the buffer is empty; a negative callback result is returned immediately. Returns the total bytes flushed.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output stream object (callback +0x50, capacity +0x54, count +0x56, buffer +0x58)"
+   },
+   {
+    "name": "param_2",
+    "type": "u8",
+    "description": "byte to append"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 if only buffered, bytes flushed on flush, or negative error from the callback"
+  },
+  "confidence": "medium",
+  "notes": "Three callers at 0x0c0356dc, 0x0c0357b8 and 0x0c035900 (print formatting path)."
+ },
+ "ble_219_0c035f90": {
+  "name": "Default_Handler",
+  "summary": "Fallback exception handler: dump fault registers and halt",
+  "description": "Selects the stacked exception frame by EXC_RETURN bit2 (MSP or PSP), clears the 0x100-byte buffer at 0x2000b9a4 with memset, copies SCB registers SHCSR/CFSR/HFSR/MMFAR/BFAR/AFSR (0xe000ed24..ed3c) to 0x2000b9f0..ba04 and the stacked R0-R3, R12, LR, PC, xPSR to 0x2000ba08..ba24. It then prints \"start backtrace:\\r\\n\" byte-wise via the trace UART putc (0x0c045ac8), formats \"pc:0x%x,lr:0x%x \\r\\n\" with the stacked PC/LR using the snprintf at 0x0c071570 and prints that, calls the crash-dump routine 0x0c0476a0 (&0x0c0809a4, 0x2000b9ac, 0x78, 1), and spins forever. Installed on vector slot 13 (reserved); the body is identical to HardFault_Handler.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "never returns"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c035fa8": {
+  "name": "HardFault_Handler",
+  "summary": "HardFault handler: dump fault state to trace UART and halt",
+  "description": "Selects the stacked exception frame by EXC_RETURN bit2 (MSP or PSP), clears the 0x100-byte buffer at 0x2000b9a4 with memset, copies SCB registers SHCSR/CFSR/HFSR/MMFAR/BFAR/AFSR (0xe000ed24..ed3c) to 0x2000b9f0..ba04 and the stacked R0-R3, R12, LR, PC, xPSR to 0x2000ba08..ba24. It then prints \"start backtrace:\\r\\n\" byte-wise via the trace UART putc (0x0c045ac8), formats \"pc:0x%x,lr:0x%x \\r\\n\" with the stacked PC/LR using the snprintf at 0x0c071570 and prints that, calls the crash-dump routine 0x0c0476a0 (&0x0c0809a4, 0x2000b9ac, 0x78, 1), and spins forever.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "never returns"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c035fe8": {
+  "name": "_fstat",
+  "summary": "newlib stub fstat reporting every descriptor as a character device",
+  "description": "Sets st->st_mode (offset 4 of the stat struct in param_2) to 0x2000 (S_IFCHR) and returns 0. Part of the newlib syscall stubs for the retargeted stdio; referenced from an indirect table at 0x0c073a8c.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "file descriptor (ignored)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "struct stat to fill"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "always 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c035ff4": {
+  "name": "_isatty",
+  "summary": "newlib stub isatty that always reports a terminal",
+  "description": "Ignores its arguments and returns 1, so stdio treats all file descriptors as interactive (line buffered). Referenced from the syscall table around 0x0c073a88.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "s32",
+   "description": "always 1"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c036024": {
+  "name": "util_ctz32",
+  "summary": "Count trailing zero bits of a 32-bit word (returns 32 for 0)",
+  "description": "Binary-search count of trailing zeros: returns 32 for 0 and 0 when bit0 is set; otherwise tests the low 16/8/4/2 bits in turn, shifting and accumulating the index, and finally subtracts bit0 of the remainder. Result is the zero-based index of the lowest set bit. Sole caller 0x0c02dea8.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "number of trailing zeros, 0..32"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0360c8": {
+  "name": "stub_return_zero_0c0360c8",
+  "summary": "Stub returning 0",
+  "description": "Does nothing and returns 0; reached from a callback or hook-table call site at 0x0c05f338 where the default behaviour is success/false.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high",
+  "notes": "Purpose depends on the call site at 0x0c05f338, not determined here."
+ },
+ "ble_219_0c0360cc": {
+  "name": "stub_return_zero_0c0360cc",
+  "summary": "Stub returning 0",
+  "description": "Does nothing and returns 0; called from 0x0c02e7d8 as a default hook returning success/false.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high",
+  "notes": "Purpose depends on the call site at 0x0c02e7d8, not determined here."
+ },
+ "ble_219_0c036388": {
+  "name": "hal_trace_set_flag_baa4",
+  "summary": "Set the global flag at 0x2000baa4 to 1",
+  "description": "Writes 1 into DAT_2000baa4 and returns. No direct callers - invoked through a function pointer/hook. The flag is later copied out by the accessor at 0x0c0363a4.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Role of the flag is unknown; it sits next to the crash/trace RAM variables (0x2000b9xx..baxx) so it may be a crash/trace state indicator."
+ },
+ "ble_219_0c0363a4": {
+  "name": "hal_trace_get_state_vars",
+  "summary": "Copy three global words (0x2000baac, baa8, baa4) to caller-provided pointers",
+  "description": "If param_1 and param_2 are both non-NULL, stores DAT_2000baac to *param_1, DAT_2000baa8 to *param_2 and DAT_2000baa4 to *param_3 (param_3 is not NULL-checked); otherwise does nothing. No direct callers - reached indirectly.",
+  "category": "hal",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "receives DAT_2000baac"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "receives DAT_2000baa8"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "receives DAT_2000baa4 (the flag set by 0x0c036388)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Semantics of the three values unknown."
+ },
+ "ble_219_0c036418": {
+  "name": "crypto_tea_cbc_decrypt",
+  "summary": "TEA (32-round) decryption of a buffer in place with CBC-style chaining",
+  "description": "Requires param_2 (byte length) to be a multiple of 8, otherwise returns -1. For each 8-byte block it decrypts with standard TEA decryption: 32 rounds, delta 0x9e3779b9 (sum starts at 0xc6ef3720), key words k0..k3 read from param_5[0..3]. If the running byte counter *param_3 is non-zero, the plaintext is XORed with the previous ciphertext block held in the 8-byte chain buffer param_4; the chain buffer is then replaced by the block's ciphertext and *param_3 is advanced by 8. A leading loop over (*param_3 >> 10) and a per-block loop run byte additions on an uninitialised local array whose result is never used (dead code). Returns 0 on success. Caller 0x0c0285ec.",
+  "category": "crypto",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "buffer decrypted in place (length param_2)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "length in bytes, must be a multiple of 8"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "u32 running byte offset; first block (0) is not chained, advanced by 8 per block"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "8-byte CBC chaining value (previous ciphertext), updated"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "four 32-bit TEA key words"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success, -1 if length not a multiple of 8"
+  },
+  "confidence": "high",
+  "notes": "Likely used to decrypt firmware-update or config data; the caller context was not examined."
+ },
+ "ble_219_0c037584": {
+  "name": "stub_empty_0c037584",
+  "summary": "Empty function (immediate return)",
+  "description": "Contains only a return instruction; called from the neighbouring function at 0x0c037588 as an empty hook/placeholder.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0398a8": {
+  "name": "stub_empty_0c0398a8",
+  "summary": "Empty function (immediate return)",
+  "description": "Contains only a return instruction; called from 0x0c04146c and 0x0c0414ac as an empty hook placeholder.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c03a80c": {
+  "name": "memcpy_newlib_aligned_16",
+  "summary": "newlib memcpy: copy param_3 bytes from param_2 to param_1",
+  "description": "newlib-style optimised memcpy. For lengths below 16 or when source and destination alignments differ (low two bits of src^dst), it copies byte by byte. Otherwise it copies bytes until the destination is word-aligned, then 16 bytes per iteration as four words, then remaining whole words, then the trailing bytes. The decompiler shows no return value but newlib returns the destination pointer in r0. Caller 0x0c03cec8.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "byte count"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "destination (r0 preserved by the original)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c03aa3c": {
+  "name": "stub_empty_0c03aa3c",
+  "summary": "Empty function (immediate return)",
+  "description": "Contains only a return instruction; called from 0x0c04696c and 0x0c046c7c as an empty hook placeholder.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c03aa60": {
+  "name": "stub_empty_0c03aa60",
+  "summary": "Empty function (immediate return)",
+  "description": "Contains only a return instruction; called from 0x0c03bb70 immediately before the register-write helper at 0x0c03aa64.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c03aa64": {
+  "name": "hal_ext_ctrl_write_d0702000",
+  "summary": "Write 1 and 2 to the two control words at 0xd0702000/0xd0702004",
+  "description": "Stores 1 into the word at 0xd0702000 and 2 into 0xd0702004. These addresses are outside the usual 0x4000xxxx peripheral window (an external/aliased bus region of the SoC), so the purpose is not determinable from the code. Called once from the init routine at 0x0c03bb70.",
+  "category": "hal",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Target region 0xd0702000 is undocumented; may be a memory controller or boot-time hardware enable."
+ }
+}

@@ -1,0 +1,668 @@
+{
+ "ble_219_0c04ef9c": {
+  "name": "le_device_db_tlv_get_entry",
+  "summary": "Read one 60-byte LE device DB record from TLV storage and unpack its fields",
+  "description": "Calls the TLV backend get-tag callback (*DAT_2000fd0c)(ctx=DAT_2000fd08, tag='BTD'<<8 | index, buf, 0x3c). If exactly 0x3c bytes were returned, copies the requested fields out of the stack buffer, each only when its output pointer is non-NULL: 16-byte key block at +30 (LTK), u16 at +46 (EDIV), 8-byte at +48 (random number), and four single bytes at +56..+59 (key size, authenticated, authorized, secure-connection flags). On a size mismatch outputs are left untouched. This matches BTstack le_device_db_tlv.c, which stores one record per bonded device under tag 'BTD\\0'+index.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "device DB slot index 0..3 (OR-ed into tag 0x42544400)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "out u16 EDIV, may be NULL"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "out 8-byte random number (rand), may be NULL"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "out 16-byte key (LTK), may be NULL"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "out u32 key size, may be NULL"
+   },
+   {
+    "name": "param_6",
+    "type": "ptr",
+    "description": "out u32 authenticated flag, may be NULL"
+   },
+   {
+    "name": "param_7",
+    "type": "ptr",
+    "description": "out u32 authorized flag, may be NULL"
+   },
+   {
+    "name": "param_8",
+    "type": "ptr",
+    "description": "out u32 secure-connection flag, may be NULL"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Field-to-name mapping inferred from BTstack le_device_db_entry_t layout; the first 30 bytes (IRK/address) are not exported by this function."
+ },
+ "ble_219_0c04f034": {
+  "name": "le_device_db_tlv_configure",
+  "summary": "Install TLV backend and probe which of the 4 device DB slots are populated",
+  "description": "Stores the TLV implementation pointer (DAT_2000fd0c) and its context (DAT_2000fd08), clears the in-use count (DAT_2000fd10) and the four per-slot flags starting at 0x2000fd04. Then for slots 0..3 calls the backend get callback with tag 0x42544400|slot and a 0x3c-byte buffer; every slot returning exactly 0x3c bytes gets its flag set to 1 and increments the count. Corresponds to BTstack le_device_db_tlv_configure.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "btstack_tlv_t implementation (first word is the get_tag function pointer)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "TLV context passed back to the callbacks"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c04f0a4": {
+  "name": "ble_ctrl_clear_pairing_flags",
+  "summary": "Zero a group of seven single-byte flag/state variables",
+  "description": "Writes 0 to bytes at 0x2000ffe9, 0x2000ff55, 0x2000ff6b, 0x2000ff5b, 0x2000ff5f, 0x2000ff63 and 0x2000ff67. These sit next to the key-distribution bytes set by the sibling setters (0x2000ff56/58) and are probably per-pairing state. Called once from the same init routine (ble_219_0c051eb8) that loads the keys and address structures.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Exact meaning of each cleared byte unknown."
+ },
+ "ble_219_0c04f0c8": {
+  "name": "ble_ctrl_store_keys_and_addrs",
+  "summary": "Copy three 16-byte keys and three short address/info blobs into controller globals",
+  "description": "Copies param_1, param_2 and param_3 (16 bytes each) to 0x2000fe00, 0x2000fe10 and 0x2000fe20. Then copies a 3-byte item (u16 + u8) from param_4 to 0x2000fe30, and two 7-byte items (u32 + u16 + u8, written with unaligned stores) from param_5 and param_6 to 0x2000fe33 and 0x2000fe3a. The 7-byte items look like address-type + 6-byte BD_ADDR records and the 16-byte items like IRK/LTK/CSRK style keys, but this is inferred from sizes only.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "16-byte key #1 source"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "16-byte key #2 source"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "16-byte key #3 source"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "3-byte source"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "7-byte source (probably address)"
+   },
+   {
+    "name": "param_6",
+    "type": "ptr",
+    "description": "7-byte source (probably address)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Semantic naming speculative; layout of copies is certain."
+ },
+ "ble_219_0c04f848": {
+  "name": "ble_ctrl_set_key_dist_flags",
+  "summary": "Translate two key-distribution bitmasks into controller-internal flag bytes",
+  "description": "Clears 0x2000ff58, 0x2000ff59 and 0x2000ff57. For param_2 (bit0 -> 0x03, bit1 -> OR 0x0c, bit2 -> OR 0x10) builds 0x2000ff58; for param_1 with the same mapping builds 0x2000ff56. The bit0/1/2 layout matches the SMP key distribution field (EncKey, IdKey, Sign), expanded into 2-bit groups plus a 1-bit group. param_1 is likely the initiator and param_2 the responder distribution.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "key distribution bitmask (bit0 enc, bit1 id, bit2 sign) -> stored at 0x2000ff56"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "key distribution bitmask -> stored at 0x2000ff58"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Initiator/responder assignment is a guess."
+ },
+ "ble_219_0c052b38": {
+  "name": "ble_ctrl_set_flag_fdc5",
+  "summary": "Store a byte configuration value into global 0x2000fdc5",
+  "description": "Trivial setter: DAT_2000fdc5 = param_1. Called from the same configuration routine (ble_219_0c059230) as the setter for 0x20003fac. Meaning of the value is not evident from this function.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "new value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c052b44": {
+  "name": "ble_ctrl_set_flag_3fac",
+  "summary": "Store a byte configuration value into global 0x20003fac",
+  "description": "Trivial setter: DAT_20003fac = param_1. Called from ble_219_0c059230 together with the setter for 0x2000fdc5; purpose of the variable unknown.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "new value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0531d0": {
+  "name": "ble_slot_test_flag",
+  "summary": "Test whether a bit is set in the flag word of the slot with a given id",
+  "description": "The module keeps a 4-entry table of 16-byte slots at 0x20010198..0x200101d8; byte +12 of each slot is an id (0xff means unused) and the u32 at +8 is a flag/bitmask word. Returns false immediately for id 0xff, then scans the table for a slot whose id equals param_1 (a redundant second scan repeats the search to find its index) and returns whether bit (param_2 & 0xff) of that slot's flag word is set. Returns false if no slot matches.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "slot id (0xff = invalid)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "bit number to test"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the bit is set"
+  },
+  "confidence": "medium",
+  "notes": "Slot table is probably per-connection or per-activity state; not confirmed."
+ },
+ "ble_219_0c053390": {
+  "name": "ble_slot_set_flag",
+  "summary": "Set or clear a bit in the flag word of the slot with a given id",
+  "description": "Same 4-entry, 16-byte-stride table at 0x20010198 as ble_slot_test_flag. Returns without action if param_1 is 0xff or no slot has that id at +12. Otherwise, if param_3 is non-zero ORs 1 << (param_2 & 0xff) into the slot's flag word (+8), else clears that bit. Not interrupt-protected.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "slot id (0xff = invalid)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "bit number"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "non-zero to set, zero to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c05341c": {
+  "name": "ble_slot_count_used",
+  "summary": "Count slots in the 4-entry table whose id byte is not 0xff",
+  "description": "Walks the four 16-byte slots at 0x20010198 and counts those whose byte at +12 differs from 0xff (the free marker). Returns the count 0..4. Used by several callers deciding whether any slot/connection is active.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "number of used slots, 0..4"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c053764": {
+  "name": "ble_slot_get_header_ptr",
+  "summary": "Return address of the structure at 0x20010188 preceding the slot table",
+  "description": "Returns constant &DAT_20010188, the 16 bytes immediately before the slot table at 0x20010198. No other work.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to 0x20010188"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0537a0": {
+  "name": "ble_slot_mgr_is_ready",
+  "summary": "Check that the slot manager marker byte equals 0xa5",
+  "description": "Returns (DAT_200101d9 == 0xa5), the byte directly after the slot table; 0xa5 looks like an initialised/valid magic written by the setup code. Widely used (8 callers) as a guard before touching the slot data.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true when the marker is 0xa5"
+  },
+  "confidence": "medium",
+  "notes": "Interpretation of 0xa5 as 'initialised' is inferred."
+ },
+ "ble_219_0c053824": {
+  "name": "ble_ctrl_get_flag_3fe8",
+  "summary": "Return byte global 0x20003fe8",
+  "description": "Trivial getter returning DAT_20003fe8. Called only from the large routine ble_219_0c053018. Purpose of the value not determinable here.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c053830": {
+  "name": "ble_slot_set_flag_101e0",
+  "summary": "Store a byte into global 0x200101e0",
+  "description": "Trivial setter: DAT_200101e0 = param_1, a variable located just after the slot table and its 0xa5 marker. Called from ble_219_0c053018.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "new value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c053884": {
+  "name": "ble_get_state_ptr_11e10",
+  "summary": "Return address of the object at 0x20011e10",
+  "description": "Returns constant &DAT_20011e10; callers access fields through it. Nothing else is done.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to 0x20011e10"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c053ef4": {
+  "name": "ble_pair_table_lookup",
+  "summary": "Look up a 16-bit key in an array of {key,value} u16 pairs and compare the value",
+  "description": "Iterates up to param_4 entries (count effectively limited to 8-bit arithmetic) of 4-byte records {u16 key, u16 value} starting at param_3. On the first entry whose key equals param_1, returns 0 if its value equals param_2 and 3 otherwise. If no key matches (or count is 0) returns 0xffff. Looks like a handle/value validation helper where 0=OK, 3=mismatch, 0xffff=not found.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "key to find"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "expected value"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "array of {u16 key, u16 value}"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "number of entries"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 match, 3 value mismatch, 0xffff key not found"
+  },
+  "confidence": "medium",
+  "notes": "Return code semantics (3 = error status) inferred."
+ },
+ "ble_219_0c054524": {
+  "name": "ble_get_value_407a",
+  "summary": "Output byte global 0x2000407a when index is 0",
+  "description": "If param_1 == 0, writes DAT_2000407a to *param_2; otherwise does nothing (so non-zero indices leave the output untouched).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "index, only 0 supported"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "out byte"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c054710": {
+  "name": "ble_set_flag_12606",
+  "summary": "Set byte flag 0x20012606 to 1",
+  "description": "Writes 1 to DAT_20012606. Paired with ble_get_flag_12606; called from ble_219_0c05cc70.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c054728": {
+  "name": "ble_get_flag_12606",
+  "summary": "Return byte flag 0x20012606",
+  "description": "Returns DAT_20012606, the flag set by ble_set_flag_12606.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "flag value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c055230": {
+  "name": "ble_state_12c81_is_2",
+  "summary": "Check whether state byte 0x20012c81 equals 2",
+  "description": "Returns (DAT_20012c81 == 2). Called from ble_219_0c054668; the byte is presumably a state/mode enum value.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true when the byte equals 2"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c05527c": {
+  "name": "ble_set_timeout_ms_to_us",
+  "summary": "Store param_1 * 1000 into 0x200041c8",
+  "description": "Multiplies the argument by 1000 and writes it to DAT_200041c8; the factor suggests a milliseconds to microseconds conversion of a timing parameter. Called from ble_219_0c053018.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "value in ms (presumed)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Unit interpretation guessed from the 1000 multiplier."
+ },
+ "ble_219_0c055518": {
+  "name": "ble_get_byte_12b84",
+  "summary": "Return byte global 0x20012b84",
+  "description": "Trivial getter for DAT_20012b84, called from ble_219_0c052fb0.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c055558": {
+  "name": "ble_get_byte_12b85",
+  "summary": "Return byte global 0x20012b85",
+  "description": "Trivial getter for DAT_20012b85 (the byte after 0x20012b84), called from ble_219_0c053018.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c055564": {
+  "name": "ble_get_word_41cc",
+  "summary": "Return 32-bit global 0x200041cc",
+  "description": "Trivial getter for DAT_200041cc, called from ble_219_0c0534e0.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0555dc": {
+  "name": "ble_pack_version_nibbles",
+  "summary": "OR the three nibble bytes into the 24-bit packed word at 0x20012cb0",
+  "description": "Computes DAT_20012cb0 |= DAT_20012caf | (DAT_20012cad << 16) | (DAT_20012cae << 8), combining the nibble values stored by ble_unpack_version_nibbles into a packed value. The old contents are ORed in, not cleared. No direct callers (indirect entry), and the nibble at 0x20012cac is not used.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Likely a Bluetooth version/revision or class-of-device style value; unconfirmed."
+ },
+ "ble_219_0c055604": {
+  "name": "ble_get_packed_word_12cb0",
+  "summary": "Return 32-bit global 0x20012cb0",
+  "description": "Getter for DAT_20012cb0, the packed word built by ble_pack_version_nibbles. Called from ble_219_0c02b158, ble_219_0c053954 and ble_219_0c05ada4.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "packed value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c055610": {
+  "name": "ble_unpack_version_nibbles",
+  "summary": "Split a 16-bit value into four nibble bytes at 0x20012cac..caf",
+  "description": "Stores bits 15..12 of param_1 to DAT_20012cac, bits 11..8 to DAT_20012cad, bits 7..4 to DAT_20012cae and bits 3..0 to DAT_20012caf (each as a separate byte). Called from ble_219_0c0297b0 during configuration.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "16-bit value, e.g. a packed BCD-like version number"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0567bc": {
+  "name": "ble_get_byte_12eb4",
+  "summary": "Return byte global 0x20012eb4",
+  "description": "Trivial getter for DAT_20012eb4, called from ble_219_0c02c1e8.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u8",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0571a4": {
+  "name": "ble_set_word_1308c",
+  "summary": "Store 32-bit value into global 0x2001308c",
+  "description": "Trivial setter: DAT_2001308c = param_1. Called from ble_219_0c02973c and ble_219_0c0297b0 (configuration routines).",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "new value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0571b0": {
+  "name": "ble_set_indexed_word_1307c",
+  "summary": "Store a 32-bit value in the 4-entry u32 array at 0x2001307c",
+  "description": "If param_2 < 4, writes param_1 to the u32 at 0x2001307c + param_2*4; out-of-range indices are ignored silently. Called from the configuration routines ble_219_0c02973c and ble_219_0c0297b0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value to store"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "array index 0..3"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0571c0": {
+  "name": "ble_set_word_130d4",
+  "summary": "Store 32-bit value into global 0x200130d4",
+  "description": "Trivial setter: DAT_200130d4 = param_1; called from ble_219_0c0297b0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "new value"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0571cc": {
+  "name": "ble_get_state_ptr_42f8",
+  "summary": "Return address of the object at 0x200042f8",
+  "description": "Returns constant &DAT_200042f8. Very widely used (12+ callers) as the accessor of a shared controller state structure; the u32 at +4 (0x200042fc) is a flag word manipulated by ble_flags_set/ble_flags_clear.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to 0x200042f8"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c058134": {
+  "name": "ble_get_word_13074",
+  "summary": "Return 32-bit global 0x20013074",
+  "description": "Trivial getter for DAT_20013074, called from ble_219_0c059948.",
+  "category": "ble_controller",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "current value"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c058140": {
+  "name": "ble_flags_set",
+  "summary": "OR a mask into the flag word at 0x200042fc",
+  "description": "DAT_200042fc |= param_1. Not interrupt-protected. Called from ble_219_0c05c320, 0c05c3e8, 0c05c480 and 0c05cfe0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bits to set"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c058150": {
+  "name": "ble_flags_clear",
+  "summary": "Clear mask bits in the flag word at 0x200042fc",
+  "description": "DAT_200042fc &= ~param_1. Counterpart of ble_flags_set; 8 callers.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bits to clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0581e0": {
+  "name": "ble_set_mode_14_or_16",
+  "summary": "Store 0x10 if param_1 is 0x10, otherwise 0x0e, into byte 0x20004344",
+  "description": "Normalises the argument: anything other than 0x10 becomes 0x0e, then writes the low byte to DAT_20004344. So the variable can only hold 16 or 14. Called from the configuration routines ble_219_0c02973c and ble_219_0c0297b0.",
+  "category": "ble_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "requested value; only 0x10 is preserved"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of 14/16 unknown (could be a length or size selector)."
+ }
+}

@@ -1,0 +1,605 @@
+{
+ "ble_219_0c041cf8": {
+  "name": "app_magic_flag_set",
+  "summary": "Set or clear the 0x5a465459 magic flag word depending on param_1==1",
+  "description": "Writes the magic constant 0x5a465459 (bytes 'Y','T','F','Z' in memory) to the RAM word DAT_2000018c when param_1 == 1, otherwise writes 0. Together with app_magic_flag_is_set it implements a persistent boolean flag held in an early .data word that survives as a magic-value rather than a plain 0/1. The meaning of the flag (probably a boot/factory/mode switch) is not visible from this function; its only caller is ble_219_0c02c49c.",
+  "category": "app",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "1 = arm the flag; any other value clears it"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Purpose of the flag inferred only from the magic value; not confirmed."
+ },
+ "ble_219_0c041d10": {
+  "name": "app_magic_flag_is_set",
+  "summary": "Test whether the 0x5a465459 magic flag in DAT_2000018c is armed",
+  "description": "Returns true when the RAM word DAT_2000018c equals the magic value 0x5a465459, i.e. when app_magic_flag_set(1) was last called. Pure getter, no side effects. Called from ble_219_0c02c49c and ble_219_0c02cca8.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "bool",
+   "description": "true if the magic flag is armed"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c04211c": {
+  "name": "rtos_pool_node_alloc_init",
+  "summary": "Pop a node from a free list under a BASEPRI critical section and initialise it",
+  "description": "Enters a critical section (raises BASEPRI to 0x40 if running privileged; when not already nested it records the caller address 0xc04212a and LR in DAT_20003d70/DAT_20003d74 as a lock-owner trace and clears DAT_20003d70 to -1 on exit). Takes the head of the singly linked free list DAT_2000c720 (next pointer at node+4) and advances the head. If a node was obtained, checks that its state byte (offset 0) is 0 - otherwise it spins forever as an assertion - then stores param_1 at +0xc and param_2 at +0x10, zeroes the 32-bit field at +4..+7 and marks the node in use (state byte = 1). Returns the node, or NULL if the pool was empty.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value stored in node+0xc (callback/argument, unknown)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "value stored in node+0x10"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "allocated node or NULL if the free list is empty"
+  },
+  "confidence": "medium",
+  "notes": "Node type unknown (looks like an RTOS control block / message / timer slot pool). Sole caller ble_219_0c03bb70."
+ },
+ "ble_219_0c0427f0": {
+  "name": "app_noop_hook_0c0427f0",
+  "summary": "Empty function (single return), never called directly",
+  "description": "Contains only a return instruction. It has no direct callers, so it is an unused weak-default or an indirect hook/callback slot (possibly a FreeRTOS vApplicationIdleHook/vApplicationTickHook style stub).",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c042800": {
+  "name": "vApplicationGetIdleTaskMemory",
+  "summary": "Provide static TCB and stack buffers for the idle task (FreeRTOS static allocation)",
+  "description": "FreeRTOS configSUPPORT_STATIC_ALLOCATION callback: stores the address of the TCB buffer 0x2000cb2c in *param_1, the address of the stack buffer 0x2000c72c in *param_2 and the stack depth 0x100 words (1 KiB) in *param_3. The buffers are adjacent (0x2000c72c + 0x400 = 0x2000cb2c). Called from ble_219_0c043e70, which is most likely vTaskStartScheduler creating the idle task.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "out: StaticTask_t** receiving the TCB buffer pointer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "out: StackType_t** receiving the stack buffer pointer"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "out: uint32_t* receiving the stack size in words (0x100)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Could be the timer-task variant (vApplicationGetTimerTaskMemory) - idle assumed from the caller."
+ },
+ "ble_219_0c0429a4": {
+  "name": "vListInitialise",
+  "summary": "FreeRTOS: initialise an empty list with its end marker",
+  "description": "FreeRTOS vListInitialise on a 0x14-byte List_t: sets pxIndex (offset 4) to the embedded xListEnd mini item at offset 8, sets xListEnd.xItemValue to 0xFFFFFFFF (portMAX_DELAY) so it always sorts last, points xListEnd.pxNext (+0xc) and pxPrevious (+0x10) back at itself and sets uxNumberOfItems (offset 0) to 0. Used by the kernel task lists and queues.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "List_t* to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0429bc": {
+  "name": "vListInitialiseItem",
+  "summary": "FreeRTOS: mark a list item as not belonging to any list",
+  "description": "FreeRTOS vListInitialiseItem: stores 0 in pvContainer (offset 0x10) of the ListItem_t so listIS_CONTAINED_WITHIN reports false.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ListItem_t* to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0429c4": {
+  "name": "vListInsertEnd",
+  "summary": "FreeRTOS: insert an item at the end of a list (before pxIndex)",
+  "description": "FreeRTOS vListInsertEnd: links param_2 immediately before the list's pxIndex item (list+4), i.e. at the logical end of the round-robin ring: new->pxNext (+4) = pxIndex, new->pxPrevious (+8) = pxIndex->pxPrevious, the neighbours are re-linked, new->pvContainer (+0x10) = list and uxNumberOfItems (list+0) is incremented. Used for ready lists and event lists.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "List_t* destination list"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "ListItem_t* item to insert"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0429e4": {
+  "name": "vListInsert",
+  "summary": "FreeRTOS: insert an item into a list sorted by xItemValue",
+  "description": "FreeRTOS vListInsert: if the new item's xItemValue is 0xFFFFFFFF (portMAX_DELAY) it is inserted just before the list end marker; otherwise the list is walked from the end marker (list+8) until the following item has a value greater than the new item's value (stable, ascending). The item is spliced in, pvContainer (+0x10) set to the list and uxNumberOfItems incremented. Used for delayed-task lists and priority-ordered event lists.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "List_t* destination list"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "ListItem_t* item to insert; item->xItemValue is the sort key"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c042a14": {
+  "name": "uxListRemove",
+  "summary": "FreeRTOS: unlink an item from the list that contains it",
+  "description": "FreeRTOS uxListRemove: reads the owning list from pvContainer (+0x10), joins the item's neighbours, moves list->pxIndex to the previous item if it pointed at the removed one, clears pvContainer and decrements uxNumberOfItems. Returns the new item count of the list.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ListItem_t* to remove"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "number of items left in the list"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c043364": {
+  "name": "prvIsQueueEmpty",
+  "summary": "FreeRTOS queue: true when no messages are waiting",
+  "description": "Returns (Queue_t.uxMessagesWaiting at offset 0x38) == 0. This is the body of prvIsQueueEmpty / the check used by xQueueIsQueueEmptyFromISR; callers do not necessarily hold a critical section.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "Queue_t* queue"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the queue holds no items"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c043370": {
+  "name": "prvIsQueueFull",
+  "summary": "FreeRTOS queue: true when uxMessagesWaiting equals uxLength",
+  "description": "Returns (Queue_t.uxLength at 0x3c) == (Queue_t.uxMessagesWaiting at 0x38), i.e. the queue has no free slots. Equivalent to prvIsQueueFull / xQueueIsQueueFullFromISR.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "Queue_t* queue"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the queue is full"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c04352c": {
+  "name": "ringbuf_free_space",
+  "summary": "Free bytes in a circular buffer descriptor (read-1-write modulo size)",
+  "description": "Circular-buffer helper working on a descriptor {[0]=read index, [1]=write index, [2]=size}. Computes (size + read - 1 - write) and wraps it by subtracting size when result >= size, i.e. the number of bytes that can still be written while always leaving one slot unused. Called by ble_219_0c0422d4 (likely a UART/transport TX or RX path).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "free space in bytes"
+  },
+  "confidence": "medium",
+  "notes": "Field roles (read vs write index) inferred from the formula and the empty test ringbuf_is_empty."
+ },
+ "ble_219_0c043540": {
+  "name": "ringbuf_used_count",
+  "summary": "Number of bytes stored in a circular buffer descriptor",
+  "description": "Computes (size + write - read) and wraps by subtracting size when >= size, on the descriptor {[0]=read, [1]=write, [2]=size}: the count of readable bytes. Caller ble_219_0c045534.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "bytes available to read"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0437e0": {
+  "name": "ringbuf_is_empty",
+  "summary": "True when the ring's two indices are equal",
+  "description": "Returns descriptor[1] == descriptor[0] (write index equals read index), the empty condition of the circular buffer.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if no data is buffered"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0437f0": {
+  "name": "ringbuf_is_full_with_reserve",
+  "summary": "True when free space is at most a reserve (4 bytes if flag bit0 set at +0x1c)",
+  "description": "Computes the free space of the ring as in ringbuf_free_space, then compares it with a reserve: 4 bytes when bit 0 of the byte at descriptor+0x1c is set (some extended-record mode, probably space for a length header), otherwise 0. Returns true when free <= reserve, i.e. no further record can be written. Callers ble_219_0c0424d8 and ble_219_0c046380.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size, ..., flags byte at +0x1c"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the ring is full (within reserve)"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of flag bit 0 is a guess."
+ },
+ "ble_219_0c043818": {
+  "name": "ringbuf_read_ptr",
+  "summary": "Address of the current read position (base + read index)",
+  "description": "Returns descriptor[6] (buffer base/offset, at +0x18) + descriptor[0] (read index). Used by ble_219_0c046380 to obtain the pointer for consuming data from the ring.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor, +0x18 holds buffer base"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer into the buffer at the read index"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c043820": {
+  "name": "ringbuf_contig_read_len",
+  "summary": "Contiguous readable bytes from the read index to the buffer end or write index",
+  "description": "With read = [0], write = [1], size = [2]: returns size - read when write < read (data wraps, so only the tail segment is contiguous), else write - read. Used before a single linear copy/DMA from the ring (caller ble_219_0c046380).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "bytes readable without wrapping"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0438b8": {
+  "name": "ringbuf_write_ptr",
+  "summary": "Address of the current write position (base + write index)",
+  "description": "Returns *(param_1+0x18) (buffer base) + *(param_1+4) (write index). Companion of ringbuf_read_ptr; caller ble_219_0c0462c4.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor, +0x18 holds buffer base"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer into the buffer at the write index"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0438c0": {
+  "name": "ringbuf_contig_write_len",
+  "summary": "Contiguous writable bytes from the write index, keeping one slot free",
+  "description": "With read = [0], write = [1], size = [2]: if write < read returns read - 1 - write; otherwise returns size - write, minus 1 when read == 0 (so the buffer never becomes completely full). Used before a linear write/receive into the ring (callers ble_219_0c04264c, ble_219_0c0462c4).",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring descriptor: read idx, write idx, size"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "bytes writable without wrapping"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c043f0c": {
+  "name": "vTaskSuspendAll",
+  "summary": "FreeRTOS: suspend the scheduler by incrementing the nesting counter",
+  "description": "Increments uxSchedulerSuspended (DAT_2000cc20). Nesting is allowed; xTaskResumeAll decrements it. Called at the start of queue, timer and event-group operations (12 callers).",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c043f1c": {
+  "name": "xTaskGetTickCount",
+  "summary": "FreeRTOS: return the current tick count",
+  "description": "Returns xTickCount (DAT_2000cca0). Same variable is stored in a TimeOut_t by vTaskInternalSetTimeOutState. Used widely (many callers) for timeouts and timestamps.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "tick count (ticks)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c043f28": {
+  "name": "uxTaskGetNumberOfTasks",
+  "summary": "Return the RTOS word at DAT_2000cc14 (likely the number of tasks)",
+  "description": "Pure getter returning the kernel variable at 0x2000cc14. By its position among the FreeRTOS task globals (near the scheduler-suspended counter and scheduler-running flag) this is most likely uxCurrentNumberOfTasks, but it could be another task global such as the idle task handle. Only caller is ble_219_0c0360d4, which also calls xTaskGetCurrentTaskHandle.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "value of DAT_2000cc14"
+  },
+  "confidence": "low",
+  "notes": "Identity of the variable not verified."
+ },
+ "ble_219_0c043f34": {
+  "name": "pcTaskGetName",
+  "summary": "FreeRTOS: return pointer to a task's name string",
+  "description": "If param_1 is non-NULL returns param_1 + 0x34, else uses the current TCB (DAT_2000cb8c) + 0x34. Offset 0x34 is pcTaskName in this build's TCB_t layout (pxTopOfStack 0, state item 4, event item 0x18, uxPriority 0x2c, pxStack 0x30). Caller ble_219_0c036328.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "TaskHandle_t or NULL for the calling task"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the NUL-terminated task name"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c044360": {
+  "name": "vTaskInternalSetTimeOutState",
+  "summary": "FreeRTOS: record overflow count and tick count in a TimeOut_t",
+  "description": "Fills param_1: [0] = xNumOfOverflows (DAT_2000cc5c), [1] = xTickCount (DAT_2000cca0). Used by queue send/receive (xQueueGenericSend/Receive/SemaphoreTake) to start a blocking-timeout measurement.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "TimeOut_t* output {xOverflowCount, xTimeOnEntering}"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0443f4": {
+  "name": "vTaskMissedYield",
+  "summary": "FreeRTOS: flag that a context switch was requested while the scheduler was suspended",
+  "description": "Sets xYieldPending (DAT_2000cca4) to 1; xTaskResumeAll yields when it later finds this flag set. Called from ble_219_0c042aac.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c04462c": {
+  "name": "xTaskGetCurrentTaskHandle",
+  "summary": "FreeRTOS: return pxCurrentTCB",
+  "description": "Returns the current TCB pointer DAT_2000cb8c (the running task's handle). Eight callers in the task/queue code.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "handle of the running task"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c044638": {
+  "name": "xTaskGetSchedulerState",
+  "summary": "FreeRTOS: report scheduler not-started / running / suspended",
+  "description": "If xSchedulerRunning (DAT_2000cc74) is 0 returns 1 (taskSCHEDULER_NOT_STARTED); else if uxSchedulerSuspended (DAT_2000cc20) is 0 returns 2 (taskSCHEDULER_RUNNING), otherwise 0 (taskSCHEDULER_SUSPENDED).",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "0 = suspended, 1 = not started, 2 = running"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0447b8": {
+  "name": "uxTaskResetEventItemValue",
+  "summary": "FreeRTOS: return and reset the current task's event list item value",
+  "description": "Reads the xEventListItem.xItemValue (TCB+0x18) of the current task, replaces it with 6 - uxPriority (TCB+0x2c; configMAX_PRIORITIES appears to be 6) and returns the old value. Used by notification/event-group wait code (caller ble_219_0c042858) to fetch the notification value that was stashed in the item.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "previous event list item value"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0447d0": {
+  "name": "pvTaskIncrementMutexHeldCount",
+  "summary": "FreeRTOS: increment the running task's mutex-held counter",
+  "description": "If pxCurrentTCB (DAT_2000cb8c) is non-NULL, increments the counter at TCB+0x50 (uxMutexesHeld) and returns the TCB pointer. Called by the semaphore-take path (ble_219_0c0430a8) after acquiring a mutex so priority-inheritance bookkeeping stays valid.",
+  "category": "rtos",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "current TCB (may be NULL before scheduler start)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0454b4": {
+  "name": "app_set_word_2000de84",
+  "summary": "Store param_1 into the global word DAT_2000de84",
+  "description": "Plain setter: DAT_2000de84 = param_1. No direct callers, so it is invoked through a function-pointer table (an ops/config setter). The consumer and meaning of the stored value are not determined here.",
+  "category": "app",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Likely paired with app_set_word_2000de88; purpose unknown."
+ },
+ "ble_219_0c0454c0": {
+  "name": "app_set_word_2000de88",
+  "summary": "Store param_1 into the global word DAT_2000de88",
+  "description": "Plain setter: DAT_2000de88 = param_1. Indirect-call only; sibling of app_set_word_2000de84.",
+  "category": "app",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "value to store"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low"
+ },
+ "ble_219_0c0454cc": {
+  "name": "app_stub_return_zero_0c0454cc",
+  "summary": "Stub returning 0, only reachable indirectly",
+  "description": "Two-instruction function that just returns 0; no direct callers, so it is a default callback/ops-table entry that reports success or 'nothing'.",
+  "category": "app",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "always 0"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c04583c": {
+  "name": "rtos_port_yield_from_isr",
+  "summary": "Cortex-M: pend PendSV when param_1 is non-zero (portYIELD_FROM_ISR)",
+  "description": "If param_1 != 0 writes 0x10000000 (PENDSVSET, bit 28) to SCB->ICSR at 0xE000ED04, requesting a context switch at the next exception return. Implements the portYIELD_FROM_ISR(xHigherPriorityTaskWoken) macro as a function; caller ble_219_0c02feec.",
+  "category": "rtos",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "non-zero if a higher priority task was woken"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c045aac": {
+  "name": "startup_empty_hook_0c045aac",
+  "summary": "Empty function (single return)",
+  "description": "Contains only a return instruction; called once from ble_219_0c028570 as a placeholder hook (e.g. an unimplemented init/optional callback).",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c045ac0": {
+  "name": "ble_ram_call_2000110c_arg0",
+  "summary": "Call the RAM-resident function at 0x2000110c with argument 0",
+  "description": "Thunk that calls the fixed SRAM address 0x2000110d (0x2000110c with the Thumb bit) with r0 = 0 and returns. Targets code copied or patched into RAM (ROM-patch table), so the actual behaviour is not visible here. Called from ble_219_0c02cca8 and ble_219_0c0459fc.",
+  "category": "bt_controller",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Target function identity unknown."
+ }
+}

@@ -1,0 +1,12 @@
+vcu: app_set_state writes the buzzer pattern index read by vcu_alert_tone_sequencer -> revisit wave-1 'application state' wording (wave2_batch02)
+vcu: vcu_can_tx_pump gated on wave-1 'uart_rx_ring1_count' - that wave-1 name/role looks wrong (wave2_batch02)
+vcu: 0800ce0c attributed to TMR2 in packet but is CCTRL; 0800dc64 is XTEA not TEA (wave2_batch04); 08008bb0 short-record path has latent 9-byte overflow (wave2_batch03)
+vcu: command 0x16 with payload 05 01 10 01 enters an infinite loop in the dispatcher (wave4_batch01) - verify in disassembly
+vcu: 4-arg call to 0800b294 from vcu_deferred_reconfig_tick does not match the name vcu_runtime_defaults_init used elsewhere (wave4_batch01)
+vcu data: 0159 0x200014ad is inside both upgrade_xfer (batch27) and upgrade_progress_checksum_b153 - family map puts it in both; reconcile
+vcu data: upgrade_tea_key 16 bytes at 0x200020dc (batch27) vs words 0x200020e0/e4/e8 that data_crypto_batch05 may document - reconcile when batch05 lands
+vcu data: family map pairs VCU_0159 0x2000102c with 0x20001032 in 148..14f while app_batch02 puts variant_option_words at 0x2000102c there - check family alignment (batch28-30 agent)
+vcu data: batch21 announce_word_d0 (0x20001ff0) overlaps unreferenced_preset_table in VCU_153 because the family map puts that word at 0x20001fe2 - fix family map or batch26
+vcu data: family map puts 0x2000329e..0x200032a4 inside the 5-halfword ADC DMA buffer in 148/14a/14b/14e although the averaging function is unmatched there (data_adc_batch01 agent)
+vcu: CAN notes call the 0x7F1 frame 0x3D0 (dispatcher compares id-0x421 with 0x3D0) - fix wording (data_protocol_batch20 agent)
+vcu data: diag_warning_list (batch06) reads 0x2000224a as u16 entries but decompile uses single bytes; warn_list (batch07) limited to 1 byte - reconcile

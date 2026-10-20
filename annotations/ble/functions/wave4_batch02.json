@@ -1,0 +1,477 @@
+{
+  "ble_219_0c02b264": {
+    "name": "ble_token_chunk_rx_7e",
+    "summary": "Receive one chunk of the 0x7E chunked token upload and save it after a checksum check",
+    "description": "Handles UART command 0x7E, a chunked upload of a blob of at most 0x410 (1040) bytes, and returns 0 for any other command. Chunk index 0 is the start frame: payload byte 0 is an MTU class (1 to 4, which sets the chunk-size code 2, 8, 0x80 or 0x400 in the low halfword of the reply word 0x20009278; other values give status 3), byte 1 must be 1, bytes 2 to 3 carry the sender's checksum and bytes 4 to 7 the total length, which must be below 0x410; the buffer comes from ble_219_0c053884 and is zeroed with memset. Chunk indices 0x40 to 0xFE are data chunks that must arrive in order, starting at 0x40 and incrementing by one per chunk, and each is appended with memcpy. When the last byte arrives the blob is summed as 16-bit bytes, the sum is complemented and compared with the sender's value, and on a match the blob is passed to ble_219_0c05c8a8 (log 'save token err' on failure). The reply is a status word: 0 OK, 1 checksum or save failure, 3 bad start frame or state, 4 out-of-sequence chunk or overflow. The reply goes to the outbound ring through ble_219_0c02c338 when param_1 is 1, otherwise it is sent directly with uart_bridge_send_frame (ble_219_0c02c124) using the request's two address bytes in swapped order.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "reply mode: 1 queues the reply in the outbound ring, any other value sends it straight to UART"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "first address byte of the request, placed in the reply's header in swapped position"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "second address byte of the request, placed in the reply's header in swapped position"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "command byte; only 0x7E is handled"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "chunk index: 0 for the start frame, 0x40 to 0xFE for data chunks"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "payload bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 if the command was 0x7E and was consumed (including error statuses), 0 otherwise"
+    },
+    "confidence": "medium",
+    "notes": "The blob's purpose is inferred from the log text 'save token' only. The store routine ble_219_0c05c8a8 and allocator ble_219_0c053884 are not described yet. The checksum is a plain 16-bit byte sum, complemented, although the log text says crc. The log prints only byte 0x20009266 of the sender's value. Whether the reply's high halfword (0x2000927A) is always the computed checksum on the non-final ACKs is not confirmed."
+  },
+  "ble_219_0c02b42c": {
+    "name": "ble_uart_frame_route",
+    "summary": "Offer one received UART frame to the 0x7E, b1b4 and a8f8 handlers in turn",
+    "description": "Entry point with no direct callers that takes one decoded UART frame in the layout used by ble_uart_frame_enqueue: length at +0, address bytes at +1 and +2, command at +3, index at +4, and the payload pointer at +8. It first offers the frame to ble_token_chunk_rx_7e (ble_219_0c02b264) in reply mode 1. If that handler does not return 1, it calls ble_219_0c02b1b4 and then ble_219_0c02a8f8, both in reply mode 1, without checking their results.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "decoded UART frame: +0 length, +1 and +2 address bytes, +3 command, +4 index, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Frame layout inferred from ble_219_0c02c338 and from the argument order of the callees. The caller of this entry is not in the packet; it is probably a UART receive callback."
+  },
+  "ble_219_0c02b480": {
+    "name": "ble_vcu_cmd_handle",
+    "summary": "Dispatch class 9 and 0x16 command frames to their unlock, pairing, telemetry and ack handlers",
+    "description": "Command dispatcher for two frame classes passed in param_1: class 9 (commands 0x58, 0x5E, 0x5F, 0x75) and class 0x16 (commands 0x66, 0x02 and 0x03, 0x04, 0x05, 0x7A, 0x7B), with the index byte selecting the sub-command. Before the class switch it offers the frame to ble_token_chunk_rx_7e in reply mode 2, then to ble_219_0c02b1b4 and ble_219_0c02a8f8, and returns true as soon as one of them consumes it. The pairing material written by 0x5E index 3 is 48 bytes, three 16-byte keys stored after a one-byte state at 0x20008FF5, 0x20009006 and 0x20009017, where '=' marks a valid key; a key equal to 16 ASCII zeros is cleared with ble_219_0c05a91c, and the 474-byte block at 0x20008FE4 is committed with ble_nv_write_block_1c5. Class 0x16 command 0x04 stores telemetry words (indices 0x40, 0x7D and 0xE0 into 0x20009290, 0x2000928C and 0x2000928E, the VCU state word at 0x20009288 with index 0x1C, and a battery byte mapped to level 3 below 20, 2 below 50, 1 below 80 and 0 otherwise), and index 0x10 validates a 14-byte serial with app_sn_prefix_whitelist_match, compares it with the stored copy and writes it with ble_219_0c045fd4 at most once (RAM flag 0x20009280). Power and unlock (command 0x02 or 0x03, index 0x51) take a sub-command from payload byte 0: 0 power off, 1 power on (arms a 5-unit timer with ble_host_timer_restart and handler 0x0C02A35D), 2 pre-power-on (checks link state and unlock conditions), 3 read the VCU serial; autokey (index 0x61, bit 0x20 of a u16) and seat (index 0x1D, bit 0x4000) record xTaskGetTickCount timestamps and arm ble_app_arm_4s_deadline. Replies are UART frames sent with ble_219_0c02c124, and the class 0x16 command 0x05 acknowledgements clear pending-request flags under the semaphore at 0x20008F94.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "frame class: 9 or 0x16; other values fall through and return false"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "address byte passed to the sub-handlers"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "command byte"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "index byte, the sub-command or request code"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload bytes"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true if the frame was consumed (handled or acknowledged), false otherwise"
+    },
+    "confidence": "medium",
+    "notes": "Uncertain points: on the class 9 command 0x75 path the code stores a byte (bVar1) that is not assigned on that path in the decompile, likely a decompiler artifact. The meanings of the unlock flags (0x20008F7A, 0x20008F71, 0x20008F72) are inferred from names only. The log 'All Bluetooth connections have been disconnected' is printed when a link entry with state 1 is found and DAT_200092C4 bits 0x9 are clear, which contradicts the text. The class 9 index 1 copy of 16 bytes into 0x200092B0 has no length check. The battery thresholds are probably state-of-charge percent but this is not confirmed."
+  },
+  "ble_219_0c02bdd0": {
+    "name": "ble_crypto_init",
+    "summary": "Copy the vehicle serial number and seed the pairing crypto contexts at startup",
+    "description": "Reads the vehicle record from ble_219_0c059558 and logs 'INFO:ble_crypto_init, vehicle_sn[%s]'. It copies the 14-byte serial (record offset 0x18 to 0x25) to 0x20009404 and NUL-terminates it at 0x20009412, fills the 16-byte seed block at 0x200093F4 with ble_219_0c05b5c0, and initialises two SHA-1 style contexts from that block with sha1_ctx_init_with_seed, at 0x20009414 and 0x20009430. The 16-bit value at record offset 0x24 (the last two serial bytes) is also passed as an argument to the first initialisation. Finally it sets the crypto-ready flag DAT_200092EC to 1, stores the callback address 0x0C02BD44 with ble_cb_slot_15f28_set, and clears DAT_200091D4.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 16-byte block at 0x200093F4 is the seed used by ble_crypto_try_default_pwd. Whether the u16 argument to the first sha1 init is a length or a counter is unclear. ble_219_0c05b5c0 is a 16-byte fill whose semantics (random or zero) are not known yet."
+  },
+  "ble_219_0c02be44": {
+    "name": "ble_crypto_try_default_pwd",
+    "summary": "Try each stored 16-byte pairing key against the challenge until one authenticates",
+    "description": "Clears the authentication-failure byte at ble_get_state_ptr_42f8 + 0x2D and walks the three pairing-key slots, each a state byte followed by a 16-byte key (states at 0x20008FF5, 0x20009006 and 0x20009017). For a slot whose state is '=', the key is copied to 0x20009450, the context at 0x20009414 is pointed at that key and at the seed block 0x200093F4, and ble_219_0c0496a8 runs the challenge with its output written to 0x200092F0 and the output length in a local byte. Result 0 routes the output through ble_219_0c02c1e8 with the length as its second argument and returns 0; result 1 sets the failure byte to 1 and moves on; any other result, or an empty slot (status 3), is logged with the attempt count. After the three slots the function returns the status of the last slot tried.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 if a stored key authenticated, otherwise the status of the last slot tried (1 for a mismatch, 3 for an empty slot)"
+    },
+    "confidence": "medium",
+    "notes": "The challenge routine ble_219_0c0496a8 is not described yet, so its status meanings (0, 1, other) are inferred from this caller only. The slot layout and the '=' state marker are inferred from ble_219_0c02b480 and ble_219_0c02bf20. The log name suggests default passwords, but the code tries whatever keys are stored in the three slots."
+  },
+  "ble_219_0c02bf20": {
+    "name": "ble_crypto_report_auth_state",
+    "summary": "Post the pairing result event 0x0A or 0x0B when any key slot holds a valid key",
+    "description": "Does nothing unless at least one of the key-state bytes at 0x20008FF5, 0x20009006 and 0x20009017 equals '='. Otherwise it reads the authentication-failure byte in ble_get_state_ptr_42f8 + 0x2D and posts event 0x0B through ble_219_0c058a94 when it is not 1, or event 0x0A when it is 1.",
+    "category": "crypto",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of events 0x0A and 0x0B is not decoded, and ble_219_0c058a94 is not described yet."
+  },
+  "ble_219_0c02c1e8": {
+    "name": "ble_msg_route_by_key",
+    "summary": "Route a BLE message to the handlers registered for its command key, else forward it to the VCU",
+    "description": "Builds the message view used by the handlers (type byte at +2, command byte at +3, 16-bit index at +4 to +5, sub-code at +6, payload pointer at +7) and forms a 24-bit route key from the command byte and the two index bytes. Table A at DAT_20009480 (8-byte entries of key and handler) and table B (12-byte entries of mask, key and handler) are scanned, and every handler whose key matches is called with the message view and param_2; table B matches when key AND mask equals the stored key. If any handler ran the function returns. Otherwise, if ble_get_byte_12eb4 returns 0, the message is wrapped as a 0x66 message and sent to the VCU with ble_219_0c02e5a4, logging 'ERROR:ble to uart send faild[%d]' on failure; if it returns non-zero the message goes to ble_219_0c02a484 instead.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "message struct: +2 type, +3 command, +4 and +5 index, +6 sub-code, +7 payload"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "passed unchanged to every matched handler as its third argument"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The table layouts are read from the code, not from a documented struct. The handlers registered in tables A and B are not in this packet. The 0x66-wrapped forward is the same message type that the reply helper ble_219_0c02e5a4 sends elsewhere in the packet."
+  },
+  "ble_219_0c02c338": {
+    "name": "ble_uart_frame_enqueue",
+    "summary": "Build a 5A A5 UART frame from a message struct and queue it on the outbound ring",
+    "description": "Takes a message struct whose byte 0 is the payload length, bytes 1 to 4 are the four header bytes, and whose pointer at +8 points to the payload. A length of 0xF8 or more returns -22 (0xFFFFFFEA) without queuing anything. Otherwise it writes 5A A5 LEN h1 h2 h3 h4 followed by the payload (copied with memcpy when the length and pointer are non-zero) into a 256-byte stack buffer, and queues LEN + 7 bytes with ble_msg_enqueue (ble_219_0c05ae14) as message class 2. No checksum is appended here, unlike uart_bridge_send_frame, and the enqueue result is returned.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "message struct: +0 payload length, +1 to +4 header bytes, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "enqueue result, or -22 when the length is 0xF8 or more"
+    },
+    "confidence": "high",
+    "notes": "Callers include the reply paths of ble_219_0c02b264 and ble_219_0c02b1b4, and the message layout matches the one built in ble_219_0c02b264."
+  },
+  "ble_219_0c02c49c": {
+    "name": "ble_factory_test_dispatch_set",
+    "summary": "Factory-test set and action commands: enter test mode, RF and HCI tests, VCO, GPIO and writes",
+    "description": "Factory-test command dispatcher, active only while the factory magic is armed (ble_219_0c041d10, app_magic_flag_is_set), and it can enter that mode with opcode 0xEF and payload 1 (app_magic_flag_set(1), reply, 100-tick delay, then ble_219_0c041d28(0)); 0xEF while already armed replies 'duplicate factory test mode'. Writes: opcode 0x00 (14 or 16 bytes, ble_219_0c045d8c) and 0x10 (6 bytes, ble_219_0c045ddc) store identity blocks, 0x58 with 13 bytes calls ble_payload_copy_and_schedule, and 0x29 stores a 6-byte address at 0x20009884 and calls ble_219_0c06b498, while 0x2A logs a 6-byte value and calls ble_219_0c06b8bc with the handle DAT_20004338. RF tests: 0x1E, 0x1F and 0x20 call ble_hci_le_tx_test_cmd (channel below 40, payload type below 8), ble_hci_le_rx_test_cmd and ble_hci_le_test_end_cmd; 0x53 and 0x54 start the BLE TX and RX v2 tests; 0x55 and 0x56 start and stop the VCO test through bt_drv_vco_test_session_start and bt_drv_vco_test_session_stop; 0x23 applies a u16 through bt_drv_rf_2168_field9_set; 0x16 and 0x1A check their bytes against limits and call ble_219_0c0469a0 and ble_vendor_fc87_send_keyed. Opcode 0x50 sets two GPIO bits through ioctl-style calls on DAT_2000988C (requests 0x1010000 and 0x1010001), waits 20 ticks and reads them back, logging 'set PORT_GPIO(0, 0) failed' on mismatch; 0x59 replies, waits 200 ticks and sets the BT100 UART baud rate from a u32 payload through DAT_20009894. Results are sent as 0x66-tagged messages through ble_219_0c02e5a4 with a status byte, unknown opcodes log 'index error' and reply status 0, and opcode 0x25 exits without a reply.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "factory frame: +2 payload length, +3 and +4 header bytes, +6 opcode, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Several callees (ble_219_0c045d8c, ble_219_0c045ddc, ble_219_0c0469a0, ble_219_0c046c50, ble_219_0c06b498) are not described yet. DAT_2000988C is read here, but ble_gpio_dev_open writes DAT_2000989C, so the link between them is unconfirmed. The name _close given to ble_219_0c0484b4 by an earlier wave does not fit its ioctl-style use in this function (requests 0x1010000, 0x100, 0x110). Opcode 0x2A does not set the reply status, so the status it sends is whatever was left in the local."
+  },
+  "ble_219_0c02cca8": {
+    "name": "ble_factory_test_dispatch_query",
+    "summary": "Factory-test query commands: read identity, RSSI, stage tag and magic values back to the tool",
+    "description": "Read-side counterpart of ble_factory_test_dispatch_set, with the same factory-mode gate; replies are 0x66-tagged messages sent with ble_219_0c02e5a4, and the reply type is usually taken from the request payload. Opcode 0x00 copies up to 16 bytes from 0x2000F36C (ble_app_block16_f36c_read, length from payload byte 0), 0x10 returns the 6-byte identity at 0x2000F364 (ble_app_addr6_read), 0x22 returns the 32-bit word at 0x2000F360, 0x33 reads a 40-byte block, and 0x52 and 0xAA check the marker byte at 0x2000F36B and the CAF magic at 0x2000F3B4 (ble_app_marker_o_check, ble_app_magic_caf_check). Opcode 0x58 with 13 bytes copies the ADV_ID block (app_adv_id_block_copy), 0x61 returns a refreshed 6-byte random address (ble_random_addr_advance), 0x26 always answers the constant 0x219, 0x2C returns the u16 at 0x20009898, and 0x4B compares that value with 150 and 450 and replies with the 4-byte tag 'DVT1' (below 150), 'PVT1' (150 to 449) or 'ERR1' when the request byte is 4. Opcode 0x2B samples the RSSI of the connection at DAT_20004338 seven times through bt_drv_reg_op_read_acl_rssi, and 0x57 returns 1 when ble_ram_call_2000110c_arg0 gives at most 0x200000 and 2 otherwise. Opcodes not listed log 'index error' and send nothing.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "factory query frame: +2 payload length, +3 and +4 header bytes, +6 opcode, +8 payload pointer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Several reads go through ble_app_* callees named by earlier waves (gated by request 0x101). The value of DAT_20009898 and the meaning of the 0x2B sampling (the reply is the byte at DAT_20004330 after sampling) are not confirmed. Opcodes 0x1A, 0x1F and 0x54 call ble_219_0c046b18 and ble_219_0c046c50, which are not described yet."
+  },
+  "ble_219_0c02d128": {
+    "name": "ble_uart_inject_cmd1",
+    "summary": "Log a UART frame and re-dispatch it to ble_219_0c02a8f8 as command 1",
+    "description": "Logs the frame bytes through ble_219_0c035d0c and then calls ble_219_0c02a8f8 with the first (mode) argument taken from frame byte 1, the class from frame byte 3, the command forced to 1, the index from byte 6, and the length and payload from byte 2 and the pointer at +8. It is a thin wrapper with no direct callers in the packet, so it is probably entered from a command table.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "UART frame in the layout of ble_uart_frame_route"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Purpose is unclear. The format string at 0x0C07F200 is not decoded, and the table that registers this entry is not in the packet."
+  },
+  "ble_219_0c02d16c": {
+    "name": "ble_uart_inject_cmd2",
+    "summary": "Log a UART frame and re-dispatch it to ble_219_0c02a8f8 as command 2",
+    "description": "Logs the frame bytes through ble_219_0c035d0c and then calls ble_219_0c02a8f8 with the first (mode) argument taken from frame byte 1, the class from frame byte 3, the command forced to 2, the index from byte 6, and the length and payload from byte 2 and the pointer at +8. It is a thin wrapper with no direct callers in the packet, so it is probably entered from a command table.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "UART frame in the layout of ble_uart_frame_route"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Sibling of ble_uart_inject_cmd1 that forces command 2. The format string at 0x0C07F250 is not decoded."
+  },
+  "ble_219_0c02d1b0": {
+    "name": "ble_uart_inject_cmd7e",
+    "summary": "Log a UART frame and feed it to the 0x7E token chunk handler with the command forced to 0x7E",
+    "description": "Logs the frame bytes through ble_219_0c035d0c and then calls ble_219_0c02b264 (ble_token_chunk_rx_7e) with reply mode from frame byte 1, the class from frame byte 3, the command forced to 0x7E, the index from byte 6, and the length and payload from byte 2 and the pointer at +8. The return value is discarded. It is a thin wrapper with no direct callers in the packet.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "UART frame in the layout of ble_uart_frame_route"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The format string at 0x0C07F2A0 is not decoded. The forced command makes any frame behave as a 0x7E chunk, so this is probably a test or debug path."
+  },
+  "ble_219_0c02d358": {
+    "name": "ble_uart_process_task",
+    "summary": "UART1 receive task: reassemble 5A A5 and 55 AA frames and answer the D1x single-UART test",
+    "description": "Task body, created by ble_factory_test_init as 'uart_process_task', that never returns. It reads /dev/uart1 into a 288-byte ring at 0x20009890 (count at +0x122, capacity word 0x120 at +0x120) and scans for 5A A5 frames (7-byte fixed part) and 55 AA frames (6-byte fixed part). A frame is accepted only if its 16-bit checksum at the end, stored little-endian, equals the complement of the sum of the bytes from the length byte through the last payload byte; a candidate that fails the check advances the scan by one byte. An accepted frame is compared with the D1x self-test signature 01 3D 23 42 4F 01 that starts at the length byte; a match logs 'd1x single uart test successed' and writes the fixed 10-byte reply 5A A5 01 23 3D 43 4F 01 0B FF, and a mismatch logs 'd1x single uart test, cmd or index failed' and dumps the frame. Consumed bytes are removed by shifting the remainder to the front of the ring.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "never returns"
+    },
+    "confidence": "medium",
+    "notes": "The task name comes from the string used by ble_factory_test_init. The 55 AA variant is inferred from the 6 instead of 7 fixed bytes. The read timeout of 100 ticks comes from the ioctl-style call in ble_uart1_open. The D1x name is taken from the log strings."
+  },
+  "ble_219_0c02d4f8": {
+    "name": "ble_uart1_open",
+    "summary": "Allocate the 292-byte UART1 receive buffer and open /dev/uart1 with timeout 100 and buffer 0x120",
+    "description": "Allocates 0x124 bytes with ble_219_0c07097c (malloc-like) into DAT_20009890 and opens '/dev/uart1' with flags 0 into DAT_20003E20. On success it issues three ioctl-style driver calls on that descriptor: request 0x22 with argument 0, request 0x14 with 100, and request 0x13 with 0x120. On failure it logs 'open uart1 failed\\r\\n' and leaves the descriptor negative.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meanings of the three ioctl requests are not known. The 100 is probably a read timeout in ticks, matching the ring reader in ble_uart_process_task. The descriptor is not checked after the allocation."
+  },
+  "ble_219_0c02d554": {
+    "name": "ble_factory_test_init",
+    "summary": "Start the factory-test subsystem: configure channels 0 and 1, open UART1 and create its tasks",
+    "description": "Sets peripheral channels 0 and 1 with the 16-bit value 0x0081 through ble_219_0c0456c0. It creates the 'factory_test_task' (stack depth 0x400, priority 2) and 'adc process' (stack depth 0x200, priority 2) tasks with ble_219_0c043d3c (xTaskCreate), calls ble_uart1_open, then creates 'uart_process_task' (stack depth 0x200, priority 1) running ble_uart_process_task, and logs 'factory test init done'.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The task bodies at 0x0C02D1F4 and 0x0C02D224 are not in this packet. The 0x0081 value and the meaning of channels 0 and 1 are not identified. The caller is not visible."
+  },
+  "ble_219_0c02d5d4": {
+    "name": "ble_gpio_dev_open",
+    "summary": "Open /dev/gpio and store the descriptor in DAT_2000989C",
+    "description": "Calls the open helper ble_219_0c071a94 with the path '/dev/gpio' and flags 0 and stores the returned descriptor in DAT_2000989C. The four parameters are not used and are only passed through as extra arguments.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "unused"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The factory dispatcher ble_factory_test_dispatch_set reads the GPIO handle from DAT_2000988C, which is the neighbouring address, so the two should be checked against each other."
+  },
+  "ble_219_0c02d604": {
+    "name": "ble_nvdata_open_all",
+    "summary": "Open the three /dev/nvdata partitions and store their descriptors at 0x200098A0",
+    "description": "Loops over partition numbers 1 to 3, formats the path '/dev/nvdata%d' and opens it with flags 0. A successful descriptor is stored as one byte at 0x200098A0 + (partition index - 1), and an ioctl-style request 0x101 is issued on it, logging 'Invalid nvdata%d!' if that fails. A failed open logs 'Open nvdata %d failed' and stores 0. The function always returns 0.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high",
+    "notes": "A failed request 0x101 leaves the descriptor stored, so the partition is still used afterwards. The meaning of request 0x101 is not known."
+  },
+  "ble_219_0c02d784": {
+    "name": "ble_nvdata_read_record",
+    "summary": "Read and CRC-check record N of an nvdata partition; return its size or -5",
+    "description": "Checks that the record index is in range (non-negative and less than (end address minus header size) divided by the record size), seeks to the record offset (sector base from config +0x04, plus header size at object +0x5C, plus index times record size) and reads one record. The record layout is a u16 at offset 2 holding a CRC-16/CCITT (crc16_ccitt_nibble, table at 0x0C08099C) over the bytes from offset 4 to the end of the record, followed by the body. A matching CRC returns the record size, and a bad index or CRC mismatch returns -5; if param_4 is non-zero the function finishes with the release seek ble_219_0c071a80(fd, 0, -1).",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "record index within the partition"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "partition object: +0 config pointer (record size u16 at config +0x0E, base at +0x04, end at +0x08), descriptor byte at +0x54, header size at +0x5C"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "output buffer for one record"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "non-zero to finish with the release seek"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "record size in bytes on success, -5 (0xFFFFFFFB) for a bad index or CRC mismatch"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the release seek with whence -1 is not known (ble_219_0c071a80 is not described yet). The field meanings are inferred from the arithmetic and from ble_nvdata_write_task, which writes the same layout."
+  },
+  "ble_219_0c02d870": {
+    "name": "ble_nvdata_sector_header_write",
+    "summary": "Write the nvdata sector header: 0x55AAAA55 magic, optional block marking and the slot bitmap",
+    "description": "Writes the sector header of an nvdata partition: the magic 0x55AAAA55 at the sector base (config +0x04) and, after a 4-byte gap, a bitmap with one 32-bit word per 32 slots, in which 1 means free and 0 means used. The bitmap is written only when param_3 is 0: words before the current slot (object +0x56, signed 16-bit) are written as 0, the word holding the current slot has the bits up to it cleared, and later words are written as 0xFFFFFFFF when param_2 is NULL and left alone otherwise. When param_2 holds a block size, the function first marks each block covering the header area (header size at +0x5C divided by the block size) with ioctl-style request 0x110, from the last block back to the first. When param_2 is NULL and param_3 is non-zero, it instead overwrites the first header-size bytes of the sector with 0xFFFFFFFF before writing the magic.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "partition object: sector base via config +0x04, header size at +0x5C, descriptor at +0x54, slot index s16 at +0x56"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "optional u32 block size; NULL for the bitmap path"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "non-zero skips the bitmap write (erase path when param_2 is NULL)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The bitmap polarity (1 free, 0 used) is inferred from the masks used here and in ble_nvdata_slot_mark_used. The block-marking request 0x110 is shared with ble_nvdata_write_task. The packet shows the header size and bitmap write but not the caller that picks param_2 and param_3."
+  },
+  "ble_219_0c02db00": {
+    "name": "ble_nvdata_slot_mark_used",
+    "summary": "Mark the current nvdata slot used by clearing its bit in the sector bitmap",
+    "description": "Takes the current slot index from object +0x56 (signed 16-bit), uses index mod 32, with the sign corrected, as the bit to clear, and when param_2 is non-zero and the index is 0 it first rewrites the whole sector header with ble_nvdata_sector_header_write. It then seeks to the bitmap word of that slot (sector base + 4 + 4 times (index / 32)) and writes the word with only that bit cleared and all other bits set to 1.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "partition object (slot index at +0x56, descriptor at +0x54)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "non-zero: rewrite the sector header first when the slot index is 0"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Writing 1s to the other bits leaves them unchanged on flash that can only program 1 to 0, which is probably why the whole word is written. This is an interpretation, not seen in the code."
+  },
+  "ble_219_0c02dc50": {
+    "name": "ble_nvdata_write_task",
+    "summary": "Task loop: take queued nvdata writes, stamp a CRC and sequence number, and append the record",
+    "description": "Task body that never returns. It waits on queue DAT_20009CBC (xQueueReceive with a 100-tick timeout, calling hal_wdt_task_checkin on each pass) for a pointer to a partition object, then takes that object's recursive mutex at +0x04 before writing. It computes the record CRC over the body at object +0x64 (record size minus 4 bytes) with crc16_ccitt_nibble and stores it at +0x62, increments the 14-bit sequence counter at +0x58 and writes it into the header word at +0x60 with its top two flag bits preserved. It then loops over the partition's count byte (config +0x0C), seeks to the current slot, checks the next area for erased bytes (0xFF, 16 bytes at a time, after block size is read with ioctl-style request 0x100), and skips to the next block with request 0x110 and logs 'nvdata flash not empty, skip to next block' when the area is not erased. The record is written with one write (or in 16-byte pieces when config +0x0D is set), the slot is marked with ble_nvdata_slot_mark_used when config +0x14 is set, the busy byte at +0x55 is cleared and the mutex is given back with xQueueGiveMutexRecursive.",
+    "category": "flash",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "never returns"
+    },
+    "confidence": "medium",
+    "notes": "Logs 'nvdata seek error' on a failed seek. The config bytes (+0x0C count, +0x0D piecewise write, +0x14 mark-slot flag) are inferred from their use. The completion queue call after the give is not identified in this packet."
+  }
+}

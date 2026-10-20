@@ -1,0 +1,588 @@
+{
+  "vcu_0159_0800cab4": {
+    "name": "ertc_hour_mode_set",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Set the ERTC 12/24-hour mode bit (CTRL.HM) inside an init-mode window",
+    "description": "AT32 SDK ertc_hour_mode_set. Disables write protection, enters ERTC init mode through ertc_init_mode_enter (vcu_0159_0800cae4), writes CTRL bit 6 (HM, hour format) from the low bit of the mode argument, leaves init mode with ertc_init_mode_exit and re-enables write protection. The mode is not in the decompiled signature: the value is carried in r3 (extraout_r3). If init mode cannot be entered it returns 0 and CTRL is left unchanged. Called from the ERTC set-time path vcu_0159_0800c960.",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 = SUCCESS, 0 = ERROR (init mode not entered)"
+    },
+    "notes": "Mode argument read from r3; SDK type is ertc_hour_mode_set_type."
+  },
+  "vcu_0159_0800cae4": {
+    "name": "ertc_init_mode_enter",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Enter ERTC init mode (set STS.IMEN) and poll INITF with a 0x6C0000 timeout",
+    "description": "AT32 SDK ertc_init_mode_enter. If the init-mode flag STS bit 6 (IMF, INITF) is already set it returns 1 at once. Otherwise it writes 0xFFFFFFFF to ERTC.STS, which sets the init-mode enable bit 7 (IMEN), and polls IMF for up to 0x6C0000 iterations. On timeout it re-enables write protection and returns 0. Every ERTC calendar, divider, hour-mode and reset routine goes through this gate; callers are vcu_0159_0800c960, 0800c9d8, 0800ca4c, 0800cab4 and 0800cb84.",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 = SUCCESS (init mode active), 0 = ERROR (timed out)"
+    }
+  },
+  "vcu_0159_0800cb24": {
+    "name": "ertc_interrupt_enable",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Enable or disable ERTC interrupt sources: tamper interrupt in TAMP, the rest in CTRL",
+    "description": "AT32 SDK ertc_interrupt_enable(source, new_state). Disables write protection, then if the source mask contains ERTC_TP_INT (0x04) it sets or clears TAMP bit 2 (TPIEN). The remaining source bits are OR-ed into or cleared from ERTC.CTRL, which holds the alarm, wakeup and timestamp interrupt enables (ALAIEN bit 12, ALBIEN bit 13, WATIEN bit 14, TSIEN bit 15). Write protection is re-enabled afterwards. Only the masked bits change, so STS flags are not touched.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "interrupt source mask (ERTC_xxx_INT); 0x04 selects the tamper interrupt"
+      },
+      {
+        "name": "param_2",
+        "type": "bool",
+        "description": "confirm_state: non-zero enables, zero disables"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "The decompiler takes the arguments from r2 and r3 after the write-protect call (extraout_r2, extraout_r3); these are read as the SDK source and state arguments."
+  },
+  "vcu_0159_0800cb84": {
+    "name": "ertc_reset",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Reset all ERTC registers to power-on values inside an init-mode window",
+    "description": "AT32 SDK ertc_reset. Disables write protection, clears CTRL, enters init mode (vcu_0159_0800cae4), then writes the reset values: TIME 0, DATE 0x2101 (year 00, January 1, weekday 1), CTRL 0, DIV 0x007F00FF (async divider 128, sync divider 256), WAT 0xFFFF, and zero for CCAL, ALA, ALB, TADJ, SCAL, TAMP, ALASBS, ALBSBS and STS. It then waits for the calendar update with ertc_wait_update (vcu_0159_0800cc98) and re-enables write protection. If init mode cannot be entered it returns 0 after clearing only CTRL.",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 = SUCCESS, 0 = ERROR"
+    }
+  },
+  "vcu_0159_0800cc70": {
+    "name": "ertc_wait_flag",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Poll an ERTC status flag until it reaches the wanted state, 0x360000 polls at most",
+    "description": "AT32 SDK ertc_wait_flag(flag, status) as built here. It calls ertc_flag_get (vcu_0159_0800caa0) in a loop while the result equals the expected value and returns 1 once it differs. The countdown starts at 0x360000 (ERTC_TIMEOUT); on expiry it re-enables write protection and returns 0. The only caller in this packet, vcu_0159_0800cd08 (ertc_wakeup_enable), passes flag 4 (STS.WATWF, the wakeup-register write-allowed flag) and value 0, so it waits until WATWF is set.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "ERTC_xxx_FLAG mask (4 = WATWF)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flag value to wait out of: 0 = wait until set, 1 = wait until clear"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 = flag reached the wanted state, 0 = timed out"
+    },
+    "notes": "The expected value is read from r3 in the decompile (extraout_r3)."
+  },
+  "vcu_0159_0800ccc8": {
+    "name": "ertc_wakeup_clock_set",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Select the wakeup timer clock (CTRL bits 2:0, WATCLK) under write protection",
+    "description": "AT32 SDK ertc_wakeup_clock_set(clock). Disables write protection, replaces CTRL bits 2..0 (the wakeup clock select field WATCLK) with the low three bits of the argument, keeps the other CTRL bits and re-enables write protection. The SDK does not poll any flag before the write, and neither does this code.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "wakeup clock select code 0..7 (ertc_wakeup_clock_type)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800cce8": {
+    "name": "ertc_wakeup_counter_set",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Write the 16-bit wakeup timer reload value (ERTC.WAT) under write protection",
+    "description": "AT32 SDK ertc_wakeup_counter_set(counter). Disables write protection, replaces the low 16 bits of ERTC.WAT (0x40002814) with the argument, keeps the upper half and re-enables write protection. Like the SDK, it does not poll WATWF before writing.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "wakeup counter reload value 0..65535"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800cd08": {
+    "name": "ertc_wakeup_enable",
+    "category": "rtc",
+    "confidence": "high",
+    "summary": "Enable or disable the ERTC wakeup timer (CTRL.WATEN), waiting for WATWF on disable",
+    "description": "AT32 SDK ertc_wakeup_enable(new_state). Disables write protection, writes CTRL bit 10 (WATEN) from the argument and, when disabling, waits for STS.WATWF with ertc_wait_flag (vcu_0159_0800cc70). If that wait times out the function returns 0 without re-locking write protection, because ertc_wait_flag has already re-enabled it on its timeout path. On success it re-enables write protection and returns 1.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "bool",
+        "description": "confirm_state: 1 enables the wakeup timer, 0 disables it"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 = SUCCESS, 0 = ERROR (WATWF wait timed out)"
+    }
+  },
+  "vcu_0159_0800ce0c": {
+    "name": "flash_user_system_data_erase",
+    "category": "flash",
+    "confidence": "high",
+    "summary": "Erase the user system data block, then restore the FAP halfword to 0xA5 if allowed",
+    "description": "AT32 SDK flash_user_system_data_erase, built with an argument. It writes the two USD unlock keys 0x45670123 and 0xCDEF89AB to FLASH.USD_UNLOCK (0x40022008), waits for CTRL.USDULKS (bit 9), sets CTRL.USDERS (bit 5) and CTRL.ERSTR (bit 6), and waits with flash_operation_wait_for (vcu_0159_0800cef0). If the erase reports done and the argument is 0, it sets CTRL.USDPRGM (bit 4), writes the FAP_RELIEVE_KEY 0xA5 halfword to the user system data at 0x1FFFF800, waits again and clears USDPRGM. USDERS is cleared on every path. Nothing is returned.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "FAP-active flag: 0 = FAP not enabled, so the FAP byte is restored to 0xA5 after the erase; non-zero skips the restore"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "The SDK version takes no argument; here the value plays the role of the SDK's flash_fap_status_get() result (0 = FAP not active). The packet lists TMR2.CTRL1 for this function, which is wrong: the 0x40000000 passed to the wait is a timeout count, and no TMR2 register is accessed."
+  },
+  "vcu_0159_0800ce94": {
+    "name": "flash_halfword_program",
+    "category": "flash",
+    "confidence": "high",
+    "summary": "Program one 16-bit flash halfword (CTRL.FPRGM) and wait for the operation to finish",
+    "description": "AT32 SDK flash_halfword_program(address, data), void variant. It sets CTRL.FPRGM (bit 0), stores the halfword at the flash address (a 16-bit store through param_1), waits with flash_operation_wait_for (vcu_0159_0800cef0) using a count of 0x100000, and clears FPRGM. The wait status is discarded, so a failed program is not reported to the caller.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "flash address to program (halfword aligned)"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "halfword value to write"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800cef0": {
+    "name": "flash_operation_wait_for",
+    "category": "flash",
+    "confidence": "high",
+    "summary": "Poll the flash status until the operation ends, or return timeout (4) when the count runs out",
+    "description": "AT32 SDK flash_operation_wait_for(time_out). It calls flash_operation_status_get (vcu_0159_0800cec8) and repeats while the result is 0 (busy) and the countdown is not zero, decrementing the countdown on each poll. It returns the final status: 1 program error, 2 EPP error, 3 operate done, or 4 (FLASH_OPERATE_TIMEOUT) when the countdown reaches zero while the flash is still busy. Callers in this packet pass 0x40000000 for erase and 0x100000 for a halfword program.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "poll count limit (passed in r0; not in the decompiled signature)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "flash_status_type: 1 program error, 2 EPP error, 3 operate done, 4 timeout"
+    }
+  },
+  "vcu_0159_0800cf10": {
+    "name": "flash_sector_erase",
+    "category": "flash",
+    "confidence": "high",
+    "summary": "Erase one flash sector: set CTRL.SECERS, load FLASH.ADDR, start, wait",
+    "description": "AT32 SDK flash_sector_erase(sector_address). It sets CTRL.SECERS (bit 1), writes the sector address to FLASH.ADDR (0x40022014), sets CTRL.ERSTR (bit 6) to start the erase, waits with flash_operation_wait_for (vcu_0159_0800cef0) using a count of 0x40000000, and clears SECERS. The status from the wait is dropped in this build, so the function is void here and an erase failure is not reported.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "address of the flash sector to erase"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800cf54": {
+    "name": "proto_sessions_init",
+    "category": "protocol",
+    "confidence": "medium",
+    "summary": "Bind five 36-byte protocol session slots to 300-byte buffers and publish the table",
+    "description": "Application init of the transport session table. For i = 0..4 it calls proto_session_bind_buffer (vcu_0159_0800d32a) on the slot at 0x200022E0 + i*0x24, with fragment size 1, buffer 0x20002394 + i*300, capacity 300 and extra argument 0. If the callback words DAT_20001838 (block +0x0) and DAT_20001844 (block +0xC) are both set, it stores the table descriptor (entries base 0x200022E0 at 0x20002970, count 5 at 0x20002974) and the callback block address &DAT_20001838 at 0x20002978, then returns 1. Otherwise it returns 0 and leaves the descriptor unset. The callback block is read by vcu_can_tp_rx_dispatch and vcu_can_tp_session_on_frame: +0x0 accept check, +0x4 event, +0x8 message complete, +0xC transmit.",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 = table published, 0 = a required callback is missing"
+    },
+    "notes": "The buffer layout is exact (five 300-byte buffers end at 0x20002970). The callback roles are inferred from how the TP code calls them."
+  },
+  "vcu_0159_0800d282": {
+    "name": "vcu_can_tp_rx_dispatch",
+    "category": "protocol",
+    "confidence": "high",
+    "summary": "Route a received J1939 TP.CM or TP.DT frame to the transport session table",
+    "description": "Receive dispatcher for J1939 transport protocol frames. It reads the 29-bit CAN ID at param_2, takes PF from ID bits 16..23 and the two low ID bytes as the peer address. Only PF 0xEC (TP.CM) and 0xEB (TP.DT) are handled. A TP.CM request-to-send (control byte 0x10 at frame offset 5) is accepted only if the accept callback (block at param_1[2], function word at +0) returns 1 for that pair; then a session is found or allocated with proto_session_find_or_alloc (vcu_0159_0800a676, reversed-pair check skipped) and the frame goes to vcu_can_tp_session_on_frame (vcu_0159_0800d414). Every other TP.CM or TP.DT frame is offered to each slot of the table in turn, and the session code decides whether it belongs there.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "session table descriptor: entries at +0, u16 count at +4, callback block pointer at +8"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "received CAN frame: 29-bit ID at +0, data bytes from +5"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "Data bytes start at frame offset 5, inferred from the byte offsets the TP code uses."
+  },
+  "vcu_0159_0800d2f6": {
+    "name": "proto_session_send",
+    "category": "protocol",
+    "confidence": "high",
+    "summary": "Find or allocate a session for an address pair and build a frame into its buffer",
+    "description": "Send-side entry point of the protocol layer. It calls proto_session_find_or_alloc (vcu_0159_0800a676) with the address pair in param_4 and param_5, with the reversed-pair check enabled, and returns 0 if no slot can be used. Otherwise it passes the session to proto_session_build_frame (vcu_0159_0800d688) with the three header bytes (param_3, param_6, param_7), the payload (param_8, length param_9) and the total message length (param_10), and returns that result.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "session table descriptor"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "passed through to the frame builder, unused there"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "frame header byte 0"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "first address byte of the session"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "second address byte of the session"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "frame header byte 1"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "frame header byte 2"
+      },
+      {
+        "name": "param_8",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_9",
+        "type": "u32",
+        "description": "payload length, at most 0x6F9"
+      },
+      {
+        "name": "param_10",
+        "type": "s32",
+        "description": "total message length used for the fragment count"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 = frame built, 0 = no session or the build check failed"
+    }
+  },
+  "vcu_0159_0800d34a": {
+    "name": "vcu_can_tp_sender_tick",
+    "category": "protocol",
+    "confidence": "high",
+    "summary": "Advance the J1939 TP sender state machine of one session on each timer tick",
+    "description": "Tick routine for the transmit side of a transport session. The state byte at session+2 selects the action. State 3 builds a TP.CM RTS (vcu_can_tp_rts_frame_build), sends it through the transmit callback at block+0xC, clears the counters and moves to state 4 with a 0x4E2 (1250) timeout. In state 5 the tick counter at +0x1A counts up to the inter-packet interval at +0x1C; when it expires the next TP.DT is built with vcu_can_tp_dt_frame_build at offset +0x0A and sent, and the offset advances by 7. The state becomes 9 (wait for EOM ACK) once the offset reaches the total size at +0x0C, or 6 (wait for CTS) once it reaches the window end at +0x12; a zero interval sends several packets in one call. States 4, 6, 7, 9 and 10 are passed to the timeout helper vcu_0159_0800a78a (not described in this packet).",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "transport session slot (36 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "callback block: +0xC transmit callback"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "Timeouts are counts divided by the u16 at +0x14 (the fragment size, 1 in proto_sessions_init), so they are read as milliseconds here."
+  },
+  "vcu_0159_0800d414": {
+    "name": "vcu_can_tp_session_on_frame",
+    "category": "protocol",
+    "confidence": "high",
+    "summary": "Process one received TP.CM or TP.DT frame against a J1939 transport session",
+    "description": "Frame handler and state machine for one transport session, used on both the receive and the transmit side. Session layout: +0/+1 the peer ID bytes, +2 state, +4 buffer pointer, +8 buffer capacity, +0xA running offset, +0xC total size, +0xE packet sequence, +0x10 packets allowed, +0x12 window end offset, +0x14 fragment divisor, +0x16/+0x18 timer, +0x1A/+0x1C tick and interval, +0x1E running checksum. A control byte 0x10 (RTS) on a free or matching slot checks the size against the capacity and the packet count against (size+6)/7; on a mismatch it sends an abort (vcu_can_tp_abort_frame_build), otherwise it sends a CTS (vcu_can_tp_cts_frame_build) and enters state 10. Control 0x11 (CTS) moves a sender from state 4 or 7 to state 5 with the window taken from the frame, or from state 6 to hold state 7 when zero packets are allowed; 0x13 (EOM ACK) in state 9 completes the sender with a done event (block+0x4, status 3); 0xFF returns the session to idle. A TP.DT (0xEB) in state 10 whose sequence byte is the next expected value copies up to 7 bytes into the buffer and adds the payload bytes, except the last two, into a 16-bit sum, then sets a 750 ms timeout. The last packet compares the trailing little-endian word with the ones' complement of that sum, sends an EOM ACK (vcu_can_tp_eom_ack_frame_build) and calls the message-complete callback (block+0x8) with the length minus 2. A sequence error or checksum mismatch sends an abort and returns the session to idle.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "transport session slot (36 bytes)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "received CAN frame: 29-bit ID at +0, data bytes from +5"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "callback block: +0x4 event, +0x8 message complete, +0xC transmit"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "Matching: for DT and RTS the frame ID bytes are compared in the same order as the session bytes; for CTS, EOM ACK and abort the order is swapped (the peer answers with source and destination reversed). Callback roles are inferred from how they are called."
+  },
+  "vcu_0159_0800da0c": {
+    "name": "vcu_xtea_key_load",
+    "category": "crypto",
+    "confidence": "high",
+    "summary": "Load a 128-bit XTEA key as four little-endian u32 words from memory",
+    "description": "Reads four consecutive 32-bit little-endian words from the 16 bytes at param_1 with util_load_u32_le (vcu_0159_0800da38) and stores them in the four-word array at param_2. It does not check for null pointers. Used by vcu_xtea_decrypt_with_key_at (vcu_0159_0800dcd8).",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "16-byte key in memory"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "output array of four u32 key words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800dc64": {
+    "name": "vcu_xtea_decrypt_inplace",
+    "category": "crypto",
+    "confidence": "high",
+    "summary": "XTEA-decrypt one 8-byte block in place with a four-word key, 32 rounds",
+    "description": "Decrypts the 64-bit block at param_1 in place. It loads the two words with util_load_u32_le, starts with sum 0xC6EF3720 (32 times the delta 0x9E3779B9) and runs 32 rounds of the XTEA decryption schedule: v1 -= (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + key[(sum >> 11) & 3]); then sum -= delta; then v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + key[sum & 3]). Both words are stored back with util_store_u32_le (vcu_0159_0800dc54). No alignment is needed.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "8-byte block, decrypted in place"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "four u32 key words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "This is XTEA, not plain TEA. It looks like the same routine as vcu_tea_decrypt_block (vcu_153_08006490, wave 1), but that was not compared here; this family exists only in VCU_0159, so the two are kept as separate families until shown to match."
+  },
+  "vcu_0159_0800dcd8": {
+    "name": "vcu_xtea_decrypt_with_key_at",
+    "category": "crypto",
+    "confidence": "medium",
+    "summary": "Load a key from memory and XTEA-decrypt the block at a pointer argument",
+    "description": "Loads the 16-byte key at param_2 into a local four-word array with vcu_xtea_key_load (vcu_0159_0800da0c), then XTEA-decrypts the 8-byte block at param_1 in place with that array (vcu_xtea_decrypt_inplace, vcu_0159_0800dc64). The other two arguments are copied into the same local array before the load, so the load overwrites them and they have no effect. The 64-bit return value is the first two words of that array after the load, not the decrypted block as far as the code shows. Called from vcu_0159_08006184 (not described in this packet).",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "8-byte block to decrypt in place"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "16-byte key in memory"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "copied into the local key array and overwritten by the load"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "copied into the local key array and overwritten by the load"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "first two words of the local key array after the load"
+    },
+    "notes": "The return value looks wrong for a decrypt routine. Check the caller at vcu_0159_08006184 before relying on the result."
+  },
+  "vcu_0159_0800e60c": {
+    "name": "lighting_brightness_percent_set",
+    "category": "lighting",
+    "confidence": "medium",
+    "summary": "Set the LED brightness target 0..100 percent, with a stepped fade when enabled",
+    "description": "Clamps the argument to 100 and stores its 0..10 level in DAT_20001507 (util_map_range_clamp_high, vcu_0159_0800f050). If bit 2 of DAT_20001AEC (the fade enable) is set, a counter in DAT_20001506 advances on each call and, whenever it passes the level, the ramp value in DAT_20001505 rises by 5 and the counter restarts. The ramp is kept only while it lies between the target and 109 (0x6D); otherwise the target is used. With fading off the target is used directly. It then clears bit 2 of LED image byte 0x200021D3 (led_frame_set_d3_bit2 with 0, vcu_0159_0800bee8) and calls vcu_0159_0800bf84 with a byte read through a pointer in r3 that the decompiler cannot attribute.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "brightness target in percent; values above 100 are clamped"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "The byte passed to vcu_0159_0800bf84 comes from r3 after the bee8 call, so its source is uncertain."
+  },
+  "vcu_0159_0800e8e0": {
+    "name": "system_clock_config",
+    "category": "clock",
+    "confidence": "high",
+    "summary": "Bring SYSCLK up from HEXT and PLL with flash wait states, then update the core clock value",
+    "description": "AT32 SDK system_clock_config from the Artery demo sources, with system_core_clock_update inlined at the end. It runs crm_reset (vcu_0159_0800b708), sets FLASH.PSR to 0x14 (4 wait states, prefetch on), enables HEXT and waits with vcu_0159_0800b598 (crm_hext_stable_wait), then configures the PLL with crm_pll_config(1 = HEXT, 7 = CRM_PLL_MULT_9), enables it and waits for the PLL stable flag (CRM CTRL bit 25). It sets AHB /1, APB2 /2 and APB1 /2, turns on auto-step mode around crm_sysclk_switch(2 = PLL), polls crm_sysclk_switch_status_get until the PLL drives SYSCLK, and turns auto-step off. The last part decodes the active source, the PLL multiplier and the AHB divider and writes the resulting frequency to the global at 0x200018BC, using the AHB shift table at 0x0800F284.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "Decoded result for the PLL path (HEXT direct times multiplier code 7 read as x9) is 144 MHz SYSCLK. That looks above the AT32F415 120 MHz maximum, so verify the PLL setting or the crystal frequency before trusting the value. The HICK branch gives 8 or 48 MHz depending on the MISC1/MISC2 bits."
+  },
+  "vcu_0159_0800e950": {
+    "name": "vcu_sysclk_switch_to_pll",
+    "category": "clock",
+    "confidence": "high",
+    "summary": "Switch SYSCLK to the configured PLL (enable HEXT and PLL, wait, switch) without reset",
+    "description": "Short clock switch used when the PLL is already configured. It enables HEXT and waits for it with vcu_0159_0800b598, enables the PLL and waits for its stable flag, turns on auto-step mode, selects PLL with crm_sysclk_switch(2), polls crm_sysclk_switch_status_get until PLL is active and then turns auto-step off. It writes no dividers, flash wait states or PLL multiplier and has no timeouts, so it spins forever if a clock never stabilises. Called from vcu_0159_0800688c (not described in this packet).",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800ecf4": {
+    "name": "vcu_gpio_pb6_set",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOB pin 6 high through the bit-set register",
+    "description": "Calls gpio_bits_set(GPIOB, 0x0040), which writes bit 6 to the GPIOB set register so PB6 goes high without a read-modify-write. Within vcu_0159_0800ed24 PB6 is the clock of the byte shifter, so this call ends each clock pulse.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800ed00": {
+    "name": "vcu_gpio_pb6_reset",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOB pin 6 low through the bit-clear register",
+    "description": "Calls gpio_bits_reset(GPIOB, 0x0040), which writes bit 6 to the GPIOB clear register so PB6 goes low. Within vcu_0159_0800ed24 it starts each clock pulse.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800ed0c": {
+    "name": "vcu_gpio_pb7_set",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOB pin 7 high through the bit-set register",
+    "description": "Calls gpio_bits_set(GPIOB, 0x0080). PB7 is the data line of the byte shifter vcu_0159_0800ed24, where it is high for a 1 bit.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800ed18": {
+    "name": "vcu_gpio_pb7_reset",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOB pin 7 low through the bit-clear register",
+    "description": "Calls gpio_bits_reset(GPIOB, 0x0080). This is the data-low case used by the byte shifter vcu_0159_0800ed24.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800ed24": {
+    "name": "led_driver_shift_out_byte",
+    "category": "lighting",
+    "confidence": "medium",
+    "summary": "Shift one byte out LSB first: data on PB7, clock pulse on PB6 for each bit",
+    "description": "Serial output of one byte, least significant bit first, to an external shift-register style LED driver. For each of the eight bits it sets PB7 to that bit (vcu_0159_0800ed0c or ed18), drives PB6 low (vcu_0159_0800ed00) and then high again (vcu_0159_0800ecf4), and shifts the value right. The clock idles high, so each rising edge of PB6 presents one data bit. PA9 is not touched here; it is driven separately by vcu_0159_0800ed94 and vcu_0159_0800eda4.",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "byte to shift out in bits 0..7"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "notes": "Latching on the rising edge of PB6 is inferred from the order of operations and is not checked against the driver part."
+  },
+  "vcu_0159_0800ed94": {
+    "name": "vcu_gpio_pa9_set",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOA pin 9 high through the bit-set register",
+    "description": "Calls gpio_bits_set(GPIOA, 0x0200). PA9 is a separate output line whose role is not visible in this packet; its callers are vcu_0159_080057ac and vcu_0159_0800ed4c.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  },
+  "vcu_0159_0800eda4": {
+    "name": "vcu_gpio_pa9_reset",
+    "category": "gpio",
+    "confidence": "high",
+    "summary": "Drive GPIOA pin 9 low through the bit-clear register",
+    "description": "Calls gpio_bits_reset(GPIOA, 0x0200), the low counterpart of vcu_gpio_pa9_set. Same callers: vcu_0159_080057ac and vcu_0159_0800ed4c.",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    }
+  }
+}

@@ -1,0 +1,787 @@
+{
+  "ble_219_0c038008": {
+    "name": "ble_irq_source_request_apply",
+    "summary": "Apply an IRQ enable or disable request on source 6 and program the source 8 route word",
+    "description": "Applies one request from the IRQ record passed in (the caller uses 0x2000352C). A zero flag at record+7 enables source 6 through hal_irq_source_set_enable, and a non-zero flag disables it through hal_irq_source_clear_enable. The group byte at record+1 then selects route word 0 of source 8 (values below 4) or route word 1 (4 and up) through hal_irq_source_ctl. The group and flag bytes are stored to DAT_2000352D and DAT_20003533, which are the record's own fields when called from ble_rf_irq_setup. Each guarded call runs in a BASEPRI 0x40 section that stores the caller tag and LR in DAT_20003D70 and DAT_20003D74, and the routine spins forever if DAT_20003D64 is not 2.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "IRQ request record: byte +1 is the group (below 4 selects route word 0, otherwise 1), byte +7 the flag (zero enables)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "caller tag passed through to the source routines"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "caller tag; overwritten with a local code tag before the guarded calls when the BASEPRI was not already 0x40"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of source 6 and source 8 comes only from the constant arguments and is not confirmed. The owner-tag, BASEPRI 0x40 and DAT_20003D64 guard pattern is the same as in the other BLE wrappers."
+  },
+  "ble_219_0c038250": {
+    "name": "ble_rf_irq_setup",
+    "summary": "Set up BLE RF IRQ routing, analog trims and IRQ 74, or re-apply routing when running",
+    "description": "Called from ble_rf_radio_init. If DAT_20003D64 is 4 it spins forever. If it is 2 (running) it re-applies three pin-mux tables with hal_pinmux_apply_table, programs IRQ routes 0x1A, 8 and 6 with hal_irq_source_ctl, and calls ble_irq_source_request_apply on the record at 0x2000352C. Any other state runs the first-time setup: it reads calibration record 0x0F into a scratch word, rewrites analog 0x4007 (clears bits 3-7, sets bits 0-2 and 8) and 0x406D (keeps only bits 15-13), and reads analog 0x4013 and trim record 0x0C to build DAT_20003CB0 and DAT_20003CB1 unless DAT_20003D65 is set. Once only it fills a 24-word table at 0x20003C30 with 16-bit mask pairs (two words hold the register address 0x40008000) and applies channel groups 1, 2, 5-11 and 13-16 through ble_analog_chan_group_mask_apply. Finally it writes the handler 0x0C038129 (Thumb) into the VTOR slot at 0x168, which is IRQ 74, sets its priority to 0xA0 at 0xE000E44A, and clears its pending bit and enables it through 0xE000E288 and 0xE000E108.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not read by the body"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not read by the body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "caller tag used for the pin-mux and wait calls"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the state codes (2 running, 4 fatal) and of analog registers 0x4007 and 0x406D is inferred from usage. The first-time path is taken on any state other than 2 and 4."
+  },
+  "ble_219_0c039488": {
+    "name": "ble_rf_mode_switch",
+    "summary": "Switch the RF mode byte to 0-3 and refresh the AGC windows, power ramp and channel groups",
+    "description": "Changes the RF mode in DAT_2000354C under a BASEPRI 0x40 section. For modes 2 and 3 it reads analog 0x30C3 and 0x3013 and derives the AGC window B and window A levels from their bytes minus the trims DAT_2000BCE3 and DAT_2000BCE1. Each window is walked one step at a time toward its bound with ble_rf_agc_window_update_b and ble_rf_agc_window_update_a, or pinned at 38 and 4 when the reading is out of range, and then ble_rf_power_ramp_step runs with the previous mode. If the previous mode was 0, bit 12 of analog 0x30D9 is set and the routine waits 100 units. Mode 3 applies channel control updates for channels 3, 0 and 1 and clears bit 15 of 0x3038. Mode 1 applies them for channels 0 and 1, sets bit 15 of 0x3038, waits 1800 units and clears bit 12 of 0x30D9. The new mode is stored at the end.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "new RF mode, 0 to 3, stored to DAT_2000354C"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Mode meanings are not identified. Callers are ble_rf_front_end_start (mode 1) and ble_rf_radio_init (mode 3)."
+  },
+  "ble_219_0c039820": {
+    "name": "ble_rf_front_end_start",
+    "summary": "Start the BLE RF front end: clock config 3, channel 3 setup, mode 1 and module 0x99 reset",
+    "description": "Brings the RF front end into its mode-1 setup under a BASEPRI 0x40 section. It applies system clock configuration 3 (bes_cmu_set_sysclk_cfg), sets bit 11 of DAT_20003D6A, writes channel field 3 with value 6 (ble_rf_chan_field_write) and applies the channel 3 control update. It waits 1800 units and switches the RF mode to 1 when DAT_2000354C is not already 1. It then releases AON clock user 3, writes the key pair 0xCAFE and 0x5FEE to analog register 0x3000, clears bit 8 of 0x3005 and bit 15 of 0x303F (ble_rf_reg3005_303f_clear), and asserts the software reset of module 0x99 (hal_cmu_reset_set_mod99).",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not read by the body"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "caller tag for the clock-config call"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "caller tag for the clock-config call"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Ghidra removed several unreachable blocks in this function, including the 0x4059 calibration path, so that helper in the call list is not reached on this path. The only caller in this packet is ble_boot_mode_set."
+  },
+  "ble_219_0c03a2a0": {
+    "name": "ble_rf_radio_init",
+    "summary": "Full BLE radio and analog init: trim unpacking, register sequence, mode 3 and IRQ setup",
+    "description": "Radio bring-up run after the analog die is up. It clears analog 0x301F and 0x3020, then runs a long read-modify-write sequence of constant masks over analog registers 0x305E, 0x3050/0x3051, 0x3002, 0x300C, 0x3003, 0x3004, 0x300E, 0x3007, 0x3008, 0x308F, 0x301E, 0x30E6, 0x3006 and 0x3037. It unpacks signed trims from calibration records 8 and 9 (5-bit magnitude with sign bit 5, or 4-bit magnitudes with sign bits 10 and 15) into DAT_2000BCE1-BCE3 and DAT_2000BCE0/BCE6/BCE7, adds a table value (indexed by bits 14:12 of record 5) to DAT_2000BCE2 and bits 3:1 of record 12 to DAT_2000BCE1, and stores bit 15 of record 5 in DAT_2000BCD2. It then calls ble_rf_block_gate_301d_30ce, ble_rf_lut_index_write, hal_cmu_aonclk9_user_enable(3), ble_rf_mode_switch(3) when the mode is not already 3, ble_rf_chan_ctrl_update(2) and ble_rf_reg3005_303f_clear, and calls ble_rf_irq_setup. When the thunk at 0x0C073C00 returns 1 it also calls ble_rf_block2_user_enable. The last step increments the 10-bit counter in analog 0x3061, moving to 0x400 when it saturates at 0x3FF.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Trim-field layouts are inferred from the shift and mask arithmetic. Analog registers are given by address only."
+  },
+  "ble_219_0c03a8f4": {
+    "name": "ble_ctrl_dump_region",
+    "summary": "Hex-dump a memory region to the log in 100-byte lines, labelled by region id",
+    "description": "Prints a banner for the region (controller, mcu, em_area1 or em_area2), then the bytes as lines of up to 100 bytes. Each line starts with dump_line=N and is produced by the byte formatter at 0x0C033150 (format %02x, element size 1). The routine waits 100 units before the first line and 50 units after each line, using the paired RAM-patch thunks. An unknown region id with a zero length prints nothing, and with a non-zero length it prints only the lines. Called from bt_ctrl_crash_dump.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "start address of the region"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "region id: 0 controller RAM, 1 MCU, 2 em_area1, 3 em_area2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The byte formatter at 0x0C033150 is not described in this packet."
+  },
+  "ble_219_0c03ab80": {
+    "name": "ble_soc_bringup_sequence",
+    "summary": "SoC bring-up: caches, IOMUX, clock and power, analog init, PLL and clock blocks, progress bits",
+    "description": "Boot-time SoC bring-up. It enables cache 0 and cache 1 (hal_cache_enable), applies the default and level-2 IOMUX configuration, runs the clock and power register setup, brings up the bes_cmu peripheral pair, and checks the analog chip ID with hal_analogif_check_chip_id. A wrong chip ID sets bit 31 of 0x400000F4 and spins forever. Otherwise it selects the chip variant, runs ble_analog_chip_init, enables the crystal x2 and restarts PLL 0, retries hal_cmu_clk_block_8c_enable until it stops returning -1, and requests system clock level 7 for user 0. Each finished stage sets one bit of 0x400000F4 (bits 1 to 13), so boot progress can be read from that register.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The two stub hooks (hal_init_stub_ret0_a and _b) are also called and do nothing. The thunk at 0x0C073B90, called with argument 3, is not described in this packet."
+  },
+  "ble_219_0c03bb70": {
+    "name": "bt_drv_rf_bringup",
+    "summary": "BT RF bring-up: clock level 4, RF init and calibration chain, ISR channel and IPC setup",
+    "description": "Runs the BT RF bring-up with system clock user 4 held at level 4 and released at the end. It calls the RF chain bt_drv_reg_op_addr_table_init, ble_rf_block4_enable(1), bt_drv_rf_init, bt_drv_rf_analog_bringup, bt_drv_rf_tx_power_trim_apply, bt_drv_rf_dc_iq_cal_run, bt_drv_rf_gain_ratio_rescale and bes_periph_d033_config, with a 10-unit wait after the early setup. On its first call it registers an ISR channel with hal_isr_chan_register(0, 0, handler, handler, 0), using handlers at 0x0C03BD44 and 0x0C03ABB0, and disables it with hal_isr_chan_disable when registration succeeds. It then loads the vendor controller init commands and parameter records. If the chip variant (thunk 0x0C073B50) is below 2 it sets the patch variable (bt_drv_reg_op_set_patch_var_be00), allocates two pool nodes with rtos_pool_node_alloc_init and enables IPC channel 1 (hal_sysipc_rx_irq_setup). If this call registered the ISR channel it closes it with hal_sysipc_close(0).",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The handlers at 0x0C03BD44, 0x0C03ABB0, 0x0C03ABBC, 0x0C03AC45 and 0x0C03ABC4 are not described in this packet."
+  },
+  "ble_219_0c03be8c": {
+    "name": "bt_drv_rfcal_timer_run",
+    "summary": "Create the rfcal timer on first use, then start it or run one RF calibration cycle",
+    "description": "Creates the 'rfcal_timer' FreeRTOS software timer on first use (period 0x5DC ticks, no auto-reload, callback = this function). The start path, taken when param_1 is 0 and DAT_2000BD48 is clear, sets DAT_2000BD48 and sends a 32-byte vendor HCI command (packet bytes 01 87 FC 1C, opcode 0xFC87) through bt_drv_hci_cmd_send_wait, changes the timer period to 300 ticks and starts it at the current tick. The calibration path clears DAT_2000BD48, sends an HCI Reset (bytes 01 03 0C 00) and the same vendor command with different parameters, ORs 0x55 into the low byte of register 0xD0210100 and clears its upper 24 bits, and sets the period to 0x5DC and restarts the timer.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 starts the timer when no run is pending; non-zero runs one calibration cycle (this function is also the timer callback)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The opcodes are read from the packet bytes and are consistent with HCI Reset (0x0C03) and a BES vendor command (0xFC87). The timer callback argument is inferred."
+  },
+  "ble_219_0c03c070": {
+    "name": "bt_drv_rf_2168_cal_search",
+    "summary": "Closed-loop search that tunes the 9-bit field of analog 0x2168 until the RF cal error is zero",
+    "description": "Drives the RF calibration search. It clears the sample history at 0x2000BD2C (6 bytes), sets analog 0x200F to 1 (bt_drv_analog_reg200f_set_1), starts one run with bt_drv_rfcal_timer_run(1), and waits up to 17 times 500 units for DAT_2000BD33 to flag a finished sample. Each sample gives a signed error in DAT_2000BD3E, and the current 9-bit field is read back through lm_get_state_9bit. The first trial step is 2 units; later steps are sized from the slope of the last two samples (scaled by 500). Each trial is written with bt_drv_rf_2168_field9_set. A small error (under about 3 units) reached a second time ends the search, which returns 0 when fewer than five trials were used and -1 otherwise. Timeouts, sample timeouts and a budget of about ten steps return -1. Every exit calls bt_drv_pending_action_poll and stores the final value through param_1.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "receives the final 16-bit field value on every exit"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the error converges within the step budget, -1 on timeout or budget exhaustion"
+    },
+    "confidence": "medium",
+    "notes": "The sample flags and error values are produced by the RF calibration event path, which is outside this packet. Calling the search a bisection or secant method is an inference from the step logic."
+  },
+  "ble_219_0c03d69c": {
+    "name": "bt_ctrl_crash_dump",
+    "summary": "Log the BT controller crash record: ROM and patch versions, fault and stack registers, BT errors",
+    "description": "Prints the BT controller crash report. When the nesting counter DAT_2000BD58 is zero it holds the BT core with bes_sysreg_write_04_bit19. It prints the ROM metal id and patch version from DAT_2000BDF4, then the commit id and patch date for metal id 0, 1 or other (three fixed string records). It prints the saved registers R0-R8, SL, FP, IP, SP and the SP+0 to SP+64 words, then PSP, MSP and the Cortex-M fault registers CFSR, BFAR, HFSR, ICSR, AIRCR, SCR, CCR, SHCSR, AFSR and MMFAR. The snapshot is read from words at 0xC0004050 to 0xC00040FC, with a different offset layout for chip variant 0 and 1 than for 2 and up. It then prints the BT error registers 0xD0220460, 0xD0220860 and 0xD0220428, 0xD0330050, 0xD0330054, 0xD03300A0, 0xD03300A4, 0x400000A0, 0x400000A4 and the controller RAM base. With a non-zero argument it dumps controller RAM and the 0xD0210000 block through ble_ctrl_dump_region. It ends with 'BT crash dump complete!', decrements DAT_2000BD58 and releases the hold with bes_sysreg_write_08_bit19 when the counter reaches zero.",
+    "category": "bt_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "non-zero also dumps controller RAM (DAT_2000BD88, 0x10000 bytes) and the block at 0xD0210000 (0x10000 bytes)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The choice of layout by the variant thunk 0x0C073B50 is inferred from the comparisons; the two layouts are not documented here."
+  },
+  "ble_219_0c03dd80": {
+    "name": "bt_ctrl_crash_dump_irq_safe",
+    "summary": "Run the BT crash dump with IRQs masked and memory barriers around it",
+    "description": "Wrapper that masks interrupts with disableIRQinterrupts, runs DSB and ISB, calls bt_ctrl_crash_dump, and then re-enables interrupts with DSB and ISB. No caller is visible in this image, so it is probably reached from a fault or assert hook through a pointer.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "It calls bt_ctrl_crash_dump with no argument. The RAM-dump flag therefore comes from whatever value is in r0 at entry, so the RAM dump may not run here."
+  },
+  "ble_219_0c03df24": {
+    "name": "bt_drv_digital_assert_check",
+    "summary": "Check BT digital error status and the crash-record word; log and return 1 on assert",
+    "description": "Reads IP_ERRORTYPESTAT at 0xD0220460 and ignores bit 6. If any other bit is set it logs 'BT_DRV:digital assert,error code=0x%x' and returns 1. Otherwise it reads the crash-record word at 0xC0004050 or 0xC0004060 (selected by chip variant) and reports an assert when that word is non-zero and not 0x42. It keeps the same nesting counter DAT_2000BD58 as bt_ctrl_crash_dump and uses the same bes_sysreg_write_04_bit19 and bes_sysreg_write_08_bit19 hold-and-release pair.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 when no digital assert is latched, 1 when one is reported"
+    },
+    "confidence": "medium",
+    "notes": "The 0x42 expected value and the variant selection are read from the comparisons only."
+  },
+  "ble_219_0c03f8a0": {
+    "name": "xPortPendSVHandler",
+    "summary": "FreeRTOS PendSV: save the outgoing task context, switch tasks, restore the next one",
+    "description": "Context-switch exception handler. It reads PSP and pushes R4-R11, the stack limit and the EXC_RETURN value onto the outgoing task's stack, first pushing S16-S31 when EXC_RETURN bit 4 is clear (lazy FP frame). It stores the new stack top into the current TCB pointer at DAT_2000CB8C, raises BASEPRI to 0x40 with DSB and ISB, and calls vTaskSwitchContext. It then drops BASEPRI back to 0, loads the next TCB's stack pointer and stack limit, restores PSP when privileged, and returns through the saved EXC_RETURN word of the next task (Ghidra shows this as an indirect call through that slot).",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The final transfer is decompiled as a call through puVar3[1]; this is the exception return sequence."
+  },
+  "ble_219_0c03fbf8": {
+    "name": "SEGGER_RTT_ConfigUpBuffer",
+    "summary": "SEGGER RTT: configure one up buffer entry with a 'terminalN' name",
+    "description": "Initialises the RTT control block on first use by calling SEGGER_RTT_Init, then formats 'terminal%d' with the index into a stack buffer. If the index is below the up-buffer count in DAT_2000BE44, it fills that entry of the up-buffer table at 0x2000BFB0 (24-byte entries: name, buffer, size, write offset, read offset, flags), clears both offsets and returns the index. The update runs in a BASEPRI 0x40 section.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "buffer index"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "buffer memory"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "buffer size in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "flags (SEGGER RTT mode bits)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "index on success, -1 when the index is not below the up-buffer count"
+    },
+    "confidence": "high",
+    "notes": "The name pointer stored in the table is the stack buffer auStack_2c, so it dangles after the function returns. Only the name is affected. The stack buffer is not a string literal as in the upstream SEGGER API."
+  },
+  "ble_219_0c03fc74": {
+    "name": "SEGGER_RTT_ConfigDownBuffer",
+    "summary": "SEGGER RTT: configure one down buffer entry with a 'terminalN' name",
+    "description": "Same flow as SEGGER_RTT_ConfigUpBuffer for the down direction: initialises RTT on first use, formats 'terminal%d' on the stack, and when the index is below the down-buffer count in DAT_2000BE40 it stores the name, buffer, size, flags and cleared offsets into the down-buffer table. The table is laid out like the up table, starting one entry later (names at 0x2000BE48 plus 24 bytes per index). The update runs in a BASEPRI 0x40 section.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "buffer index"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "buffer memory"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "buffer size in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "flags (SEGGER RTT mode bits)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "index on success, -1 when the index is not below the down-buffer count"
+    },
+    "confidence": "medium",
+    "notes": "One buffer-pointer store is shown by the decompiler with a 12-byte index stride, which does not match the 24-byte stride of the other fields. Check that store against the disassembly. The stack-buffer name has the same dangling-pointer issue as the up variant."
+  },
+  "ble_219_0c03ff38": {
+    "name": "ble_debug_timestamp_print",
+    "summary": "Print wall-clock seconds and nanoseconds with the hardware clock value",
+    "description": "Diagnostic timestamp print. It first calls app_cmd_complete_signal, which the other print helpers in this packet also call first, then reads CLOCK_REALTIME through clock_gettime into a two-word local and reads a hardware clock value through util_return_zero_u64. It prints 's.ns: sec.ns, hwclock=..., hw-time=...', where hw-time is the hardware value minus the seconds. Returns 0.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "util_return_zero_u64 is a stub returning 0 in this image, so hwclock and hw-time print 0 and the seconds value. The second printed field comes from a separate stack slot (local_10), not from the timespec's nanosecond word as the format suggests; check the disassembly."
+  },
+  "ble_219_0c041d28": {
+    "name": "ble_boot_mode_set",
+    "summary": "Write the boot-mode word at 0x2000017C (0x61447055 or 0), ping the watchdog and restart RF",
+    "description": "Writes the marker 0x61447055 (bytes 'U','p','D','a') to DAT_2000017C when param_1 is non-zero, or 0 when it is zero. The normal boot check (bes_boot_magic_is_valid) expects 0x4F42494D, so this is a different boot-mode request. The function then pings the watchdog with hal_wdt_ping, raises BASEPRI with rtos_enter_critical and does not release it here, and restarts the RF front end with ble_rf_front_end_start. Returns 0.",
+    "category": "startup",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "non-zero writes the 'UpDa' marker 0x61447055 to 0x2000017C, zero clears the word"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The 'UpDa' reading as an upgrade request is an inference from the ASCII value. BASEPRI is left at 0x40 on return, so the caller runs with the raised priority unless it restores it."
+  },
+  "ble_219_0c041d50": {
+    "name": "ble_nvdata0_dev_read_record",
+    "summary": "Read the 120-byte record from /dev/nvdata0 into DAT_2000F354, opening it on first use",
+    "description": "Opens '/dev/nvdata0' with mode 0 on first use and caches the descriptor in DAT_20003EC8. It issues a control call (fd, command 0x101, scratch buffer) through the fd-dispatch helper at 0x0C0484B4; on failure it prints 'Invalid nvdata0 !' and returns that error. It then reads 0x78 (120) bytes into the record at 0x2000F354 and returns 0 when all 120 bytes arrive, -5 otherwise.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -5 on a short read, a negative value when open or the control call fails"
+    },
+    "confidence": "medium",
+    "notes": "Not the same as ble_nvdata_read_record (ble_219_0c02d784), which is a CRC-checked partition record reader. The helper at 0x0C0484B4 is named _close in wave 2 but is called here with three arguments (fd, command, buffer), so its behaviour as an ioctl-like path should be reviewed. The meaning of command 0x101 is not identified."
+  },
+  "ble_219_0c041dc0": {
+    "name": "ble_nvdata0_dev_write_record",
+    "summary": "Write the 120-byte record from DAT_2000F354 to /dev/nvdata0, then issue control command 0x200",
+    "description": "Writes the 0x78-byte record at 0x2000F354 to /dev/nvdata0, opening the device first if the cached descriptor DAT_20003EC8 is not valid (same open as the read routine). A short write returns -5. On success it issues a second control call (fd, command 0x200, 0) through the same helper at 0x0C0484B4 and returns 0x78.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0x78 on success, -5 on a short write, a negative value when open fails"
+    },
+    "confidence": "medium",
+    "notes": "This returns 0x78 on success while ble_nvdata0_dev_read_record returns 0, so callers need to check the two conventions. Command 0x200 is probably a commit or sync; not confirmed."
+  },
+  "ble_219_0c041e38": {
+    "name": "ble_version_info_print",
+    "summary": "Print the version and build records for Application, LibWhale, Miniboot and LibWhale in Miniboot",
+    "description": "Prints a version table framed by separator lines. It calls app_cmd_complete_signal first. For each of four components it prints the component name followed by 'Build' and 'Version' from a record: the Application record at 0x0C076FF0 and the LibWhale record at 0x0C082270, then, for Miniboot and LibWhale in Miniboot, the records returned by bes_boot_param_get (DAT_20000180 and DAT_20000184). A missing record prints 'Unknown'. The build field is read from record offset +8 and the version from +4.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Which literal belongs to which record is not confirmed. The strings referenced here include '1.9.175((ZT3PRO_V0.2.1.8_20240815w33_hotfix)...)' and '2024-08-15 06:26:32'."
+  },
+  "ble_219_0c0420d0": {
+    "name": "ble_irq13_pool_init",
+    "summary": "One-time init of the 20-byte node pool at 0x2000C5F4 and the IRQ 13 vector, priority and enable",
+    "description": "Runs once, guarded by DAT_2000C5F0. It builds a pool of 20-byte nodes from 0x2000C5F4 upward, each with a flag byte of 0 and a link word pointing at itself, and stores the list head pointer 0x2000C5F4 in DAT_2000C720. It stores the function pointer 0x0C041ED4 in DAT_20003BF8, installs the handler label LAB_0C032E88 in the VTOR slot at 0x74 (IRQ 13), sets its NVIC priority to 0xA0, clears its pending bit and enables it. It clears the counters at 0x2000C710, C724 and C728, sets field +0x2C of the object at DAT_20003534 to 1, and writes 0x23 to its field +0x28.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The purpose of the node pool and of IRQ 13 is not identified. The event-group and queue code in this packet (ble_msgq_write_items, ble_msgq_read_items) is a likely consumer. The caller 0x0C0459D4 is not described yet."
+  },
+  "ble_219_0c0424d8": {
+    "name": "ble_msgq_write_items",
+    "summary": "Write whole items into a message object's TX queue, stream buffer or item callback",
+    "description": "Writes param_3 bytes as whole items. The inner object has the item size at +0x2, an ops table at +0x58 (per-item write at +0xC, hooks at +0x14, +0x1C and +0x20), a TX queue at +0x5C and a TX stream at +0x64. A length that is not a multiple of the item size is reported with '%s size must align %d' (len2nItem) and returns -5. With no TX queue and no stream it calls the per-item write hook for each item. A TX stream takes precedence and is written with xStreamBufferSend; with only a TX queue each item is sent with xQueueGenericSend. The hooks bracket the transfer. When flag bit 2 is set, the routine enters a critical section and, if the queue reports full (prvIsQueueFull), clears the event bit with ble_evt_clear_index_bit(index, 0) before returning the byte count.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "message object: +0x8 event index byte, +0xA flags (bit 2 requests event updates), +0x10 inner buffer object"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "source data; a NULL source only runs the +0x14 hook and returns 0"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "byte count, a multiple of the item size"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "caller tag, used only by the alignment message"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "bytes written, or -5 for an unaligned length or a missing ops table"
+    },
+    "confidence": "medium",
+    "notes": "The ops-table field offsets are read from the decompiled pointer arithmetic. The meaning of the event index byte is inferred from ble_evt_clear_index_bit."
+  },
+  "ble_219_0c04264c": {
+    "name": "ble_msgq_read_items",
+    "summary": "Read whole items from a message object's RX queue, stream buffer or item callback",
+    "description": "Reads param_3 bytes as whole items, the counterpart of ble_msgq_write_items on the RX side of the same inner object: RX queue at +0x60 and RX stream at +0x68. An unaligned length returns -5 with the same message. With neither RX queue nor stream the per-item read hook (+0x10 of the ops table) runs for each item. An RX stream takes precedence and is read with xStreamBufferReceive; with only an RX queue, items are received one at a time with xQueueReceive until one fails. The ops hook at +0x18 runs after the transfer. When flag bit 2 is set and the RX queue is empty (prvIsQueueEmpty), it clears the event bit with ble_evt_clear_index_bit(index, 1) inside a critical section. Returns the byte count.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "message object: +0x8 event index byte, +0xA flags (bit 2 requests event updates), +0x10 inner buffer object"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "byte count, a multiple of the item size"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "caller tag, used only by the alignment message"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "bytes read, or -5 for an unaligned length or a missing ops table; 0 for a zero length"
+    },
+    "confidence": "medium",
+    "notes": "The offsets and the precedence of stream over queue come from the decompiled branches; check against the disassembly if this matters."
+  },
+  "ble_219_0c0427f4": {
+    "name": "vApplicationStackOverflowHook",
+    "summary": "FreeRTOS stack-overflow hook: log the offending task name and handle",
+    "description": "Prints 'Task %s stack overflow, handle %p' for the task whose stack guard failed, using the name and the TCB pointer. The kernel calls it from vTaskSwitchContext. It only logs and returns; it does not stop the system.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TCB handle of the task whose stack check failed"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "task name (TCB+0x34)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04283c": {
+    "name": "xEventGroupCreate",
+    "summary": "Create a FreeRTOS event group: 32-byte object with the event bits and waiter list",
+    "description": "Allocates a 0x20-byte block from the heap (through the thunk at 0x0C07097C). It sets the event-bit word at +0 to zero, initialises the xTasksWaitingForBits list at +4 with vListInitialise, and clears the static-allocation flag at +0x1C. Returns the block, or NULL when the allocation fails.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "event group handle, or NULL when the allocation fails"
+    },
+    "confidence": "high",
+    "notes": "The layout matches the FreeRTOS EventGroup_t of this port."
+  },
+  "ble_219_0c042c08": {
+    "name": "xQueueGenericCreate",
+    "summary": "Create a FreeRTOS queue of uxLength items of uxItemSize bytes, with its storage",
+    "description": "Allocates the 0x50-byte queue header and, when uxItemSize is non-zero, length times item-size bytes of storage directly after it, all from the heap. For a zero item size the header is the only allocation and pcHead points at the header itself. It sets pcHead and pcTail, pcWriteTo to the head, pcReadFrom to the last item, the messages-waiting count to zero, uxLength and uxItemSize, both lock bytes to -1 (unlocked), the static-allocation byte to 0 and the queue type from param_3. It initialises both waiter lists (vListInitialise at +0x10 and +0x24). The setup runs inside a critical section.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "uxQueueLength"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "uxItemSize; zero creates a queue with no storage"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "ucQueueType"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "queue handle, or NULL when the allocation fails"
+    },
+    "confidence": "high",
+    "notes": "Offsets match the FreeRTOS Queue_t layout of this port: ucStaticallyAllocated at +0x46 and ucQueueType at +0x4C."
+  },
+  "ble_219_0c042e44": {
+    "name": "xQueueCreateMutex",
+    "summary": "Create a FreeRTOS mutex queue and give it once, as prvInitialiseMutex does",
+    "description": "Allocates the 0x50-byte queue header inside a critical section, sets uxLength to 1 and uxItemSize to 0, clears the mutex holder and the recursive-call count, stores the type from param_1 and initialises both waiter lists. It then calls xQueueGenericSend with no item and no timeout, which puts the single 'give' into the mutex.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "ucQueueType, stored at +0x4C"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "mutex handle, or NULL when the allocation fails"
+    },
+    "confidence": "high",
+    "notes": "The construction and the initial give match prvInitialiseMutex."
+  },
+  "ble_219_0c043358": {
+    "name": "vQueueDelete",
+    "summary": "Free a FreeRTOS queue block unless it was statically allocated",
+    "description": "Frees the queue block through the heap free (thunk at 0x0C07098C) only when its ucStaticallyAllocated byte at +0x46 is zero. Storage is part of the same block, so one free releases both.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "queue handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c043460": {
+    "name": "xStreamBufferGenericCreate",
+    "summary": "Create a FreeRTOS stream or message buffer with a trigger level and optional message flag",
+    "description": "Allocates one block of 0x24 header bytes plus size+1 bytes of storage from the heap and zeroes the header with memset. It sets the length to size+1 and the trigger level to the argument (1 when zero), points the storage pointer at the byte after the header, and sets bit 0 of the flag byte at +0x1C when the buffer is a message buffer.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "xBufferSizeBytes"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "xTriggerLevelBytes; zero means 1"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "xIsMessageBuffer; non-zero sets the message flag"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "stream buffer handle, or NULL when the allocation fails"
+    },
+    "confidence": "high",
+    "notes": "Layout matches the FreeRTOS StreamBuffer_t of this port."
+  },
+  "ble_219_0c043d3c": {
+    "name": "xTaskCreate",
+    "summary": "Create a FreeRTOS task: allocate stack and TCB, initialise, add to the ready list",
+    "description": "Allocates a stack of usStackDepth times 4 bytes and a 0x60-byte TCB. If the TCB allocation fails it frees the stack and returns -1. Otherwise it stores the stack pointer in the TCB at +0x30, clears the static-allocation byte at +0x5D, fills the TCB with prvInitialiseNewTask and links it into the scheduler with prvAddNewTaskToReadyList. It returns 1 (pdPASS).",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "task function"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "task name"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "usStackDepth in words"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "task parameter"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "uxPriority"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "output TCB handle"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 (pdPASS) on success, -1 when the stack or TCB allocation fails"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c043da0": {
+    "name": "vTaskDelete",
+    "summary": "Delete a FreeRTOS task, unlink its lists, free or defer its memory, and yield if needed",
+    "description": "Inside a critical section it unlinks the TCB from its state list and, if set, from its event list, and bumps the task number. A running task is put on the termination list and counted for later cleanup. Any other task is removed from the live count and its TCB and stack are freed (both when dynamically allocated, only the TCB when the stack is static). The next unblock time is recomputed from the delayed list. When the scheduler is running and the running task was deleted, it requests a context switch with rtos_pendsv_trigger.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TCB to delete; NULL means the running task"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c043e70": {
+    "name": "vTaskStartScheduler",
+    "summary": "Create the idle and timer tasks, set interrupt priorities and start the first task",
+    "description": "Gets static idle-task memory from vApplicationGetIdleTaskMemory, creates the IDLE task as statically allocated and adds it to the ready list, then creates the timer service task with xTimerCreateTimerTask. On success it sets the next unblock time to -1, marks the scheduler running, sets PendSV and SysTick to the lowest priority through SHPR3 (0xE000ED20), configures the 1 ms tick (vPortSetupTimerInterrupt), clears uxCriticalNesting and calls rtos_start_first_task. The decompiled tail (vTaskSwitchContext and an endless loop) is reached only if the first-task start returns, which it normally does not.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "timer task creation result when startup fails before the scheduler starts; does not return on success"
+    },
+    "confidence": "high",
+    "notes": "An unnamed call at 0x0C035DA4 runs before the tick setup and is not described in this packet."
+  },
+  "ble_219_0c0441d4": {
+    "name": "vTaskSwitchContext",
+    "summary": "Pick the next ready task and switch the current TCB, with run-time and stack checks",
+    "description": "Called from PendSV and from the scheduler start. If the scheduler is suspended (DAT_2000CC20 non-zero) it only sets the pending-switch flag DAT_2000CCA4 and returns. Otherwise it clears that flag, reads the run-time counter through rtos_run_time_counter_get, adds the elapsed ticks to the outgoing task's counter at TCB+0x54, and calls vApplicationStackOverflowHook when the stack guard pattern is wrong. It then takes the highest non-empty ready list (top priority in DAT_2000CC28, lists at DAT_2000CB98 in 5-word entries), advances that list's index and makes the owner the current TCB at DAT_2000CB8C.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c044b14": {
+    "name": "rtos_runtime_stats_print_row",
+    "summary": "Print one run-time statistics row: name, handle, counters and CPU share in percent",
+    "description": "Prints one row of the run-time statistics table: the task name left-justified in 20 columns, the handle as 8 hex digits, and three integers. It then computes the task's share as a 64-bit ratio of its run-time counter times 10000 over the total (__udivdi3) and prints it as integer.hundredths percent.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "task stats record: name at +0, counters at +0x18 and +0x1C, handle at +0x20, 64-bit run-time counter at +0x30"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "not read by the body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "total run-time counter, low word"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "total run-time counter, high word"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "printed as the third column"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The second format string expects four values, but the decompiler recovers only the percent pair. The time column is not recovered."
+  },
+  "ble_219_0c044c7c": {
+    "name": "xTimerCreate",
+    "summary": "Create a FreeRTOS software timer with name, period, reload flag, ID and callback",
+    "description": "Allocates a 0x38-byte timer block from the heap, makes sure the timer lists and command queue exist (prvCheckForValidListAndQueue), stores the name, period, auto-reload flag, ID and callback, initialises the timer's list item with its owner set to the timer, and clears the status byte at +0x2C. The timer is then inserted into the list at 0x2000DDB8 with vListInsert.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "timer name"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "period in ticks"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "auto-reload flag"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "timer ID"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "callback function"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "timer handle, or NULL when the allocation fails"
+    },
+    "confidence": "high",
+    "notes": "Upstream xTimerCreate does not insert into a list at creation, so the vListInsert call is probably a BES change; not confirmed."
+  }
+}

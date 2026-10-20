@@ -1,0 +1,11 @@
+{
+  "mcu_g_0160_2000036c": {
+    "name": "foc_limit_upper_filt_copy",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x2000036c"],
+    "category": "foc",
+    "description": "Copy of the filtered upper bound of the limiter in mcu_dynamic_bound_clamp_update. Each run that is enabled (the enable byte at +0x3C of the limiter object is nonzero) stores the value of the limiter's +0x30 field, which is the upper bound after its low-pass filter, here before the output clamp. Units are the same fixed-point units as that bound field (probably Q15-style scaled; not confirmed). The variable keeps its last value while the limiter is disabled, because the early return skips the store. The same function reads it back for the output clamp, so it is also an input to that step. No other reader or writer is visible in this packet (the wider firmware is not checked here), so it is probably a debug or monitor copy of the upper limit. Lifetime is from boot; no reset is shown."
+  }
+}

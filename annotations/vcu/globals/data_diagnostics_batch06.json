@@ -1,0 +1,398 @@
+{
+  "vcu_g_0159_2000102e": {
+    "name": "diag_fault_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000102e"
+    ],
+    "category": "diagnostics",
+    "description": "Ticks spent in display modes 2 and 3 (DAT_2000123E), counted by vcu_fault_warning_evaluate and capped at 4000. At 1500 ticks fault code 25 is stored and the output pulse latch (diag_fault19_pulse_state) arms. Zeroed while DAT_20001F48 is 1, by Ninebot command 1 and at start-up."
+  },
+  "vcu_g_0159_20001030": {
+    "name": "diag_main_silence_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001030"
+    ],
+    "category": "diagnostics",
+    "description": "Ticks since the last frame of the main group: IDs 0x310, 0x311, 0x420 to 0x425 and 0x500 to 0x502 (vcu_rx_frame_dispatch zeroes it on each). Capped at 1500. At 500 ticks fault code 21 is stored, below that it is cleared. Also zeroed while DAT_20001F48 is 1 and at start-up."
+  },
+  "vcu_g_0159_20001032": {
+    "name": "diag_speed_limit",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001032"
+    ],
+    "category": "diagnostics",
+    "description": "Overspeed threshold of the current variant, probably in km/h. vcu_serial_parse_variant_code sets it to the high byte of DAT_20001B40 plus 3. Compared with the speed DAT_20001B62 / 10 by the overspeed debounce (diag_overspeed_debounce)."
+  },
+  "vcu_g_0159_2000123c": {
+    "name": "diag_fault_code_active",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000123c"
+    ],
+    "category": "diagnostics",
+    "description": "Active (displayed) fault code, 0 when none; fault codes are 1 to 48. Set by vcu_fault_code_store and vcu_fault_code_set (the latter also latches the code in diag_fault_bits). Cleared by vcu_error_code_clear_if_current and vcu_error_code_clear, and zeroed by vcu_error_state_reset. Copied to diag_fault_code_copy by the evaluator."
+  },
+  "vcu_g_0159_2000123d": {
+    "name": "diag_warning_code_active",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000123d"
+    ],
+    "category": "diagnostics",
+    "description": "Active (displayed) warning code, 0 when none. vcu_warning_code_set keeps the lowest non-zero code. Codes 10 to 57 are latched in diag_warning_bits; codes 1 to 9 are not. Cleared by vcu_warning_code_clear and vcu_warning_state_reset. Copied to diag_warning_code_copy by the evaluator."
+  },
+  "vcu_g_14a_200013d6": {
+    "name": "diag_overspeed_debounce_14a",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_14a",
+      "0x200013d6"
+    ],
+    "category": "diagnostics",
+    "description": "Overspeed debounce counter in build 14a (same role as diag_overspeed_debounce in VCU_0159). Counts ticks while the speed is over diag_speed_limit, stores fault code 9 after more than 100 ticks, and is zeroed when the speed drops back under the limit."
+  },
+  "vcu_g_153_20001472": {
+    "name": "diag_fault19_latch_153",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_153",
+      "0x20001472"
+    ],
+    "category": "diagnostics",
+    "description": "Output-pulse state for fault code 25 in build 153 (same role as diag_fault19_pulse_state in VCU_0159). 0 idle, 1 armed, 2 after the pulse. The pulse drives GPIOA pin 12 low for 1000 ms, then high (probably a buzzer or lamp). Zeroed when fault 25 clears."
+  },
+  "vcu_g_153_20001478": {
+    "name": "diag_overspeed_debounce_153",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_153",
+      "0x20001478"
+    ],
+    "category": "diagnostics",
+    "description": "Overspeed debounce counter in build 153 (same role as diag_overspeed_debounce in VCU_0159): counts ticks over diag_speed_limit, stores fault code 9 after more than 100 ticks, zeroed when the speed is back under the limit."
+  },
+  "vcu_g_0159_2000147c": {
+    "name": "diag_warning_change_latch",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000147c"
+    ],
+    "category": "diagnostics",
+    "description": "Cleared by vcu_fault_alert_repeat when the active warning code changes and while DAT_20001F48 is 1. Nothing in this build reads it, so it is probably a leftover (not verified)."
+  },
+  "vcu_g_0159_2000147d": {
+    "name": "diag_warning_code_last",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000147d"
+    ],
+    "category": "diagnostics",
+    "description": "Previous value of the active warning code (diag_warning_code_active), copied every tick by vcu_fault_alert_repeat. A change clears diag_warning_change_latch and diag_warning_change_ticks."
+  },
+  "vcu_g_0159_2000147e": {
+    "name": "diag_fault19_pulse_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x2000147e"
+    ],
+    "category": "diagnostics",
+    "description": "Output-pulse state for fault code 25. Set to 1 when fault 25 has been active for 1500 ticks (vcu_fault_warning_evaluate); the next tick sets 2 and drives GPIOA pin 12 low for 1000 ms, then high. Returns to 0 when fault 25 clears. Probably drives a buzzer or lamp."
+  },
+  "vcu_g_0159_20001480": {
+    "name": "diag_warning_change_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001480"
+    ],
+    "category": "diagnostics",
+    "description": "Tick counter zeroed by vcu_fault_alert_repeat when the warning code changes or DAT_20001F48 is 1. It is never incremented in this build, so it is probably a leftover of an earlier alert pattern (not verified)."
+  },
+  "vcu_g_0159_20001482": {
+    "name": "diag_fault9_alert_countdown",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001482"
+    ],
+    "category": "diagnostics",
+    "description": "Countdown for alert 1 while overspeed fault 9 is active: loaded with 1000 and decremented each tick by vcu_fault_alert_repeat; at 0 it calls app_set_state(1) and reloads. Zeroed by vcu_fault_warning_evaluate when the speed is back under the limit."
+  },
+  "vcu_g_0159_20001484": {
+    "name": "diag_overspeed_debounce",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001484"
+    ],
+    "category": "diagnostics",
+    "description": "Debounce counter for overspeed fault code 9: counts ticks while the speed DAT_20001B62 / 10 is above diag_speed_limit. After more than 100 ticks it stores fault code 9 and restarts. Zeroed when the speed is back under the limit."
+  },
+  "vcu_g_0159_20001486": {
+    "name": "diag_fault_repeat_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001486"
+    ],
+    "category": "diagnostics",
+    "description": "Ticks while a fault code is active and no warning code is active (vcu_fault_alert_repeat). Every 300 ticks, when the fault is 15, it calls app_set_state(4) (alert 4). Held at 0 while a warning is active or DAT_20001F48 is 1."
+  },
+  "vcu_g_0159_20001488": {
+    "name": "diag_overtemp_debounce",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001488"
+    ],
+    "category": "diagnostics",
+    "description": "Debounce counter for fault code 40: counts ticks while diag_frame212_temp is at or above 196 (0xC4). After more than 100 ticks it stores fault code 40. Zeroed when the reading is below 196."
+  },
+  "vcu_g_0159_20001878": {
+    "name": "diag_threshold_step",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001878"
+    ],
+    "category": "diagnostics",
+    "description": "Step of the two-step threshold alarm in vcu_threshold_alarm_latch: 0 idle, 1 after the first app_set_state(4) call, 2 after the second. Zeroed when the threshold condition clears."
+  },
+  "vcu_g_0159_20001879": {
+    "name": "diag_threshold_latched",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "VCU_0159",
+      "0x20001879"
+    ],
+    "category": "diagnostics",
+    "description": "Alarm-active flag of the threshold alarm: set to 1 when the condition first holds (it also sets DAT_20001FBC once and diag_alarm_code to 3), cleared when the condition clears."
+  },
+  "vcu_g_0159_20001b64": {
+    "name": "diag_warning_code_copy",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b64"
+    ],
+    "category": "diagnostics",
+    "description": "Copy of diag_warning_code_active, zero while the display mode DAT_2000123E is 0 (written by vcu_fault_warning_evaluate). Read by vcu_standby_entry_timer, which uses zero as the condition to enter standby (probably)."
+  },
+  "vcu_g_0159_20001b66": {
+    "name": "diag_fault_code_copy",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001b66"
+    ],
+    "category": "diagnostics",
+    "description": "Copy of diag_fault_code_active, zero while the display mode DAT_2000123E is 0 (written by vcu_fault_warning_evaluate). Zeroed by vcu_error_state_reset."
+  },
+  "vcu_g_0159_20001cb4": {
+    "name": "diag_status_head",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cb4"
+    ],
+    "category": "diagnostics",
+    "description": "First halfword of the 144-byte status area DAT_20001CB4 to DAT_20001D43 that vcu_identity_config_reload clears at start-up. Its accesses are 4 bytes wide and go through base pointers (Ninebot handler, threshold alarm, nibble-count snapshot), so the exact layout is not resolved. The other variables inside the area are documented elsewhere."
+  },
+  "vcu_g_0159_20001cc4": {
+    "name": "diag_alarm_code",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cc4"
+    ],
+    "category": "diagnostics",
+    "description": "Alarm code: set to 3 by vcu_threshold_alarm_latch while the threshold alarm is active and copied into the CAN payload by can_get_tx_payload_for_id. Cleared only by the start-up clear of the status area."
+  },
+  "vcu_g_0159_20001cc6": {
+    "name": "diag_speed_raw",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cc6"
+    ],
+    "category": "diagnostics",
+    "description": "Vehicle speed from frame 0x211 (payload bytes 6 and 7), probably in 0.1 km/h. Taken only when the value is below 600. Zeroed by vcu_fault_warning_evaluate after frame 0x211 has been silent for 300 ticks. vcu_speed_mode_snapshot_update copies it to DAT_20001B62."
+  },
+  "vcu_g_0159_20001cd8": {
+    "name": "diag_warning_bits",
+    "type": "u16",
+    "count": 4,
+    "size": 8,
+    "anchor": [
+      "VCU_0159",
+      "0x20001cd8"
+    ],
+    "category": "diagnostics",
+    "description": "Bitmap of latched warning codes in four 16-bit words. Bit i of word w is warning code 10 + 16 * w + i; word 3 is effectively unused because codes stop at 57. Set by vcu_warning_code_set, cleared by vcu_warning_code_clear and vcu_warning_state_reset, and turned into the code list by vcu_warning_list_rebuild."
+  },
+  "vcu_g_0159_20001ce0": {
+    "name": "diag_fault_bits",
+    "type": "u16",
+    "count": 3,
+    "size": 6,
+    "anchor": [
+      "VCU_0159",
+      "0x20001ce0"
+    ],
+    "category": "diagnostics",
+    "description": "Bitmap of latched fault codes in three 16-bit words. Bit i of word w is fault code 1 + 16 * w + i (codes 1 to 48). Set by vcu_fault_code_set, cleared by vcu_error_code_clear, zeroed by vcu_error_state_reset, and expanded into the item list by vcu_flag_bitmap_expand."
+  },
+  "vcu_g_0159_20001d44": {
+    "name": "diag_ram_write_head",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001d44"
+    ],
+    "category": "diagnostics",
+    "description": "First halfword of a RAM window (0x20001D44 to 0x20001F43) that the Ninebot-style command 0xAA in vcu_ninebot_frame_dispatch writes: it copies N bytes to 0x20001D44 + 2 * index for index below 255 and index + N/2 below 256. The only check is the sender byte (6 or 7). The window overlaps variables documented here (0x20001F36, 0x20001F40, 0x20001F42) and others, so it is probably a generic RAM-write path (see the report)."
+  },
+  "vcu_g_0159_20001f36": {
+    "name": "diag_frame425_temp",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f36"
+    ],
+    "category": "diagnostics",
+    "description": "Raw payload byte 2 of frame 0x425 (probably a temperature): degrees C = raw - 50 (DAT_20001B8A holds that value times 10). Set to the sentinel 0x5AA5 ('no value') at start-up; vcu_fault_codes_4_5_eval does nothing while it holds the sentinel."
+  },
+  "vcu_g_0159_20001f7e": {
+    "name": "diag_frame212_temp",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f7e"
+    ],
+    "category": "diagnostics",
+    "description": "Raw payload byte 7 of frame 0x212, probably a controller temperature in degrees C. 0xFD and 0xFE mark an invalid reading and store fault code 34. Values from 196 (0xC4) feed diag_overtemp_debounce. vcu_drive_command_update derates from 20 upward (value minus 20)."
+  },
+  "vcu_g_0159_20001f80": {
+    "name": "diag_frame212_status",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f80"
+    ],
+    "category": "diagnostics",
+    "description": "Low byte: payload byte 6 of frame 0x212, a controller status code. A non-zero value is latched as a warning code by vcu_speed_mode_snapshot_update. Values 11, 13, 18, 24, 55 and 56 also raise warning codes of the same number in vcu_fault_warning_evaluate. The high byte is written outside this packet and kept."
+  },
+  "vcu_g_0159_20001f84": {
+    "name": "diag_frame401_value",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "VCU_0159",
+      "0x20001f84"
+    ],
+    "category": "diagnostics",
+    "description": "Payload byte 5 of frame 0x401 (probably a temperature-like reading), stored as a 32-bit value. Values of 156 (0x9C) and above, except 0xFD and 0xFE, store fault code 41; anything below that, or 0xFD and 0xFE, clears it."
+  },
+  "vcu_g_0159_2000224a": {
+    "name": "diag_warning_list",
+    "type": "u16",
+    "count": 7,
+    "size": 14,
+    "anchor": [
+      "VCU_0159",
+      "0x2000224a"
+    ],
+    "category": "diagnostics",
+    "description": "Elements 1 to 7 of the active warning code list (u16 codes 10 to 73, ascending), rebuilt by vcu_warning_list_rebuild from diag_warning_bits. Element 0 is at 0x20002248 (not in this packet). The number of entries is in DAT_200021E6."
+  },
+  "vcu_g_0159_200022ce": {
+    "name": "diag_warning_bits_prev",
+    "type": "u16",
+    "count": 4,
+    "size": 8,
+    "anchor": [
+      "VCU_0159",
+      "0x200022ce"
+    ],
+    "category": "diagnostics",
+    "description": "Copy of diag_warning_bits (four words) taken by vcu_warning_list_rebuild to detect changes. vcu_display_frame_render_tick clears the first three words after a render."
+  },
+  "vcu_g_0159_200022d8": {
+    "name": "diag_warning_list_dirty",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200022d8"
+    ],
+    "category": "diagnostics",
+    "description": "Flag: 1 when the warning list must be rebuilt (set when the bitmap copy changed). vcu_warning_list_rebuild clears it after the rebuild, and vcu_display_frame_render_tick also writes it."
+  }
+}

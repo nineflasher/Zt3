@@ -1,0 +1,794 @@
+{
+  "ble_219_0c045940": {
+    "name": "ble_i2c_write_read_locked",
+    "summary": "Run one I2C write-then-read under a per-instance mutex; returns the read length",
+    "description": "Runs one I2C write-then-read through the exported hal_i2c_recv (0x0C03136C) for the device described by param_2: byte 0 is the target address, byte 1 the write length, byte 2 the read length, the pointer at +4 the write buffer and the pointer at +8 the read buffer. The instance index is the u16 that param_1+0x10 points to, and the transaction runs under the static mutex at 0x2000F2B4 + instance*0x50 (taken with an infinite timeout through FUN_0C0430A8 and released through FUN_0C042C8C). hal_i2c_recv traps for instance 6 and above, so a bad index hangs the firmware instead of returning an error. On success the function returns the read length from descriptor byte 2; otherwise it returns the non-zero error of the failed phase. It has no direct callers, so it is reached through a callback or table.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "context struct; the u16 instance index is at the pointer stored at +0x10"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "I2C request: u8 address @0, u8 write length @1, u8 read length @2, write buffer pointer @4, read buffer pointer @8"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "read length (descriptor byte 2) on success, else the non-zero hal_i2c error"
+    },
+    "confidence": "medium",
+    "notes": "FUN_0C0430A8 and FUN_0C042C8C are not yet described; their take/give roles are inferred from the 0x50-byte per-instance record stride."
+  },
+  "ble_219_0c045d60": {
+    "name": "ble_app_block16_f36c_read",
+    "summary": "Copy up to 16 bytes of the app block at 0x2000F36C, gated by request 0x101",
+    "description": "Reads a 16-byte RAM block at 0x2000F36C after first issuing the app device request 0x101 (app_dev_ioctl_cmd_101, FUN_0C041E10); a non-zero ioctl result is returned unchanged. A requested length above 16 returns -EINVAL (-0x16) without copying, and otherwise the requested bytes are copied with memcpy. The 16-byte bound comes from the 0x11 comparison, and the block contents are not identified here. Callers are at 0x0C02A484, 0x0C02B158 and 0x0C02CCA8.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "number of bytes requested, 0..16"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -22 (-EINVAL) for a length above 16, or the ioctl error (-EIO)"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045db0": {
+    "name": "ble_app_addr6_read",
+    "summary": "Return the 6-byte identity at 0x2000F364 (u32 + u16), gated by request 0x101",
+    "description": "Gated copy of a 6-byte value: the u32 at 0x2000F364 goes to output bytes 0-3 and the u16 at 0x2000F368 to bytes 4-5. The first step is the app device request 0x101 (FUN_0C041E10), whose error is returned if it fails, and a length other than 6 returns -EINVAL. The 4+2 byte layout matches a Bluetooth device address, so the block is probably the controller's own address; this is inferred from size and layout only. Callers are at 0x0C02CCA8, 0x0C058160, 0x0C058170, 0x0C0581A8 and 0x0C058250.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "requested length, must be 6"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -22 for a length other than 6, or the ioctl error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045e04": {
+    "name": "ble_app_word_f360_read",
+    "summary": "Read the 32-bit word at 0x2000F360, gated by request 0x101 (length must be 4)",
+    "description": "Gated read of the 32-bit RAM word at 0x2000F360 into the caller's pointer. The app device request 0x101 (FUN_0C041E10) runs first and its error is returned on failure, and the call is rejected with -EINVAL unless the length is exactly 4. The word is only read here; the code that writes it is elsewhere and its meaning is not established. Callers are at 0x0C02CCA8 and 0x0C03E5DC.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output u32"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "requested length, must be 4"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -22 for a wrong length, or the ioctl error"
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c045e74": {
+    "name": "ble_app_block40_f38c_read",
+    "summary": "Copy the 40-byte app block at 0x2000F38C..0x2000F3B3, gated by request 0x101",
+    "description": "Gated snapshot of a 40-byte RAM block: ten consecutive 32-bit words from 0x2000F38C to 0x2000F3B0 are copied in order into the caller's buffer, after the app device request 0x101 (FUN_0C041E10) has succeeded. A length other than 0x28 returns -EINVAL. The whole region is read as one unit, which suggests a fixed-size record, but its field layout is not identified here. The 0x2000F3B4 word read by ble_app_magic_caf_check sits directly after this block.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "40-byte output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "requested length, must be 40"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -22 for a wrong length, or the ioctl error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045f04": {
+    "name": "ble_app_marker_s_check",
+    "summary": "Report whether the marker byte at 0x2000F36A is 'S', gated by request 0x101",
+    "description": "Returns true when the byte at 0x2000F36A equals the ASCII character 'S' (0x53). The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. This byte and the byte at 0x2000F36B ('o', tested by ble_app_marker_o_check) are two single-character markers that probably tag a valid app-side record; that role is a guess.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the gate passes and the byte is 'S'"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045f40": {
+    "name": "ble_app_marker_o_check",
+    "summary": "Report whether the marker byte at 0x2000F36B is 'o', gated by request 0x101",
+    "description": "Returns true when the byte at 0x2000F36B equals the ASCII character 'o' (0x6F). The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. It is the second of the two marker characters at 0x2000F36A/0x2000F36B tested by ble_app_marker_s_check, which probably tag a valid app-side record; that role is a guess.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the gate passes and the byte is 'o'"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045f60": {
+    "name": "ble_app_magic_caf_check",
+    "summary": "Check the 32-bit magic 0x00464143 ('CAF') at 0x2000F3B4, gated by request 0x101",
+    "description": "Returns true when the word at 0x2000F3B4 equals 0x00464143, which reads 'C', 'A', 'F', 0 in memory. The app device request 0x101 (FUN_0C041E10) runs first, and false is returned if it fails. The word sits directly after the 40-byte block of ble_app_block40_f38c_read, so it is probably that block's validity tag; this is an inference.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the gate passes and the magic matches"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c045fa8": {
+    "name": "ble_app_block16_f3b8_read",
+    "summary": "Copy up to 16 bytes of the app block at 0x2000F3B8, gated by request 0x101",
+    "description": "Same pattern as ble_app_block16_f36c_read: the app device request 0x101 (FUN_0C041E10) must succeed, a length above 16 returns -EINVAL, and otherwise the requested bytes are copied from 0x2000F3B8 with memcpy. The 16-byte bound is inferred from the 0x11 comparison. Six callers use it: 0x0C0292F0, 0x0C029414, 0x0C0296C4, 0x0C02A484, 0x0C02B480 and 0x0C056A50.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "bytes requested, 0..16"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -22 for a length above 16, or the ioctl error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0460e8": {
+    "name": "ble_spi_read_locked",
+    "summary": "Receive-only SPI transfer on the active record, with try-lock and format reapply",
+    "description": "Clocks param_1[1] bytes in from SPI, sending zeros, and stores them at param_2. The request's u16 at +0 selects a 12-byte flag record at 0x20003EE8; if its bits 3 or 4 are set they are cleared and FUN_0C032714 finishes the previous operation. The active SPI record is chosen by the byte at 0x2000391E (20-byte stride from 0x20003920), and the function try-locks 0x20003D05 through the ROM patch thunk at 0x200007F4, returning 0xFFFFFFE1 when the lock is busy. It reapplies that record's format with hal_spi_apply_format, and spins forever if the record's flags byte at +0x0B has its low two bits set (a trap, not an error return). Otherwise it calls hal_spi_txrx_poll with a NULL transmit buffer, restores the format with the saved low bits, and unlocks through the thunk at 0x2000081C.",
+    "category": "hal_spi",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "request: u16 channel index at +0, u16 byte count at +2"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "receive buffer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success; otherwise the hal_spi_txrx_poll status (1 early end, -1 bad length, -11 SPI busy), or -31 when the lock is busy"
+    },
+    "confidence": "medium",
+    "notes": "The SPI instance passed to the transfer is not recovered by the decompiler (it shows the r0 left by the format call); the format call uses instance 1. The infinite loop is an assertion-style trap. FUN_0C032714 and the two ROM-patch thunks are not yet described."
+  },
+  "ble_219_0c046494": {
+    "name": "ble_uart_port_start",
+    "summary": "Start UART port 0..2: 115200-baud config, IRQ handler install and RX interrupt enable",
+    "description": "Starts the UART port whose index is the u16 that param_1+0x10 points to; indexes 3 and above return -19 (-ENODEV). It fills the 24-byte port record at 0x2000F414 + index*0x18 with the four-word line config {0x00030000, 0x00000201, 0x0001C200, 0} (0x1C200 is 115200 baud), stores 0x7C0 at +0x10 and the context pointer param_1 at +0x14, and clears two u16 counters at +4 and +6 of the port descriptor. The config goes to FUN_0C034008, the port's IRQ number is read from the table at 0x0C076850 and installed with hal_irq_install_handler (the context pointer is passed as the handler slot value), and the UART interrupt mask is then written through hal_uart_set_irq_mask. The decompiler does not recover the mask argument, so the value written is unknown.",
+    "category": "uart_bridge",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "request struct; the pointer at +0x10 leads to the port descriptor, whose first u16 is the port index (0..2)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0, or -19 (-ENODEV) for a bad port index"
+    },
+    "confidence": "medium",
+    "notes": "The 115200 baud reading of 0x1C200 is an inference. FUN_0C034008 is not yet described."
+  },
+  "ble_219_0c046a58": {
+    "name": "ble_vendor_fc87_send_keyed",
+    "summary": "Send vendor HCI 0xFC87 for the table record whose key matches request byte 7",
+    "description": "Runs FUN_0C03BD70 and then sends a 32-byte vendor HCI command, opcode 0xFC87 with a 28-byte parameter block, built from the 8-byte request in param_1: byte 0 goes to parameter 6, bytes 1 to 6 (an address) fill parameters 8 to 13, and byte 7 is a key. The key is matched against the first byte of the 27 six-byte records at 0x20003EF0; parameters 15, 16 and 18-19 take that record's byte 2, byte 1 and u16 at +4. The fixed parts are parameters 0-3 = 01 E8 03 00, parameter 7 = 0x02, parameter 14 = 0x01, parameter 17 = 0x04 and parameters 24-27 = 0xFFFFFFFF, with 4-5 and 20-23 zero. A missing key returns -1 without sending; on a match the counters at 0x2000F468 and 0x2000F46C are cleared when set, and the frame goes out through FUN_0C03AC98 with length 32.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "8-byte request: [0] parameter byte, [1..6] address, [7] record key"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when a matching record was sent, -1 when no record has the key"
+    },
+    "confidence": "medium",
+    "notes": "Field meanings (the 0xFC87 command, the 0x03E8 word, the 27-record table) are inferred from the parameter layout. The constant sibling ble_vendor_fc87_send_test_pattern is the cross-check. FUN_0C03AC98 and FUN_0C03BD70 are not yet described."
+  },
+  "ble_219_0c046af0": {
+    "name": "ble_vendor_fc87_send_test_pattern",
+    "summary": "Send the fixed vendor HCI 0xFC87 test frame with a 0x55 address field",
+    "description": "Takes no input and sends one fixed 32-byte frame: vendor opcode 0xFC87, parameter length 28, and parameters 02 E8 03 00 | 00 00 00 02 | 55 55 55 55 55 55 | 01 01 | 04 04 36 00 | 00 00 00 00 | FF FF FF FF. It is the keyed frame of ble_vendor_fc87_send_keyed with the address field filled with 0x55 bytes, mode byte 0x02 instead of the keyed 0x01, and the table fields set to constants (0x0036 at parameters 18-19). The 0x55 payload and the test-style layout suggest a non-signalling TX or test configuration, which is an inference. It calls only FUN_0C03AC98, without FUN_0C03BD70.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "Caller is ble_219_0c02c49c, which also calls the keyed sender and the LE test commands."
+  },
+  "ble_219_0c046b4c": {
+    "name": "ble_hci_le_tx_test_cmd",
+    "summary": "Send HCI LE Transmitter Test (0x201E) with channel, length and payload type",
+    "description": "Sends the 7-byte HCI command 01 1E 20 03 p0 p1 p2, which is LE Transmitter Test (opcode 0x201E, three parameters): TX_Channel = p0, Length_of_Test_Data = p1 and Packet_Payload = p2, all taken from the 3-byte request in param_1. It runs FUN_0C03BD70 first and clears the test-state word at 0x2000F464 when it is non-zero, then hands the frame to FUN_0C03AC98. It always returns 0.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "3-byte request: channel, data length, payload type"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high",
+    "notes": "The opcode mapping follows the Bluetooth Core LE Test command set. FUN_0C03AC98 (the HCI send) and FUN_0C03BD70 are not yet described."
+  },
+  "ble_219_0c046b90": {
+    "name": "ble_hci_le_rx_test_cmd",
+    "summary": "Send HCI LE Receiver Test (0x201D) with one RX channel byte",
+    "description": "Sends the 5-byte HCI command 01 1D 20 01 p0, which is LE Receiver Test (opcode 0x201D) with RX_Channel = p0 taken from the 1-byte request. It runs FUN_0C03BD70 first, then FUN_0C03AC98 with length 5, and always returns 0. It is the receive-side counterpart of ble_hci_le_tx_test_cmd.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "1-byte RX channel"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046bbc": {
+    "name": "ble_hci_le_enh_tx_test_cmd",
+    "summary": "Send HCI LE Enhanced Transmitter Test (0x2034) with four parameter bytes",
+    "description": "Sends the 8-byte HCI command 01 34 20 04 followed by the four bytes at param_1, which is LE Enhanced Transmitter Test (opcode 0x2034): TX_Channel, Test_Data_Length, Packet_Payload and PHY, in that order. It runs FUN_0C03BD70 first, then FUN_0C03AC98, and always returns 0. The fourth parameter (PHY) is what distinguishes it from ble_hci_le_tx_test_cmd.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "4 parameter bytes: channel, length, payload, PHY"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046bfc": {
+    "name": "ble_hci_le_enh_rx_test_cmd",
+    "summary": "Send HCI LE Enhanced Receiver Test (0x2033) with three parameter bytes",
+    "description": "Sends the 7-byte HCI command 01 33 20 03 p0 p1 p2, which is LE Enhanced Receiver Test (opcode 0x2033): RX_Channel, PHY and Modulation_Index, from the 3-byte request. It runs FUN_0C03BD70 first, then FUN_0C03AC98, and always returns 0.",
+    "category": "factory_test",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "3 parameter bytes: channel, PHY, modulation index"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046c34": {
+    "name": "ble_hci_le_test_end_cmd",
+    "summary": "Send HCI LE Test End (0x201F), which has no parameters",
+    "description": "Sends the 4-byte HCI command 01 1F 20 00, which is LE Test End (opcode 0x201F), through FUN_0C03AC98, and returns 0. Unlike the other test-command senders it does not call FUN_0C03BD70 first. The controller's reply, which carries the received-packet count in the Bluetooth spec, is handled elsewhere.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "always 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c046e88": {
+    "name": "ble_stack_lock_take",
+    "summary": "Take the shared BLE stack mutex, creating it on first use while the scheduler runs",
+    "description": "Creates the mutex lazily: if the handle at 0x2000F4C0 is NULL, FUN_0C042D80 is called with type 4 (presumed FreeRTOS recursive mutex) and the static 80-byte buffer at 0x2000F470, and the function returns if creation fails. Otherwise, when xTaskGetSchedulerState reports anything but 0 (suspended), the mutex is taken with an infinite timeout through FUN_0C0431F8. Nothing is taken while the scheduler is suspended, and ble_stack_lock_give applies the same test on release. Callers at 0x0C070F40, 0x0C070FD8 and 0x0C071080 use it around shared BLE stack code.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The type code 4 and the FUN_0C0431F8 take are inferred from the other uses in this packet (for example the streaming buffer in ble_pktq_enqueue)."
+  },
+  "ble_219_0c046ec0": {
+    "name": "ble_stack_lock_give",
+    "summary": "Release the shared BLE stack mutex taken by ble_stack_lock_take",
+    "description": "Gives the mutex at handle 0x2000F4C0 through FUN_0C042DF4 when the handle is non-NULL and xTaskGetSchedulerState is not 0 (not suspended), mirroring the take. It does nothing when the mutex was never created or the scheduler is suspended, so a scheduler suspension between take and give leaves the mutex held; that case is not handled.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c047588": {
+    "name": "ble_byte_count_notify",
+    "summary": "Add a byte count to a running total and fire the registered notify callback",
+    "description": "If the optional count hook at 0x2000F60C is set, it is called with no arguments and its return value replaces the count. A positive count is added to the 32-bit running total at 0x2000F644, and if the listener record at 0x2000F64C has a callback at +4, the function evaluates total*1000 divided by the value at 0x2000F648 through __divdi3 (FUN_0C06FE20) and then calls that callback with no arguments. The quotient is not used in the decompiled code, so either the division is dead or the decompile is incomplete. The function returns the possibly replaced count.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "not used by the decompiled body"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "byte count; replaced by the hook result when the hook is set"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "the count after the optional hook"
+    },
+    "confidence": "low"
+  },
+  "ble_219_0c048278": {
+    "name": "ble_evt_set_index_bit",
+    "summary": "Set event bit 2*index + (selector & 1) in the BLE event group at 0x2000F6D4",
+    "description": "Maps an index and a selector to one bit of the event group at 0x2000F6D4: bit = 2*index + (selector & 1), with mask = 1 << bit. A mask of zero (bit 32 or more) skips the call. Otherwise it calls FUN_0C04291C with the group and the mask, presumed to be xEventGroupSetBits and the counterpart of the xEventGroupClearBits used by ble_evt_clear_index_bit. The even/odd layout is the one ble_fd_select uses: write readiness on the even bit and read readiness on the odd bit of descriptor index fd-3. Callers are at 0x0C0462C4 and 0x0C046380.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "descriptor index (descriptor number minus 3)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "selector: bit 0 set means read readiness, clear means write readiness"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c048298": {
+    "name": "ble_evt_clear_index_bit",
+    "summary": "Clear the event bit that ble_evt_set_index_bit sets, via xEventGroupClearBits",
+    "description": "Uses the same index and selector mapping as ble_evt_set_index_bit and clears that bit in the event group at 0x2000F6D4 with FUN_0C042900, which is xEventGroupClearBits per its annotation. It returns immediately when the mask is zero. Callers are at 0x0C0422D4, 0x0C0424D8 and 0x0C04264C, which presumably consume a readiness event.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "descriptor index (descriptor number minus 3)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "selector: bit 0 set means read readiness, clear means write readiness"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0482b8": {
+    "name": "ble_evt_read_bits",
+    "summary": "Return the whole BLE event group value when the index bit is valid, else 0",
+    "description": "Returns 0 when the event group handle at 0x2000F6D4 is NULL or when the index's mask is zero. Otherwise it returns the result of FUN_0C042988 on the group (a one-argument call, presumed xEventGroupGetBits), which is the full group value and not only the requested bit, so callers must mask the result. Callers are at 0x0C04533C, 0x0C0462C4, 0x0C046380 and 0x0C0467B8.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "descriptor index (descriptor number minus 3)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "selector, as in ble_evt_set_index_bit"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "whole event group value, or 0"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0484f0": {
+    "name": "ble_fd_find_next_open",
+    "summary": "Find the next open descriptor above param_1 (numbers 3..48), or return -1",
+    "description": "Scans the descriptor table at 0x2000F6D8 (one pointer per descriptor, 46 entries for descriptor numbers 3..48, non-NULL meaning open) for the first open descriptor numbered above param_1. It returns -1 when param_1 is below 2 or when nothing open follows. The scan runs under the mutex at 0x2000F680, which is created on first use with FUN_0C042D80(1, 0x2000F684) and taken with a 100-tick timeout whose result is not checked, then released with FUN_0C042C8C. The numbering is the one ble_fd_select uses.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "current descriptor number; the search starts at the next number"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "next open descriptor number, or -1"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04885c": {
+    "name": "ble_fd_select",
+    "summary": "POSIX-style select() over descriptors 3..maxfd, waiting on the BLE event group",
+    "description": "Implements select(maxfd, readfds, writefds, exceptfds, timeout) for descriptors 3 to maxfd; exceptfds is ignored. The timeout is converted to milliseconds (NULL means wait forever), and when either set is given with maxfd above 2, each requested descriptor adds one bit to the event mask (2*(fd-3) for write, 2*(fd-3)+1 for read) that FUN_0C042858 waits on. A descriptor in range with no ops pointer sets errno to EBADF (9) and returns -1. When the wait is satisfied, both caller sets are cleared and each requested descriptor whose bit fired has the readiness method at offset 0x10 of its ops object called (bit 1 readable, bit 0 writable); the caller's bit is set and the return value is the number of bits set. A timeout returns 0 without clearing the sets, which differs from POSIX, and when nothing was requested the function delays for the timeout (FUN_0C0441A8) and returns 0.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "maxfd, the highest descriptor number checked"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "readfds bitmap, one bit per descriptor in u32 words"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "writefds bitmap"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "exceptfds, ignored"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "timeout: s32 seconds at +0 and microseconds at +8; NULL waits forever"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of ready descriptor bits; 0 on timeout or nothing requested; -1 with errno EBADF; or the negative status of a readiness method"
+    },
+    "confidence": "medium",
+    "notes": "Caller is ble_219_0c02eb60. The readiness method is called without visible arguments because the decompiler drops them. FUN_0C042858, FUN_0C0441A8 and FUN_0C0701F8 (__errno) are referenced; the first two are not yet described."
+  },
+  "ble_219_0c0489e8": {
+    "name": "ble_pktq_init",
+    "summary": "Initialise a packet ring of n+1 descriptor slots and create its recursive mutex",
+    "description": "Sets up the ring used by ble_pktq_enqueue. The buffer at param_3 must be 4-byte aligned (otherwise the function returns 1); it holds n+1 eight-byte descriptors ({u32 cookie, u16 length, 2 pad bytes}) followed by n+1 payload slots of slot_size bytes starting at buffer + 8*(n+1). It records the descriptor base at 0x2000F7B8, the slot base at 0x2000F7B4, the slot size at 0x2000F7BC and n at 0x2000F7BE, sets head (0x2000F7B0) and tail (0x2000F7C0) to 0, then creates the recursive mutex at 0x2000F7C4 with FUN_0C042D80 (type 4, static storage). The creation result is not checked.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "slot size in bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "s16",
+        "description": "n; the ring has n+1 slots"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "4-byte aligned storage of at least (8 + slot_size) * (n+1) bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "not used by the initialiser; passed through to the mutex creator"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 for a misaligned buffer"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c048a44": {
+    "name": "ble_pktq_enqueue",
+    "summary": "Append a packet to the ble_pktq ring: copy the payload into the next slot",
+    "description": "Appends one packet, returning 14 when the payload is longer than the slot size (0x2000F7BC) and 16 when the ring is full (next head equals tail). It takes the ring mutex at 0x2000F7C4 with an infinite timeout, reserves the head slot and advances head with wrap at n, then releases the mutex. The descriptor's cookie word is set to param_3, and the payload is copied into the reserved slot with memcpy outside the lock, after which the length is written to the descriptor. A NULL payload or zero length stores length 0, copies nothing, and still returns 0. The consumer side is not in this packet, so the matching dequeue is unknown.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "payload source, may be NULL"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "payload length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "cookie stored in the descriptor (for example an opaque pointer)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 14 if the payload is oversized, 16 if the ring is full"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04920c": {
+    "name": "ble_sha1_mix_pair16",
+    "summary": "SHA-1 over two 16-byte inputs (built-in defaults for NULL), keeping 16 digest bytes",
+    "description": "Forms the 32-byte message A || B, where each 16-byte half is the input pointer or, when that pointer is NULL, a built-in constant (words 0x02B8CF97, 0xDE434184, 0x3B2B0056, 0x5D0A7834, the same for both halves). It hashes the message with ble_sha1_oneshot and writes the first 16 bytes of the 20-byte digest to param_3, dropping the last word. The purpose is not identified in this packet; the ble_crypto_* authentication path described in the brief is one candidate to check.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "16-byte input A, or NULL for the built-in constant"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "16-byte input B, or NULL for the built-in constant"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "16-byte output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The SHA-1 identity comes from the mbedTLS calls in the callee. The purpose is low confidence."
+  },
+  "ble_219_0c04aa80": {
+    "name": "ble_sha1_oneshot",
+    "summary": "One-shot SHA-1 of a buffer into a 20-byte digest, wiping the context on exit",
+    "description": "Clears a 92-byte mbedTLS SHA-1 context with memset and loads the standard IV (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0). It feeds the input through mbedtls_sha1_update_ret when the length is non-zero and writes the 20-byte digest through mbedtls_sha1_finish_ret. The finish is skipped when the update fails, so the output is then left untouched. The context is zeroed byte by byte before returning.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "input data"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "input length in bytes; 0 is allowed"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "20-byte digest output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04aae8": {
+    "name": "ble_sha1_oneshot_thunk",
+    "summary": "Thunk: branch to ble_sha1_oneshot at 0x0C04AA80",
+    "description": "A single-instruction branch to ble_sha1_oneshot at 0x0C04AA80; Ghidra shows the target body here. Arguments pass through unchanged, so the behaviour is that of ble_sha1_oneshot. Its only caller in this packet is ble_sha1_mix_pair16.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "input data pointer, as in ble_sha1_oneshot"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "input length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "20-byte digest output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c04af54": {
+    "name": "hid_report_size_valid",
+    "summary": "BTstack hid_report_size_valid(): check a report size against boot rules or the HID descriptor",
+    "description": "Entry of BTstack hid_report_size_valid(cid, report_id, report_type, size). The first three instructions reject size 0, and the rest is the body at 0x0C04AF5A. For the boot-protocol device (cid equal to DAT_2000FA10 and protocol-mode byte DAT_2000FA2A equal to 0), report ID 1 (keyboard) needs size 8 or more, report ID 2 (mouse) at least 1, and any other ID fails. A cid mismatch logs 'hid_device_in_boot_protocol_mode: could not find hid device instace' (hid_device.c line 0x3D6) through ble_hook_invoke_indexed and falls through. Otherwise the size must equal btstack_hid_get_report_size_for_id(report_id, report_type, DAT_2000FA0C, DAT_2000FA08) exactly, and a zero result fails.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "HID cid"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "report ID"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "report type: 1 input, 2 output, 3 feature"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "report size in bytes, non-zero on entry"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when the size is valid for that report"
+    },
+    "confidence": "high",
+    "notes": "Entry split: the body is hid_report_size_valid_body (ble_219_0c04af5a), which carries the same logic; the split is a Ghidra artefact."
+  },
+  "ble_219_0c04afcc": {
+    "name": "hid_device_validate_report",
+    "summary": "Check an outgoing HID report's report ID and size against the device's descriptor",
+    "description": "Checks a report about to be sent on device cid (param_1) with report type param_2 and length param_3, whose bytes are at param_4. If the descriptor declares report IDs (btstack_hid_report_id_declared on DAT_2000FA0C and DAT_2000FA08), the first byte is the report ID: an INVALID ID (hid_report_id_status returns 2) gives result 2 at once, and one byte is removed from the length. Without declared IDs the report ID is 0. The size is then validated by hid_report_size_valid (0x0C04AF54), and a failure returns 4.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "HID cid"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "report type: 1 input, 2 output, 3 feature"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "report length, including the report ID byte when IDs are declared"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "report bytes"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when valid, 2 for an invalid report ID, 4 for a bad size"
+    },
+    "confidence": "medium",
+    "notes": "The function that transmits the report is not in this packet, and the name is ours."
+  },
+  "ble_219_0c04b788": {
+    "name": "hid_create_sdp_record",
+    "summary": "Build the HID device SDP service record into a data-element buffer",
+    "description": "Writes the complete HID device SDP service record into the data-element buffer at param_1 with the BTstack sdp_util builders. Attributes emitted: 0x0000 record handle (param_2), 0x0001 service class 0x1124 (HID), 0x0004 protocol list L2CAP plus HIDP (PSM 0x11), 0x0006 language base (en, UTF-8, base 0x0100), 0x0009 profile descriptor (HID version 0x0101), 0x000D additional protocol list with L2CAP PSM 0x13 (interrupt channel), and 0x0100 the service name, read as a pointer and strlen from the parameter block. The HID attributes are 0x0201 parser version 0x0111, 0x0202 subclass (u16 at byte 0), 0x0203 country code (byte 2), 0x0204 virtual cable (byte 3), 0x0205 reconnect initiate (byte 5), 0x020A remote wake (byte 4), 0x020C supervision timeout (u16 at byte 12), 0x020D normally connectable (byte 6), 0x020E boot device (byte 7), 0x020F and 0x0210 SSR latency and timeout (u16 at bytes 8 and 10), and 0x0206 the report descriptor as a type-0x22 element with pointer at byte 16 and length at byte 20.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer for the data elements"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "service record handle"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "HID configuration block; byte offsets are given in the description"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The name follows the upstream BTstack builder name from memory; no SDP string in the export confirms it. Offsets are byte offsets within the parameter block."
+  },
+  "ble_219_0c04bb00": {
+    "name": "hid_device_init",
+    "summary": "Store the HID report descriptor and callbacks, then register HID PSMs 0x11 and 0x13",
+    "description": "Stores the report descriptor length (u16 param_2, to 0x2000FA0C) and pointer (param_3, to 0x2000FA08), stores the u8 param_1 at 0x2000F9FC, and installs three handler pointers 0x0C04AEF0, 0x0C04AEFC and 0x0C04AEF8 (Thumb bit set) at 0x20003F9C, 0x20003FA0 and 0x20003FA4. It then registers the HID control PSM 0x11 and the interrupt PSM 0x13 with l2cap_register_service, each with MTU 100 and the security level from ble_ctrl_env_get_mode_or_4 (0x0C066EE4), using the fixed handler context LAB_0C04B01C. The arguments match the descriptor-length and descriptor parameters of BTstack hid_device_init() as far as known; the extra u8 parameter is not explained. The caller is 0x0C058F00.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "not interpreted; stored at 0x2000F9FC"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "report descriptor length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "report descriptor bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c04bd48": {
+    "name": "sdp_init",
+    "summary": "Register the SDP server on PSM 1 with MTU 0xFFFF and no security",
+    "description": "Sets the 32-bit word at 0x2000FCAC to 0x00010001 and registers PSM 1 (SDP) with l2cap_register_service, MTU 0xFFFF, security level 0 and the handler context LAB_0C04C374. The 0x00010001 value is not identified; it may be two initial 16-bit fields. The name follows the BTstack sdp_init() convention for this registration, and the caller is 0x0C059230.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  }
+}

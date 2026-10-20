@@ -1,0 +1,14 @@
+{
+  "structs": {
+    "BmsProfileSet": {
+      "description": "One profile parameter set: three 11-entry u16 curves that bms_profile_block_fill_* copies into the profile block (curve_a to +0x5E, curve_b to +0x00, curve_c to +0x16). Same layout in builds 4130, 4139, 4148 and 4168.",
+      "size": 66,
+      "fields": [
+        {"name": "curve_a", "offset": 0, "type": "u16", "count": 11, "description": "First curve, copied to the profile block at +0x5E; 11 breakpoints indexed by the fill loop counter 0 to 10 (meaning not individually established)."},
+        {"name": "curve_b", "offset": 22, "type": "u16", "count": 11, "description": "Second curve, copied to the profile block at +0x00 with the same loop index."},
+        {"name": "curve_c", "offset": 44, "type": "u16", "count": 11, "description": "Third curve, copied to the profile block at +0x16 with the same loop index."}
+      ]
+    }
+  },
+  "enums": {}
+}

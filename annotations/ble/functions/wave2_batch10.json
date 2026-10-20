@@ -1,0 +1,660 @@
+{
+  "ble_219_0c065a50": {
+    "name": "ble_ctrl_deferred_list_add",
+    "summary": "Append an item to the global deferred list whose head is at 0x200190A4",
+    "description": "Thin thunk to the list append routine 0x0C065416 (btstack_linked_list_add_tail_impl). It appends its single argument to the list whose head pointer lives at the RAM global DAT_200190A4, a list separate from the controller environment at DAT_200190D0. The consumer of that list is not present in this packet, so the purpose is inferred from the placement only. The wrapper exists to keep the call site short.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "item",
+        "type": "ptr",
+        "description": "list node to append (linked item with next pointer at +0)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Consumer of the list at 0x200190A4 is unknown; name reflects only the placement."
+  },
+  "ble_219_0c065b24": {
+    "name": "bd_addr_cmp",
+    "summary": "Compare two 6-byte Bluetooth device addresses",
+    "description": "Calls newlib memcmp on the first 6 bytes of the two address buffers (length constant 6), using the BTstack name bd_addr_cmp. The decompiled function is typed void and drops the result, but the memcmp result is passed through in r0, so callers test it as an ordering (0 when equal). It is used for BD_ADDR matching; the one caller in this packet is not described yet.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "a",
+        "type": "ptr",
+        "description": "first 6-byte BD_ADDR"
+      },
+      {
+        "name": "b",
+        "type": "ptr",
+        "description": "second 6-byte BD_ADDR"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the addresses are equal, otherwise the memcmp ordering"
+    },
+    "confidence": "medium",
+    "notes": "Decompiler shows void; the return value is inferred from the tail call."
+  },
+  "ble_219_0c065d1c": {
+    "name": "ble_ctrl_addr_string_slot_store",
+    "summary": "Write a BD_ADDR as 'XX:XX:XX:XX:XX:XX' into every all-zero 17-byte slot",
+    "description": "Scans a byte array of param_2 bytes at param_1 with a step of 1 byte. Where a 17-byte slot equals the placeholder '00:00:00:00:00:00' (including the NUL, compared with memcmp), it formats the 6-byte address at param_3 as twelve uppercase hex digits separated by colons into the scratch bytes 0x200190BC..0x200190CC, terminates the string at 0x200190CD and copies it into the slot. Scanning then continues 17 bytes further, so consecutive free slots are all filled, and non-matching bytes advance the scan by one. This looks like a text-form address table (the BThost name at env+0x2C uses the same placeholder layout); the caller is not described in this packet.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "table",
+        "type": "ptr",
+        "description": "array of 17-byte ASCII address slots"
+      },
+      {
+        "name": "table_len",
+        "type": "s32",
+        "description": "length of the table in bytes"
+      },
+      {
+        "name": "addr",
+        "type": "ptr",
+        "description": "6-byte BD_ADDR to format"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Uses fixed RAM scratch 0x200190BC..0x200190CD. Purpose of the table is not confirmed."
+  },
+  "ble_219_0c065e20": {
+    "name": "ble_ctrl_update_link_slot_flag",
+    "summary": "Recompute the link-slot-available flag at env+0x220 from the connection list",
+    "description": "When bit 2 of the env byte at 0x21F is clear, it clears the bool at env+0x220 and returns. Otherwise it walks the connection list at env+0x14 and counts nodes whose state byte +0xE is 4, whose byte +0xD is 1 and whose address-type/class byte +0xC is below 4. The bool at env+0x220 is set to (count < the limit byte at env+0x221). The bit-2 gate is set elsewhere and its owner is not described in this packet.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Meaning of bytes +0xC/+0xD/+0xE is inferred from the comparisons only."
+  },
+  "ble_219_0c065ef8": {
+    "name": "ble_ctrl_pending_drain_and_arm_timer",
+    "summary": "Free every entry of the list at env+0x1E8 and arm the 1000 ms timer at env+0x19C",
+    "description": "Walks the list at env+0x1E8 with the removal-safe iterator, unlinks each entry and returns it to the global free pool with btstack_memory_free_list_push. It then stores the u16 0x3F03 at env+0x198 (state byte 3 at +0x198) and initialises the timer embedded at env+0x19C: period 1000 ms, handler 0x0C068D6C, then adds it to the run loop. The result is a reset of a pending-item queue followed by a one-second timer; the timer's purpose is not confirmed.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Callback 0x0C068D6C is named LAB_0c068d6c in the decompile and is not described here."
+  },
+  "ble_219_0c065f6c": {
+    "name": "ble_ctrl_conn_arm_timeout_timer",
+    "summary": "Re-arm a connection deadline timer for (node+0x50 + 6 - now) milliseconds",
+    "description": "Reads the run-loop time, then picks the timer embedded in the connection record: the one at +0x6C when bit 0 of byte +0x54 is set, otherwise the one at +0x58. The chosen timer is removed, set to fire after (value at +0x50 + 6 - now) milliseconds, given the 16-bit handle at +0x0A as its context, and given handler 0x0C066B74 (ble_ctrl_conn_timer_update_state), then added to the run loop. The +0x6C timer is created in ble_ctrl_conn_alloc_and_register with the node pointer as context, so using the handle here is inconsistent for that timer.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The +6 offset and the meaning of +0x50 are unconfirmed. Context type mismatch on the +0x6C timer should be checked."
+  },
+  "ble_219_0c066004": {
+    "name": "hci_emit_event",
+    "summary": "Deliver an internal HCI event buffer to every registered event handler",
+    "description": "Walks the event-handler list at env+0x20 (entries added by hci_add_event_handler, callback at entry+4) with the removal-safe iterator. Each callback is called as callback(4, 0, packet, size), where 4 is the HCI event packet type in BTstack and 0 is the channel. The buffer is not copied, so it must remain valid for the synchronous call. Almost every state change in this packet is reported through it, using the internal event codes 0x61, 0x62, 0x73, 0xD8, 0xD9, 0xE0, 0xE1 and 0x6F.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "packet",
+        "type": "ptr",
+        "description": "event buffer: code byte, parameter length, parameters"
+      },
+      {
+        "name": "size",
+        "type": "s32",
+        "description": "buffer length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066040": {
+    "name": "ble_ctrl_conn_set_pending_notify",
+    "summary": "Set connection pending bit 0x400 or 0x800 and emit event 0xE0/0x0A",
+    "description": "If the 0xC00 pending field of node+0x68 is clear, it sets 0x400 (param 0) or 0x800 (param nonzero). When bit 12 of node+0x10 is clear it also sets node+0x17 to the larger of its current value and the byte at env+0x59 (co_max_u32). It then emits a 12-byte event E0 0A: the u16 handle at +2 (little-endian), the peer address reversed at +4..+9, the parameter byte at +10 and the bool from bit 12 at +11, via hci_emit_event. Nothing is emitted when a pending bit is already set.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      },
+      {
+        "name": "kind",
+        "type": "s32",
+        "description": "0 selects pending bit 0x400, nonzero selects 0x800; also written as the event parameter byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event 0xE0 subtype 0x0A semantics are not confirmed."
+  },
+  "ble_219_0c0660c0": {
+    "name": "ble_ctrl_conn_clear_pending_notify",
+    "summary": "Clear connection pending bits and emit event 0xE1/0x09 with a status byte",
+    "description": "Clears node+0x17 and the 0xC00 pending field of node+0x68, then emits an 11-byte event E1 09: the u16 handle at +2, the reversed peer address at +4..+9 and the status byte at +10. When the status is nonzero and bit 15 of node+0x10 is set, that bit is cleared, bit 10 (0x400) is set and the status is stored at node+0x14 for later use.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      },
+      {
+        "name": "status",
+        "type": "s32",
+        "description": "status byte reported in the event"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Use of node+0x14 after the deferred path is not visible in this packet."
+  },
+  "ble_219_0c06611c": {
+    "name": "ble_ctrl_conn_idle_timeout_check",
+    "summary": "Timer callback: after 10 s since node+0x7C emit event 0x73 with the handle",
+    "description": "Runs as the handler of the connection's +0x6C timer; the context is the connection pointer. If the u32 timestamp at node+0x7C plus 10000 ms is earlier than the current run-loop time, and the global byte DAT_200190CE is zero, it emits a 4-byte event 0x73 0x02 followed by the u16 handle at +2 via hci_emit_event. The timestamp is written at allocation by ble_ctrl_conn_alloc_and_register. The meaning of event 0x73 and of DAT_200190CE is not confirmed.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event size is taken as 4 from the layout (code, length 2, handle); the decompile shows only one argument."
+  },
+  "ble_219_0c066168": {
+    "name": "ble_ctrl_conn_alloc_and_register",
+    "summary": "Allocate a connection record for a peer address and link it into the connection list",
+    "description": "Takes a zeroed hci_connection block from btstack_memory_hci_connection_get (800-byte pool). It sets the state byte +0x3C to 3, the address-type byte +0xC from the argument, the handle +0xA to 0xFFFF (unassigned), +0xD to 0xFF, +0x28 and +0x36 to 0xFFFF, +0x57 to 0xFF, +0x1A2 to 0xFF, clears the flags at +0x10 and +0x68, and copies the peer address to +4 with bd_addr_copy. It stores the current time at +0x7C, installs handler 0x0C06611C and context = the record on the +0x6C timer (not started here), and appends the record to the list at env+0x14. Returns the record, or NULL when the pool is empty.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "addr",
+        "type": "ptr",
+        "description": "6-byte peer BD_ADDR"
+      },
+      {
+        "name": "addr_type",
+        "type": "u8",
+        "description": "address type stored at +0xC"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "new connection record, or NULL when the pool is exhausted"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0661e8": {
+    "name": "hci_power_control_on",
+    "summary": "Power the controller on, run HCI_INIT, and emit event 0x62 when it fails",
+    "description": "Calls the power-on hook at control struct env[3]+4 when present; on failure it logs 'POWER_ON failed' (hci.c line 0x12E9) and skips to the failure exit. On success it calls the optional pre-init hook at env[2]+4, then the table entry env[0]+4 with env[1], then HCI_INIT through env[0]+8. If HCI_INIT fails it logs 'HCI_INIT failed, turning Bluetooth off again' (hci.c 0x12FB) and calls the power-off hook env[3]+8. On any failure it emits the 2-byte event 0x62 0x00 with hci_emit_event and returns the failure code; on success it returns 0 without the event.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, otherwise the failing step's nonzero return code"
+    },
+    "confidence": "high",
+    "notes": "The control structs at env[2] and env[3] are not described; their +4/+8 slots are read as hooks from the code."
+  },
+  "ble_219_0c066280": {
+    "name": "ble_ctrl_conn_key_size_check",
+    "summary": "Apply the encryption key size check and set the connection status for event 0xD8/0x03",
+    "description": "Stores the negotiated key size in node+0x16 and sets flag 0x2000 in node+0x68. Until bit 0x1000 of node+0x68 is set, it only maintains the connection flags: bit 15 of node+0x10 turns into pending 0x400 with status 0x2F, otherwise bits 0x3 and 0x800 are set. Once 0x1000 is set, a key size below the minimum at env+0x52 gives status 0, and otherwise the status depends on the state word at +0x28 and the key size (0x3 or 0x4 for states 0, 5 and 8, 0x2 for other states). A non-zero status is sent as event 0xD8 0x03 with the handle, cleared node+0x17 first, unless bit 15 turns it into a pending state.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      },
+      {
+        "name": "key_size",
+        "type": "u8",
+        "description": "negotiated encryption key size in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Status values 0/2/3/4 and the 0x2F (insufficient security) pending path are read from the code; their protocol meaning is inferred. Minimum key size default 7 is set in ll_env_init."
+  },
+  "ble_219_0c06637a": {
+    "name": "ble_ctrl_conn_free_and_report_disconnect",
+    "summary": "Unlink and free a connection, emitting event 0xD9/0x07 when bit 15 is set",
+    "description": "Copies the peer address and handle, unlinks the record from the connection list at env+0x14 (btstack_linked_list_remove) and returns it to the pool (btstack_memory_hci_connection_free). If bit 15 of node+0x10 was set it emits a 9-byte event D9 07: the reason byte, then the peer address reversed. Finally, when the reason is 5 and the interface table at env+0x10 has an entry at +0x14, it calls that entry with the address.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      },
+      {
+        "name": "reason",
+        "type": "u8",
+        "description": "disconnect reason byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Reason 5 is treated as a special case by the code; its HCI meaning is not confirmed."
+  },
+  "ble_219_0c0663e8": {
+    "name": "ble_ctrl_conn_teardown_and_count",
+    "summary": "Stop a connection's timers, unlink and free it, then emit event 0x61 with the count",
+    "description": "Removes both the +0x58 and +0x6C timers from the run loop, unlinks the record from env+0x14 and frees it. It then counts the connections still on the list and emits the 3-byte event 61 01 count via hci_emit_event. If the removed record's address-type byte is 0xFC and the interface table has an entry at +0x24, it calls that entry with the u16 at env+0x1D2 and the number of 0xFC-type connections still present, which is a tail call in the binary.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "conn",
+        "type": "ptr",
+        "description": "connection record"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "0xFC is treated as an LE connection type by the code; this packet does not name it."
+  },
+  "ble_219_0c066544": {
+    "name": "ble_ctrl_conn_iter_init",
+    "summary": "Initialise a removal-safe iterator over the connection list at env+0x14",
+    "description": "Wrapper that calls btstack_linked_list_iterator_init on the connection list head at env+0x14, filling the caller's iterator storage (12 bytes in most callers). Callers then use btstack_linked_list_iterator_has_next and _next to walk the connections.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "iter",
+        "type": "ptr",
+        "description": "iterator storage supplied by the caller"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066554": {
+    "name": "ble_ctrl_conn_find_by_handle",
+    "summary": "Find the connection record whose handle (u16 at +0x0A) equals the argument",
+    "description": "Walks the connection list at env+0x14 with the iterator and returns the first record whose u16 handle at +0x0A equals the argument. Returns NULL when no record matches. The decompiled output is typed void with a bare return, but the matching node is left in r0 by the iterator-next call, so this is treated as a pointer-returning lookup.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "matching connection record, or NULL"
+    },
+    "confidence": "medium",
+    "notes": "Return value inferred from the register flow; the decompile does not show it."
+  },
+  "ble_219_0c066588": {
+    "name": "ble_ctrl_conn_find_by_addr",
+    "summary": "Find the connection record for a peer address and address type",
+    "description": "Walks the connection list at env+0x14 and returns the first record whose address-type byte at +0xC equals param_2 and whose 6-byte address at +4 matches param_1 (memcmp of 6 bytes). Returns NULL when no record matches. Used to look a peer up before its handle is known.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "addr",
+        "type": "ptr",
+        "description": "6-byte BD_ADDR"
+      },
+      {
+        "name": "addr_type",
+        "type": "u8",
+        "description": "address type to match"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "matching connection record, or NULL"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0665d4": {
+    "name": "ble_ctrl_conn_has_pending_flag",
+    "summary": "Return 1 when the connection with a handle has a pending bit (0x400 or 0x800) set",
+    "description": "Looks up the connection by handle (u16 at +0x0A) and returns 1 if (node+0x68 & 0x0C00) is non-zero, otherwise 0. It also returns 0 when no connection has that handle. The 0x0C00 field is the pending state written by ble_ctrl_conn_set_pending_notify and cleared by ble_ctrl_conn_clear_pending_notify.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "1 when a pending bit is set, otherwise 0"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06662c": {
+    "name": "ble_ctrl_iface_iterate_dispatch",
+    "summary": "Iterate the interface table's items and pass each one to its handler",
+    "description": "Uses the interface table at env+0x10 as a generic iterator. It calls table+0x18 to initialise an iterator (auStack_2c); if that succeeds it loops, calling table+0x1C to fetch the next item into two output buffers and table+0x14 with the item for each one, and stops when table+0x1C returns 0. It finishes with table+0x20 on the iterator. If initialisation fails it logs 'could not initialize iterator' at hci.c line 0x210. Which items are visited is not visible in this packet.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Slot meanings of the interface table are inferred from the call pattern only."
+  },
+  "ble_219_0c0666e4": {
+    "name": "hci_number_free_acl_slots",
+    "summary": "Return free ACL packet slots for an address-type class",
+    "description": "Computes free host-to-controller packet slots from the buffer totals: the classic ACL total at env+0x178 and the LE total at env+0x17F. Outstanding packets are summed over the connection list from the per-connection byte at +0x194, counted against the classic total for type 0xFD and against the LE total for types below 4. Selector 0xFD returns the classic free count, selector 0 returns the LE free count (or the shared classic count when the LE total is zero), and selector 0xFE is rejected as an unknown address type. Negative results log an error (hci.c lines 0x259, 0x261, 0x268, 0x26F) and return 0.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "addr_type",
+        "type": "u8",
+        "description": "address-type selector: 0 for LE, 0xFD for classic, 0xFE rejected"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "number of free packet slots, 0 on error"
+    },
+    "confidence": "medium",
+    "notes": "Selector constants inferred from the code paths. The packet-count byte +0x194 and the buffer totals are inferred from usage."
+  },
+  "ble_219_0c0669a8": {
+    "name": "ble_ctrl_can_send_le_acl",
+    "summary": "Return true when LE ACL packets can be sent now",
+    "description": "Returns false when the byte at env+0x5C is set. Otherwise it requires the readiness check at table+0x14 (called with 2) to succeed or be absent, then returns whether hci_number_free_acl_slots(0) is non-zero, i.e. free LE slots exist.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when an LE ACL packet can be queued"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0669d8": {
+    "name": "ble_ctrl_can_send_to_handle",
+    "summary": "Return true when the connection with a given handle has free ACL slots",
+    "description": "Runs the readiness check at table+0x14 (argument 2), then searches the connection list for the handle and returns hci_number_free_acl_slots(record address type) != 0. If the handle is unknown it logs 'hci_number_free_acl_slots: handle 0x%04x not in connection list' (hci.c line 0x281) and returns false.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when that connection can take another packet"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066a64": {
+    "name": "ble_ctrl_can_send_br_edr_acl",
+    "summary": "Return true when classic (BR/EDR) ACL packets can be sent now",
+    "description": "Same gating as ble_ctrl_can_send_le_acl (the flag at env+0x5C and the table+0x14 check with argument 2), but queries hci_number_free_acl_slots with the classic selector 0xFD.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when a classic ACL packet can be queued"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066b20": {
+    "name": "ble_ctrl_flush_deferred_event",
+    "summary": "Send the deferred 0x6F event once the controller is idle and a link slot is free",
+    "description": "When the deferred-event byte env+0x186 is set, the reserved-buffer byte env+0x170 is clear and ll_env_has_free_slot() succeeds, it clears env+0x186, builds the 2-byte event 0x6F 0x00 and passes it to ble_hook_invoke4 with packet type 4 and channel 1. It then calls the env callback at env+0x1C with (4, 0, buffer, 2).",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Event 0x6F semantics are not confirmed. The env+0x1C callback is not identified."
+  },
+  "ble_219_0c066b74": {
+    "name": "ble_ctrl_conn_timer_update_state",
+    "summary": "Timer callback: set the connection state byte +0x56 and flush the deferred event",
+    "description": "Runs as the handler of the connection's +0x58 timer, with the 16-bit handle as context. It finds the connection by handle in env+0x14 and sets node+0x56 to 1. It changes that to 2 when the u16 at env+0x1D2 AND 3 is not 3 and the byte at env+0x17D is below 0x7B (123). It then calls ble_ctrl_flush_deferred_event.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Meaning of the values 1 and 2 at +0x56 is not confirmed."
+  },
+  "ble_219_0c066be8": {
+    "name": "hci_reserve_packet_buffer",
+    "summary": "Reserve the single outgoing packet buffer by setting env+0x170",
+    "description": "If the reserved-buffer byte env+0x170 is clear, it sets it to 1 and returns 1. Otherwise it logs 'hci_reserve_packet_buffer called but buffer already reserved' (hci.c line 0x2F5) and returns 0. The flag is cleared by ll_env_clear_flag_170 and read by ll_env_get_flag_170.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "1 when the buffer was reserved, 0 when it was already reserved"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066d84": {
+    "name": "ble_ctrl_clear_secondary_list",
+    "summary": "Unlink every entry of the secondary list at env+0x224 without freeing them",
+    "description": "Walks the list at env+0x224 with the removal-safe iterator and unlinks each entry with btstack_linked_list_remove. The entries are not returned to any pool, so this only empties the list. That list is separate from the connection list (env+0x14) and the event-handler list (env+0x20).",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066dbc": {
+    "name": "hci_add_event_handler",
+    "summary": "Register a packet handler on the event-handler list at env+0x20",
+    "description": "Appends the registration entry to the list at env+0x20 through btstack_linked_list_add_tail (thunk 0x0C065416). hci_emit_event later calls the entry's callback at +4 for every event. The name matches the BTstack function of the same purpose.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "registration",
+        "type": "ptr",
+        "description": "packet handler registration; callback at +4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066dcc": {
+    "name": "hci_remove_event_handler",
+    "summary": "Unregister a packet handler from the event-handler list at env+0x20",
+    "description": "Unlinks the registration from the event-handler list at env+0x20 with btstack_linked_list_remove. Pair of hci_add_event_handler.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "registration",
+        "type": "ptr",
+        "description": "packet handler registration to remove"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066dfc": {
+    "name": "ll_env_init",
+    "summary": "Initialise the link-layer environment and register the HCI packet handler",
+    "description": "Points DAT_200190D0 at the 0x240-byte environment at DAT_200190D4 and clears it with memset. It stores the transport table (param_1) at env+0x00 and the context (param_2) at env+0x04, then installs the HCI packet handler 0x0C068DA8 through table+0x10. Defaults set here: the state byte at +0x198 = 0, bytes +0x58 = 2 and +0x5A = 4, the minimum encryption key size at +0x52 = 7, the LE connection-parameter ranges at +0x1EC/+0x1F0/+0x1F4 (interval 6..3200, latency 0..500, supervision timeout 10..3200), the local name pointer at +0x2C ('BThost 00:00:00:00:00:00'), and several capability words. It then calls ll_env_reset_defaults.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "transport",
+        "type": "ptr",
+        "description": "transport/callback table; entry +0x10 sets the packet handler"
+      },
+      {
+        "name": "context",
+        "type": "ptr",
+        "description": "opaque context stored at env+0x04"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Parameter ranges are read as BLE spec units (1.25 ms, 10 ms) from the values. The packet handler 0x0C068DA8 is not described in this packet."
+  },
+  "ble_219_0c06b218": {
+    "name": "ble_ctrl_conn_check_flags_0x60",
+    "summary": "Return true when a connection's flags at +0x10 have both bits 0x20 and 0x40 set",
+    "description": "Returns false unless the env byte at 0x18E has bit 3 set and the env byte at 0x41 is non-zero. Under those conditions it looks up the connection by handle and returns whether (node+0x10 & 0x60) == 0x60. Returns false when no connection has that handle.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when both flag bits are set"
+    },
+    "confidence": "medium",
+    "notes": "Meaning of the two flag bits and the env gating bytes is not confirmed."
+  },
+  "ble_219_0c06b274": {
+    "name": "ble_ctrl_conn_get_flag_bit4",
+    "summary": "Return bit 4 (0x10) of a connection's flags at +0x10, or 0 for an unknown handle",
+    "description": "Looks up the connection by handle and returns (node+0x10 & 0x1F) >> 4, which is 1 when bit 0x10 is set and 0 otherwise. Other flag bits are masked out. Returns 0 when no connection has that handle.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "0 or 1"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of bit 0x10 is not confirmed."
+  },
+  "ble_219_0c06b2fc": {
+    "name": "ble_ctrl_conn_get_level_by_handle",
+    "summary": "Return the link security tier (0..4) of a connection looked up by handle",
+    "description": "Looks up the connection by handle and applies the same classification as ll_link_get_level (0x0C065FBC): 0 when the record is missing, when the status bits (node+0x68 & 0x3000) are not both set, or when the key size at +0x16 is below the minimum at env+0x52. Otherwise the tier comes from the state word at +0x28: 5 and 0 give 3, 8 gives 3 when the key size is below 16 and 4 otherwise, and any other state gives 2.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "tier 0 (not eligible), 2, 3 or 4"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06b92c": {
+    "name": "ble_ctrl_conn_addr_class_by_handle",
+    "summary": "Classify a connection's address-type byte into a small class (by handle)",
+    "description": "Looks up the connection by handle and maps its address-type byte at +0xC. 0xFC gives 2, 0x00 and 0x01 (LE public and random) give 3, 0x02..0xFB give 0, 0xFD gives 1, and 0xFE and 0xFF give 0. Returns 0 when no connection has that handle. The class names are inferred from the sentinel values and are not confirmed.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "class 0..3 as described"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c06b984": {
+    "name": "ble_ctrl_conn_get_state_by_handle",
+    "summary": "Return the state byte at +0x0D of a connection looked up by handle (0xFF if unknown)",
+    "description": "Looks up the connection by handle and returns the byte at its +0x0D offset, which ble_ctrl_conn_alloc_and_register initialises to 0xFF. Returns 0xFF when no connection has that handle, so 0xFF means unset or unknown to callers. ble_ctrl_update_link_slot_flag compares this byte with 1.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "handle",
+        "type": "u16",
+        "description": "connection handle"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "state byte, 0xFF when the handle is unknown"
+    },
+    "confidence": "high"
+  }
+}

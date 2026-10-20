@@ -1,0 +1,68 @@
+{
+  "mcu_g_0160_20000000": {
+    "name": "startup_avg_ring_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20000000"],
+    "category": "startup",
+    "description": "Round-robin write index, 0 to 4, of the five-entry sample average in mcu_0160_0800a320. Each call stores one 32-bit sample from mcu_0160_08003178 (mcu_position_to_rpm_q15) at 0x20000744 plus 4 times this index, then advances the index and wraps it to 0 after 4. The five entries are averaged into DAT_20000860 on every call. The start-up init table takes its address, so it is probably zeroed at reset."
+  },
+  "mcu_g_0160_200003ac": {
+    "name": "startup_identity_ok",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["MCU_0160", "0x200003ac"],
+    "category": "startup",
+    "description": "Identity flag. mcu_0160_0800b324 clears it at start-up, and mcu_0160_0800b10c reads it. When it is 0, b10c takes its computed path; when it is 1 and DAT_20000688 is at least 16, b10c uses a fixed value of 0x78000 instead. Probably 1 means the device identity was accepted, but the code that sets it to 1 is not in this packet."
+  },
+  "mcu_g_0160_200003b0": {
+    "name": "startup_uid_checksum",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200003b0"],
+    "category": "startup",
+    "description": "Checksum over the device unique ID: the bitwise complement of the sum of the three UID words in startup_uid_copy. It is written by mcu_read_device_identity (0x08008EA4). The comparison that uses it is not in this packet, so its consumer is unknown."
+  },
+  "mcu_g_0160_20001e1c": {
+    "name": "startup_idcode_match",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x20001e1c"],
+    "category": "startup",
+    "description": "1 when the debug IDCODE copy startup_idcode_read equals the Artery AT32F415 constant in startup_idcode_expected, otherwise 0. mcu_read_device_identity writes it once at start-up. The IDCODE is a public chip identifier, not a secret."
+  },
+  "mcu_g_0160_20001f44": {
+    "name": "startup_uid_shadow",
+    "type": "u32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x20001f44"],
+    "category": "startup",
+    "description": "Shadow copies of the three UID words in startup_uid_copy: word k is at 0x20001f44 plus 4 times k. mcu_read_device_identity writes them, and mcu_0160_0800b324 compares each one with its live copy. A mismatch sends b324 down its failure branch, which calls FUN_0800a244 with code 0x1B (probably a fault report)."
+  },
+  "mcu_g_0160_20001fb0": {
+    "name": "startup_idcode_read",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001fb0"],
+    "category": "startup",
+    "description": "Copy of the debug IDCODE register (the DEBUG symbol, at address 0xE0042000), taken by mcu_read_device_identity. It is compared with startup_idcode_expected, and the result goes to startup_idcode_match."
+  },
+  "mcu_g_0160_20001fb4": {
+    "name": "startup_idcode_expected",
+    "type": "u32",
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20001fb4"],
+    "category": "startup",
+    "description": "Expected IDCODE, the constant 0x700301C5 that the Artery AT32F415 family reports. mcu_read_device_identity stores it before the comparison that sets startup_idcode_match."
+  },
+  "mcu_g_0160_20001fbc": {
+    "name": "startup_uid_copy",
+    "type": "u32",
+    "count": 3,
+    "size": 12,
+    "anchor": ["MCU_0160", "0x20001fbc"],
+    "category": "startup",
+    "description": "Three 32-bit words copied from the 96-bit unique device ID in read-only flash at 0x1FFFF7E8, by mcu_read_device_identity. Word 0 is at 0x20001fbc, word 1 at 0x20001fc0 and word 2 at 0x20001fc4. They feed startup_uid_checksum and the shadow copies in startup_uid_shadow."
+  }
+}

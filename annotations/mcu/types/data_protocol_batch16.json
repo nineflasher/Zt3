@@ -1,0 +1,22 @@
+{
+  "structs": {
+    "FwupBlock": {
+      "size": 8,
+      "description": "One 8-byte block of firmware transfer data as two 32-bit words, as the frame handler mcu_0160_0800672c stores it. Used for the previous and the current block of the transfer (protocol_fwup_prev_block at 0x200006D4 and protocol_fwup_cur_block at 0x200006DC).",
+      "fields": [
+        {
+          "name": "word0",
+          "offset": 0,
+          "type": "u32",
+          "description": "First four bytes of the block, in the frame's byte order. Holds the raw (still encrypted) data when the block is stored."
+        },
+        {
+          "name": "word1",
+          "offset": 4,
+          "type": "u32",
+          "description": "Last four bytes of the block, in the frame's byte order. Holds the raw (still encrypted) data when the block is stored."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "bms_g_4168_20000003": {
+    "name": "bms_limit_update_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000003"],
+    "category": "protection",
+    "description": "One-shot byte flag of bms_limit_status_update (4168 build). It is tested for zero and nonzero, and when it is nonzero the routine clears it to 0 after acting on it. Probably a 'limit update pending' request that another step sets; the setter is not in this packet."
+  },
+  "bms_g_4168_20000004": {
+    "name": "bms_limit_copy_word",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x20000004"],
+    "category": "protection",
+    "description": "16-bit word that bms_limit_status_update copies into a local variable and then resets to 0 on the same pass (4168 build). Probably the limit-status value handed over at each 1000-tick publish; its producer is not identified in this packet, so the meaning is a guess."
+  },
+  "bms_g_4168_2000000c": {
+    "name": "bms_limit_period_ticks",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4168", "0x2000000c"],
+    "category": "protection",
+    "description": "Elapsed-time accumulator of bms_limit_status_update in the 4168 build. Each call adds the elapsed tick count; while the sum is below 1000 the routine returns, and at 1000 the periodic limit publish runs and the accumulator resets to 0 (tick unit probably 1 ms). The family map pairs this family with build 4148 at 0x20000008; the 4148 entry at 0x2000000c is a separate object."
+  },
+  "bms_g_4148_2000000c": {
+    "name": "bms_limit_period_ticks_4148",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["BMS_4148", "0x2000000c"],
+    "category": "protection",
+    "description": "4148 build copy of the 1000-tick accumulator used by bms_limit_status_update (same routine, same 1000 limit). It is probably the same counter as bms_limit_period_ticks, which the family map places at 0x20000008 in build 4148. Reset to 0 after each publish."
+  },
+  "bms_g_4168_20000010": {
+    "name": "bms_limit_cycle_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000010"],
+    "category": "protection",
+    "description": "Small counter in bms_limit_status_update (4168 build). It is incremented once per 1000-tick period and reset to 0 when it passes 2, so it cycles through 0 to 2. Probably a debounce count of consecutive limit periods before the limit state changes."
+  },
+  "bms_g_4168_20000014": {
+    "name": "bms_limit_step_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000014"],
+    "category": "protection",
+    "description": "Stage counter in bms_limit_status_update (4168 build). Incremented on each pass and reset to 0 when it passes 5, so it cycles through the values 0 to 5. Probably selects one of six stages of the limit sequence; the stage meanings are not established."
+  },
+  "bms_g_4168_20000024": {
+    "name": "bms_profile_table_id",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000024"],
+    "category": "protection",
+    "description": "Profile class of the battery model in the 4168 build. bms_profile_select_from_code stores 2, 3 or 4 (or 1 by default) after decoding the model code; bms_profile_table_fill_4168 reads it to pick the record table, and the SOC, derate and protection code test it for values 5 to 8 (modes 6 to 8 use special SOC bands and thresholds). Mirrored at 0x14 in builds 4130 and 4139 and at 0x1c in build 4148."
+  },
+  "bms_g_4168_20000026": {
+    "name": "bms_profile_block_id",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["BMS_4168", "0x20000026"],
+    "category": "protection",
+    "description": "Profile id that bms_profile_block_fill_4168 uses to select one of the parameter sets (ids 0 to 12; any other value takes the default set). bms_profile_select_from_code writes 2, 3 or 4 after decoding the model code. Mirrored at 0x16 in builds 4130 and 4139 and at 0x1e in build 4148."
+  },
+  "bms_g_4168_2000002c": {
+    "name": "bms_state_block_ptr",
+    "type": "ptr",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x2000002c"],
+    "category": "protection",
+    "description": "Pointer to the 512-byte BMS state block in RAM. bms_state_restore_or_init copies the block from flash 0x0803F000 into it at boot and bms_nvm_save_state_snapshot writes it back. The block holds the identity record at +4, the capacity fields (for example +0x26 and +0x30), the 16-bit status words at +0x124, +0x126, +0x194 and +0x198, and the 16-bit parameter fields at +0x5E to +0x8F that the profile fill routines write."
+  },
+  "bms_g_4168_20000030": {
+    "name": "bms_status_word_ptr",
+    "type": "ptr",
+    "size": 4,
+    "anchor": ["BMS_4168", "0x20000030"],
+    "category": "protection",
+    "description": "Pointer to a 32-bit BMS status word obtained from FUN_0800be1c during boot (bms_state_restore_or_init, which also sets bit 25 of that word). The fault timer step tests its bits 4 and 6 and the bit-3 timer at 0x2000005C reads bit 3 through it. Mirrored at 0x20 in builds 4130 and 4139 and at 0x28 in build 4148."
+  },
+  "bms_g_4139_20000038": {
+    "name": "bms_fault_timers_4139",
+    "type": "u32",
+    "count": 5,
+    "size": 20,
+    "anchor": ["BMS_4139", "0x20000038"],
+    "category": "protection",
+    "description": "Five 32-bit millisecond accumulators of bms_fault_timers_step in build 4139, at 0x38, 0x3C, 0x40, 0x44 and 0x48. Each one runs while its condition holds, is cleared when the condition fails, and makes the function return 1 when it passes its limit. The last element (0x48) has the limit 60,480,000 seen for the 4168 timer at 0x48; the roles of the first four elements are only known from the shared routine and are not individually confirmed."
+  },
+  "bms_g_4168_20000048": {
+    "name": "bms_fault_timers_4168",
+    "type": "u32",
+    "count": 6,
+    "size": 24,
+    "anchor": ["BMS_4168", "0x20000048"],
+    "category": "protection",
+    "description": "Six 32-bit millisecond accumulators of bms_fault_timers_step in the 4168 build. 0x48 counts while the count at status +0x19C is below 10 (limit 60,480,000); 0x4C while it is below 20 (limit 120,960,000); 0x50 while status bit 4 is set and bit 2 is clear (saturates at 6000); 0x54 while bits 1 and 2 are clear and the object value is 3000 or less (limit 30,000); 0x58 while the count is below 3 (limit 3,600,000); and 0x5C runs only while bit 3 of the status word is set, drives PA15 low through gpio_pa15_reset and returns 1 after 200. Builds 4148 places these at 0x40 to 0x54."
+  },
+  "bms_g_4130_2000004c": {
+    "name": "bms_profile_set_4130_0",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4130", "0x2000004c"],
+    "category": "protection",
+    "description": "First of the two profile parameter sets of build 4130: three 11-entry u16 curves at 0x4C (curve_a), 0x62 (curve_b) and 0x78 (curve_c). bms_profile_select_from_code reads them when it loads the defaults; their meaning is probably the same as the 4139 and 4168 sets (copied into the profile block at +0x5E, +0x00 and +0x16). The values are not individually documented here."
+  },
+  "bms_g_4130_2000008e": {
+    "name": "bms_profile_set_4130_1",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4130", "0x2000008e"],
+    "category": "protection",
+    "description": "Second profile parameter set of build 4130, three 11-entry u16 curves at 0x8E, 0xA4 and 0xBA with the same layout as bms_profile_set_4130_0. Read by bms_profile_select_from_code; the values are not individually documented here."
+  },
+  "bms_g_4139_2000004c": {
+    "name": "bms_profile_set_4139_0",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4139", "0x2000004c"],
+    "category": "protection",
+    "description": "First of three profile parameter sets of build 4139: three 11-entry u16 curves at 0x4C (curve_a), 0x62 (curve_b) and 0x78 (curve_c). bms_profile_block_fill_4139 copies curve_a to the profile block at +0x5E, curve_b to +0x00 and curve_c to +0x16, for the profile ids that select this set (ids 0 to 8 each have their own values in that routine)."
+  },
+  "bms_g_4139_2000008e": {
+    "name": "bms_profile_set_4139_1",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4139", "0x2000008e"],
+    "category": "protection",
+    "description": "Second profile parameter set of build 4139, three 11-entry u16 curves at 0x8E, 0xA4 and 0xBA. bms_profile_block_fill_4139 copies them to the profile block at +0x5E, +0x00 and +0x16 for the profile ids that select this set."
+  },
+  "bms_g_4148_20000058": {
+    "name": "bms_profile_set_4148_0",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4148", "0x20000058"],
+    "category": "protection",
+    "description": "First of three profile parameter sets of build 4148: three 11-entry u16 curves at 0x58, 0x6E and 0x84 with the same layout as the 4168 sets. bms_profile_block_fill_4168 (shared with build 4168) copies them to the profile block at +0x5E, +0x00 and +0x16."
+  },
+  "bms_g_4148_2000009a": {
+    "name": "bms_profile_set_4148_1",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4148", "0x2000009a"],
+    "category": "protection",
+    "description": "Second profile parameter set of build 4148, three 11-entry u16 curves at 0x9A, 0xB0 and 0xC6 with the same layout as the other sets. Copied to the profile block by bms_profile_block_fill_4168 for the profile ids that select it."
+  },
+  "bms_g_4168_20000060": {
+    "name": "bms_profile_set_4168_0",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4168", "0x20000060"],
+    "category": "protection",
+    "description": "First of five profile parameter sets of the 4168 build: three 11-entry u16 curves at 0x60 (curve_a), 0x76 (curve_b) and 0x8C (curve_c). bms_profile_block_fill_4168 selects this set for profile ids 0 to 4 and copies curve_a to the profile block at +0x5E, curve_b to +0x00 and curve_c to +0x16, one entry per loop index 0 to 10."
+  },
+  "bms_g_4168_200000a2": {
+    "name": "bms_profile_set_4168_1",
+    "type": "BmsProfileSet",
+    "size": 66,
+    "anchor": ["BMS_4168", "0x200000a2"],
+    "category": "protection",
+    "description": "Default profile parameter set of the 4168 build (used for profile ids 5 and any id outside the explicit groups): three 11-entry u16 curves at 0xA2 (curve_a), 0xB8 (curve_b) and 0xCE (curve_c), copied to the profile block at +0x5E, +0x00 and +0x16 by bms_profile_block_fill_4168."
+  }
+}

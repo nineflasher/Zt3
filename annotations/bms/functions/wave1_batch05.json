@@ -1,0 +1,188 @@
+{
+  "bms_4168_0800ce3c": {
+    "name": "bms_record12_addr",
+    "summary": "Return the address of 12-byte record N in the table at 0x20000264",
+    "description": "Computes base + 12 * index with base 0x20000264 (a multiply by 0xC and an add, with no bounds check) and returns the result as a pointer. It only computes the address and does not read or write memory. Five callers in BMS_4130, BMS_4139 and BMS_4168 use it to reach the entries of this table, so the 12-byte record layout is defined by those callers and not here.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "record index, not range checked"}
+    ],
+    "returns": {"type": "ptr", "description": "address of the 12-byte record"},
+    "confidence": "high",
+    "notes": "The decompiled return type is int, but the value is used as an address. The record fields are not visible in this function."
+  },
+  "bms_4168_0800ce4c": {
+    "name": "bms_nop_ce4c",
+    "summary": "Empty placeholder routine that does nothing",
+    "description": "The body is a bare return with no writes to registers or globals. Its callers are in BMS_4139 and BMS_4168 (bms_4139_08006f08 and bms_4168_08007a0c), so it is most likely the no-op default of an optional hook or callback that these builds do not implement.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The hook it stands in for cannot be identified from this packet. Only the empty body is certain."
+  },
+  "bms_4168_0800ce5c": {
+    "name": "bms_get_block_20000e58_ptr",
+    "summary": "Return the address of the RAM word at 0x20000E58",
+    "description": "Returns the address of the 16-bit RAM object at 0x20000E58 without reading or writing it. Callers bms_4139_080040e4, bms_4139_08006f08, bms_4168_08004128, bms_4168_08004774 and bms_4168_08007a0c call it to get the object's address, and how they use the object is not visible here.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the 16-bit word at 0x20000E58"},
+    "confidence": "high",
+    "notes": "The object's purpose is not visible from this packet. The name is based only on the address."
+  },
+  "bms_4168_0800d740": {
+    "name": "bms_block_store_u16x7",
+    "summary": "Copy seven 16-bit words from a source array into RAM at 0x20002BF0",
+    "description": "Copies param_1[0] through param_1[6] (16-bit each) into the halfwords at 0x20002BF0, 0x20002BF2, 0x20002BF4, 0x20002BF6, 0x20002BF8, 0x20002BFA and 0x20002BFC, so source index i goes to 0x20002BF0 + 2*i. The decompiled assignments are listed out of order, but each source index maps to its own slot. There is no validation and no return value; the only caller in the packet is bms_4168_08004774.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source array of seven u16 values, indexed 0 to 6"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The destination words are not named in this packet; their use is in the callers. The function does not check the source pointer."
+  },
+  "bms_4168_0800e128": {
+    "name": "bms_frame_rx_byte",
+    "summary": "Feed one received byte into the 0x5A 0xA5 framed parser; return 1 when a frame checks out",
+    "description": "This is a byte-at-a-time receive state machine. Its state is DAT_2000260e, the write index is DAT_20000610, the remaining payload count is DAT_20000611, the staged checksum is DAT_20000612, the valid-frame flag is DAT_2000260f, and the frame buffer starts at 0x2000256D. The frame layout as parsed is 0x5A, 0xA5, LEN (accepted only when below 0x81), a fixed 0x06, a byte that must equal byte 1 of the descriptor at *(DAT_20002608 + 4), a byte chosen by byte 0 of that descriptor (0x01 or '*' expects 0xAA, 0x02 or ',' expects 0xAC, 0xB5 expects 0xB5, 0x07 to 0x0A expect 0x0B), then LEN+1 payload bytes and a little-endian 16-bit checksum. The checksum is the one's complement of the 16-bit byte sum of frame bytes 2 through LEN+6, and a frame is accepted when (~sum) & 0xFFFF equals the received word. Any mismatch resets the state to 0, and a good checksum sets DAT_2000260f to 1 and returns 1 for the closing byte.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "received byte"}
+    ],
+    "returns": {"type": "u32", "description": "1 when this byte completes a frame whose checksum matches, otherwise 0"},
+    "confidence": "medium",
+    "notes": "The frame layout and the checksum range come from the index arithmetic in the decompile. The byte-0 rule table and the meaning of bytes 3 to 5 are read from constants, so the protocol identity and the meaning of the descriptor are inferred. The only caller is bms_4168_08007c10, and its use of the result is not in this packet."
+  },
+  "bms_4168_0800e38c": {
+    "name": "bms_record_set_or_clear",
+    "summary": "Clear the six-word record at 0x200024CC when param_4 is 0xFFFF, else store its fields",
+    "description": "When param_4 is 0xFFFF, all six 32-bit words from 0x200024CC to 0x200024E0 are zeroed, which clears the record. Otherwise param_3 is stored at 0x200024D4, param_2 at 0x200024E0 and param_1 at 0x200024DC, and the low 16 bits of param_4 go into the low halfword of 0x200024D0 while its high halfword is kept. The words at 0x200024CC and 0x200024D8 are not written on the store path. There is no return value and no other side effect; the callers are bms_4168_08007fc0 and bms_4168_0800f8e0.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value stored at 0x200024DC"},
+      {"name": "param_2", "type": "u32", "description": "value stored at 0x200024E0"},
+      {"name": "param_3", "type": "u32", "description": "value stored at 0x200024D4"},
+      {"name": "param_4", "type": "u32", "description": "0xFFFF clears the record; otherwise the low 16 bits are stored at 0x200024D0"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The meaning of each field is unknown. The 0xFFFF sentinel is the only evidence of how the record is used, and the name is a guess."
+  },
+  "bms_4168_0800e798": {
+    "name": "bms_get_block_200005c0_ptr",
+    "summary": "Return the address of the RAM byte at 0x200005C0",
+    "description": "Returns the address of the byte at 0x200005C0 without reading or writing it. The byte at 0x200005C1 is the next byte and is read by bms_get_200005c1_bit0, so the two may belong to one small block, though this packet does not prove it. Callers are bms_4130_08005d2c, bms_4139_0800be74, bms_4168_08006730, bms_4168_0800c96c and bms_4168_0800ec04.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the byte at 0x200005C0"},
+    "confidence": "high",
+    "notes": "Only the address is certain. The structure of the block is inferred from the adjacent byte."
+  },
+  "bms_4168_0800e7a0": {
+    "name": "bms_get_200005c1_bit0",
+    "summary": "Return bit 0 of the RAM byte at 0x200005C1",
+    "description": "Reads the byte at 0x200005C1 and returns its least significant bit, 0 or 1. It is read-only and has no other side effects. Callers are bms_4139_0800be74, bms_4168_08004774 and bms_4168_0800c96c.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u8", "description": "bit 0 of the byte at 0x200005C1, 0 or 1"},
+    "confidence": "high",
+    "notes": "The meaning of the flag is not visible in this packet."
+  },
+  "bms_4168_0800e8d8": {
+    "name": "bms_nop_e8d8",
+    "summary": "Empty placeholder routine that does nothing",
+    "description": "The body is a bare return; it writes nothing and returns no value. Its only caller in the packet is bms_4168_080082f0, which also calls bms_flag_20001c8a_is_clear, so it is probably a no-op hook or callback slot.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The hook it stands in for cannot be identified from this packet. It has the same shape as bms_nop_ce4c, and the two may be different hook slots."
+  },
+  "bms_4168_0800fb80": {
+    "name": "bms_flag_20001c8a_is_clear",
+    "summary": "Return 1 when the RAM byte at 0x20001C8A is zero, else 0",
+    "description": "Reads the byte at 0x20001C8A and returns 0 if it is nonzero and 1 if it is zero, so the result is true when the flag is clear. The function is read-only. Its only caller in the packet is bms_4168_080082f0, which also calls bms_nop_e8d8.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "1 if the flag byte is zero, otherwise 0"},
+    "confidence": "high",
+    "notes": "The meaning of the flag is not shown here. The name describes only the test."
+  },
+  "bms_4168_0800fecc": {
+    "name": "bms_chan_bind",
+    "summary": "Validate a descriptor and bind a channel object to a buffer, a length and that descriptor",
+    "description": "Binds a channel object only when every argument passes its check: param_1 (the object) is non-null, param_2 and param_3 are nonzero, and param_4 (the descriptor) is non-null with nonzero words at offsets 0 and 12. On success it stores param_2 as a 32-bit word at object offset 0, param_3 as a 16-bit value at offset 4 and the descriptor pointer at offset 8, then returns 1. On any failed check it returns 0 and writes nothing, so the caller can detect a rejected binding. bms_chan_bind and bms_chan_configure are both called from bms_4168_0800f288 and fill channel objects, so they form a pair of setup routines.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "channel object to fill: offset 0 u32, offset 4 u16, offset 8 pointer"},
+      {"name": "param_2", "type": "u32", "description": "value stored at offset 0; must be nonzero"},
+      {"name": "param_3", "type": "u32", "description": "length stored as 16 bits at offset 4; must be nonzero"},
+      {"name": "param_4", "type": "ptr", "description": "descriptor; non-null, with nonzero words at offsets 0 and 12"}
+    ],
+    "returns": {"type": "u32", "description": "1 when the object is bound, 0 when a check fails"},
+    "confidence": "medium",
+    "notes": "The field meanings of the object are inferred from the stores and checks. The descriptor's contents are only tested here, not used."
+  },
+  "bms_4168_0800ffc6": {
+    "name": "bms_chan_configure",
+    "summary": "Set the extended fields of a channel object and mark it enabled after three nonzero checks",
+    "description": "Checks that param_1 is non-null and that param_2 and param_3 are nonzero, then fills the channel object: param_3 as a 32-bit word at offset 4, param_4 as a 16-bit value at offset 8, the low 16 bits of param_2 at offset 0x14, a byte flag at offset 2 set to 1 (enabled), and param_5 as a 32-bit word at offset 0x20. It returns 1, or 0 with nothing written when a check fails. Unlike bms_chan_bind it does not look at a descriptor. It is called from bms_4168_0800f288 together with bms_chan_bind.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "channel object to fill"},
+      {"name": "param_2", "type": "u32", "description": "must be nonzero; low 16 bits stored at offset 0x14"},
+      {"name": "param_3", "type": "u32", "description": "must be nonzero; stored at offset 4 as 32 bits"},
+      {"name": "param_4", "type": "u16", "description": "stored at offset 8 as 16 bits"},
+      {"name": "param_5", "type": "u32", "description": "stored at offset 0x20"}
+    ],
+    "returns": {"type": "u32", "description": "1 when the object is configured, 0 when a check fails"},
+    "confidence": "medium",
+    "notes": "bms_chan_bind writes offset 4 as 16 bits and offset 8 as a pointer, while this function writes offset 4 as 32 bits and offset 8 as 16 bits. The two may describe different object types, or one of the layouts is wrong; check against the caller bms_4168_0800f288. The meaning of the flag at offset 2 is inferred from the constant 1."
+  },
+  "bms_4168_080105fc": {
+    "name": "bms_can_pack_ext_frame",
+    "summary": "Pack a 29-bit extended CAN frame (ID, DLC, 3 header bytes, payload) into a TX buffer",
+    "description": "Writes one extended-identifier frame into the buffer at param_9. The 32-bit identifier word becomes ((param_1 << 26) | (param_4 << 8) | param_3) & 0x1FFFFFFF, ORed with 0xEF0000 and with bit 29 (0x20000000), and bit 31 of the old word is kept. Byte 4 is set to param_8 + 3, which counts three header bytes (param_2, param_5 and param_6 at bytes 5 to 7) plus param_8 payload bytes copied from param_7 to bytes 8 onward. It returns 1 on success; if param_7 or param_9 is null, param_8 is 6 or more, or param_1 is 8 or more, it returns 0 with nothing written. The priority in bits 26 to 28 and the fixed 0xEF byte in bits 16 to 23 match a J1939-style 29-bit identifier, which is an inference from the constants.",
+    "category": "fdcan",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "priority, 0 to 7, placed in identifier bits 26 to 28"},
+      {"name": "param_2", "type": "u8", "description": "header byte, written to data byte 0 (offset 5)"},
+      {"name": "param_3", "type": "u32", "description": "identifier term ORed in unshifted; not limited to 8 bits"},
+      {"name": "param_4", "type": "u32", "description": "identifier term shifted left 8 (bits 8 to 15)"},
+      {"name": "param_5", "type": "u8", "description": "header byte, written to data byte 1 (offset 6)"},
+      {"name": "param_6", "type": "u8", "description": "header byte, written to data byte 2 (offset 7)"},
+      {"name": "param_7", "type": "ptr", "description": "payload source, at least param_8 bytes"},
+      {"name": "param_8", "type": "u32", "description": "payload length, 0 to 5"},
+      {"name": "param_9", "type": "ptr", "description": "TX buffer element: word 0 identifier, byte 4 length, bytes 5 to 12 data"}
+    ],
+    "returns": {"type": "u32", "description": "1 when the frame was packed, 0 when a check fails"},
+    "confidence": "medium",
+    "notes": "Byte 4 holds a length (payload + 3), not the FDCAN T1 DLC field, so this is a custom or simplified buffer layout. The meanings of identifier bit 29 and bit 31 are not confirmed. The J1939 reading is inferred from the constants and has not been checked against a real message from the image. param_3 is not limited to 8 bits, so values of 256 or more overlap param_4's field."
+  },
+  "bms_4168_0801066c": {
+    "name": "bms_j1939_tpcm_abort_pack",
+    "summary": "Build a J1939 TP.CM connection-abort frame for PGN 0xEF00 into a TX object",
+    "description": "Writes a fixed 8-byte J1939 TP.CM connection-abort frame into the object at param_3 and returns 1, or 0 when param_3 is null. The identifier is (0x1CEC0000 + param_2 * 0x100) | param_1, masked to 29 bits, so the priority is 7, the PGN is 0xEC00 (TP.CM), the destination address is param_2 in bits 8 to 15 and the source address is param_1 in bits 0 to 7; bit 31 of the old word is kept and bit 29 is forced to 1. The DLC is set to 8. The data bytes are 0xFF (the connection-abort control byte), 0xFF (the abort reason), three reserved 0xFF bytes, and then 0x00 0xEF 0x00, which is PGN 0x00EF00 in little-endian order in data bytes 5 to 7.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "source address, identifier bits 0 to 7"},
+      {"name": "param_2", "type": "u8", "description": "destination address, identifier bits 8 to 15"},
+      {"name": "param_3", "type": "ptr", "description": "TX object: word 0 identifier, byte 4 DLC, bytes 5 to 12 data"}
+    ],
+    "returns": {"type": "u32", "description": "1 when the frame was written, 0 when param_3 is null"},
+    "confidence": "medium",
+    "notes": "The protocol identity rests on the constants: 0x1CEC is TP.CM at priority 7, and control byte 0xFF is a connection abort. The reason byte 0xFF is not one of the usual J1939-21 reason codes, so the intent is uncertain. As in bms_can_pack_ext_frame, the handling of bits 29 and 31 is unconfirmed, and param_1 and param_2 are not limited to 8 bits."
+  },
+  "bms_4168_080106bc": {
+    "name": "bms_get_word_20001354",
+    "summary": "Return the 32-bit RAM word at 0x20001354",
+    "description": "Takes no arguments and returns the value of the 32-bit RAM word at 0x20001354. The function is read-only. Its only caller in the packet is bms_4168_0800e9dc, and the code that writes the word is outside this packet.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "value of the RAM word at 0x20001354"},
+    "confidence": "high",
+    "notes": "The word's meaning is not visible in this packet."
+  }
+}

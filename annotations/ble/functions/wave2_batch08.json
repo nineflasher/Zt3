@@ -1,0 +1,459 @@
+{
+  "ble_219_0c059a88": {
+    "name": "ble_host_timer_restart",
+    "summary": "(Re)arm a BTstack timer source with a new handler and timeout, only when env state byte == 2",
+    "description": "Common timer helper used by 12+ host/app routines. It first reads the controller environment byte at env+0x198 via ble_ctrl_env_get_u8_at_0x198 and returns without doing anything unless it equals 2 (the stack is up/ready). Otherwise it calls btstack_run_loop_remove_timer(timer) so a pending instance is cancelled, btstack_run_loop_set_timer_handler(timer, handler), btstack_run_loop_set_timer(timer, timeout_ms) and btstack_run_loop_add_timer(timer). Example: ble_app_start_deferred_500ms_op arms the timer at 0x200170dc for 500 ms with it. Pairs with btstack_run_loop_remove_timer_thunk (0c059abc) which stops such a timer.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "btstack_timer_source_t to arm"},
+      {"name": "param_2", "type": "u32", "description": "timeout in milliseconds"},
+      {"name": "param_3", "type": "ptr", "description": "timer callback (void (*)(btstack_timer_source_t*))"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The meaning of env+0x198 == 2 is inferred from usage (gate for all timer activity); the byte itself is not yet named."
+  },
+  "ble_219_0c059abc": {
+    "name": "btstack_run_loop_remove_timer_thunk",
+    "summary": "Thunk: jump to btstack_run_loop_remove_timer (run-loop vtable slot +0x1c)",
+    "description": "Single-instruction tail thunk into btstack_run_loop_remove_timer, which dispatches through vtable slot +0x1c of the active run loop at DAT_200190b0 with r0 = timer source. Used by eight host/app routines (0c053018, 0c055268, 0c0554fc, 0c055524, 0c0555c8, 0c0573b8, 0c05952c, 0c059ac0) to cancel a pending timer; it is the stop counterpart of ble_host_timer_restart.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none (r0 = btstack_timer_source_t* forwarded unchanged)"},
+    "confidence": "high"
+  },
+  "ble_219_0c05a1ac": {
+    "name": "ble_event_thresholds_refresh_from_link",
+    "summary": "Recompute both event-count thresholds (0x2000432f, 0x20004316) from the link table entry",
+    "description": "Looks up the link entry with ble_link_table_find_by_key (r0 is passed through unchanged from the caller, 0c029960, so the key is the caller's first argument). If an entry exists it computes scale = (3 - entry[3]) * 8 (entry[3] is a 0..3 index, giving 24/16/8/0) and stores two u8 thresholds: DAT_2000432f = entry[1] + scale and DAT_20004316 = entry[2] + scale. These are the thresholds that ble_event_count_reached_check compares against the running counters 0x20004330 and 0x20004317 (flag bit 3 and flag bit 0 paths). Both globals live inside the shared state object at 0x200042f8 (+0x37 and +0x1e). Part of the link/event-counting group with ble_conn_select_link_and_fill_info and ble_app_arm_4s_deadline.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Decompiler shows no parameter; the key byte is whatever the caller left in r0. What entry[1..3] physically represent (e.g. per-link counts and a rate index) is not known."
+  },
+  "ble_219_0c05a1d8": {
+    "name": "ble_app_arm_4s_deadline",
+    "summary": "On mode 1: set a 4000-tick deadline, flag 0x200145a9=1 and snapshot the two event counters",
+    "description": "If param_1 == 1 it stores xTaskGetTickCount() + 4000 into DAT_200145ac (a deadline 4 s ahead at the 1 ms tick) and sets the u8 DAT_200145a9 = 1. Then, depending on the flag word at 0x200042fc (state+4): if bit 3 is set DAT_200130ed = state[0x38] (the counter at 0x20004330), and if bit 0 is set DAT_200130ec = state[0x1f] (the counter at 0x20004317), so the current event counts are latched when the window starts. For any other param_1 value it merely rewrites DAT_200145a9 with its previous value (no change). Always returns 0. Called from 0c02b480 together with ble_host_timer_restart.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "1 = start the 4 s window; other values are no-ops"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Purpose of the 4 s window (0x200145ac/0x200145a9) is inferred from the constant 4000 and FreeRTOS tick use; the consumer of the deadline is not in this packet."
+  },
+  "ble_219_0c05a8a0": {
+    "name": "ble_conn_select_link_and_fill_info",
+    "summary": "Make link_id the active link, fill a 14-byte info record from its table entry + own BD_ADDR",
+    "description": "Fetches the local public address (ble_ctrl_env_get_public_addr into a 6-byte stack buffer, then bt_bdaddr_reverse_inplace), looks the link up with ble_link_table_find_by_key(param_1) and writes (u8)param_1 to DAT_200042f8 (byte 0 of the shared state object = current link id). If no entry: DAT_20004300 = 0 and the u16 at 0x2000432e (clearing threshold 0x2000432f) = 0. If found: out[0] = (out[0] & 0xfc) | (entry[5] & 1) | ((entry[6] & 1) << 1), out[1] = entry[4], out[2..7] = entry[0xc..0x11] (6 bytes, presumably the peer address), DAT_20004316 = entry[2] + (3 - entry[3]) * 8 when entry[2] != 0 (same threshold formula as ble_event_thresholds_refresh_from_link) and DAT_20004300 = entry[5] (the byte that gates ble_event_count_reached_check). In both cases out[8..13] = the reversed own address. Caller: 0c029960.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "link key/id (low byte stored in 0x200042f8)"},
+      {"name": "param_2", "type": "ptr", "description": "out: 14-byte record (flags, type byte, 6-byte peer addr, 6-byte own addr)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Field meanings of the 0x14-byte link entry (bytes 4,5,6 and the 6 bytes at +0xc) are inferred; the record layout is factual."
+  },
+  "ble_219_0c05a9c4": {
+    "name": "bt_bdaddr_is_zero",
+    "summary": "Return true when the 6-byte Bluetooth address is all zeros",
+    "description": "Builds a 6-byte zero buffer on the stack and returns memcmp(param_1, zeros, 6) == 0. Used by 0c058250, 0c0593a4, 0c059d0c and 0c05a608 to detect an unset/invalid BD_ADDR before using it.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte BD_ADDR"}
+    ],
+    "returns": {"type": "bool", "description": "true if all six bytes are 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c05aa0c": {
+    "name": "bt_bdaddr_from_string",
+    "summary": "Parse six hex byte fields (e.g. \"xx:xx:xx:xx:xx:xx\") into a 6-byte address",
+    "description": "Returns -1 (0xffffffff) if either pointer is NULL. Otherwise it loops exactly six times: strtoul(str, &end, 16) gives the next byte which is stored at out[i]; the scan then resumes at end, skipping one separator character if *end is not NUL (so any single delimiter works, e.g. ':' or '-'). Returns 0 on completion; no validation of the digit count or value range is done. Called from 0c05569c (text/AT style command handling); the fixed count of 6 marks it as a BD_ADDR parser, the generalised n-byte version is ble_util_hex_string_to_bytes.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "NUL-terminated string of hex byte fields"},
+      {"name": "param_2", "type": "ptr", "description": "out: 6 bytes"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 if a pointer is NULL"},
+    "confidence": "high"
+  },
+  "ble_219_0c05aa44": {
+    "name": "bt_bytes_reverse_inplace",
+    "summary": "Reverse len bytes in place via a 6-byte stack temp (generic BD_ADDR byte-order swap)",
+    "description": "Zeroes a 6-byte stack buffer, copies buf[0..len-1] into it back to front (tmp[len-1-i] = buf[i]; the loop end uses len & 0xff) and then memcpy(buf, tmp, len). With len == 0 it just does memcpy(buf, tmp, 0). It is the length-parameterised sibling of bt_bdaddr_reverse_inplace and is called with address data from 0c058458, 0c058520, 0c0585a4 and 0c058980. The temp is only 6 bytes, so a len above 6 would overrun the stack frame.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "buffer to reverse"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes (expected 6)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c05aa80": {
+    "name": "ble_util_hex_string_to_bytes",
+    "summary": "Parse n delimiter-separated hex byte fields from a string into a byte array",
+    "description": "Returns -1 if the string or output pointer is NULL. Otherwise for i in 0..n-1 it does out[i] = strtoul(str, &end, 16), then continues after end, skipping one separator character when *end is not NUL. n == 0 is accepted and parses nothing. Returns 0. Same algorithm as bt_bdaddr_from_string with a caller-supplied count; called from 0c055b90 (text command handling, e.g. keys/addresses given as hex strings).",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "NUL-terminated input string"},
+      {"name": "param_2", "type": "ptr", "description": "out: byte array of at least n bytes"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes to parse"}
+    ],
+    "returns": {"type": "s32", "description": "0 on success, -1 on NULL argument"},
+    "confidence": "high"
+  },
+  "ble_219_0c05c778": {
+    "name": "ble_state_407a_read",
+    "summary": "Return the state byte at 0x2000407a (via ble_get_value_407a index 0)",
+    "description": "Zeroes a local byte, calls ble_get_value_407a(0, &local) which copies DAT_2000407a into it, and returns the byte. A plain getter used by 0c052ee4, 0c052f28, 0c052fb0 and 0c05ada4 to test the current value of that state/mode byte; ble_state_407a_copy is the pointer-output variant.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {"type": "u8", "description": "current value of DAT_2000407a"},
+    "confidence": "high"
+  },
+  "ble_219_0c05c888": {
+    "name": "ble_crypto_set_serial_number",
+    "summary": "Copy up to 16 bytes into the vehicle serial-number buffer at 0x20004980",
+    "description": "If param_2 > 16 it returns without doing anything; otherwise memcpy(DAT_20004980, param_1, param_2). The 16-byte global at 0x20004980 holds the scooter serial number (default contents \"NBNAGBH2053CE905\"), which the ble_crypto_* authentication uses together with the password. Called from 0c0296c4 (serial number received from the VCU / configuration). A shorter length does not clear the remaining bytes and no terminator is written.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source bytes (serial number ASCII)"},
+      {"name": "param_2", "type": "u32", "description": "length, 0..16"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c05cb08": {
+    "name": "ble_app_start_deferred_500ms_op",
+    "summary": "Store an operation (id, mapped type code, args) in 0x200170d0.. and arm a 500 ms timer",
+    "description": "Saves a pending operation in a global context block: DAT_200170d0 = param_1 (u16 id), DAT_200170d4 = param_3, DAT_200170d8 = (u16)param_4 and DAT_200170d2 = a code derived from the high byte of *param_2: if *param_2 == 0x1ff it is first replaced in place by the default/current value DAT_20012310; then 0x1xx -> 0x1f, 0x2xx -> 0x22, 0x3xx -> 0x25, 0x4xx -> 0x28, anything else -> 0. Finally ble_host_timer_restart(&DAT_200170dc, 500, 0x0c05c90c|1) schedules the handler at 0x0c05c90c to run 500 ms later with that context. Always returns 0. Called from 0c053f74.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "operation id, stored at 0x200170d0"},
+      {"name": "param_2", "type": "ptr", "description": "in/out u16 selector; 0x1ff is replaced by DAT_20012310; high byte picks the code"},
+      {"name": "param_3", "type": "u32", "description": "stored verbatim at 0x200170d4"},
+      {"name": "param_4", "type": "u32", "description": "low 16 bits stored at 0x200170d8"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "low",
+    "notes": "What the selector (0x1xx..0x4xx) and the 0x1f/0x22/0x25/0x28 codes (step 3) represent is unknown; the timer handler 0x0c05c90c is not in this packet."
+  },
+  "ble_219_0c05cc8c": {
+    "name": "ble_app_get_status_code",
+    "summary": "Derive a 0..4 status code from flag bits 7 and 14 of 0x200042fc and the byte at 0x20017046",
+    "description": "Reads the flag word at state+4 (0x200042fc). Result starts at 0. If bit 7 is set, result = DAT_20017046 but forced back to 0 unless it is 1, 2 or 3. If bit 14 is set the result is overridden to 4. Called from 0c02a8f8 together with ble_state_407a_copy, ble_flags_bit15_get and ble_flags_bit4_get, which together assemble a status report (probably for the VCU UART protocol).",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 (idle/none), 1..3 (from 0x20017046 when flag bit 7), 4 (when flag bit 14)"},
+    "confidence": "medium",
+    "notes": "Semantics of bits 7/14 and of 0x20017046 are not named yet."
+  },
+  "ble_219_0c05cfc8": {
+    "name": "ble_state_407a_copy",
+    "summary": "Copy the state byte 0x2000407a to *param_1 (ble_get_value_407a with index 0)",
+    "description": "Tail-calls ble_get_value_407a(0, param_1), which writes DAT_2000407a into the byte at param_1. Pointer-output variant of ble_state_407a_read, used by the status reporter 0c02a8f8.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "out: 1 byte"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c05cfd0": {
+    "name": "ble_flags_bit15_get",
+    "summary": "Return bit 15 of the flag word at 0x200042fc",
+    "description": "Returns (DAT_200042fc & 0xffff) >> 15, i.e. 0 or 1 for flag bit 15 of the shared state object's flag word (set/cleared by ble_flags_set/ble_flags_clear). One of the status getters called from 0c02a8f8.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 or 1"},
+    "confidence": "high"
+  },
+  "ble_219_0c05cff4": {
+    "name": "ble_flags_bit4_get",
+    "summary": "Return bit 4 of the flag word at 0x200042fc",
+    "description": "Returns (DAT_200042fc & 0x1f) >> 4, i.e. 0 or 1 for flag bit 4 of the state object's flag word. Companion of ble_flags_bit15_get; called from the status reporter 0c02a8f8.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 or 1"},
+    "confidence": "high"
+  },
+  "ble_219_0c05d8f8": {
+    "name": "wc_AesSetKeyLocal",
+    "summary": "AES-128 key expansion into the Aes context (+ inverse key for decrypt) and IV set (wolfSSL)",
+    "description": "wolfSSL AesSetKeyLocal with wc_AesSetIV inlined. Writes aes->keylen (+0xf4) = keylen and aes->rounds (+0xf0) = keylen/4 + 6, memcpy's the user key into aes->key (+0) and byte-swaps each word (big-endian load). Only keylen == 16 is supported (AES-128, 10 rounds): the expansion loop produces rk[4..43] with rk[i] = rk[i-4] ^ SubWord(RotWord(temp)) ^ rcon, using the S-box bytes extracted from the Te tables at 0x0c075844 and the rcon table at 0x0c0838e4 (first value 0x01000000). If dir == 1 (AES_DECRYPTION) the round-key order is reversed (swap 4-word groups from both ends) and rounds 1..rounds-1 get InvMixColumns applied through the Td tables at 0x0c074844 indexed by Te1 S-box bytes. Finally the IV: if iv is NULL aes->reg (+0xf8, 16 bytes) is zeroed, else copied from iv. Returns 0, or BAD_FUNC_ARG (-173 = 0xffffff53) when keylen is not 16 (or 0).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Aes context: key[60] at +0, rounds +0xf0, keylen +0xf4, reg (IV) +0xf8"},
+      {"name": "param_2", "type": "ptr", "description": "user key bytes"},
+      {"name": "param_3", "type": "u32", "description": "key length in bytes; only 16 accepted"},
+      {"name": "param_4", "type": "ptr", "description": "16-byte IV or NULL (zero IV)"},
+      {"name": "param_5", "type": "s32", "description": "direction: 0 = AES_ENCRYPTION, 1 = AES_DECRYPTION"}
+    ],
+    "returns": {"type": "s32", "description": "0 or BAD_FUNC_ARG (-173)"},
+    "confidence": "high"
+  },
+  "ble_219_0c05dbe0": {
+    "name": "wc_AesGcmSetKey",
+    "summary": "Set a 16-byte AES-GCM key: expand the key and compute the GHASH key H = E_K(0^128)",
+    "description": "wolfSSL wc_AesGcmSetKey, restricted to len == 16. Zeroes a 16-byte IV on the stack, sets aes->keylen (+0xf4) = 16 and aes->rounds (+0xf0) = 10, calls wc_AesSetKeyLocal and, on success, wc_AesEncrypt(aes, zero_block, aes->H) where H lives at aes+0x124; H is the hash subkey later used by GHASH. Returns 0 on success, the key-setup error, or BAD_FUNC_ARG (-173 = -0xad) when len != 16 or aes is NULL. Called by the ble_crypto AES-GCM wrappers 0c05bf00 and 0c05c13c.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Aes context (H at +0x124)"},
+      {"name": "param_2", "type": "ptr", "description": "16-byte key"},
+      {"name": "param_3", "type": "u32", "description": "key length; only 16 accepted"}
+    ],
+    "returns": {"type": "s32", "description": "0, BAD_FUNC_ARG (-173) or the error from wc_AesSetKeyLocal"},
+    "confidence": "high"
+  },
+  "ble_219_0c05dc2c": {
+    "name": "GHASH",
+    "summary": "GCM GHASH over AAD and ciphertext plus the 64-bit length block, output sSz bytes (wolfSSL)",
+    "description": "wolfSSL software GHASH(aes, a, aSz, c, cSz, s, sSz) using the subkey H at aes+0x124 and GMULT per block. Starting from x = 0, each full 16-byte block of the AAD is XORed into x (word-wise when 4-byte aligned, byte-wise otherwise) followed by GMULT(x, H); a trailing partial block is zero-padded first. The same is done for the ciphertext c. Then the length block is built big-endian: [aSz*8 as 64-bit][cSz*8 as 64-bit] (the (len >> 29) << 24 terms carry the high bits), XORed in and multiplied once more, and the first sSz bytes of x are memcpy'd to s. Only a and c may be NULL/empty (skipped). Used by AES_GCM_encrypt_C and wc_AesGcmDecrypt both for the tag and for deriving J0 from a non-12-byte IV.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Aes context; H at +0x124"},
+      {"name": "param_2", "type": "ptr", "description": "additional authenticated data (may be NULL)"},
+      {"name": "param_3", "type": "u32", "description": "AAD length in bytes"},
+      {"name": "param_4", "type": "ptr", "description": "ciphertext (may be NULL)"},
+      {"name": "param_5", "type": "u32", "description": "ciphertext length in bytes"},
+      {"name": "param_6", "type": "ptr", "description": "out: hash result"},
+      {"name": "param_7", "type": "u32", "description": "bytes of the 16-byte result to copy out"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c05de8c": {
+    "name": "AES_GCM_encrypt_C",
+    "summary": "AES-GCM encrypt in CTR mode and produce the auth tag (wolfSSL software path, no arg checks)",
+    "description": "wolfSSL AES_GCM_encrypt_C(aes, out, in, sz, iv, ivSz, authTag, authTagSz, authIn, authInSz). Counter J0: if ivSz == 12 it is iv || 0x00000001, otherwise GHASH(aes, NULL, 0, iv, ivSz, ctr, 16). A copy of J0 is kept; for each full block the 32-bit big-endian counter in the last 4 bytes is incremented (IncrementGcmCounter), the counter block encrypted with wc_AesEncrypt and XORed with the input (word-wise or byte-wise depending on alignment) into out; a final partial block is handled with a memcpy of sz & 0xf bytes. If authTag is non-NULL the tag is GHASH(aes, authIn, authInSz, out, sz, authTag, authTagSz) XOR E_K(J0). Always returns 0; argument validation is done by the caller 0c05e2c0 (the public wc_AesGcmEncrypt). Companion of wc_AesGcmDecrypt.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Aes context with key schedule and H"},
+      {"name": "param_2", "type": "ptr", "description": "out: ciphertext"},
+      {"name": "param_3", "type": "ptr", "description": "plaintext"},
+      {"name": "param_4", "type": "u32", "description": "plaintext length"},
+      {"name": "param_5", "type": "ptr", "description": "IV / nonce"},
+      {"name": "param_6", "type": "u32", "description": "IV length (12 = fast path)"},
+      {"name": "param_7", "type": "ptr", "description": "out: auth tag (NULL = no tag)"},
+      {"name": "param_8", "type": "u32", "description": "tag length 1..16"},
+      {"name": "param_9", "type": "ptr", "description": "additional authenticated data"},
+      {"name": "param_10", "type": "u32", "description": "AAD length"}
+    ],
+    "returns": {"type": "s32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c05e2f0": {
+    "name": "wc_AesGcmDecrypt",
+    "summary": "AES-GCM decrypt: verify the auth tag in constant time, then CTR-decrypt (wolfSSL)",
+    "description": "wolfSSL wc_AesGcmDecrypt(aes, out, in, sz, iv, ivSz, authTag, authTagSz, authIn, authInSz) with AES_GCM_decrypt_C inlined. Returns BAD_FUNC_ARG (-173 = 0xffffff53) if aes, iv or authTag is NULL, if sz != 0 with in/out NULL, if authTagSz is not 1..16, or if ivSz == 0. J0 is iv || 00000001 for a 12-byte IV, else GHASH of the IV. It computes T' = GHASH(aes, authIn, authInSz, in, sz, 16 bytes) XOR E_K(J0) and compares authTagSz bytes against authTag with an OR-accumulated constant-time compare; a mismatch returns AES_GCM_AUTH_E (-180 = 0xffffff4c) before any plaintext is written. Then the ciphertext is decrypted block by block (increment the big-endian 32-bit counter, wc_AesEncrypt, XOR) with a memcpy'd partial final block. Returns 0 on success. Called from the ble_crypto wrapper 0c05bf00.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Aes context"},
+      {"name": "param_2", "type": "ptr", "description": "out: plaintext"},
+      {"name": "param_3", "type": "ptr", "description": "ciphertext"},
+      {"name": "param_4", "type": "u32", "description": "ciphertext length"},
+      {"name": "param_5", "type": "ptr", "description": "IV / nonce"},
+      {"name": "param_6", "type": "u32", "description": "IV length (must be > 0)"},
+      {"name": "param_7", "type": "ptr", "description": "expected auth tag"},
+      {"name": "param_8", "type": "u32", "description": "tag length 1..16"},
+      {"name": "param_9", "type": "ptr", "description": "additional authenticated data"},
+      {"name": "param_10", "type": "u32", "description": "AAD length"}
+    ],
+    "returns": {"type": "s32", "description": "0, BAD_FUNC_ARG (-173) or AES_GCM_AUTH_E (-180)"},
+    "confidence": "high"
+  },
+  "ble_219_0c05e3b8": {
+    "name": "GetASNInt",
+    "summary": "Parse a DER INTEGER header and strip a leading 0x00 pad byte (wolfSSL GetASNInt)",
+    "description": "wolfSSL GetASNInt with GetASNHeader inlined. Requires input != NULL, idx+1 <= maxIdx and input[idx] == 0x02 (ASN_INTEGER), then GetLength_ex(input, &idx, &len, maxIdx, check=1). On success *len and *inOutIdx (now pointing at the content) are updated; a negative length is returned as-is. If len > 0, the first content byte is 0x00 and len != 1, the padding zero is skipped (idx+1, len-1) and, if the following byte then has its top bit clear, ASN_PARSE_E is returned because the zero was not needed. Returns 0 on success or ASN_PARSE_E (-140 = -0x8c) on any format error. Caller 0c05e420 (ECDSA signature r/s decoding).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DER input buffer"},
+      {"name": "param_2", "type": "ptr", "description": "in/out u32 index into the buffer"},
+      {"name": "param_3", "type": "ptr", "description": "out: s32 length of the integer content"},
+      {"name": "param_4", "type": "u32", "description": "maximum valid index (buffer size)"}
+    ],
+    "returns": {"type": "s32", "description": "0 or ASN_PARSE_E (-140)"},
+    "confidence": "high"
+  },
+  "ble_219_0c05e4e8": {
+    "name": "wc_ecc_curve_free",
+    "summary": "Clear the loaded curve parameters of an ecc_curve_spec according to its load_mask",
+    "description": "wolfSSL wc_ecc_curve_free(curve) for a build without USE_ECC_B_PARAM: the struct has dp at +0, mp_int pointers prime +4, Af +8, order +0xc, Gx +0x10, Gy +0x14 and the byte load_mask at +0x24. For each set bit (PRIME 0x01, AF 0x02, ORDER 0x08, GX 0x10, GY 0x20; bit 0x04 for Bf is unused) it calls the mp_int clear routine at 0x0c063fec (mp_clear: used = 0, sign = 0, digits zeroed) on the corresponding big integer, then resets load_mask to 0. NULL curve is ignored. Called at the end of every ECC operation (0c05e614, 0c05fb10, 0c05fd18, 0c05ff44, 0c0600c0, 0c0601fc, 0c060974).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ecc_curve_spec (may be NULL)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "0x0c063fec is the real mp_clear (the empty 0c064000 named mp_clear in wave 1 is more likely mp_free)."
+  },
+  "ble_219_0c05f1d8": {
+    "name": "wc_ecc_copy_point",
+    "summary": "Copy an ecc_point (x, y, z big integers) into another (wolfSSL wc_ecc_copy_point)",
+    "description": "Returns ECC_BAD_ARG_E (-170 = -0xaa) if either point is NULL. Otherwise copies the three fp_int coordinates with the mp_copy routine at 0x0c064234: x at +0, y at +0x68 and z at +0xd0 (each fp_int is 0x68 bytes: used, sign, dp[24]); it stops at the first non-zero result and returns it, else 0. Called from 0c05f338 (ECC point multiplication / cache handling).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source ecc_point"},
+      {"name": "param_2", "type": "ptr", "description": "destination ecc_point"}
+    ],
+    "returns": {"type": "s32", "description": "0, ECC_BAD_ARG_E (-170) or an mp_copy error"},
+    "confidence": "high"
+  },
+  "ble_219_0c060190": {
+    "name": "wc_ecc_init",
+    "summary": "Zero a 0x1bc-byte ecc_key and init its pubkey.x/y/z and private scalar k (wolfSSL wc_ecc_init)",
+    "description": "wolfSSL wc_ecc_init(key) (wc_ecc_init_ex with heap = NULL inlined). Returns BAD_FUNC_ARG (-173 = 0xffffff53) for NULL. memset(key, 0, 0x1bc) then mp_init_multi (routine at 0x0c064004) on &key->k (+0x150), key->pubkey.x (+0x18), .y (+0x80), .z (+0xe8), NULL, NULL; a failure returns MEMORY_E (-125 = 0xffffff83). On success key->heap (+0x14) = NULL and 0 is returned. Layout implied: type +0, idx +4, state +8, flags +0xc, dp +0x10, heap +0x14, pubkey +0x18 (3 x 0x68), k +0x150, rng +0x1b8. Called by the ble_crypto ECDH/ECDSA wrappers (0c0537b4, 0c05baf0, 0c05bd30, 0c05bfa4, 0c05c13c), always paired with wc_ecc_free.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ecc_key to initialise (0x1bc bytes)"}
+    ],
+    "returns": {"type": "s32", "description": "0, BAD_FUNC_ARG (-173) or MEMORY_E (-125)"},
+    "confidence": "high"
+  },
+  "ble_219_0c0601d0": {
+    "name": "wc_ecc_free",
+    "summary": "Release an ecc_key: clear pubkey.x/y/z and force-zero the private scalar k (wolfSSL)",
+    "description": "wolfSSL wc_ecc_free(key). For a non-NULL key it calls the mp_clear routine at 0x0c063fec on pubkey.x (+0x18), pubkey.y (+0x80) and pubkey.z (+0xe8) and then mp_forcezero on the private scalar k at +0x150 so the secret is wiped. Always returns 0 (also for NULL). Counterpart of wc_ecc_init; same six ble_crypto callers plus 0c05ba4c.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ecc_key (may be NULL)"}
+    ],
+    "returns": {"type": "s32", "description": "always 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c060dac": {
+    "name": "wc_HashFree",
+    "summary": "Free a wc_HashAlg by type: only SHA-256 (type 6) is built in (wolfSSL wc_HashFree)",
+    "description": "wolfSSL wc_HashFree(hash, type). NULL hash returns BAD_FUNC_ARG (-173 = 0xffffff53). Switch on the wc_HashType: 6 (WC_HASH_TYPE_SHA256) calls wc_Sha256Free and returns 0; types 3,4,5,7,8,10,11,12,13 (MD5, SHA, SHA224, SHA384, SHA512, SHA3-224/256/384/512) are not compiled in and return HASH_TYPE_E (-232 = 0xffffff18); every other value (NONE, MD2, MD4, MD5_SHA, BLAKE2 ...) returns BAD_FUNC_ARG. Called from 0c060be8 (the wc_Hash wrapper). Sibling of wc_HashInit and wc_HashGetDigestSize.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "wc_HashAlg union"},
+      {"name": "param_2", "type": "u32", "description": "wc_HashType; 6 = SHA-256"}
+    ],
+    "returns": {"type": "s32", "description": "0, HASH_TYPE_E (-232) or BAD_FUNC_ARG (-173)"},
+    "confidence": "high"
+  },
+  "ble_219_0c060fec": {
+    "name": "wc_HmacInit",
+    "summary": "Zero a 0x118-byte Hmac context and store its heap pointer (wolfSSL wc_HmacInit)",
+    "description": "wolfSSL wc_HmacInit(hmac, heap, devId). Returns BAD_FUNC_ARG (-173 = 0xffffff53) for a NULL context; otherwise memset(hmac, 0, 0x118), hmac->heap (+0x110) = heap and returns 0. devId is ignored (no crypto callbacks built). The macType byte at +0x114 (checked by wc_HmacFree) is thereby cleared. Called from 0c05c088 (the ble_crypto HMAC-SHA256 helper) and paired with wc_HmacFree.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Hmac context (0x118 bytes)"},
+      {"name": "param_2", "type": "ptr", "description": "heap hint stored at +0x110"},
+      {"name": "param_3", "type": "s32", "description": "devId (unused)"}
+    ],
+    "returns": {"type": "s32", "description": "0 or BAD_FUNC_ARG (-173)"},
+    "confidence": "high"
+  },
+  "ble_219_0c06100c": {
+    "name": "wc_HmacFree",
+    "summary": "Free an Hmac context: for macType SHA-256 (6) release the inner hash (wolfSSL wc_HmacFree)",
+    "description": "wolfSSL wc_HmacFree(hmac). Does nothing for NULL. If hmac->macType (byte at +0x114) == 6 (WC_SHA256) it calls wc_Sha256Free (an empty function in this build) and, re-checking the same byte, calls it again with the context pointer, which is just the compiler's rendering of the switch and the empty callee; other MAC types are not built in. No memory is zeroed. Called from 0c05c088 after wc_HmacInit/wc_HmacSetKey/wc_HmacUpdate/wc_HmacFinal.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "Hmac context (may be NULL)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c061e70": {
+    "name": "s_fp_add",
+    "summary": "Unsigned big-integer add c = |a| + |b| on 24-digit TFM fp_ints with carry and clamp",
+    "description": "wolfSSL TFM s_fp_add(a, b, c) (fp_int: s32 used +0, s32 sign +4, u32 dp[24] +8). y = max(a->used, b->used), oldused = min(c->used, 24), c->used = y. If y <= 0 the result is zero and the old digits are cleared. Otherwise digits 0..y-1 are added with a carry chain (two CARRY4 terms); a final carry appends digit 1 if y < 24 and bumps used. If the resulting used count is 24 it returns FP_VAL (-1) (overflow of FP_SIZE). Remaining old digits up to oldused are memset to 0 and the number is clamped (leading zero digits dropped; sign kept, or 0 when the value becomes zero). The sign of c is set by the caller (fp_add / fp_sub). Returns FP_OKAY (0).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b"},
+      {"name": "param_3", "type": "ptr", "description": "fp_int c = |a| + |b| (sign preset by caller)"}
+    ],
+    "returns": {"type": "s32", "description": "0 or FP_VAL (-1) when 24 digits would be needed"},
+    "confidence": "high"
+  },
+  "ble_219_0c061f2c": {
+    "name": "s_fp_sub",
+    "summary": "Unsigned big-integer subtract c = |a| - |b| (|a| >= |b|) on TFM fp_ints, then clamp",
+    "description": "wolfSSL TFM s_fp_sub(a, b, c). c->used = a->used. For x < b->used: c->dp[x] = a->dp[x] - b->dp[x] - borrow with the borrow recomputed from the two unsigned compares; for b->used <= x < a->used only the borrow is propagated. Digits from a->used up to the old c->used are memset to 0, then fp_clamp drops leading zero digits (sign unchanged, or set to 0 when the result is zero). Caller guarantees |a| >= |b| and sets c->sign; used by fp_add and fp_sub and by the modular helpers 0c0625a0, 0c062940, 0c062a28.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a (minuend)"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b (subtrahend, |b| <= |a|)"},
+      {"name": "param_3", "type": "ptr", "description": "fp_int c result"},
+      {"name": "param_4", "type": "u32", "description": "unused (leftover register)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c061fe8": {
+    "name": "fp_add",
+    "summary": "Signed big-integer add c = a + b (wolfSSL TFM fp_add) using s_fp_add / s_fp_sub",
+    "description": "wolfSSL fp_add(a, b, c). If the signs are equal: c->sign = a->sign and return s_fp_add(a, b, c). Otherwise it compares magnitudes inline (fp_cmp_mag: by used count, then digits from the most significant down): if |a| < |b| then c->sign = b->sign and s_fp_sub(b, a, c), else c->sign = a->sign and s_fp_sub(a, b, c); these paths return 0. Called by the modular arithmetic helpers 0c062fe4, 0c0634c4, 0c0635ac and the mp_add wrapper 0c064088.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b"},
+      {"name": "param_3", "type": "ptr", "description": "fp_int c = a + b"},
+      {"name": "param_4", "type": "u32", "description": "unused (passed through)"}
+    ],
+    "returns": {"type": "s32", "description": "0, or FP_VAL from s_fp_add"},
+    "confidence": "high"
+  },
+  "ble_219_0c062068": {
+    "name": "fp_sub",
+    "summary": "Signed big-integer subtract c = a - b (wolfSSL TFM fp_sub) using s_fp_add / s_fp_sub",
+    "description": "wolfSSL fp_sub(a, b, c). If the signs differ: c->sign = a->sign and return s_fp_add(a, b, c). If equal, magnitudes are compared inline: when |a| >= |b|, c->sign = a->sign and s_fp_sub(a, b, c); when |a| < |b|, c->sign = !a->sign (positive becomes negative and vice versa) and s_fp_sub(b, a, c). Returns 0 on those paths. Called by 0c062fe4, 0c0635ac, 0c063ce4 and the mp_sub wrapper 0c06408c.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b"},
+      {"name": "param_3", "type": "ptr", "description": "fp_int c = a - b"}
+    ],
+    "returns": {"type": "s32", "description": "0, or FP_VAL from s_fp_add"},
+    "confidence": "high"
+  },
+  "ble_219_0c0620dc": {
+    "name": "fp_mul_2",
+    "summary": "Double a big integer b = a * 2 by a one-bit left shift across the digits (wolfSSL fp_mul_2)",
+    "description": "wolfSSL TFM fp_mul_2(a, b). Returns FP_VAL (-1) if a->used > 23, or if a->used == 23 and the top bit of dp[23] is set (the source's own overflow guard). Otherwise b->used = a->used and each digit is shifted left by one with the previous digit's top bit carried in; a final carry writes an extra digit 1 and increments b->used. Digits between the new and the old b->used are memset to 0 and b->sign = a->sign. Returns 0. Called from 0c062940 (modular doubling).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b = 2a (may alias a)"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "s32", "description": "0 or FP_VAL (-1) on overflow"},
+    "confidence": "high"
+  },
+  "ble_219_0c0623cc": {
+    "name": "fp_div_2",
+    "summary": "Halve a big integer b = a / 2 by a one-bit right shift from the top digit down (wolfSSL)",
+    "description": "wolfSSL TFM fp_div_2(a, b). b->used = a->used; starting at digit used-1 each digit is shifted right by one with the previous digit's low bit inserted at bit 31 (the odd '+0x40000001' pointer arithmetic is just dp[used-1]). Digits between the new and old b->used are memset to 0, b->sign = a->sign, then the result is clamped (used reduced past leading zero digits, sign cleared when zero). Callers: 0c0635ac and fp_div_2_mod_ct.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b = a >> 1 (may alias a)"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c062450": {
+    "name": "fp_div_2_mod_ct",
+    "summary": "Constant-time modular halving c = (a / 2) mod b for 0 <= a < b (wolfSSL fp_div_2_mod_ct)",
+    "description": "wolfSSL TFM fp_div_2_mod_ct(a, b, c). mask = -(a->dp[0] & 1): if a is odd the modulus b is added first so the halving stays exact. For i in 0..b->used-1: c->dp[i] = (a->dp[i] & -(i < a->used)) + (b->dp[i] & mask) + carry, with a carry chain; c->dp[b->used] = final carry, c->used = b->used + 1, c->sign = 0, then clamp. Finally fp_div_2(c, c) shifts right by one. All digit operations are branch-free in the data (constant time) as used by the ECC point arithmetic; called from 0c064498 (the mp_div_2_mod_ct wrapper).",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "fp_int a (0 <= a < b)"},
+      {"name": "param_2", "type": "ptr", "description": "fp_int b (modulus)"},
+      {"name": "param_3", "type": "ptr", "description": "fp_int c result"}
+    ],
+    "returns": {"type": "s32", "description": "always 0 (FP_OKAY)"},
+    "confidence": "high"
+  }
+}

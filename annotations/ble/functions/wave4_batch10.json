@@ -1,0 +1,901 @@
+{
+  "ble_219_0c05a608": {
+    "name": "ble_link_slot_request",
+    "summary": "Start an enable or disable request for link slot 0..3 with its peer address",
+    "description": "Validates a 12-byte request record: byte 0 is the link slot index (must be 0..3), byte 1 the requested state (1 = enable/connect, 0 = disable), bytes 3..8 the 6-byte peer BD address and byte 10 a companion value passed to the helpers; invalid input returns status 0x47. If a request is already in flight (state word 0x200145B0 == 0x102) it re-arms the 60 s timer at 0x20014590 and returns the pending bit DAT_200145CA & 1. A disable on a known slot clears the slot's connected flags, saves the table with ble_link_table_save, cancels through 0c06B8BC when flag 0x08 is set and returns 0. An enable stores the request words at 0x200145CC/D0/D4 and sets the state to 0x102; when flag 0x40 is set and the stored address matches it takes a fast path (sets entry+5, derives bytes 0x2000432F and 0x20004316 from entry bytes 1 and 2 offset by 8*(3-entry[3]), saves, returns 0). Otherwise it checks the address with bt_bdaddr_is_zero and, for a matching idle slot, starts it through 0c057288 and returns 0; else it runs 0c0571D4, records the index in DAT_200042F8 and returns 1. Flags in 0x200042FC drive the extra resets (0x04 clears the 0x20004328 record, 0x28 clears bits 0x20 and 0x08, cancels, and waits 100 units through 0c0441A8).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "12-byte request record: [0] slot index 0..3, [1] enable flag, [3..8] peer BD address, [10] companion byte"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed to the timer restart as the handler context"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "0 when the request is accepted or completed, 1 when an enable could not be started, 0x47 for invalid arguments, or the pending bit while busy"
+    },
+    "confidence": "medium",
+    "notes": "Unnamed callees: 0c057288, 0c0571d4, 0c0569a0, 0c066618, 0c068c98, 0c06b8bc, 0c0441a8, 0c058a0c, 0c059ac0. The decompiled bt_bdaddr_is_zero call (0c05a9c4) passes extra arguments, so the test is read from its family name as an unset-address check. Meaning of status 0x47 and the 0x102 state code is inferred from usage."
+  },
+  "ble_219_0c05a7ac": {
+    "name": "ble_link_op_start_timed",
+    "summary": "Start a link operation with a timeout of param_1 seconds, capped at 60 s",
+    "description": "Starts the link-operation state machine unless its phase byte at 0x200145B1 is already 1 (busy). It calls the unnamed 0c0572C0 with 1, sets the state word 0x200145B0 to 0x103, and computes the timeout as param_1 * 1000 ms with a 16-bit cap at 60000 ms (compare against 0xEA61). It clears the six words 0x200145D8..0x200145EC that hold the operation result and arms the 60 s timer at 0x20014590 through ble_host_timer_restart with handler 0c059D0D. Nothing happens while busy.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s16",
+        "description": "timeout in seconds; multiplied by 1000 and capped at 60000 ms"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed through to the timer restart"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "0c0572C0 and the handler 0c059D0D are unnamed."
+  },
+  "ble_219_0c05a804": {
+    "name": "ble_link_slot_release",
+    "summary": "Release the link record for key param_1 and drop its entries from the link table",
+    "description": "Looks up the link record for key param_1 with ble_link_table_find_by_key and returns 1 when there is none. If the key is the current link (DAT_200042F8 == param_1) and param_2 is 0 and flag bit 0x01 is set, it first calls the unnamed teardown 0c0569A0; if the flag bits 0x48 are set it cancels through 0c06B8BC(DAT_20004338). It then copies the record's 6-byte address (+0x0C) and u16 at +0x10 into a local structure, passes it to the unnamed controller call 0c066618 and removes all table records with this key through ble_link_table_remove_key. Returns 0 on success.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "link key (slot index) to release"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "0 allows the teardown call 0c0569A0 when the key is the current link; non-zero skips it"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the record was released, 1 when no record with this key exists"
+    },
+    "confidence": "medium",
+    "notes": "0c0569A0, 0c066618 and 0c06B8BC are unnamed. The 0c05A9C0 hook call has no effect."
+  },
+  "ble_219_0c05a874": {
+    "name": "ble_link_result_reset",
+    "summary": "Clear the link operation result byte and call unnamed 0c06B178",
+    "description": "Sets the one-byte result/pending flag at 0x200145CA to zero and calls the unnamed routine 0c06B178. Used to reset the state that ble_link_slot_request reports as pending.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Called from 0c05952C. 0c06B178 is unnamed."
+  },
+  "ble_219_0c05a884": {
+    "name": "ble_link_op_poll",
+    "summary": "Poll the link operation when its phase byte is set and its step byte is 2",
+    "description": "Calls the unnamed 0c059AC0 only when the phase byte at 0x200145B1 is non-zero and the step byte at 0x200145B0 equals 2 (the low byte of the 0x102 state code). It acts as the periodic kick of the link-operation state machine.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Called from 0c05741C. The step/phase split of the state word (step = byte 0x200145B0, phase = byte 0x200145B1) is inferred from the compares in this family."
+  },
+  "ble_219_0c05a91c": {
+    "name": "ble_link_table_release",
+    "summary": "Release all link-table entries (mode 1 or 2) or one entry by key (other modes)",
+    "description": "Reads the entry count at 0x200134EC (ble_link_table_get_base + 0x30) and returns 0 when it exceeds 4. Mode 1 walks the entries from last to first calling ble_link_slot_release(key, 0); when the table is empty it calls the unnamed 0c0569A0 if flag bit 0x01 is set. Mode 2 does the same walk with release(key, 1) and does nothing for an empty table. Any other mode releases the single key param_2 with release(key, 0). It walks the 20-byte entries from the last (index count-1) to the first, using each entry's first byte as its key.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "mode: 1 = release all with param 0, 2 = release all with param 1, other = single key"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "key to release in the single-key mode"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "status of the last release (0 or 1), or 0 when there is nothing to release"
+    },
+    "confidence": "medium",
+    "notes": "Callers include 0c028C94 and 0c02B480. Unnamed 0c0569A0 is the same teardown as in ble_link_slot_release."
+  },
+  "ble_219_0c05ab04": {
+    "name": "ble_log_data_send",
+    "summary": "Send one type-4 log record from ring 0x20014670 to the state handle",
+    "description": "Takes the log semaphore 0x20014620 with a 100-tick timeout and logs 'ble_log_data_send sem timeout' when it fails. It reads a 4-byte record header from the 0x20014670 ring: the low 16 bits are the payload length and byte 2 is the record type. Records shorter than 252 bytes are read in full and the semaphore is given back; a read that returns a different length logs 'read real data len not match'. Type-4 records are sent with the unnamed 0c04EBC0 (opcode 0x44) to the handle at state+0x12 unless that handle is 0xFF; other types are consumed without sending. When more than 4 bytes remain it stores its own entry (0x0C05AB05) in DAT_20015F30 as a continuation marker and, if bit 16 of DAT_200042FC is set, calls 0c04EB8C to notify. Records of 252 bytes or more are drained in 251-byte pieces and logged as 'data too large'.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Unnamed: 0c04EBC0 (message send with handle, opcode, payload, length), 0c04EB8C (notify), 0c035D0C (debug print). The header layout and opcode 0x44 are read from the code; the purpose of the channel is inferred from the strings."
+  },
+  "ble_219_0c05ac20": {
+    "name": "ble_log_typed_send",
+    "summary": "Send one log record from ring 0x20015538 with opcode 0x31, 0x39 or 0x3E by type",
+    "description": "Works like ble_log_data_send on its own ring 0x20015538 and semaphore 0x200154E8 (100-tick take). The record type in byte 2 of the 4-byte header picks the message opcode: type 2 gives 0x31, type 1 gives 0x39, type 3 gives 0x3E; other types are dropped after the semaphore is given back. The payload goes to the handle at state+0x10 through 0c04EBC0. When more than 4 bytes remain it sets DAT_20015F3C to its own entry (0x0C05AC21) and, if bit 0 of DAT_200042FC is set, calls 0c04EB8C with the handle. Records of 252 bytes or more are drained and not sent.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Opcode mapping and header layout are read from the code. The meaning of the three opcodes is not established."
+  },
+  "ble_219_0c05b5c0": {
+    "name": "ble_random_fill_seeded",
+    "summary": "Fill a buffer with param_2 random bytes from the unnamed generator, seeded by the tick count",
+    "description": "Reads the FreeRTOS tick count with xTaskGetTickCount (0c043F1C) and calls the unnamed seed routine 0c071478; the tick value is still in r0 when the seed routine is entered. It then writes param_2 bytes to param_1, one per call to the unnamed generator 0c0714D4. The loop index is an 8-bit counter, so param_2 must be 1..255; a larger count never ends the loop.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "number of bytes, 1..255"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Callers: 0c02BDD0. Whether the generator is cryptographic is not known from this body."
+  },
+  "ble_219_0c05b5e4": {
+    "name": "ble_log_print_timestamped",
+    "summary": "Format a log line into a 256-byte buffer and print it with an hh:mm:ss.mmm stamp",
+    "description": "Formats param_2 (format string) with the argument param_3 into the 256-byte static buffer at 0x20015F44 through the unnamed formatter 0c071FBC. It reads the current time from btstack_run_loop_get_time_ms, splits it into hours (seconds / 3600), minutes, seconds and milliseconds, and prints '[%02u:%02u:%02u.%03u] ' followed by 'LOG -- %s' through 0c035D0C. param_1 is not used in the body. The shared buffer makes it non-reentrant.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "printf-style format string"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "first format argument; further variadic arguments are not visible in the decompile"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "0c071FBC and 0c035D0C are unnamed here. The stamp layout is read from the format string."
+  },
+  "ble_219_0c05b67c": {
+    "name": "ble_host_controller_init",
+    "summary": "Bring up the BLE host and link-layer environment in a fixed order and return 0",
+    "description": "Runs the BLE stack start-up sequence: unnamed setup routines 0c04554C and 0c065564, the ROM table getters ble_rom_ptr_table_get_0c07ffac, ble_rom_table_get_0c07fe00 and ble_rom_ptr_table_get_0c0800b4 (results not used), and 0c065AEC. It takes a handle from 0c048F34 and stores it with ble_host_store_arg_pair(handle, 0), then fetches the local interface table from ble_iface_exchange_tables and calls ll_env_init with that table and the constant block at 0x0C081844. It installs the callbacks through ble_ctrl_env_set_callbacks_and_notify and the interface through ble_ctrl_env_set_iface_and_init, and finishes with unnamed 0c04ADE0 and 0c04F034 on the handle. Always returns 0.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "The packet callee list names btstack_run_loop_init, bthost_tlv_get_instance, bthost_link_key_db_tlv_get_instance and le_device_db_tlv_configure, but none is a direct call in this body; they may be reached through 0c04554C or 0c065564."
+  },
+  "ble_219_0c05b724": {
+    "name": "ble_ecc_point_add_mont",
+    "summary": "Add two projective ECC points in Montgomery form and write the result to param_1",
+    "description": "Loads the modulus p from the curve block at param_4+0x0C and the constant a from param_4+0x10 as fp_int values (hex, radix 16). It computes R mod p with the normalisation thunk and converts the three 104-byte coordinates of each input point (offsets 0, 0x68, 0xD0) to Montgomery form by multiplying with R. It derives rho = -1/p mod 2^32 with mp_montgomery_setup, adds the points with 0c05EB00 (curve a, modulus p, rho) and, on success, converts the result at param_1 back with the Montgomery reduction 0c05EFC0. Temporary bignums are cleared before return. Called from 0c05BAF0 and 0c05BD30.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output point (three 104-byte fp_int coordinates)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "first input point P"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "second input point Q"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "curve block: +0x0C modulus p, +0x10 constant a (hex strings)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status (-1 for a temporary allocation failure)"
+    },
+    "confidence": "medium",
+    "notes": "The operation name (point addition) is inferred from the caller. Unnamed: 0c05EB00, 0c05EFC0, thunk 0c062940, thunk 0c06353C."
+  },
+  "ble_219_0c05b86c": {
+    "name": "ble_ecc_scalar_base_mult",
+    "summary": "Derive a scalar in 1..n-1 from 36 bytes and multiply the point at param_3 by it",
+    "description": "Imports the 36-byte big-endian value at param_2 into a temporary bignum and loads the curve order n from param_4+0x18 (hex, radix 16). It reduces the value modulo n-1 and adds 1 to get a scalar in 1..n-1; the final +1 is the mp_add_d thunk and the earlier subtract step is an unnamed digit op (medium confidence). It loads the modulus p from param_4+0x0C and the constant a from param_4+0x10, then runs the projective scalar multiplication 0c05F818(scalar, param_3, param_1, a, p, 0). On success it computes rho with mp_montgomery_setup and converts the result out of Montgomery form with 0c05EFC0. Used by the 'diversify' step 0c05BD30.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "output point"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "36-byte big-endian scalar seed"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "base point"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "curve block: +0x0C p, +0x10 a, +0x18 n"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status"
+    },
+    "confidence": "medium",
+    "notes": "The subtract step and the exact reduction rule are inferred from the thunk sequence (sub 1, mod, add 1). Unnamed: 0c05F818 (scalar multiplication), 0c063CE4, 0c0634C4, 0c06428C."
+  },
+  "ble_219_0c05b984": {
+    "name": "ble_crypto_sha256_digest",
+    "summary": "One-shot SHA-256 of param_1 bytes at param_2 into the 32-byte digest at param_3",
+    "description": "Initialises a SHA-256 context with wc_InitSha256 (0c061DB0), feeds param_1 bytes from param_2 to the unnamed update routine 0c061B7C, finalises into the 32-byte digest at param_3 with 0c061C80 and releases the context with wc_Sha256Free. The update call uses the (context, data, length) order, so param_1 is the length. Returns the first failing status, or the finalisation status.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "message length in bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "message data"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "32-byte digest output"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the initialisation or update status"
+    },
+    "confidence": "medium",
+    "notes": "0c061B7C and 0c061C80 are presumably wc_Sha256Update and wc_Sha256Final from their call shapes; they are not named in the packet. Called from 0c053A48."
+  },
+  "ble_219_0c05ba4c": {
+    "name": "ble_ecc_ctx_release",
+    "summary": "Release an ECC context: wc_ecc_free, free its temporary point and zero 512 bytes",
+    "description": "Calls wc_ecc_free (0c0601D0) on the key object, which takes the key from r0 (the context pointer here), frees the temporary point stored at context+0x1FC through 0c05F1B0 (the release half of the temporary-bignum pool; allocation is 0c05F1A8), and then zeroes the 512 bytes at the context base with memset. The wipe removes private scalars and key material at the end of an ECC operation.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ECC context (0x200+ bytes)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The argument to 0c0601D0 is implicit in r0 in the decompile."
+  },
+  "ble_219_0c05ba6c": {
+    "name": "ble_crypto_sha256_commit",
+    "summary": "SHA-256 over the 28-byte X of ctx+0x150 followed by the 32 bytes at ctx+0x1BC",
+    "description": "Copies the 32 bytes at context+0x1BC..0x1DB, exports the bignum at context+0x150 as 28 big-endian bytes with 0c0641F4 (mp_to_unsigned_bin_len), and hashes these 60 bytes (28 + 32) with wc_InitSha256, the update 0c061B7C, the final 0c061C80 and wc_Sha256Free. The 32-byte digest goes to param_2. The 60-byte input is the same record that ble_ecc_share_derive writes, so this is the digest of that record.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ECC context"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "32-byte digest output"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status"
+    },
+    "confidence": "medium",
+    "notes": "Purpose (commitment or confirmation value) is inferred. Called from 0c053954."
+  },
+  "ble_219_0c05baf0": {
+    "name": "ble_ecc_share_derive",
+    "summary": "Import the peer's P-224 point, combine it with the context point and build the 60-byte share record",
+    "description": "Initialises a temporary key and imports the peer's 57-byte uncompressed P-224 point at param_2 (length 0x39, curve id 14) with 0c060AE4, then validates it with 0c060974. It combines the context point at context+0x18 with a stack point through ble_ecc_point_add_mont into the temporary point at context+0x1FC. On success it writes the 28-byte X of context+0x150 to param_3[0..27], copies the 32 bytes at context+0x1BC..0x1DB to param_3[0x1C..0x3B] (a 60-byte record), and stores the 32 bytes at param_2+0x39..0x58 into context+0x1DC..0x1FB. Temporaries are freed on every path. Part of the ECC/pairing group with ble_ecc_p224_export_derive.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ECC context (point at +0x18, temporary point pointer at +0x1FC)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "peer public point, 57 bytes (0x04 || X28 || Y28) followed by 32 bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "60-byte output record"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status"
+    },
+    "confidence": "medium",
+    "notes": "Curve identification (P-224) comes from the 0x39 length and curve id 0x0E used on the import. The use of the stack point passed as the second point is not fully resolved in the decompile."
+  },
+  "ble_219_0c05bbcc": {
+    "name": "ble_ecc_p224_export_derive",
+    "summary": "Export the P-224 point at ctx+0x1FC and derive two 32-byte secrets from its X coordinate",
+    "description": "Exports the 28-byte X coordinate of the temporary point at context+0x1FC, then runs the 0c060BE8 key derivation with that X as key over the 64-byte input at context+0x1BC..0x1FB (two 32-byte blocks) to produce 64 bytes. If the derivation succeeds it writes the first 32 bytes to param_3 and the second 32 bytes to param_4, sets param_2[0] = 0x04 and writes X (28 bytes) and Y (28 bytes, point+0x68) after it, giving the 57-byte uncompressed P-224 public point. It has no direct caller in the packet and is reached indirectly.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "ECC context"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "57-byte output: uncompressed P-224 point"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "first 32-byte derived secret"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "second 32-byte derived secret"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Unnamed: 0c0641F4 (export), 0c060BE8 (key derivation, SHA-256 type 6). The roles of the two derived halves are not established."
+  },
+  "ble_219_0c05bcc0": {
+    "name": "ble_crypto_kdf_update",
+    "summary": "Derive 32 bytes from the 32-byte key at param_1 with the label 'update'",
+    "description": "Calls the key-derivation helper 0c060BE8 with SHA-256 (type 6), the 32-byte key at param_1, the 6-byte label 'update' and a 32-byte output at param_2. One of the four label-based derivations of the pairing and serial-protection group.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte input key"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "32-byte output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Callers: 0c053C94, 0c053CCC, 0c053D04, 0c053DA4. 0c060BE8 is the shared KDF helper of the pairing group and is not described in this packet."
+  },
+  "ble_219_0c05bce4": {
+    "name": "ble_crypto_kdf_connect",
+    "summary": "Two-step key derivation: 'intermediate' then 'connect', producing 16 bytes",
+    "description": "Derives a 32-byte intermediate from the key at param_1 with the label 'intermediate' (12 bytes) through 0c060BE8. If that succeeds it derives 16 bytes into param_2 from the intermediate with the label 'connect' (7 bytes). No status is returned and the output is left unchanged on the first failure.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte input key"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "16-byte output"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Called from 0c053D04."
+  },
+  "ble_219_0c05bd30": {
+    "name": "ble_crypto_diversify",
+    "summary": "Diversify a 32-byte secret with a peer P-224 point into a 28-byte value",
+    "description": "Imports the peer's 57-byte P-224 point at param_2 (curve id 14) into a temporary key and validates it. It derives 72 bytes from the 32-byte secret at param_1 with the label 'diversify' (9 bytes) and splits them into two 36-byte scalars. It multiplies the stack point auStack_1C4 by the first scalar (0c05B86C) and the constant point built from curve block +0x1C/+0x20 (Z set to 1 with mp_set) by the second, adds the two with ble_ecc_point_add_mont, and on success exports the X coordinate (28 bytes) to param_3. Temporary points are released on all paths. The purpose is inferred from the label.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte secret"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "peer public point, 57 bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "28-byte output (X coordinate)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status"
+    },
+    "confidence": "low",
+    "notes": "The curve block pointer is a stack local that the decompile does not show being set; the parameters of the scalar multiplications are read from that layout."
+  },
+  "ble_219_0c05be98": {
+    "name": "ble_crypto_server_secret",
+    "summary": "Derive the 32-byte server shared secret from two 32-byte values",
+    "description": "Concatenates the 32-byte value at param_1 and the 32-byte value at param_2 into one 64-byte block on the stack and derives 32 bytes into param_3 with 0c060BE8 (SHA-256 type 6), using the label 'ServerSharedSecret' (18 bytes). Part of the pairing key-derivation group.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "first 32-byte value"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "second 32-byte value"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "32-byte output secret"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": "Called from 0c053A48."
+  },
+  "ble_219_0c05bf00": {
+    "name": "ble_crypto_session_decrypt",
+    "summary": "AES-128-GCM decrypt a pairing-session message whose 16-byte tag is at its end",
+    "description": "Rejects an input shorter than 17 bytes or an output capacity below the ciphertext length (returns -1). It derives 32 bytes from the 32-byte key at param_1 with the label 'PairingSession' (14 bytes): bytes 0..15 are the AES-128 key for wc_AesGcmSetKey and bytes 16..31 are the GCM IV. It creates an Aes context (wc_AesInit with devId -2), decrypts the input minus its 16-byte trailing tag with wc_AesGcmDecrypt into param_5, verifies the tag, stores the plaintext length in *param_4 and frees the context.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte key material"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "input length including the 16-byte tag"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "input (ciphertext followed by tag)"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "in/out: output capacity on entry, plaintext length on success"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "plaintext output"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the tag verifies, -1 for bad sizes, else the GCM status"
+    },
+    "confidence": "medium",
+    "notes": "The IV source is the second half of the KDF output, which the decompile shows as a separate stack buffer (auStack_160); the byte layout is inferred from the contiguous stack slots. Called from 0c053A48."
+  },
+  "ble_219_0c05bfa4": {
+    "name": "ble_crypto_ecdsa_p256_verify",
+    "summary": "Verify an ECDSA P-256 signature over the SHA-256 digest of a message",
+    "description": "Imports the 65-byte uncompressed P-256 public key at param_1 (curve id 7) into a temporary key and validates it. It hashes the message at param_5 (length param_4) with SHA-256 (init, update 0c061B7C, final 0c061C80) and calls 0c060720 with the signature at param_3 (length param_2), the 32-byte digest and the key, which presumably is wc_ecc_verify_hash. The verification counts only when the result flag equals 1. Returns 0 for a valid signature and -1 otherwise, freeing the key and hash context on every path.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "65-byte uncompressed P-256 public key"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "signature length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "signature"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "message length"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "message"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 for a valid signature, -1 for an invalid one or a failure of the verify call"
+    },
+    "confidence": "medium",
+    "notes": "0c060720 is presumably wc_ecc_verify_hash from its argument shape. Called from 0c053A48."
+  },
+  "ble_219_0c05c088": {
+    "name": "ble_crypto_serial_mac",
+    "summary": "HMAC-SHA256 over a message, keyed by a derivation of param_1 with 'SerialNumberProtection'",
+    "description": "Initialises an Hmac context (wc_HmacInit with devId -2) and derives a 32-byte HMAC key from the 32-byte key at param_1 with the label 'SerialNumberProtection' (22 bytes) using 0c060BE8. It sets that key for SHA-256 HMAC (type 6), feeds param_2 bytes from param_3 through wc_HmacUpdate, and writes the 32-byte tag to param_4 with wc_HmacFinal. The context is freed with wc_HmacFree on every path. This is the protection tag for the vehicle serial number.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte key material"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "message length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "message"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "32-byte tag output"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the first failing status"
+    },
+    "confidence": "medium",
+    "notes": "Called from 0c053E1C. The 'serial number protection' purpose comes from the label string and the brief."
+  },
+  "ble_219_0c05c10c": {
+    "name": "ble_rng_get_32",
+    "summary": "Fill 32 bytes at param_1 with random data from a temporary RNG context",
+    "description": "Initialises a 20-byte random-number context with the unnamed 0c061828, generates 32 bytes into param_1 with 0c061834 and releases the context with 0c06156C. Returns the generator status. The call shape (init, generate 32 bytes, free) matches the wolfSSL RNG API, but the names are not confirmed.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "32-byte output buffer"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, else the status of the generator or init"
+    },
+    "confidence": "low",
+    "notes": "Callers: 0c053954."
+  },
+  "ble_219_0c05c13c": {
+    "name": "ble_crypto_ecdh_seal_p256",
+    "summary": "ECDH-P256 seal: ephemeral key, KDF, AES-128-GCM, output ephemeral public key, ciphertext and tag",
+    "description": "Requires an output buffer of at least param_2 + 0x51 bytes, otherwise returns -1. It creates an ephemeral P-256 key pair (0c0600C0 make-key with curve 7, RNG attached with 0c060BD4) and computes the ECDH shared secret with the peer's 65-byte public key at param_1 (0c05FCCC, 32 bytes). It derives 32 bytes with 0c060BE8 from the secret and the 130-byte block ephemeral public key || peer public key; the first 16 bytes key AES-128-GCM (0c05DBE0) and the last 16 are the IV. The plaintext (param_3, param_2 bytes) is encrypted to param_5+0x41 with a 16-byte tag appended, and the ephemeral public key is written first as 0x04 || X || Y (65 bytes). *param_4 becomes param_2 + 0x51.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "peer public key, 65 bytes uncompressed P-256"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "plaintext length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "plaintext"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "in/out: output capacity on entry, total output length on success"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "output: ephemeral public key, ciphertext, tag"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -1 for a short output buffer, else the first failing status"
+    },
+    "confidence": "medium",
+    "notes": "Called from 0c053954, 0c053A48 and 0c053E1C. The ECIES-style layout is inferred from the buffer offsets and the KDF input length of 0x82."
+  },
+  "ble_219_0c05c320": {
+    "name": "ble_act_profile_apply_a",
+    "summary": "Select profile 1..3 from table A and restart the activity if it is running",
+    "description": "Maps selector byte DAT_20017046 (1, 2 or 3; other values return at once) to one of three words in table A (0x20003FBA, 0x20003FB6, 0x20003FBE) and copies it to the working word 0x200042CC and to 0x200042CA. It loads the parameter block of handle DAT_200042C7 through 0c06B64C into 0x200042C8. When the activity is idle (DAT_20017048 == 0) it fills 0x20004977 through 0c052DE8 and passes it to 0c06B6B4, sets DAT_20012ED0 = 2, and returns without starting if ble_mode_nv_is_inactive reports the NV mode off. Otherwise it starts the handle with 0c06B7BC, sets flag 0x80 with ble_flags_set on success and sets DAT_20017048 = 1. If the activity is already running it calls ble_act_set_running(0, 0, 1) and sets the pending-restart bytes DAT_20017044 and DAT_20017045 to 1. Shares its structure with ble_act_profile_apply_b.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Unnamed: 0c06B64C, 0c052DE8, 0c06B6B4, 0c06B7BC. The meaning of selector values 1..3 is not established."
+  },
+  "ble_219_0c05c3e8": {
+    "name": "ble_act_set_running",
+    "summary": "Start (param_2 = 1) or stop (param_2 = 0) activity slot param_1 and apply pending restarts",
+    "description": "Sets DAT_20012ED0 to 2. For a start it does nothing unless ble_mode_nv_is_inactive returns 0; then it starts handle DAT_200042C7 with 0c06B7BC, sets flag 0x80 on success and marks slot param_1 running (byte 0x20017048 + param_1 = 1). For a stop it stops the handle with 0c06B818, clears flag 0x80 on success and marks the slot idle. For slot 0 with param_3 == 1 and a pending restart (DAT_20017044), it clears the pending flag and re-applies table B (ble_act_profile_apply_b) when DAT_20017045 is set, else table A. With param_3 == 0 it always re-applies table A.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "activity slot index (0 is the main activity)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "1 = start, 0 = stop"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "1 = consume a pending restart on stop, 0 = always re-apply table A on stop"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Callers include ble_act_profile_apply_a/_b and the stop path ble_act_stop. The semantic names for slot 0 and the pending flags are inferred."
+  },
+  "ble_219_0c05c480": {
+    "name": "ble_act_profile_apply_b",
+    "summary": "Select profile 1..3 from table B and restart the activity if it is running",
+    "description": "Same logic as ble_act_profile_apply_a but reads table B (0x20003FB8, 0x20003FB4, 0x20003FBC) for selectors 1, 2 and 3. It uses the same handle, the same flag 0x80 and pending-restart handling, and the same ble_act_set_running(0, 0, 1) call on the running path.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Callers: 0c055244, 0c0555D4, 0c05C3E8, 0c05C548. Unnamed callees as in ble_act_profile_apply_a."
+  },
+  "ble_219_0c05c548": {
+    "name": "ble_act_stop",
+    "summary": "Stop the activity, clear flag 0x80 and re-apply a queued profile if one is pending",
+    "description": "Sets DAT_20012ED0 to 2 and stops handle DAT_200042C7 with 0c06B818, clearing flag 0x80 when that succeeds. It then clears DAT_20017048. If a restart is pending (DAT_20017044) it clears it and re-applies table B when DAT_20017045 is set (ble_act_profile_apply_b), else table A (ble_act_profile_apply_a).",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Callers: 0c052EE4, 0c052F28, 0c052FB0, 0c053018, 0c055268."
+  },
+  "ble_219_0c05c7b6": {
+    "name": "ble_slot_identity_dump",
+    "summary": "Print 15 bytes of the slot identity block in hex and return 1",
+    "description": "Gets the slot header block from ble_slot_get_header_ptr (the structure before the slot table at 0x20010188) and copies 16 bytes of it to the buffer whose pointer is in r3 on entry; the decompile shows this as in_r3, not as a normal parameter. A loop then swaps bytes inside the first 8 bytes of that buffer. Bytes 0..14 are printed with %02x through 0c035D0C, followed by a constant string at 0x0C07F24C. Always returns 1.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "low",
+    "notes": "The byte-swap pattern is hard to read from the decompile (the loop index runs over overlapping pairs), so the exact resulting byte order is uncertain. The identity meaning (BD address or serial) is not established."
+  },
+  "ble_219_0c05c850": {
+    "name": "ble_link_abort_current",
+    "summary": "Call the handle-based abort 0c06B8BC without an explicit argument and return 0",
+    "description": "Calls the unnamed routine 0c06B8BC, the link-handle cancel used on the other link paths with the u16 handle in DAT_20004338, without passing an argument. The value in r0 on entry is what the callee sees. Always returns 0.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium",
+    "notes": "Callers: 0c053018, 0c0532DC, 0c053558, 0c0537B4. The missing argument is taken from the decompile as-is."
+  },
+  "ble_219_0c05c860": {
+    "name": "ble_transfer_chunks_64",
+    "summary": "Feed param_2 bytes from param_1 to 0c065C88 in pieces of at most 64 bytes",
+    "description": "Loops over the buffer in chunks of up to 0x40 bytes, calling the unnamed routine 0c065C88 with each chunk's pointer and length, and advances the pointer. The remaining count is kept as a 16-bit value. A zero length returns at once. 0c065C88 works on RAM objects at 0x20011A10 and 0x20011A50 whose body is not in this packet.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "byte count, handled as 16 bits"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "Callers: 0c053848, 0c053A48, 0c053EE4. The 64-byte chunk size is probably a buffer or FIFO limit (not verified)."
+  },
+  "ble_219_0c05c8a8": {
+    "name": "ble_crypto_nv_store_blob",
+    "summary": "Store a blob in NV record 0x1389 and write the validity marker 0xEA to record 0xFAA",
+    "description": "Clears the validity flag DAT_200170CD and calls the unnamed 0c053EE4, then writes param_2 bytes from param_1 to NV record 0x1389 with ble_nv_record_write. If all bytes were written it writes the one-byte marker 0xEA to NV record 0xFAA, sets DAT_200170CD to 1, notifies through 0c055440(0x11) and returns 0. Otherwise it clears the flag, notifies with the same call and returns 0x0C.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "blob to store"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "blob length"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when the blob and marker were written, 0x0C when the write fell short"
+    },
+    "confidence": "medium",
+    "notes": "The blob is probably the protected serial-number or pairing secret; record meanings are inferred. Record 0x1389 is not described in this packet."
+  },
+  "ble_219_0c05ca80": {
+    "name": "ble_proto_dispatch_op",
+    "summary": "Dispatch protocol sub-opcodes 0x1F and 0x20..0x29 to their handlers, always return 0",
+    "description": "A switch on the sub-opcode in param_2: 0x1F calls 0c053F24 with param_6 and param_5; 0x22 calls 0c054180, 0x25 calls 0c05420C and 0x28 calls 0c0540F4 with the sub-code 9 (0x28 - 0x1F) and param_4. The group 0x20, 0x23, 0x26 and 0x29 calls the unnamed 0c065B38 with the payload pointer and 0, which releases or acknowledges it. Other values do nothing. Returns 0 on every path.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "context passed to the handlers"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "sub-opcode"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused in this body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "passed to the 0x28 handler"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "payload pointer"
+      },
+      {
+        "name": "param_6",
+        "type": "u16",
+        "description": "16-bit argument passed to the 0x1F, 0x22, 0x25 and 0x28 handlers"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "The protocol is not identified in this packet; the 0x1F..0x29 step pattern suggests message families with per-family handlers. No direct callers in the packet."
+  }
+}

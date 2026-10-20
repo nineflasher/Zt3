@@ -1,0 +1,125 @@
+{
+  "structs": {
+    "BmsDwellPair": {
+      "size": 8,
+      "description": "A pair of u32 dwell accumulators for one protection latch channel. The first accumulates the elapsed time while the channel's set (or trigger) condition holds and latches when it reaches the set limit; the second does the same for the clear (or release) side. Each is zeroed when its own condition does not hold, and the set accumulator is also zeroed when the clear side fires, and vice versa.",
+      "fields": [
+        {
+          "name": "set_acc",
+          "offset": 0,
+          "type": "u32",
+          "description": "Set or trigger accumulator, in the tick units of the caller's elapsed-time argument (param_3 or param_4)."
+        },
+        {
+          "name": "clear_acc",
+          "offset": 4,
+          "type": "u32",
+          "description": "Clear or release accumulator, in the same tick units."
+        }
+      ]
+    },
+    "BmsDerateTable": {
+      "size": 16,
+      "description": "Sixteen bytes of derate-curve parameters read by bms_current_limit_derate. Breakpoints and floors shape two piecewise-linear factors of the current limits, the SOC window scales the second factor, a window of the third factor is active only inside a range, and the taper slope and output multiplier shape the published value. Values are configuration constants; units are probably percent or per-mille.",
+      "fields": [
+        {
+          "name": "bp_a",
+          "offset": 0,
+          "type": "u8",
+          "description": "First breakpoint (0x20000ED8) of the factor-1 ramp in the derate input x; the ramp runs between bp_a and bp_b and is probably a per-mille or percent step."
+        },
+        {
+          "name": "bp_b",
+          "offset": 1,
+          "type": "u8",
+          "description": "Second breakpoint (0x20000ED9) of the factor-1 ramp, used with bp_a and bp_c."
+        },
+        {
+          "name": "bp_c",
+          "offset": 2,
+          "type": "u8",
+          "description": "Third breakpoint (0x20000EDA) of the factor-1 ramp, the ramp's lower knee."
+        },
+        {
+          "name": "bp_d",
+          "offset": 3,
+          "type": "u8",
+          "description": "Fourth breakpoint (0x20000EDB) of the factor-1 ramp, the ramp's upper knee."
+        },
+        {
+          "name": "soc_lo",
+          "offset": 4,
+          "type": "u8",
+          "description": "Low SOC breakpoint (0x20000EDC) of factor 2: below it the second factor is scaled by the SOC percent."
+        },
+        {
+          "name": "soc_hi",
+          "offset": 5,
+          "type": "u8",
+          "description": "High SOC breakpoint (0x20000EDD) of factor 2, the upper end of the SOC scaling range."
+        },
+        {
+          "name": "floor_1",
+          "offset": 6,
+          "type": "u8",
+          "description": "Floor of factor 1 (0x20000EDE): the lowest factor value the ramp reaches, probably in percent."
+        },
+        {
+          "name": "floor_2",
+          "offset": 7,
+          "type": "u8",
+          "description": "Floor of factor 2 (0x20000EDF), the lowest value of the second ramp, probably in percent."
+        },
+        {
+          "name": "win_lo",
+          "offset": 8,
+          "type": "u8",
+          "description": "Lower edge (0x20000EE0) of the window in which factor 3 is nonzero and the published value is not forced to zero."
+        },
+        {
+          "name": "win_hi",
+          "offset": 9,
+          "type": "u8",
+          "description": "Upper edge (0x20000EE1) of the same window, the value is zeroed outside win_lo to win_hi."
+        },
+        {
+          "name": "f3_p2",
+          "offset": 10,
+          "type": "u8",
+          "description": "Factor-3 parameter (0x20000EE2), one of the values that shape the third factor inside the window (probably a per-mille step)."
+        },
+        {
+          "name": "f3_p3",
+          "offset": 11,
+          "type": "u8",
+          "description": "Factor-3 parameter (0x20000EE3) inside the window (probably a per-mille step)."
+        },
+        {
+          "name": "f3_p4",
+          "offset": 12,
+          "type": "u8",
+          "description": "Factor-3 parameter (0x20000EE4) inside the window (probably a per-mille step)."
+        },
+        {
+          "name": "f3_p5",
+          "offset": 13,
+          "type": "u8",
+          "description": "Factor-3 parameter (0x20000EE5), the last value of the window range 0x20000EE0 to 0x20000EE5."
+        },
+        {
+          "name": "taper",
+          "offset": 14,
+          "type": "u8",
+          "description": "SOC taper slope (0x20000EE6): the second limit is reduced by taper times (SOC - 80) percent above 80 percent SOC."
+        },
+        {
+          "name": "out_mul",
+          "offset": 15,
+          "type": "u8",
+          "description": "Output multiplier (0x20000EE7): the published value 0x20000E54 equals this times the second limit divided by 10."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

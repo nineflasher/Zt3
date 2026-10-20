@@ -1,0 +1,961 @@
+[
+ {
+  "number": 0,
+  "exception": 16,
+  "name": "WWDT",
+  "description": "window watchdog timer interrupt",
+  "handler": "WWDT_IRQHandler",
+  "svd_name": "WWDT",
+  "peripherals": [
+   "WWDT"
+  ],
+  "header_name": "WWDT",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 1,
+  "exception": 17,
+  "name": "PVM",
+  "description": "pvm through exint line detection interrupt",
+  "handler": "PVM_IRQHandler",
+  "svd_name": "PVM",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "PVM",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 2,
+  "exception": 18,
+  "name": "TAMP_STAMP",
+  "description": "tamper and timestamp interrupts through the exint line",
+  "handler": "TAMP_STAMP_IRQHandler",
+  "svd_name": "TAMPER",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "TAMP_STAMP",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 3,
+  "exception": 19,
+  "name": "ERTC_WKUP",
+  "description": "ertc wakeup through the exint line",
+  "handler": "ERTC_WKUP_IRQHandler",
+  "svd_name": "ERTC",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "ERTC_WKUP",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 4,
+  "exception": 20,
+  "name": "FLASH",
+  "description": "flash global interrupt",
+  "handler": "FLASH_IRQHandler",
+  "svd_name": "FLASH",
+  "peripherals": [
+   "FLASH"
+  ],
+  "header_name": "FLASH",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 5,
+  "exception": 21,
+  "name": "CRM",
+  "description": "crm global interrupt",
+  "handler": "CRM_IRQHandler",
+  "svd_name": "CRM",
+  "peripherals": [
+   "CRM"
+  ],
+  "header_name": "CRM",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 6,
+  "exception": 22,
+  "name": "EXINT0",
+  "description": "external line0 interrupt",
+  "handler": "EXINT0_IRQHandler",
+  "svd_name": "EXTINT0",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT0",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 7,
+  "exception": 23,
+  "name": "EXINT1",
+  "description": "external line1 interrupt",
+  "handler": "EXINT1_IRQHandler",
+  "svd_name": "EXTINT1",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 8,
+  "exception": 24,
+  "name": "EXINT2",
+  "description": "external line2 interrupt",
+  "handler": "EXINT2_IRQHandler",
+  "svd_name": "EXTINT2",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 9,
+  "exception": 25,
+  "name": "EXINT3",
+  "description": "external line3 interrupt",
+  "handler": "EXINT3_IRQHandler",
+  "svd_name": "EXTINT3",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 10,
+  "exception": 26,
+  "name": "EXINT4",
+  "description": "external line4 interrupt",
+  "handler": "EXINT4_IRQHandler",
+  "svd_name": "EXTINT4",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT4",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 11,
+  "exception": 27,
+  "name": "DMA1_Channel1",
+  "description": "dma1 channel 1 global interrupt",
+  "handler": "DMA1_Channel1_IRQHandler",
+  "svd_name": "DMA1_Channel1",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 12,
+  "exception": 28,
+  "name": "DMA1_Channel2",
+  "description": "dma1 channel 2 global interrupt",
+  "handler": "DMA1_Channel2_IRQHandler",
+  "svd_name": "DMA1_Channel2",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 13,
+  "exception": 29,
+  "name": "DMA1_Channel3",
+  "description": "dma1 channel 3 global interrupt",
+  "handler": "DMA1_Channel3_IRQHandler",
+  "svd_name": "DMA1_Channel3",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 14,
+  "exception": 30,
+  "name": "DMA1_Channel4",
+  "description": "dma1 channel 4 global interrupt",
+  "handler": "DMA1_Channel4_IRQHandler",
+  "svd_name": "DMA1_Channel4",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel4",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 15,
+  "exception": 31,
+  "name": "DMA1_Channel5",
+  "description": "dma1 channel 5 global interrupt",
+  "handler": "DMA1_Channel5_IRQHandler",
+  "svd_name": "DMA1_Channel5",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel5",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 16,
+  "exception": 32,
+  "name": "DMA1_Channel6",
+  "description": "dma1 channel 6 global interrupt",
+  "handler": "DMA1_Channel6_IRQHandler",
+  "svd_name": "DMA1_Channel6",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel6",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 17,
+  "exception": 33,
+  "name": "DMA1_Channel7",
+  "description": "dma1 channel 7 global interrupt",
+  "handler": "DMA1_Channel7_IRQHandler",
+  "svd_name": "DMA1_Channel7",
+  "peripherals": [
+   "DMA1"
+  ],
+  "header_name": "DMA1_Channel7",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 18,
+  "exception": 34,
+  "name": "ADC1",
+  "description": "adc1 global interrupt",
+  "handler": "ADC1_IRQHandler",
+  "svd_name": "ADC1",
+  "peripherals": [
+   "ADC1"
+  ],
+  "header_name": "ADC1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 19,
+  "exception": 35,
+  "name": "CAN1_TX",
+  "description": "can1 tx interrupts",
+  "handler": "CAN1_TX_IRQHandler",
+  "svd_name": "CAN1_TX",
+  "peripherals": [
+   "CAN1"
+  ],
+  "header_name": "CAN1_TX",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 20,
+  "exception": 36,
+  "name": "CAN1_RX0",
+  "description": "can1 rx0 interrupts",
+  "handler": "CAN1_RX0_IRQHandler",
+  "svd_name": "CAN1_RX0",
+  "peripherals": [
+   "CAN1"
+  ],
+  "header_name": "CAN1_RX0",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 21,
+  "exception": 37,
+  "name": "CAN1_RX1",
+  "description": "can1 rx1 interrupt",
+  "handler": "CAN1_RX1_IRQHandler",
+  "svd_name": "CAN1_RX1",
+  "peripherals": [
+   "CAN1"
+  ],
+  "header_name": "CAN1_RX1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 22,
+  "exception": 38,
+  "name": "CAN1_SE",
+  "description": "can1 se interrupt",
+  "handler": "CAN1_SE_IRQHandler",
+  "svd_name": "CAN1_SE",
+  "peripherals": [
+   "CAN1"
+  ],
+  "header_name": "CAN1_SE",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 23,
+  "exception": 39,
+  "name": "EXINT9_5",
+  "description": "external line[9:5] interrupts",
+  "handler": "EXINT9_5_IRQHandler",
+  "svd_name": "EXTINT9_5",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT9_5",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 24,
+  "exception": 40,
+  "name": "TMR1_BRK_TMR9",
+  "description": "tmr1 brake interrupt",
+  "handler": "TMR1_BRK_TMR9_IRQHandler",
+  "svd_name": "TMR1_BRK_TMR9",
+  "peripherals": [
+   "TMR1",
+   "TMR9"
+  ],
+  "header_name": "TMR1_BRK_TMR9",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 25,
+  "exception": 41,
+  "name": "TMR1_OVF_TMR10",
+  "description": "tmr1 overflow interrupt",
+  "handler": "TMR1_OVF_TMR10_IRQHandler",
+  "svd_name": "TMR1_OVF_TMR10",
+  "peripherals": [
+   "TMR1",
+   "TMR10"
+  ],
+  "header_name": "TMR1_OVF_TMR10",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 26,
+  "exception": 42,
+  "name": "TMR1_TRG_HALL_TMR11",
+  "description": "tmr1 trigger and hall interrupt",
+  "handler": "TMR1_TRG_HALL_TMR11_IRQHandler",
+  "svd_name": "TMR1_TRG_HALL_TMR11",
+  "peripherals": [
+   "TMR1",
+   "TMR11"
+  ],
+  "header_name": "TMR1_TRG_HALL_TMR11",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 27,
+  "exception": 43,
+  "name": "TMR1_CH",
+  "description": "tmr1 channel interrupt",
+  "handler": "TMR1_CH_IRQHandler",
+  "svd_name": "TMR1_CH",
+  "peripherals": [
+   "TMR1"
+  ],
+  "header_name": "TMR1_CH",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 28,
+  "exception": 44,
+  "name": "TMR2_GLOBAL",
+  "description": "tmr2 global interrupt",
+  "handler": "TMR2_GLOBAL_IRQHandler",
+  "svd_name": "TMR2",
+  "peripherals": [
+   "TMR2"
+  ],
+  "header_name": "TMR2_GLOBAL",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 29,
+  "exception": 45,
+  "name": "TMR3_GLOBAL",
+  "description": "tmr3 global interrupt",
+  "handler": "TMR3_GLOBAL_IRQHandler",
+  "svd_name": "TMR3",
+  "peripherals": [
+   "TMR3"
+  ],
+  "header_name": "TMR3_GLOBAL",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 30,
+  "exception": 46,
+  "name": "TMR4_GLOBAL",
+  "description": "tmr4 global interrupt",
+  "handler": "TMR4_GLOBAL_IRQHandler",
+  "svd_name": "TMR4",
+  "peripherals": [
+   "TMR4"
+  ],
+  "header_name": "TMR4_GLOBAL",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 31,
+  "exception": 47,
+  "name": "I2C1_EVT",
+  "description": "i2c1 event interrupt",
+  "handler": "I2C1_EVT_IRQHandler",
+  "svd_name": "I2C1_EVT",
+  "peripherals": [
+   "I2C1"
+  ],
+  "header_name": "I2C1_EVT",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 32,
+  "exception": 48,
+  "name": "I2C1_ERR",
+  "description": "i2c1 error interrupt",
+  "handler": "I2C1_ERR_IRQHandler",
+  "svd_name": "I2C1_ERR",
+  "peripherals": [
+   "I2C1"
+  ],
+  "header_name": "I2C1_ERR",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 33,
+  "exception": 49,
+  "name": "I2C2_EVT",
+  "description": "i2c2 event interrupt",
+  "handler": "I2C2_EVT_IRQHandler",
+  "svd_name": "I2C2_EVT",
+  "peripherals": [
+   "I2C2"
+  ],
+  "header_name": "I2C2_EVT",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 34,
+  "exception": 50,
+  "name": "I2C2_ERR",
+  "description": "i2c2 error interrupt",
+  "handler": "I2C2_ERR_IRQHandler",
+  "svd_name": "I2C2_ERR",
+  "peripherals": [
+   "I2C2"
+  ],
+  "header_name": "I2C2_ERR",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 35,
+  "exception": 51,
+  "name": "SPI1",
+  "description": "spi1 global interrupt",
+  "handler": "SPI1_IRQHandler",
+  "svd_name": "SPI1",
+  "peripherals": [
+   "SPI1"
+  ],
+  "header_name": "SPI1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 36,
+  "exception": 52,
+  "name": "SPI2",
+  "description": "spi2 global interrupt",
+  "handler": "SPI2_IRQHandler",
+  "svd_name": "SPI2",
+  "peripherals": [
+   "SPI2"
+  ],
+  "header_name": "SPI2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 37,
+  "exception": 53,
+  "name": "USART1",
+  "description": "usart1 global interrupt",
+  "handler": "USART1_IRQHandler",
+  "svd_name": "USART1",
+  "peripherals": [
+   "USART1"
+  ],
+  "header_name": "USART1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 38,
+  "exception": 54,
+  "name": "USART2",
+  "description": "usart2 global interrupt",
+  "handler": "USART2_IRQHandler",
+  "svd_name": "USART2",
+  "peripherals": [
+   "USART2"
+  ],
+  "header_name": "USART2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 39,
+  "exception": 55,
+  "name": "USART3",
+  "description": "usart3 global interrupt",
+  "handler": "USART3_IRQHandler",
+  "svd_name": "USART3",
+  "peripherals": [
+   "USART3"
+  ],
+  "header_name": "USART3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 40,
+  "exception": 56,
+  "name": "EXINT15_10",
+  "description": "external line[15:10] interrupts",
+  "handler": "EXINT15_10_IRQHandler",
+  "svd_name": "EXTINT15_10",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "EXINT15_10",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 41,
+  "exception": 57,
+  "name": "ERTCAlarm",
+  "description": "ertc alarm through exint line interrupt",
+  "handler": "ERTCAlarm_IRQHandler",
+  "svd_name": "ERTCAlarm",
+  "peripherals": [
+   "EXINT"
+  ],
+  "header_name": "ERTCAlarm",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 42,
+  "exception": 58,
+  "name": "OTGFS1_WKUP",
+  "description": "otgfs1 wakeup from suspend through exint line interrupt",
+  "handler": "OTGFS1_WKUP_IRQHandler",
+  "header_name": "OTGFS1_WKUP",
+  "sources": [
+   "startup",
+   "header"
+  ]
+ },
+ {
+  "number": 49,
+  "exception": 65,
+  "name": "SDIO1",
+  "description": "sdio1 global interrupt",
+  "handler": "SDIO1_IRQHandler",
+  "svd_name": "SDIO1",
+  "peripherals": [
+   "SDIO1"
+  ],
+  "header_name": "SDIO1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 50,
+  "exception": 66,
+  "name": "TMR5_GLOBAL",
+  "description": "tmr5 global interrupt",
+  "handler": "TMR5_GLOBAL_IRQHandler",
+  "svd_name": "TMR5",
+  "peripherals": [
+   "TMR5"
+  ],
+  "header_name": "TMR5_GLOBAL",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 52,
+  "exception": 68,
+  "name": "UART4",
+  "description": "uart4 global interrupt",
+  "handler": "UART4_IRQHandler",
+  "svd_name": "UART4",
+  "peripherals": [
+   "UART4"
+  ],
+  "header_name": "UART4",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 53,
+  "exception": 69,
+  "name": "UART5",
+  "description": "uart5 global interrupt",
+  "handler": "UART5_IRQHandler",
+  "svd_name": "UART5",
+  "peripherals": [
+   "UART5"
+  ],
+  "header_name": "UART5",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 56,
+  "exception": 72,
+  "name": "DMA2_Channel1",
+  "description": "dma2 channel 1 global interrupt",
+  "handler": "DMA2_Channel1_IRQHandler",
+  "svd_name": "DMA2_Channel1",
+  "peripherals": [
+   "DMA2"
+  ],
+  "header_name": "DMA2_Channel1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 57,
+  "exception": 73,
+  "name": "DMA2_Channel2",
+  "description": "dma2 channel 2 global interrupt",
+  "handler": "DMA2_Channel2_IRQHandler",
+  "svd_name": "DMA2_Channel2",
+  "peripherals": [
+   "DMA2"
+  ],
+  "header_name": "DMA2_Channel2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 58,
+  "exception": 74,
+  "name": "DMA2_Channel3",
+  "description": "dma2 channel 3 global interrupt",
+  "handler": "DMA2_Channel3_IRQHandler",
+  "svd_name": "DMA2_Channel3",
+  "peripherals": [
+   "DMA2"
+  ],
+  "header_name": "DMA2_Channel3",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 59,
+  "exception": 75,
+  "name": "DMA2_Channel4_5",
+  "description": "dma2 channel 4 and channel 5 global interrupt",
+  "handler": "DMA2_Channel4_5_IRQHandler",
+  "svd_name": "DMA2_Channel4_5",
+  "peripherals": [
+   "DMA2"
+  ],
+  "header_name": "DMA2_Channel4_5",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 67,
+  "exception": 83,
+  "name": "OTGFS1",
+  "description": "otgfs1 global interrupt",
+  "handler": "OTGFS1_IRQHandler",
+  "header_name": "OTGFS1",
+  "sources": [
+   "startup",
+   "header"
+  ]
+ },
+ {
+  "number": 70,
+  "exception": 86,
+  "name": "CMP1",
+  "description": "comparator1 global interrupt",
+  "handler": "CMP1_IRQHandler",
+  "svd_name": "CMP1",
+  "peripherals": [
+   "EXINT",
+   "CMP"
+  ],
+  "header_name": "CMP1",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 71,
+  "exception": 87,
+  "name": "CMP2",
+  "description": "comparator2 global interrupt",
+  "handler": "CMP2_IRQHandler",
+  "svd_name": "CMP2",
+  "peripherals": [
+   "EXINT",
+   "CMP"
+  ],
+  "header_name": "CMP2",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 72,
+  "exception": 88,
+  "name": "ACC",
+  "description": "ACC global interrupt",
+  "handler": "ACC_IRQHandler",
+  "svd_name": "ACC",
+  "peripherals": [
+   "ACC"
+  ],
+  "sources": [
+   "svd"
+  ],
+  "startup_reserved": true
+ },
+ {
+  "number": 75,
+  "exception": 91,
+  "name": "DMA2_Channel6_7",
+  "description": "dma2 channel 6 and channel 7 global interrupt",
+  "handler": "DMA2_Channel6_7_IRQHandler",
+  "svd_name": "DMA2_Channel6_7",
+  "peripherals": [
+   "DMA2"
+  ],
+  "header_name": "DMA2_Channel6_7",
+  "sources": [
+   "startup",
+   "header",
+   "svd"
+  ]
+ },
+ {
+  "number": 77,
+  "exception": 93,
+  "name": "OTGFS",
+  "description": "USB On The Go FS global interrupt",
+  "handler": "OTGFS_IRQHandler",
+  "svd_name": "OTGFS",
+  "peripherals": [
+   "USB_OTG_GLOBAL"
+  ],
+  "sources": [
+   "svd"
+  ]
+ }
+]

@@ -1,0 +1,387 @@
+{
+  "bms_4168_08009a98": {
+    "name": "bms_noop_hook_08009a98",
+    "summary": "Empty hook: returns immediately with no side effects",
+    "description": "Bare return with no instructions: a placeholder callback that the build leaves empty. Nothing is read or written. It is called from bms_4168_08008294 and bms_4168_080082f0, so its purpose is set by what those callers gate around it, which is not in this packet.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Name carries the address because it is the same empty body as bms_noop_hook_08009a9a and bms_empty_callback."
+  },
+  "bms_4168_08009a9a": {
+    "name": "bms_noop_hook_08009a9a",
+    "summary": "Empty hook: returns immediately with no side effects",
+    "description": "Bare return with no instructions, identical in body to bms_noop_hook_08009a98. Its only caller in the packet is bms_4168_080082f0, which is also a caller of bms_noop_hook_08009a98, so the two are probably alternate slots of one callback sequence (inferred from the caller lists only).",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The sequencing claim is an inference from the caller lists."
+  },
+  "bms_4168_08009a9c": {
+    "name": "bms_rtc_clock_bringup",
+    "summary": "Start the RTC clock: try LSE with a timeout, fall back to LSI, select it, enable RTC",
+    "description": "Brings up the RTC clock source in the RCC backup domain. It first tests RTCSEL (RCC.BDCR bits 9:8). If that already selects LSE (0x100), it sets PWR.CR1 DBP (bit 8) to unlock backup-domain writes, clears LSEDRV (BDCR bits 4:3), sets LSEON, and polls LSERDY (BDCR bit 1) for up to 800000 iterations. On success it selects LSE, pulses BDRST (BDCR bit 16) if the select did not take, sets DAT_20000690 to 1 and goes to the end. Otherwise (LSE not selected, or LSE timed out) it clears LSEON and BDCR bit 5 (LSECSSON), sets LSION (RCC.CSR bit 0), polls LSIRDY (CSR bit 1) up to 0x88000 iterations, stores the timeout result in DAT_20000692, selects LSI (RTCSEL = 0x200) with the same BDRST retry, and clears DAT_20000690. The end sets RTCEN (BDCR bit 15).",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Likely defect: the wait counter uVar3 is not reset between the LSE and LSI waits. When LSE was selected and timed out, the counter is already 800000, which is above the LSI bound of 0x88000 (557056). The LSI poll loop then never runs, DAT_20000692 is set to 1 without checking LSIRDY, and LSION is left enabled with no wait. Only the path where RTCSEL was not LSE polls LSI properly. Check the disassembly before relying on the LSI-timeout flag. DAT_20000690 (LSE active) and DAT_20000692 (LSI timeout) are read elsewhere; those readers are not in this packet."
+  },
+  "bms_4139_08009b70": {
+    "name": "bms_pb11_hold_timer_step",
+    "summary": "Accumulate time while GPIOB pin 11 is high; latch output past 2000 units, clear when low",
+    "description": "Samples GPIOB pin 11 (GPIOB.IDR at 0x50000410, bit 11) on each call. While the pin is high it adds the 16-bit step param_1 to the u16 accumulator at 0x20000596. When the accumulator exceeds 2000 it resets to 0 and sets the output byte at 0x20000595 to 1, and that output stays 1 on later high samples until the pin goes low. A low pin clears the output to 0 but leaves the accumulator intact, so high time adds up across interruptions. The function returns the output byte.",
+    "category": "timer",
+    "params": [
+      {"name": "param_1", "type": "s16", "description": "time step added to the accumulator on each high sample; units not stated in this packet"}
+    ],
+    "returns": {"type": "u8", "description": "0 or 1, the latched output byte at 0x20000595"},
+    "confidence": "medium",
+    "notes": "Present in the 4130 and 4139 builds only. The pin's function and the step units are not established here. It is grouped with bms_exti11_irq_disarm, which clears the armed byte at 0x20000594, and the 0x20000594..0x20000596 block. The EXTI line that goes with PB11 is set in SYSCFG EXTICR, which is not visible in this packet."
+  },
+  "bms_4168_08009ba4": {
+    "name": "bms_rtc_backup_reset_lse_on",
+    "summary": "Pulse the RTC backup-domain reset, clear LSE drive bits, and set LSEON",
+    "description": "Sets PWR.CR1 DBP (bit 8) to allow backup-domain writes, then sets and clears RCC.BDCR BDRST (bit 16), which resets the RTC, its backup registers and the RTC clock selection. It clears LSEDRV (BDCR bits 4:3) and sets LSEON (bit 0) to start the LSE oscillator at default drive. It does not wait for LSERDY, so the caller must poll bms_rtc_lse_ready_get. Called only from bms_4168_08006514.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The reset pulse is what clears the RTC configuration, so the caller must reprogram it afterwards. The reason it is called from bms_4168_08006514 is not in this packet."
+  },
+  "bms_4139_08009ba8": {
+    "name": "bms_exti11_irq_disarm",
+    "summary": "Disarm EXTI line 11 and its NVIC line EXTI4_15 when the armed byte is set",
+    "description": "If the armed byte at 0x20000594 is nonzero, it clears the byte, clears EXTI.IMR1 bit 11 (at 0x40021880, the CPU interrupt mask for line 11), and writes 0x80 to NVIC_ICER0 (0xE000E180), which disables NVIC IRQ 7 (EXTI4_15 on STM32G0). It finishes with DSB and ISB barriers so the disable is in effect before return. If the byte is zero, the function does nothing.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Present in the 4130 and 4139 builds only. The NVIC disable stops every EXTI4_15 interrupt, not only line 11, so other lines in that group are affected too. The write that sets the armed byte is elsewhere. Callers: bms_4139_08007238 and bms_4139_0800e4f8."
+  },
+  "bms_4168_08009bdc": {
+    "name": "bms_rtc_lse_ready_get",
+    "summary": "Return the LSE ready flag (RCC.BDCR LSERDY, bit 1)",
+    "description": "Reads RCC.BDCR and returns (value & 3) >> 1, which is bit 1, LSERDY, as 0 or 1. It has no side effects and is a plain polling read for LSE readiness. The function has no direct callers in this packet; it is an entry point, callback or indirect call.",
+    "category": "rtc",
+    "params": [],
+    "returns": {"type": "u32", "description": "1 when the LSE oscillator is ready, else 0"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_08009d6c": {
+    "name": "bms_ram_2000068f_addr",
+    "summary": "Return the address of the RAM byte at 0x2000068F",
+    "description": "Returns &DAT_2000068f so the caller can read or write the byte through the pointer. The byte is next to 0x20000690, the LSE-active flag written by bms_rtc_clock_bringup, and next to 0x2000068C..0x2000068E, the three flags read by bms_fault_class_get. Nothing in this packet shows what 0x2000068F holds. Callers: bms_4168_080064a0 and bms_4168_0800fabc.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM byte at 0x2000068F"},
+    "confidence": "medium",
+    "notes": "Width and role unknown; the decompiler shows an untyped pointer."
+  },
+  "bms_4168_08009d74": {
+    "name": "bms_indirect_nibble_get",
+    "summary": "Return the low nibble of the byte that the RAM pointer at 0x20005D00 points to",
+    "description": "Loads the pointer stored at RAM 0x20005D00, reads the byte it points to, and returns its low four bits (mask 0xF). There are no writes and no side effects. The pointer's target is not identified in this packet, so the byte is probably a configuration or status field reached through a pointer. Callers: bms_4168_080064a0 and bms_4168_0800faa0.",
+    "category": "util",
+    "params": [],
+    "returns": {"type": "u32", "description": "0..15, the low nibble of the pointed-to byte"},
+    "confidence": "medium",
+    "notes": "Byte width is inferred from the masking; the decompiler does not show a type for the pointer target."
+  },
+  "bms_4168_0800a0bc": {
+    "name": "LL_SPI_Disable",
+    "summary": "Clear SPI1_CR1.SPE to disable SPI1",
+    "description": "Clears bit 6 (SPE) of SPI1_CR1 (SPI1 base 0x40013000) with a read-modify-write, disabling the peripheral. This is the ST LL_SPI_Disable operation (CLEAR_BIT on SPI_CR1_SPE) and the code matches it exactly. The routine does not wait for TXE or BSY first, so the caller must have finished the transfer. Its caller in the packet is bms_4168_080082f0.",
+    "category": "spi",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800a0cc": {
+    "name": "bms_spi1_transfer_byte",
+    "summary": "Send one byte on SPI1 and return the received byte, with bounded polling waits",
+    "description": "Blocking one-byte full-duplex transfer on SPI1. The first loop polls SPI1_SR.TXE (bit 1) and uses param_2 as its counter, giving up when the counter reaches 10000. The byte is then written to SPI1_DR (0x4001300C). The routine waits for BSY (SR bit 7) to clear and then for RXNE (SR bit 0) to set, each bounded by 10000 iterations, and returns the byte read from SPI1_DR. None of the waits report a timeout, so a stuck bus returns whatever DR holds. It has seven callers in the 0x0800BAA0..0x0800BD88 range, which suggests a register-access helper for an external device such as an AFE (inferred).",
+    "category": "spi",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "byte to transmit"},
+      {"name": "param_2", "type": "u16", "description": "starting value of the TXE wait counter; pass 0 for a full wait, since a value of 10000 or more skips the TXE wait"}
+    ],
+    "returns": {"type": "u8", "description": "byte read from SPI1_DR (the received byte, or a stale value on timeout)"},
+    "confidence": "high",
+    "notes": "Callers: bms_4168_0800baa0, bms_4168_0800baec, bms_4168_0800bb3c, bms_4168_0800bb88, bms_4168_0800bbc4, bms_4168_0800bc20, bms_4168_0800bd88. The reuse of param_2 as the loop counter is how the decompiler shows it; check whether the caller really relies on that starting value."
+  },
+  "bms_4168_0800a2a0": {
+    "name": "bms_nvic_system_reset_plain",
+    "summary": "CMSIS __NVIC_SystemReset body: request a system reset through SCB AIRCR and spin",
+    "description": "Runs a DSB, writes 0x05FA0004 to SCB->AIRCR (VECTKEY 0x05FA in the high half and SYSRESETREQ in bit 2), runs another DSB, then loops forever while the reset takes effect. This is the standard CMSIS __NVIC_SystemReset body without any interrupt disable. It never returns.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "does not return"},
+    "confidence": "high",
+    "notes": "Same routine as NVIC_SystemReset at bms_4168_08001444 (wave1_batch01), which additionally executes CPSID i first. The library name is already taken there, so this entry uses a unique name. Callers: bms_4168_08003c3c and bms_4168_080082f0."
+  },
+  "bms_4168_0800a2bc": {
+    "name": "bms_fault_class_get",
+    "summary": "Priority-encode three RAM flags into a 0..3 class code",
+    "description": "Reads three byte flags at 0x2000068C, 0x2000068D and 0x2000068E and returns a class code by priority: 1 if 0x2000068C is nonzero; otherwise 2 if 0x2000068D is nonzero; otherwise 3 if 0x2000068E is nonzero; otherwise 0. It is read-only with no side effects. The priority order suggests the three flags are alarm or fault levels of decreasing severity, but the class names are not established in this packet.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "u8", "description": "0 when none is set, else 1, 2 or 3 by priority"},
+    "confidence": "medium",
+    "notes": "Callers: bms_4139_0800be74 and bms_4168_0800c96c."
+  },
+  "bms_4168_0800a348": {
+    "name": "bms_tick_get",
+    "summary": "Return the 32-bit time base word at 0x20000678",
+    "description": "Returns the u32 at RAM 0x20000678. Many callers use it as a time stamp, and bms_tick_timeout_check compares it against stamps, so it is treated as a free-running time base. The code that increments it is not in this packet, so its unit is unknown. Read-only.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "u32", "description": "value of the time base at 0x20000678"},
+    "confidence": "medium",
+    "notes": "Callers in the packet include bms_4139_0800c950, bms_4139_0800cd7c, bms_4139_0800cebc and about a dozen bms_4168 functions; the packet's caller list is truncated."
+  },
+  "bms_4168_0800a3b8": {
+    "name": "LL_IWDG_ReloadCounter",
+    "summary": "Reload the independent watchdog by writing key 0xAAAA to IWDG_KR",
+    "description": "Writes 0xAAAA to IWDG_KR (IWDG base 0x40003000), which restarts the independent watchdog counter. This matches the ST LL_IWDG_ReloadCounter routine exactly. Callers are bms_4168_080082f0 and bms_4168_0800aa5c.",
+    "category": "watchdog",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800a510": {
+    "name": "bms_u16_2000067e_get",
+    "summary": "Return the u16 at RAM 0x2000067E",
+    "description": "Returns the halfword at RAM 0x2000067E. Its setter is bms_u16_2000067e_set. The role of this halfword is not established in this packet; it sits in the 0x2000067C..0x2000067F block with the 0x2000067C pair. Caller: bms_4168_0800baec.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of the halfword at 0x2000067E"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800a51c": {
+    "name": "bms_u16_2000067e_set",
+    "summary": "Store a u16 into RAM 0x2000067E",
+    "description": "Stores param_1 as a 16-bit value at RAM 0x2000067E, the halfword read by bms_u16_2000067e_get. The role of the halfword is not established in this packet. Caller: bms_4168_08005710.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "value to store"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800a528": {
+    "name": "bms_tick_timeout_check",
+    "summary": "True when (time base - start stamp) reaches the threshold; stores the elapsed value on expiry",
+    "description": "Computes an elapsed time from the 32-bit time base at 0x20000678 and the start stamp param_1. If the time base is below the stamp, the elapsed value is computed as base - stamp - 1; otherwise it is base - stamp. If the elapsed value is at least the threshold param_2, it is written to *param_3 and the function returns true. Otherwise it returns false and leaves *param_3 unchanged. It is the common timeout test used by many callers in the packet.",
+    "category": "timer",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "start stamp, a value previously read from the time base"},
+      {"name": "param_2", "type": "u32", "description": "threshold in time-base units"},
+      {"name": "param_3", "type": "ptr", "description": "output: receives the elapsed value when the threshold is reached"}
+    ],
+    "returns": {"type": "bool", "description": "true when the elapsed value is at least param_2"},
+    "confidence": "medium",
+    "notes": "The wrap case subtracts one more than a plain unsigned subtraction. This may be a decompiler artifact of a borrow idiom or a real off-by-one; check the disassembly. Callers: bms_4139_0800cd7c, bms_4168_080064a0, bms_4168_08007f48, bms_4168_08008254, bms_4168_080082f0, bms_4168_0800868c, bms_4168_0800b9a8, bms_4168_0800b9f2, bms_4168_0800ddb0, bms_4168_0800e2c8, bms_4168_0800f8b4, bms_4168_0800fabc."
+  },
+  "bms_4168_0800a55c": {
+    "name": "bms_u16_2000067c_get",
+    "summary": "Return the u16 at RAM 0x2000067C",
+    "description": "Returns the halfword at RAM 0x2000067C. Its setter is bms_u16_2000067c_set. The role of this halfword is not established in this packet. Caller: bms_4168_0800bbc4.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u16", "description": "value of the halfword at 0x2000067C"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800a568": {
+    "name": "bms_u16_2000067c_set",
+    "summary": "Store a u16 into RAM 0x2000067C",
+    "description": "Stores param_1 as a 16-bit value at RAM 0x2000067C, the halfword read by bms_u16_2000067c_get. The role of the halfword is not established in this packet. Caller: bms_4168_0800bbc4.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "value to store"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800a694": {
+    "name": "bms_usart3_rxne_irq_set",
+    "summary": "Enable or disable the USART3 RX FIFO-not-empty interrupt (CR1.RXFNEIE) and return the previous IRQ state",
+    "description": "With param_1 == 1 it sets USART3_CR1 bit 5 (RXFNEIE, RX FIFO not empty interrupt enable). With param_1 == 0 it clears the same bit. Any other value returns param_1 with no side effects. In privileged mode the register write is bracketed by isIRQinterruptsEnabled() to save the state, enableIRQinterrupts(1) before the write, and enableIRQinterrupts with the saved bit 0 after it, which is a short interrupt-masked critical section. Unprivileged code skips those calls, so the write is unprotected, and the saved state is reported as 0.",
+    "category": "uart",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "1 to enable the RX interrupt, 0 to disable it; other values are a no-op"}
+    ],
+    "returns": {"type": "u32", "description": "IRQ-enable state saved before the write (0 when unprivileged)"},
+    "confidence": "medium",
+    "notes": "The polarity of enableIRQinterrupts is not clear from the decompiled text: the entry call uses 1 and the restore uses the saved bit, which only makes sense if the argument is an enable flag on one side and a mask on the other. Confirm the helper definitions before relying on the critical-section behavior. The register is the FIFO-mode CR1 view (USART3 base 0x40004800)."
+  },
+  "bms_4168_0800a6d0": {
+    "name": "bms_usart3_send_bytes",
+    "summary": "Blocking transmit of a byte buffer on USART3, waiting for TC before each TDR write",
+    "description": "For each of the param_2 bytes it polls USART3_ISR bit 6 (TC, transmission complete) until set, then writes the byte to USART3_TDR (0x40004828). Waiting on TC rather than TXFNF means each byte is fully shifted out before the next is written, so there is no FIFO overlap and throughput is lower. There is no timeout. Its only caller in the packet is bms_4168_08005128.",
+    "category": "uart",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source buffer of u8 bytes"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes to send; 0 sends nothing"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800a74c": {
+    "name": "bms_slot_pool_register",
+    "summary": "Add a tagged entry to a 10-slot pool and append it to a linked list",
+    "description": "Allocates one of ten 20-byte slots at 0x200013A0 and appends it to a singly linked list headed at 0x2000133C, with the link word at slot+16. The scan takes the first slot whose first byte is nonzero, clears that byte to mark the slot used, and stores the u8 tag at slot+1 and three 32-bit payload words at slot+4, +8 and +12. The list is walked for a node with the same tag; if one is found, the function returns 1 without linking, which leaves the new slot marked used but unreachable. Otherwise the new node is appended, the count at 0x20001344 is incremented, and the function returns 1. It returns 0 when the count is already 10 or no free slot is found.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u8", "description": "tag byte, stored at slot+1 and compared for duplicates"},
+      {"name": "param_2", "type": "u32", "description": "payload word stored at slot+4"},
+      {"name": "param_3", "type": "u32", "description": "payload word stored at slot+8"},
+      {"name": "param_4", "type": "u32", "description": "payload word stored at slot+12"}
+    ],
+    "returns": {"type": "u32", "description": "1 on success or duplicate tag, 0 when the pool is full"},
+    "confidence": "medium",
+    "notes": "The duplicate path leaks a pool slot, which is a plausible defect since the slot is never freed. The payload words' meaning is not in this packet. Callers: bms_4168_08005cdc, bms_4168_080082f0, bms_4168_0800a8a0, bms_4168_0800e9dc. The dispatch array at 0x20000578 used by bms_dispatch_call_current is a separate structure."
+  },
+  "bms_4168_0800a87c": {
+    "name": "bms_dispatch_index_nonzero",
+    "summary": "Return true when the dispatch index byte at 0x20001340 is nonzero",
+    "description": "Returns DAT_20001340 != 0 and has no side effects. 0x20001340 is the index that bms_dispatch_call_current uses to choose a handler, so this tells the caller whether the dispatcher is on a non-zero entry. Caller: bms_4168_08008778.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when the dispatch index is nonzero"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800a88c": {
+    "name": "bms_dispatch_call_current",
+    "summary": "Call the handler at entry [0x20001340] of the RAM pointer table at 0x20000578",
+    "description": "Reads the byte at 0x20001340 as an index, multiplies it by 4, and calls the 32-bit function pointer at 0x20000578 plus that offset. The table is in RAM, so the handlers are installed at runtime. There is no bounds check on the index and no return value, so an out-of-range index makes an unbounded indirect call. The decompiler marks the call as an indirect jump treated as a call. Caller: bms_4168_08008778.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Whoever sets the index byte at 0x20001340 and fills the table at 0x20000578 is not in this packet."
+  },
+  "bms_4168_0800aacc": {
+    "name": "bms_level_hysteresis_update",
+    "summary": "Two-threshold hysteresis from the level byte at 0x20000630 into the flag at 0x2000062F",
+    "description": "Updates the flag byte at 0x2000062F from the level byte at 0x20000630. The flag is cleared when the level is below 2 and set when it is above 2. At exactly 2 the flag keeps its previous value, which is the hysteresis band. The updated flag is returned. The level's unit and the flag's role are not established in this packet.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "u8", "description": "the updated flag, 0 or 1"},
+    "confidence": "medium",
+    "notes": "Callers: bms_4168_0800c4cc and bms_4168_0800c80c."
+  },
+  "bms_4168_0800b8a4": {
+    "name": "bms_byte_2000063e_addr",
+    "summary": "Return the address of the RAM byte at 0x2000063E",
+    "description": "Returns &DAT_2000063e so the caller can read or write the byte through the pointer. The byte's role is not established in this packet. Caller: bms_4168_08003cc0.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM byte at 0x2000063E"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800bae4": {
+    "name": "bms_byte_20000628_addr",
+    "summary": "Return the address of the RAM byte at 0x20000628",
+    "description": "Returns &DAT_20000628 so the caller can read or write the byte through the pointer. The byte's role is not established in this packet. Callers: bms_4168_08005710 and bms_4168_08005768.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM byte at 0x20000628"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800be14": {
+    "name": "bms_ram_20000bdc_addr",
+    "summary": "Return the address of the RAM object at 0x20000BDC",
+    "description": "Returns &DAT_20000bdc. The object's width and role are not shown, since the decompiler gives no type for it. It has many callers across the 4130, 4139 and 4168 builds, which suggests a block shared between the firmware images (inferred from the caller count).",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM object at 0x20000BDC"},
+    "confidence": "medium",
+    "notes": "Callers include bms_4130_08004410, bms_4130_08005d2c, bms_4130_08006830 and bms_4139_08004618, among others; the packet's list is truncated."
+  },
+  "bms_4168_0800be1c": {
+    "name": "bms_ram_200001c8_addr",
+    "summary": "Return the address of the RAM object at 0x200001C8",
+    "description": "Returns &DAT_200001c8 for pointer access. The object's width is unknown. It is called from many sites, including bms_4130_08005d2c and bms_4139_08007238, which probably makes it a shared state block; this is not established in the packet.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM object at 0x200001C8"},
+    "confidence": "medium",
+    "notes": "The packet's caller list is truncated."
+  },
+  "bms_4168_0800be24": {
+    "name": "bms_u32_20001348_get",
+    "summary": "Return the u32 at RAM 0x20001348",
+    "description": "Returns DAT_20001348. In this packet it is read only by bms_4168_0800e9dc. The neighbouring words are the dispatch index at 0x20001340 (bms_dispatch_index_nonzero, bms_dispatch_call_current) and the pool count at 0x20001344 (bms_slot_pool_register). The role of 0x20001348 is not established here.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "u32", "description": "value of the word at 0x20001348"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800bffc": {
+    "name": "bms_u16x5_block_store",
+    "summary": "Copy five u16 values into the 10-byte RAM block at 0x2000051C",
+    "description": "Copies the five halfwords of the source array param_1 to RAM at 0x2000051C, 0x2000051E, 0x20000520, 0x20000522 and 0x20000524, element i going to 0x2000051C + 2i. It is a plain sequence of halfword moves with no size or bounds checks on the source. Caller: bms_4168_08003cc0.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source array of five u16 values"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": ""
+  },
+  "bms_4168_0800c370": {
+    "name": "bms_u32_200004dc_addr",
+    "summary": "Return the address of the RAM word at 0x200004DC",
+    "description": "Returns &DAT_200004dc as a 32-bit pointer so the caller can read or write the word. The object is not identified in this packet. Caller: bms_4168_08003cc0.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM word at 0x200004DC"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800c378": {
+    "name": "bms_byte_200004f4_addr",
+    "summary": "Return the address of the RAM byte at 0x200004F4",
+    "description": "Returns &DAT_200004f4 as a byte pointer. The object is not identified in this packet. Its only caller, bms_4168_08003cc0, also calls the 0x200004DC and 0x2000051C helpers, so these look like parts of one configuration block set up together (inferred from the shared caller).",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM byte at 0x200004F4"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800c6d4": {
+    "name": "bms_u16_20000dfc_addr",
+    "summary": "Return the address of the u16 at RAM 0x20000DFC",
+    "description": "Returns &DAT_20000dfc as a 16-bit pointer so the caller can read or write the halfword. The object is not identified in this packet. Callers: bms_4139_08006f08, bms_4168_08005ab0, bms_4168_08007a0c and bms_4168_080082f0.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the u16 at 0x20000DFC"},
+    "confidence": "medium",
+    "notes": ""
+  },
+  "bms_4168_0800c804": {
+    "name": "bms_u32_20000dec_addr",
+    "summary": "Return the address of the RAM word at 0x20000DEC",
+    "description": "Returns &DAT_20000dec as a 32-bit pointer so the caller can read or write the word. The object is not identified in this packet. Caller: bms_4168_08003fcc.",
+    "category": "app",
+    "params": [],
+    "returns": {"type": "ptr", "description": "address of the RAM word at 0x20000DEC"},
+    "confidence": "medium",
+    "notes": ""
+  }
+}

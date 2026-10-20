@@ -1,0 +1,38 @@
+{
+  "mcu_g_0160_20000e36": {
+    "name": "protection_a50_neg_latch",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e36"
+    ],
+    "category": "protection",
+    "description": "Latch set from the debounced output of 0x20000CEC, which is 1 while 0x20000A50 is above -0x28000 (-5.0 in Q15). mcu_a50_debounce_latch writes it only while it is 0, so once set it stays set. mcu_0160_080054fc tests it as a gate."
+  },
+  "mcu_g_0160_20001fcd": {
+    "name": "protection_drive_inhibit_latch",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fcd"
+    ],
+    "category": "protection",
+    "description": "Drive inhibit latch. mcu_update_inhibit_latch_1fcd sets or clears it from the fault flags and the value at 0x20000F30. Nonzero is the active state (probably drive inhibited). It is read by mcu_0160_08003ab8, mcu_0160_08005930, mcu_0160_08005e28, mcu_0160_08005edc, mcu_0160_08008a14 and telemetry."
+  },
+  "mcu_g_0160_20001fce": {
+    "name": "protection_cmd_pending",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20001fce"
+    ],
+    "category": "protection",
+    "description": "Command-pending byte. mcu_0160_08007df4 sets it to 1 when a command is queued. mcu_cmd_state_clear clears it, releases owner 10 and clears bit 0x8 of 0x20000B1C. mcu_flag_1fce_is_clear returns 1 when it is zero."
+  }
+}

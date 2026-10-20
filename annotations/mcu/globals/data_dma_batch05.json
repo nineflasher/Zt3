@@ -1,0 +1,11 @@
+{
+  "mcu_g_0160_20000fb4": {
+    "name": "dma_adc1_rx_ring",
+    "type": "u16",
+    "count": 200,
+    "size": 400,
+    "anchor": ["MCU_0160", "0x20000fb4"],
+    "category": "adc",
+    "description": "Circular RAM buffer that DMA1 channel 1 fills with ADC1 ordinary-data conversions (peripheral address 0x4001244C, the ADC1 ODT register). It holds 200 halfwords, the transfer count set in mcu_adc1_dma_init, arranged as 40 scans of 5 results each (probably one result per ADC1 channel of the scan, channel order not visible here). The DMA hardware writes it continuously in circular mode, so the CPU does not write it. The only CPU access in this packet is mcu_adc1_dma_init taking its address as the DMA memory base. The size comes from the transfer count, not from a CPU access, so it rests on the function annotation (medium confidence). Reader: mcu_0160_0800249c reads the scans back (per the function annotation). Set up once at init; the transfer runs until the channel is disabled or reset."
+  }
+}

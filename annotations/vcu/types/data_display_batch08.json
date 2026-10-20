@@ -1,0 +1,78 @@
+{
+ "structs": {
+  "VcuLedDigitBank": {
+   "size": 8,
+   "description": "Eight LED/LCD frame bytes (0x200021c6..0x200021cd) holding the two-digit display: tens digit c6..c8, icon bits in c9, units digit ca..cc and a segment byte in cd. Other frame bytes belong to other packets.",
+   "fields": [
+    {
+     "name": "tens_glyph_a",
+     "offset": 0,
+     "type": "u8",
+     "description": "Tens digit segment byte A from glyph table seg_a (lcd_fb_show_number_2digit); some modes write 0xFF or 0xF0 here instead."
+    },
+    {
+     "name": "tens_glyph_b",
+     "offset": 1,
+     "type": "u8",
+     "description": "Tens digit segment byte B in the low nibble (OR-ed in by lcd_fb_show_number_2digit); bits 4..6 are icon group A (mask 0x70)."
+    },
+    {
+     "name": "tens_glyph_c",
+     "offset": 2,
+     "type": "u8",
+     "description": "Tens digit segment byte C from glyph table seg_c; some modes write 0x3F or 0xFF here."
+    },
+    {
+     "name": "icon_bank_c9",
+     "offset": 3,
+     "type": "u8",
+     "description": "Icon bits: bits 4..6 (0x70) are icon group A (shared with tens_glyph_b and units_glyph_b), bits 0..1 are set by lcd_fb_set_c9_low2."
+    },
+    {
+     "name": "units_glyph_a",
+     "offset": 4,
+     "type": "u8",
+     "description": "Units digit segment byte A from glyph table seg_a (written by lcd_fb_show_digit_units)."
+    },
+    {
+     "name": "units_glyph_b",
+     "offset": 5,
+     "type": "u8",
+     "description": "Units digit segment byte B in the low nibble (glyph table seg_b); bits 4..6 are icon group A."
+    },
+    {
+     "name": "units_glyph_c",
+     "offset": 6,
+     "type": "u8",
+     "description": "Units digit segment byte C from glyph table seg_c; the mode pattern can set it to 0xCC."
+    },
+    {
+     "name": "seg_bank_cd",
+     "offset": 7,
+     "type": "u8",
+     "description": "Low nibble is a segment pattern (0xC or 0x3) set by lcd_fb_set_cd_low_nibble; bits 4..6 are icon group B (0x70)."
+    }
+   ]
+  },
+  "VcuLedPatternRow": {
+   "size": 10,
+   "description": "One row of the LED row-animation tables. In the index tables the first byte is the entry count and bytes 1..9 are LED frame byte indices; in the mask tables byte 0 is unused and bytes 1..9 are bit masks.",
+   "fields": [
+    {
+     "name": "count",
+     "offset": 0,
+     "type": "u8",
+     "description": "Number of valid entries in the row (index tables). Unused in the mask tables."
+    },
+    {
+     "name": "entry",
+     "offset": 1,
+     "type": "u8",
+     "count": 9,
+     "description": "Entry k (1..9): LED frame byte index in the index tables or the bit mask in the mask tables."
+    }
+   ]
+  }
+ },
+ "enums": {}
+}

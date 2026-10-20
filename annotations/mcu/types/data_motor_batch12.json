@@ -1,0 +1,139 @@
+{
+  "structs": {
+    "MotorDebounce20": {
+      "size": 20,
+      "description": "20-byte debounce/integrator object. FUN_08009A40 initialises it, FUN_08009954 steps it (input 1 counts up to the limit and reloads from the reload field when reached, input 0 counts down), and FUN_08009A6E resets it.",
+      "fields": [
+        {
+          "name": "count",
+          "offset": 0,
+          "type": "s32",
+          "description": "Current count, 0 up to limit. Set to 0 by init."
+        },
+        {
+          "name": "limit",
+          "offset": 4,
+          "type": "s32",
+          "description": "Count limit, the second argument of FUN_08009A40."
+        },
+        {
+          "name": "reload",
+          "offset": 8,
+          "type": "s32",
+          "description": "Value copied into count when the limit is reached (third argument of FUN_08009A40)."
+        },
+        {
+          "name": "shift",
+          "offset": 12,
+          "type": "u8",
+          "description": "Fourth argument of FUN_08009A40 (probably a shift or mode)."
+        },
+        {
+          "name": "elapsed",
+          "offset": 13,
+          "type": "u8",
+          "description": "Set to 1 once count reaches the limit with input 1 (probably), 0 when count returns to 0; set to 2 by init."
+        },
+        {
+          "name": "latch",
+          "offset": 14,
+          "type": "u8",
+          "description": "Output latch cleared to 0 on the rising edge of elapsed; set to 2 by init."
+        },
+        {
+          "name": "zero",
+          "offset": 15,
+          "type": "u8",
+          "description": "Set to 0 by init."
+        },
+        {
+          "name": "enabled",
+          "offset": 16,
+          "type": "u8",
+          "description": "Set to 1 by a successful init. FUN_08009954 returns 0 while it is 0."
+        },
+        {
+          "name": "pad",
+          "offset": 17,
+          "type": "u8",
+          "count": 3,
+          "description": "Not written by the init or step code shown here (probably padding)."
+        }
+      ]
+    },
+    "MotorLimiterObj": {
+      "size": 35,
+      "description": "Limiter object initialised by FUN_08007198 (called from mcu_0160_08003784 for the object at 0x20000C3C). Fields after +0x23 are not in this packet.",
+      "fields": [
+        {
+          "name": "out_ptr",
+          "offset": 0,
+          "type": "ptr",
+          "description": "Pointer to the output word (the third argument, 0x20000B3C for the object at 0x20000C3C)."
+        },
+        {
+          "name": "unk4",
+          "offset": 4,
+          "type": "u8",
+          "count": 4,
+          "description": "Not written by FUN_08007198 (probably used by the later helpers)."
+        },
+        {
+          "name": "param2",
+          "offset": 8,
+          "type": "s32",
+          "description": "Second argument, stored as-is (0x03C89458 at the only call site, probably a time constant or scale)."
+        },
+        {
+          "name": "bound_a",
+          "offset": 12,
+          "type": "s32",
+          "description": "Fourth argument (probably one bound of the window)."
+        },
+        {
+          "name": "bound_b",
+          "offset": 16,
+          "type": "s32",
+          "description": "Fifth argument (probably the other bound of the window)."
+        },
+        {
+          "name": "half_span",
+          "offset": 20,
+          "type": "s32",
+          "description": "(|bound_a - bound_b| * 0x4000) >> 15, that is half the distance between the two bounds."
+        },
+        {
+          "name": "mode",
+          "offset": 24,
+          "type": "u8",
+          "description": "Sixth argument, stored as-is (probably a mode flag)."
+        },
+        {
+          "name": "unk25",
+          "offset": 25,
+          "type": "u8",
+          "count": 7,
+          "description": "Not written by FUN_08007198 (probably used by the later helpers)."
+        },
+        {
+          "name": "zero_flag",
+          "offset": 32,
+          "type": "u8",
+          "description": "Set to 0 by FUN_08007198."
+        },
+        {
+          "name": "one_flag",
+          "offset": 33,
+          "type": "u8",
+          "description": "Set to 1 by FUN_08007198 (probably 'initialised')."
+        },
+        {
+          "name": "flag_arg",
+          "offset": 34,
+          "type": "u8",
+          "description": "Seventh argument, stored as-is (probably a direction or enable flag)."
+        }
+      ]
+    }
+  }
+}

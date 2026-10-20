@@ -1,0 +1,660 @@
+{
+  "ble_219_0c0585a4": {
+    "name": "ble_link_param_monitor_step",
+    "summary": "Run one link-parameter monitor step and emit a 27-byte status record to the host",
+    "description": "Evaluates one parameter sample for a link and reports the outcome. param_1 bits 0-5 select the event: 1 stores the 16-bit value in param_2 as the pending pair at 0x200130F1 and sets mode 8, 2 sets mode 9, other codes keep the mode; bit 6 is copied into the link context byte at +0x28. The working record at 0x200130E0 (27 bytes) is filled from the state object at 0x200042F8 (key byte +0, flags word +4, limit bytes +0x1E and +0x37, byte +8), from the link record returned by ble_link_table_find_by_key (its byte +5 = 1 means active), and from the optional hook at 0x20014608. The sample is classified into a state byte at 0x200130F3: 1 = neither flag bit 0 nor bit 3 set, 2 = signed value outside the limits selected by those flags, 3 = accumulator above 4000, 4 = link record byte zero, 6 = mode 8 with value below 500, 8 = context bit 6 set. Two signed fields are compared against the limits and stored as deltas, the 16-bit fields are byte-swapped with bt_bytes_reverse_inplace, and ble_pending_param_store latches the state. Fields are converted from offset binary by subtracting 0x80. For states 1 and 2 the host callback at 0x200130DC receives the record with length 0x1B and event 0x94; state 2 also appends the record to a 10-slot ring at 0x20013120 and calls 0x0C0582B0(1). Other states send event 0x14. Finally the working record is reset with the default 5000 (0x1388) in 0x200130F1. clock_gettime(CLOCK_MONOTONIC) is called but its result does not feed the visible logic.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "event code: low 6 bits select the sample type (1, 2 or other), bit 6 is a context flag"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "16-bit parameter, stored as the pending pair when param_1 & 0x3F == 1"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompiled code aliases 0x200130F0..F3 (the state byte at F3 is the top byte of the 4-byte accumulator at F0), and the stack byte local_3a is only set through the hook, so state meanings are inferred from the stores and may be off. The sub-call 0x0C0582B0(1) is not described in this packet. Limit semantics for states 2 and 3 are medium confidence."
+  },
+  "ble_219_0c059134": {
+    "name": "ble_evt_source_init",
+    "summary": "Register the BLE event run-loop data source and its 16-byte ring buffer",
+    "description": "Initialises the BTstack run-loop data source at 0x20013238 that drives the BLE event pump. The source is removed from the run loop, given the process handler 0x0C058D14, has its callbacks enabled with flag 1, and is added back. It then initialises a BTstack ring buffer at 0x2001324C over 16 bytes of storage at 0x20013260, and creates a 1-count synchronisation object at 0x20013270 through the RTOS wrapper 0x0C042D80.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Handler 0x0C058D14 and wrapper 0x0C042D80 are not described in this packet. The purpose of the ring (16 bytes) is inferred from its size and placement."
+  },
+  "ble_219_0c059560": {
+    "name": "ble_link_table_remove_index",
+    "summary": "Remove the link-table record at an index and persist the table",
+    "description": "Removes record param_1 (0 to 3) from the link table: 5 records of 20 bytes starting at 0x200134ED, with the record count byte at 0x200134EC and key byte +0 equal to 0xFF when free. If the index is the last used slot, the record is zeroed and its key set to 0xFF. Otherwise the following records are moved down with memmove and the vacated last slot gets key 0xFF. The table is then written to NV record 0xFB3 with ble_nv_record_write (153 bytes from 0x200134BC). Indexes above 3 are ignored and nothing happens when the count is zero.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "record index to remove, 0 to 3"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0595ec": {
+    "name": "ble_link_table_remove_key",
+    "summary": "Remove link-table records that carry a given key and persist the table",
+    "description": "Scans the link table for records whose key byte at +0 equals param_1 and removes them: each match is compacted out with memmove and its vacated slot is marked 0xFF. The count byte at 0x200134EC is decremented once for the first match, then the scan continues until its index passes the count. The table is saved once with ble_nv_record_write (record 0xFB3, 153 bytes) at the end. Nothing is written if no record matches.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "key byte to match (record +0)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The count is decremented only once even when more than one record is removed, so behaviour with duplicate keys is not certain."
+  },
+  "ble_219_0c0596c8": {
+    "name": "ble_link_table_nv_load_trim",
+    "summary": "Reload the link table from NV, free unused slots and save if changed",
+    "description": "Reads the 153-byte link table block from NV record 0xFB3 with ble_nv_record_read and returns 0x41 if the read fails. If fewer than four records are in use (count < 4), every slot from index count to 3 whose key byte is not 0xFF is set to 0xFF. The table is written back with ble_nv_record_write when anything changed. Returns 0 otherwise.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 0x41 when the NV read fails"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c059724": {
+    "name": "ble_link_table_reset",
+    "summary": "Clear the link table to empty and save it to NV",
+    "description": "Sets the count byte at 0x200134EC to 0, clears all five 20-byte records starting at 0x200134ED (so every key byte becomes 0x00, not 0xFF), and writes the 153-byte table to NV record 0xFB3 through ble_nv_record_write. It is the recovery path when the table cannot be trusted, for example when the controller enumeration fails or the count is out of range.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Cleared slots have key 0x00, while the free marker used by ble_link_table_alloc_slot is 0xFF. Free-slot allocation only inspects slots 0 to 3, so a cleared key 0 is harmless only while the count is 0."
+  },
+  "ble_219_0c059754": {
+    "name": "ble_link_table_save",
+    "summary": "Save the link table to NV record 0xFB3 and return 1",
+    "description": "Writes the 153-byte link table block at 0x200134BC to NV record 0xFB3 with ble_nv_record_write and ignores the byte count it returns. The function always returns the constant 1. Ten callers in the connection and bond code call it after changing the table.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "The return value appears to be a success flag that is not derived from the write."
+  },
+  "ble_219_0c05976c": {
+    "name": "ble_link_table_alloc_slot",
+    "summary": "Find the link record for a key, or the first free slot among slots 0 to 3",
+    "description": "Looks up key param_1 among the active link records (count at 0x200134EC, key at +0 of each 20-byte record). When found, it sets *param_2 = 1 and returns the record index. Otherwise it returns the first of slots 0 to 3 whose key is 0xFF, with *param_2 = 0, or 0 when no slot is free. If the count is above 4 the table is treated as corrupt: it is reset, saved, *param_2 is set to 0 and 0 is returned. Only four slots are allocatable; the fifth record is used as a shift buffer by the removal functions.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "key to find; 0xFF skips the search and goes straight to the free-slot scan"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "out flag: 1 when an existing record matched, 0 when a slot was chosen"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "record index 0 to 3, or 0 when no slot is free"
+    },
+    "confidence": "medium",
+    "notes": "Two further undefined arguments in the decompiled signature are unused in the body."
+  },
+  "ble_219_0c059938": {
+    "name": "ble_signal_worker_event",
+    "summary": "Signal the BLE worker event handle held in the global at 0x20014564",
+    "description": "A one-line trampoline. It calls the RTOS wrapper 0x0C04291C with the event or semaphore handle stored at 0x20014564 and the value 1, which wakes the waiting worker.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The handle at 0x20014564 is set elsewhere. Callers are not named in this packet (entry point, callback or indirect call)."
+  },
+  "ble_219_0c059b60": {
+    "name": "ble_rssi_filter_update",
+    "summary": "Outlier-clamp and Kalman-filter a 5-sample signed RSSI window, return the mean",
+    "description": "Smooths a window of five signed 8-bit samples (RSSI-like) for one channel. When the first sample is nonzero, it computes the mean and standard deviation of all five with soft-float arithmetic, and replaces samples more than two standard deviations from the mean of the nonzero samples with that nonzero mean. It then runs one scalar Kalman update on the newest sample: K = (P+Q)/(P+Q+R), x = x + K(z - x), P = (1-K)(P+Q). The per-channel state (x, P, K) is at 0x20004948 for channel 0 or 0x20004960 for channel 1; the shared process noise Q is at 0x2000495C and measurement noise R at 0x20004958, copied to 0x20014570 and 0x20014574 for inspection. The filtered value is written back to byte 4 of the window. The return value is the mean of the nonzero samples at positions 2 to 4, as a signed byte.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "5-byte signed sample window; byte 4 is the newest sample and is overwritten with the filtered value"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "channel: 0 selects state at 0x20004948, nonzero selects state at 0x20004960"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "mean of nonzero samples at positions 2 to 4, as a signed byte; 0 if none are nonzero"
+    },
+    "confidence": "medium",
+    "notes": "The sigma threshold uses a truncated integer standard deviation. The sqrt routine at 0x0C06F220 and the float-to-int conversion at 0x0C06FD30 are inferred from call shape. Q and R are labelled as process and measurement noise from the Kalman form, which is a medium-confidence reading."
+  },
+  "ble_219_0c05a4a8": {
+    "name": "ble_link_table_prune_by_ctrl",
+    "summary": "Reconcile the link table with the controller address list through LL hooks",
+    "description": "Clears a 112-byte controller context at 0x20014580, then enumerates a list of device addresses through the LL hook entries at table offsets 0x18, 0x1C and 0x20. If the start hook fails, the link table is reset. For each enumerated address, the 6 bytes are reversed with co_reverse_copy_n and compared with the address stored in each link record (at record +0x0C), scanning from the last used record down to index 0. A match calls the no-op hook ble_hook_noop_05a9c0 and removes that record with ble_link_table_remove_index. When the count is 0 or above 4 the table is reset with ble_link_table_reset.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the three hook offsets as start, next and end is inferred from their use in the loop. Matching records are removed, which implies the enumerated list is a block list or a list of entries to drop, but this is not confirmed."
+  },
+  "ble_219_0c05ad18": {
+    "name": "ble_msg_queues_init",
+    "summary": "Create the BLE message queues and their run-loop data source",
+    "description": "Creates three guard objects through the RTOS wrapper 0x0C042D80 (count 1) at 0x200154E8, 0x20014884 and 0x20014620, and initialises three BTstack ring buffers. The 2048-byte ring (control struct 0x20015538, storage 0x2001554C, guard 0x200154E8) is the outbound queue used by ble_msg_enqueue. The 3072-byte ring (control 0x200148D4, storage 0x200148E8, guard 0x20014884) is the inbound queue drained by ble_msg_drain_to_host. The 512-byte ring (control 0x20014670, storage 0x20014684, guard 0x20014620) has no user in this packet. It then sets up the run-loop data source at 0x20015D4C with handler 0x0C05AAB8, enables its callbacks and adds it to the run loop.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The consumer of the 512-byte ring and the source handler 0x0C05AAB8 are not described in this packet."
+  },
+  "ble_219_0c05ada4": {
+    "name": "ble_gatt_read_char_value",
+    "summary": "Build a GATT characteristic value by selector and copy it out with offset and length",
+    "description": "Read-value provider for a small set of GATT characteristics. param_1 is matched against four u16 IDs at 0x2000430C..0x20004312; when there is no match, selector 0x4A returns a string held at 0x20015E60 and any other selector returns length 0. For a matched ID, param_2 selects the value: 6 gives u16 4 (length 2); 10 loads the 8-byte NV block 0xFA8 (length 8); 12 writes the ASCII name Segway-Ninebot (length 14); 14 loads the 16-byte device name from NV 0xFA6 and, if it equals KickScooter, substitutes Segway KickScooter (length 18), otherwise uses the stored name; 18 gives the NV flag byte 0xFA7 followed by 7 zero bytes (length 8); 20 gives u32 9; 22 gives the packed word at 0x20012CB0; 24 gives u32 0x10000; 26 gives byte 2; 28 gives the state byte from ble_state_407a_read. The value is then copied with co_min_u32 (length - offset, max length) from offset param_3 into param_4 when param_4 is non-null; if the offset is past the end, 0 is returned. The returned count is the bytes copied, or the total length when param_4 is null.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "attribute or characteristic UUID, matched against four u16 IDs at 0x2000430C"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "value selector (switch code, for example 6, 10, 12, 14, 18, 20, 22, 24, 26, 28; 0x4A for string)"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "read offset into the value"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "output buffer, or null to query the length"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "maximum number of bytes to copy"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes copied, or total value length when param_4 is null; 0 on failure or offset past end"
+    },
+    "confidence": "medium",
+    "notes": "The four IDs at 0x2000430C..0x20004312 are not named in this packet, so the mapping to specific GATT characteristics (for example Device Name) is inferred from the string contents and length."
+  },
+  "ble_219_0c05ae14": {
+    "name": "ble_msg_enqueue",
+    "summary": "Queue a typed message into the 2 KiB outbound ring with lock and filter hooks",
+    "description": "Appends a message to the outbound ring at 0x20015538 under the guard at 0x200154E8. It returns 0x41 when bit 0 of the state word at 0x200042F8+4 is clear. For type 2 it first calls the pre-check hook at 0x20014608 and returns 0x46 if that hook reports state below 4 and payload byte 5 is outside 0x5B to 0x5D. The space needed is payload+4 (type 1) or payload+10 (type 2); if the ring lacks space, the whole ring is reset and 0x41 is returned. It waits up to 100 ms for the guard (0x43 on timeout), re-checks space, and for type 2 runs the filter hook at 0x20015F28, which maps the payload into scratch 0x20015D5C; a non-zero return drops the message. The 4-byte header holds the length (payload+6 for type 2) in the low half and the type in the high half, followed by the payload. The guard is released and ble_219_0c05d494 is called to wake the consumer.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "message type; 2 selects the extended form with a 6-byte prefix and the filter hook"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "payload length"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "payload buffer"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success; 0x41 not ready or ring full; 0x43 guard timeout; 0x46 rejected by pre-check hook"
+    },
+    "confidence": "medium",
+    "notes": "Semantics of message types and the 6-byte prefix are not confirmed. Sub-call 0x0C05D494 is not described in this packet."
+  },
+  "ble_219_0c05af1c": {
+    "name": "ble_msg_drain_to_host",
+    "summary": "Drain the inbound 3 KiB ring and pass each message to the upper-layer callback",
+    "description": "While the inbound ring at 0x200148D4 holds data, it takes the guard at 0x20014884 (100 ms waits, retried on failure), reads a 2-byte length, and reads the payload into a 256-byte stack buffer when the length is below 0xFB. The guard is released on both paths. If the upper-layer receive callback at 0x20015E5C is set, it is called with (type 2, length, payload); oversize messages are dropped.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Only the upper-layer callback signature (type, length, payload) is inferred from the call site."
+  },
+  "ble_219_0c05b0a8": {
+    "name": "ble_nv_write_block_1c5",
+    "summary": "Write up to 512 bytes into NV partition 2 at offset 0x1C5, then commit",
+    "description": "Copies len bytes (at most 0x200) from src into the RAM image of NV partition 2 at offset 0x1C5. It locks the partition with ioctl 0x106, copies, unlocks with 0x103 (argument 0), then issues the commit sequence 0x104 and 0x200 (flush). It returns len on success, or 0 when the length is too large or the partition is not open. This is the same block as NV record id 0x1388 in ble_nv_record_write.",
+    "category": "app",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source buffer"
+      },
+      {
+        "name": "len",
+        "type": "u32",
+        "description": "byte count, at most 0x200"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes written, or 0 on failure"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05b0f4": {
+    "name": "ble_nv_read_block_1c5",
+    "summary": "Read the 512-byte block at NV partition 2 offset 0x1C5",
+    "description": "Locks NV partition 2 (ioctl 0x106), copies 512 bytes from the RAM image at offset 0x1C5 into the caller buffer, and unlocks with 0x103 (argument 0). It issues no commit ioctls, so it is a read-only operation.",
+    "category": "app",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination buffer of at least 512 bytes"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success; 1 when the partition buffer is not available"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05b138": {
+    "name": "ble_nv_record_write",
+    "summary": "Write a record to its NV partition offset by record id, then commit",
+    "description": "Maps a record id to an NV partition and offset, locks the partition with ioctl 0x106, copies length bytes from src into the partition RAM image, unlocks with 0x103 and commits with 0x104 and 0x200. Known ids: 0xFA6 partition 2 +0x3CD (device name, up to 16 bytes); 0xFA7 +0x12B (one-byte flag); 0xFA8 +0x3C5 (8-byte block); 0xFA9 +0x12A (one-byte mode byte); 0xFAA +0x129; 0xFAB +0x128; 0xFAC (default) +0; 0xFAD..0xFB2 +0x3C, +0x5C, +0x7C, +0x9C, +0xCC, +0xEC; 0xFB3 +0x12C (link table block); 0x1388 +0x1C5 (512-byte block); 0x1389 partition 1 offset 0 (1040-byte configuration block). Unknown ids return 0 and touch nothing. It returns length on success, or 0 when the partition is not open.",
+    "category": "app",
+    "params": [
+      {
+        "name": "record_id",
+        "type": "u32",
+        "description": "record id, for example 0xFA6..0xFB3, 0x1388 or 0x1389"
+      },
+      {
+        "name": "length",
+        "type": "u32",
+        "description": "byte count to write"
+      },
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "source buffer"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes written, or 0 for an unknown id or closed partition"
+    },
+    "confidence": "high",
+    "notes": "The meaning of most record ids is inferred from their use by callers, not confirmed. Partition numbers 1 and 2 come from the ioctl argument."
+  },
+  "ble_219_0c05b380": {
+    "name": "ble_nv_record_read",
+    "summary": "Read a record from its NV partition offset by record id",
+    "description": "Read counterpart of ble_nv_record_write with the same record-id-to-offset map. It locks the partition (0x106), copies length bytes from the partition RAM image into dst, and unlocks (0x103) without the commit ioctls. It returns true only when a mapped partition is not open. Unknown ids return false and leave dst untouched.",
+    "category": "app",
+    "params": [
+      {
+        "name": "record_id",
+        "type": "u32",
+        "description": "record id, same map as ble_nv_record_write"
+      },
+      {
+        "name": "length",
+        "type": "u32",
+        "description": "byte count to read"
+      },
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "destination buffer"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "true when the partition is not open, false otherwise"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05b6cc": {
+    "name": "ble_bt_stack_task_create",
+    "summary": "Create the 'bt stack' RTOS task with entry 0x0C05B678 and a 1 KiB stack",
+    "description": "Creates the task named 'bt stack' with entry point 0x0C05B678, stack size 0x400 (1024), argument 0 and priority 2 through the RTOS wrapper 0x0C043CFC. The task handle is written to 0x20016044 and a second output object is written to 0x20004B38.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The argument order (stack size, argument, priority) is inferred from the call, and the purpose of the object at 0x20004B38 is unknown."
+  },
+  "ble_219_0c05c2c0": {
+    "name": "ble_gen_static_random_addr",
+    "summary": "Generate a 6-byte static random device address into the output buffer",
+    "description": "Fills 6 bytes through 0x0C058160 (a random or stored-value source not described in this packet), sets the top two bits (OR 0xC0) of the most significant byte, which is the static random address marker, and reverses the bytes. The result is most-significant byte first in the output buffer.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "6-byte output buffer for the address"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The byte order of the address as stored elsewhere and the source of the random bytes are unconfirmed."
+  },
+  "ble_219_0c05cbc4": {
+    "name": "ble_status_bits_get",
+    "summary": "Compose a 4-bit BLE status mask from object flags, slot state, timer flag and mode",
+    "description": "Builds a status mask. Bit 0 is set when flag 0x80 in the word at 0x200042F8+4 is set and the byte at 0x20017046 equals 1. Bit 1 is set when ble_slot_mgr_is_ready reports ready. Bit 2 is set when the global flag at 0x20012606 is clear. Bit 3 is set when the mode byte in NV record 0xFA9 is 1 or 3 (0xEB and failed reads, which leave 0xFF, do not count).",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "status bitmask, bits 0 to 3"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cc70": {
+    "name": "ble_host_5min_timer_ctrl",
+    "summary": "Arm or stop the 300-second BLE host timer and set its flag",
+    "description": "Controls the 300-second host timer. Argument 1 calls ble_host_timer_arm_5min, which re-arms the timer at 0x20012C98 and clears the flag byte at 0x20012606. Any other value calls ble_host_timer_stop_5min to remove the timer source, then sets the flag at 0x20012606 through ble_set_flag_12606. Always returns 0.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "cmd",
+        "type": "s32",
+        "description": "1 to arm the 5-minute timer; any other value stops it and sets the flag"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05ccd8": {
+    "name": "ble_mode_nv_encode_write",
+    "summary": "Encode a 0-3 mode value to the NV mode byte and write it",
+    "description": "Encodes the mode into one byte and writes it to NV record 0xFA9 (partition 2 +0x12A): 0 is stored as 0xEB, 1 and 3 are stored as themselves, and any other value is stored as 0xFD. The write goes through ble_nv_record_write.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "mode",
+        "type": "s32",
+        "description": "mode value, expected 0, 1 or 3"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cd10": {
+    "name": "ble_mode_nv_decode_read",
+    "summary": "Read the NV mode byte and decode it to a 0-3 mode value",
+    "description": "Reads the mode byte from NV record 0xFA9 with ble_nv_record_read and decodes it: 0xEB gives 0, 1 gives 1, 3 gives 3, and any other byte gives 2. A failed read leaves 0xFF, which also decodes to 2. This is the inverse of ble_mode_nv_encode_write for the values 0, 1 and 3.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "decoded mode, 0 to 3"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cd4c": {
+    "name": "ble_mode_nv_is_inactive",
+    "summary": "Return 0 when the NV mode byte is 1 or 3, otherwise 1",
+    "description": "Reads the NV mode byte from record 0xFA9 (0xFF on read failure) and returns 0 when it is 1 or 3, and 1 for any other value including 0xEB. It is a boolean gate on the same byte that ble_status_bits_get reads for bit 3.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 when mode byte is 1 or 3; 1 otherwise"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05cd84": {
+    "name": "ble_mode_nv_disable",
+    "summary": "Set the NV mode byte to its off value, or to 0xFD for other values",
+    "description": "Reads the NV mode byte (record 0xFA9). If it is 0xEB or 1 it is written back as 0xEB, otherwise it is written as 0xFD. This is the off transition paired with ble_mode_nv_enable.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Reading 0xEB as off and 0xFD as a non-off error state is inferred from the encoding in ble_mode_nv_encode_write."
+  },
+  "ble_219_0c05cdcc": {
+    "name": "ble_mode_nv_enable",
+    "summary": "Set the NV mode byte to 1, or to 3 when it was another value",
+    "description": "Reads the NV mode byte (record 0xFA9). If it is 0xEB or 1, it is written as 1, otherwise as 3. Together with ble_mode_nv_disable it toggles between the 0xEB/1 and 3/0xFD families.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of mode 1 versus mode 3 is not established in this packet."
+  },
+  "ble_219_0c05ce38": {
+    "name": "ble_nv_store_8byte_block",
+    "summary": "Store an 8-byte block to NV record 0xFA8 (length must be 8)",
+    "description": "Writes the 8-byte block at src to NV record 0xFA8 (partition 2 offset 0x3C5) through ble_nv_record_write. It does nothing unless len equals 8. This is read back by ble_nv_load_8byte_block.",
+    "category": "app",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "8-byte source block"
+      },
+      {
+        "name": "len",
+        "type": "s32",
+        "description": "must be 8"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05ce48": {
+    "name": "ble_nv_load_8byte_block",
+    "summary": "Load the 8-byte NV record 0xFA8 into a caller buffer",
+    "description": "Reads 8 bytes from NV record 0xFA8 (partition 2 offset 0x3C5) into dst through ble_nv_record_read. The read result is ignored, so dst is left unchanged on failure. Used by the GATT read path for selector 10.",
+    "category": "app",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "8-byte destination buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05ce54": {
+    "name": "ble_nv_store_flag_byte",
+    "summary": "Store one flag byte to NV record 0xFA7",
+    "description": "Writes the one-byte value to NV record 0xFA7 (partition 2 offset 0x12B) through ble_nv_record_write. Read back by ble_nv_load_flag_byte.",
+    "category": "app",
+    "params": [
+      {
+        "name": "value",
+        "type": "u8",
+        "description": "flag byte to store"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05ce74": {
+    "name": "ble_nv_load_flag_byte",
+    "summary": "Read the one-byte flag from NV record 0xFA7, or 0 on failure",
+    "description": "Reads one byte from NV record 0xFA7 (partition 2 offset 0x12B) through ble_nv_record_read. The local value starts at 0, so a failed read returns 0.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "flag byte, or 0 when the read fails"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05ce98": {
+    "name": "ble_nv_store_device_name",
+    "summary": "Store a device name of up to 16 bytes in NV record 0xFA6",
+    "description": "Writes len bytes from name to NV record 0xFA6 (partition 2 offset 0x3CD) through ble_nv_record_write. Names longer than 16 bytes are rejected by doing nothing. The stored value is read back by ble_nv_load_device_name and used by the GATT device name path.",
+    "category": "app",
+    "params": [
+      {
+        "name": "name",
+        "type": "ptr",
+        "description": "name bytes"
+      },
+      {
+        "name": "len",
+        "type": "u32",
+        "description": "byte count, at most 16"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05cea8": {
+    "name": "ble_nv_load_device_name",
+    "summary": "Read the 16-byte device name from NV record 0xFA6 and return its length",
+    "description": "Reads 16 bytes from NV record 0xFA6 (partition 2 offset 0x3CD) into buf through ble_nv_record_read, then returns strlen of buf as a byte. The caller must provide a zeroed or NUL-terminated buffer, since strlen can run past 16 bytes if no terminator is present. The GATT read path zeroes 40 bytes before calling.",
+    "category": "app",
+    "params": [
+      {
+        "name": "buf",
+        "type": "ptr",
+        "description": "destination buffer, at least 17 bytes, zeroed by the caller"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "strlen of the stored name, truncated to a byte"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05cec8": {
+    "name": "ble_cfg_block_load",
+    "summary": "Load the 1040-byte configuration block from NV partition 1 and return its first 16 bytes",
+    "description": "Zeroes the RAM object returned by ble_get_state_ptr_11e10 (at 0x20011E10, 0x410 bytes) with memset, then reads the 1040-byte configuration block from NV record 0x1389 (partition 1, offset 0) into it. It then copies the first 16 bytes of the object to out, which is likely a 128-bit key such as an identity key (unconfirmed).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "16-byte output buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the first 16 bytes is a guess. The return value of the NV read is ignored."
+  },
+  "ble_219_0c05d08c": {
+    "name": "ble_deferred_list_post",
+    "summary": "Post one item to the deferred list under the mutex and signal the worker event",
+    "description": "Waits forever (timeout 0xFFFFFFFF) for the mutex at 0x20017180, appends the item with ble_ctrl_deferred_list_add, releases the mutex, and signals the worker event at 0x20017184 through the RTOS wrapper 0x0C04291C.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "item",
+        "type": "ptr",
+        "description": "list node to append"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The consumer of the deferred list is not in this packet. Wrapper 0x0C0430A8 (wait) and 0x0C042C8C (release) are inferred from use."
+  }
+}

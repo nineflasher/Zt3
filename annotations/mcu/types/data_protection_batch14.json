@@ -1,0 +1,46 @@
+{
+  "structs": {
+    "ProtBandMonitor": {
+      "size": 26,
+      "description": "State block of the band (window) monitor FUN_0800844c / FUN_080084dc. Only the two result flags at +0x18 and +0x19 are decoded here; the rest of the 26 bytes is not decoded. The size is inferred from those flag offsets and the next object in memory (not confirmed).",
+      "fields": [
+        {
+          "name": "flag_trip",
+          "offset": 24,
+          "type": "u8",
+          "description": "Result flag at +0x18: nonzero when the monitor's trip condition is active (feedback block: 0x20000A98; bus block: 0x20000AB4)."
+        },
+        {
+          "name": "flag_aux",
+          "offset": 25,
+          "type": "u8",
+          "description": "Second result flag at +0x19 (feedback block: 0x20000A99 enables the derate path; bus block: 0x20000AB5 clears the B1C bit)."
+        }
+      ]
+    },
+    "ProtBandMonitor12b": {
+      "size": 20,
+      "description": "State block of the 12 B band monitor used by FUN_0800822a / FUN_0800829e. Only the two result flags at +0x12 and +0x13 are decoded here; the size is inferred from the flag offsets and the next object (not confirmed).",
+      "fields": [
+        {
+          "name": "flag_a",
+          "offset": 18,
+          "type": "u8",
+          "description": "Result flag at +0x12 (block at 0x20000A68: 0x20000A7A; block at 0x20000A80: 0x20000A92)."
+        },
+        {
+          "name": "flag_b",
+          "offset": 19,
+          "type": "u8",
+          "description": "Result flag at +0x13 (block at 0x20000A68: 0x20000A7B; block at 0x20000A80: 0x20000A93)."
+        }
+      ]
+    },
+    "ProtDebouncer": {
+      "size": 20,
+      "description": "Debounce state block of FUN_08009954 (debounces one boolean input) with its timing set by FUN_08009a40 (rise and fall tick counts). Its internal layout is not decoded here; 20 bytes (0x14) is inferred from the regular spacing of these blocks in memory.",
+      "fields": []
+    }
+  },
+  "enums": {}
+}

@@ -1,0 +1,883 @@
+{
+  "ble_219_0c05d0c4": {
+    "name": "ble_sched_check_and_pend_pendsv",
+    "summary": "Request a PendSV exception when the scheduler object reports pending work",
+    "description": "Calls the status query at 0x0C042988 on the scheduler object at DAT_20017184 with flag 1 and a local out-word. If the out-word comes back non-zero it writes 0x10000000 to SCB->ICSR (0xE000ED04), the PENDSVSET bit, so the RTOS context switch runs once no higher-priority exception is active. It has no effect when the out-word is zero and does not clear any pending state itself. It has no direct callers in the packet, so it is reached through an indirect call or a table.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The status routine 0x0C042988 and the object type of DAT_20017184 are not described yet, so the meaning of the out-word is inferred from the PendSV write."
+  },
+  "ble_219_0c05d2f4": {
+    "name": "ble_xfer_pump_chunk_and_notify",
+    "summary": "Move one chunk of a pending transfer under a lock and signal the scheduler",
+    "description": "Takes the lock object at 0x2001722C (0x0C0431F8 with timeout 0xFFFFFFFF, i.e. wait forever). If the u16 remaining count at 0x2001728C is non-zero it asks 0x0C045518 how many bytes it can take from the cursor word at 0x20017288, subtracts that from the remaining count, advances the cursor by the same amount and sets the flag word at 0x20017298 to 1. It then releases the lock (0x0C042DF4) and signals event 1 on the scheduler object at 0x20017184 through ble_sched_signal_event. When nothing is left it only releases the lock.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The chunk routine 0x0C045518 and the buffer behind the cursor are not described yet. The lock semantics are inferred from the wait-forever timeout argument."
+  },
+  "ble_219_0c05d494": {
+    "name": "ble_sched_signal_event",
+    "summary": "Signal event 1 on the BLE scheduler object at 0x20017184",
+    "description": "Thin wrapper that calls the event-set primitive at 0x0C04291C with the object pointer DAT_20017184 and event number 1. It is the same signal that ble_xfer_pump_chunk_and_notify issues after moving a chunk, so it is used to wake the BLE task when work becomes ready. Its caller 0x0C05AE14 is not described yet.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c05e2c0": {
+    "name": "wc_AesGcmEncrypt",
+    "summary": "Validate AES-GCM encrypt arguments, then run the software GCM encrypt",
+    "description": "wolfSSL wc_AesGcmEncrypt argument check. It rejects a NULL context (first argument), a zero IV length (sixth argument) and an authentication tag size outside 12..16 (eighth argument, tested as (size - 12) < 5 unsigned), returning BAD_FUNC_ARG (-173, 0xFFFFFF53). Otherwise it tail-calls the software CTR plus GHASH implementation at 0x0C05DE8C (AES_GCM_encrypt_C), which produces the ciphertext and the authentication tag. The data and IV pointers are not checked here.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "wolfSSL Aes context, must be non-NULL"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "result of the software encrypt, or -173 (BAD_FUNC_ARG) for invalid arguments"
+    },
+    "confidence": "medium",
+    "notes": "The 6th and 8th arguments are read from the stack at offsets 0x4 and 0xC, which the decompiler does not declare. The mapping follows the AAPCS stack layout."
+  },
+  "ble_219_0c05e420": {
+    "name": "GetInt",
+    "summary": "Parse one ASN.1 DER INTEGER at an index and load it into a big integer",
+    "description": "wolfSSL asn.c GetInt. GetASNInt (0x0C05E3B8) reads the INTEGER header at input[*idx], skips a leading 0x00 pad byte and returns the content length. The destination is then mp_init()ed and the magnitude is loaded big-endian with mp_read_unsigned_bin (reached through a thunk at 0x0C062BAC). On success *idx is advanced by header plus content length and 0 is returned. If the load fails the integer is cleared with fp_clear; the error paths return -142 (ASN parse error) or -110 (mp_init failure). The value is always non-negative because the sign is not decoded.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination mp_int"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "DER input buffer"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "in/out byte index into the input"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -110 on mp_init failure, -142 on parse or load failure"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c05e474": {
+    "name": "DecodeECC_DSA_Sig",
+    "summary": "Parse a DER ECDSA signature SEQUENCE into its r and s integers",
+    "description": "wolfSSL DecodeECC_DSA_Sig. It requires the first byte to be 0x30 (SEQUENCE tag), reads the SEQUENCE length with GetLength_ex (0x0C05E350) and checks that it fits the buffer. It then decodes two consecutive INTEGERs with GetInt (0x0C05E420), the first into r (param_3) and the second into s (param_4). If anything fails it clears r with fp_clear and returns -171 (0xFFFFFF55). Returns 0 when both integers parse.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "DER signature buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "buffer length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "mp_int r output"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "mp_int s output"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -171 on malformed input"
+    },
+    "confidence": "medium",
+    "notes": "The wolfSSL identification is inferred from the SEQUENCE plus two INTEGER structure and the argument order."
+  },
+  "ble_219_0c05e614": {
+    "name": "wc_ecc_curve_load",
+    "summary": "Load selected fields of a standard ECC curve into an ecc_curve_spec",
+    "description": "wolfSSL wc_ecc_curve_load. A NULL curve returns BAD_FUNC_ARG (-173). The spec stores the new curve pointer at +0x00, and if the same curve was already loaded it keeps the fields already present. For each requested field bit in load_mask it takes the next fp_int slot from the pool (slot size 0x68, pool base at +0x18, count at +0x1C, used count at +0x20), runs mp_init on it and parses the curve's hex constant with fp_read_radix(..., 16). The loaded-field mask is stored at +0x24. When the pool is exhausted it returns -170 or -340. Other failures free the spec with wc_ecc_curve_free (0x0C05E4E8) and return -111.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "static curve parameter table (ecc_set_type)"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "out pointer to the ecc_curve_spec"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "load_mask, one bit per curve field (prime, A, B, order, Gx, Gy)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -173 for a NULL curve, -170 or -340 on pool exhaustion, -111 on load failure"
+    },
+    "confidence": "medium",
+    "notes": "The bit-to-field mapping is inferred from the slot assignments. Bit 2 is not tested by the decompiled branches, so one field may be loaded through a path not seen here."
+  },
+  "ble_219_0c062f28": {
+    "name": "fp_div_2d",
+    "summary": "Divide a big integer by 2^b giving quotient and optional remainder",
+    "description": "wolfSSL TFM fp_div_2d: c = a >> b and, when d is non-NULL, d = a mod 2^b. For b <= 0 it copies a to c and clears d. Otherwise it copies a to c, computes the remainder with fp_mod_2d (0x0C0624E8) from the original a before shifting, shifts whole 32-bit digits with fp_rshd (0x0C062E40) when b >= 32, shifts the remaining bits with fp_rshb (0x0C062EA8), and trims leading zero digits from the result. Uses newlib memcpy and memset for the copies.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "input fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "bit count b, signed"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "quotient output c"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "remainder output d, or NULL"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064088": {
+    "name": "fp_add_thunk",
+    "summary": "Branch-only alias of fp_add (signed big-integer addition)",
+    "description": "Single-instruction thunk that branches to fp_add at 0x0C061FE8; the decompiled body shown is the target's. Called from ble_219_0c05f8c4 and ble_219_0c060828.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "fp_int b"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "fp_int result c"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "extra argument passed through to the helper"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (as the target returns)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06408c": {
+    "name": "fp_sub_thunk",
+    "summary": "Branch-only alias of fp_sub (signed big-integer subtraction)",
+    "description": "Single-instruction thunk that branches to fp_sub at 0x0C062068; the decompiled body shown is the target's. Called from ble_219_0c060828.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "fp_int b"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "fp_int result c"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (as the target returns)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0640e4": {
+    "name": "fp_submod_ct_thunk",
+    "summary": "Branch-only alias of fp_submod_ct (constant-time modular subtraction)",
+    "description": "Single-instruction thunk that branches to fp_submod_ct at 0x0C0625A0; the decompiled body shown is the target's. It computes d = (a - b) mod c in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "modulus c, passed through to the helper"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "fp_int b"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "fp_int result d"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (as the target returns)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c0640e8": {
+    "name": "fp_addmod_ct_thunk",
+    "summary": "Branch-only alias of fp_addmod_ct (constant-time modular addition)",
+    "description": "Single-instruction thunk that branches to fp_addmod_ct at 0x0C062654; the decompiled body shown is the target's. It computes d = (a + b) mod c in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "modulus c, passed through to the helper"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "fp_int b"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "fp_int result d"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (as the target returns)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064284": {
+    "name": "fp_rshb_thunk",
+    "summary": "Branch-only alias of fp_rshb (in-place right shift by bits)",
+    "description": "Single-instruction thunk that branches to fp_rshb at 0x0C062EA8; the decompiled body shown is the target's. It shifts the big integer right in place by the given number of bits, after whole-digit shifts for counts of 32 or more. Called from ble_219_0c0601fc.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a, shifted in place"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "bit count"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064288": {
+    "name": "fp_montgomery_calc_normalization_thunk",
+    "summary": "Branch-only alias of fp_montgomery_calc_normalization (R mod b)",
+    "description": "Single-instruction thunk that branches to fp_montgomery_calc_normalization at 0x0C062940; the decompiled body shown is the target's. It computes a = R mod b, with R = 2^(32 * used digits of b), by repeated doubling and conditional subtraction, for Montgomery normalisation. Called from ble_219_0c05b724 and ble_219_0c05e558.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int result a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "modulus b"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "unused by the decompiled body"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "fallback word used when b is a single digit"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, or the error code from the doubling helper"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c064498": {
+    "name": "fp_div_2_mod_ct_thunk",
+    "summary": "Branch-only alias of fp_div_2_mod_ct (constant-time halving modulo b)",
+    "description": "Single-instruction thunk that branches to fp_div_2_mod_ct at 0x0C062450; the decompiled body shown is the target's. It computes c = (a / 2) mod b for 0 <= a < b: when a is odd it adds b first, then halves the result, in constant time. Called from ble_219_0c05e868 and ble_219_0c05eb00.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "fp_int a"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "modulus b"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "fp_int result c"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 (as the target returns)"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c065148": {
+    "name": "ble_host_hci_init_once",
+    "summary": "One-time setup of the HCI event state that registers the packet handler",
+    "description": "Runs once: if the init byte at 0x20017385 is already non-zero it returns. Otherwise it sets that byte to 1, stores the handler address 0x0C064C6C (Thumb 0x0C064C6D) at 0x20017394, calls hci_add_event_handler (0x0C066DBC) to register it on the event-handler list at env+0x20, and clears the state words at 0x200172DC, 0x20017300, 0x2001738C and 0x20017388 to zero.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The decompile drops the arguments of the hci_add_event_handler call. The registered handler is assumed to be the one stored at 0x20017394."
+  },
+  "ble_219_0c066370": {
+    "name": "ble_ctrl_conn_free_guarded",
+    "summary": "Free a connection record only when its state byte is 1 or 2",
+    "description": "Guard in front of the disconnect path. It returns at once unless the connection state byte at +0x0E is 1 or 2 (tested as (state - 1) > 1). Otherwise it runs the same sequence as ble_ctrl_conn_free_and_report_disconnect (0x0C06637A): unlink the record from the list at env+0x14 (btstack_linked_list_remove, 0x0C06542C), return it to the pool (btstack_memory_hci_connection_free, 0x0C0654E4), emit the 9-byte event 0xD9 0x07 with the reason byte and the reversed peer address when bit 15 of the flags word at +0x10 is set, and when the reason is 5 call the interface callback at env+0x10 offset +0x14 with the address.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "connection record"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "disconnect reason byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The packet lists 0x0C06637A as the callee, but Ghidra shows the body inline here. The meaning of reason 5 is unconfirmed, as in 0x0C06637A."
+  },
+  "ble_219_0c06648c": {
+    "name": "ble_ctrl_disconnect_all_connections",
+    "summary": "Disconnect every connection with reason 0x16 and tear each one down",
+    "description": "Walks the connection list at env+0x14 with a removal-safe iterator. For each connection it builds a 6-byte HCI Disconnection Complete event (05 04 00 handle_lo handle_hi 16) with the handle from +0x0A and reason 0x16 (Connection Terminated By Local Host), emits it with hci_emit_event (0x0C066004, length 6), then calls ble_ctrl_conn_teardown_and_count (0x0C0663E8) to stop its timers, unlink and free it and emit the count event. Callers are ble_219_0c0674e8 and ble_219_0c06b154.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066a4c": {
+    "name": "ll_env_can_send_acl",
+    "summary": "Report whether ACL data can be sent, unless the env busy byte at 0x170 is set",
+    "description": "If the busy byte at env+0x170 is non-zero (the byte ll_env_is_ready also tests) it returns 0. Otherwise it returns the result of ble_ctrl_can_send_to_handle (0x0C0669D8), which reports whether the connection has free ACL slots. The decompiled call shows no arguments, so the handle is the value the caller left in the argument registers.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "0 while the busy byte is set, otherwise the free-ACL-slot result (non-zero when a slot is free)"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c06d5c4": {
+    "name": "ll_env_can_send_acl_thunk",
+    "summary": "Branch-only alias of ll_env_can_send_acl",
+    "description": "One-instruction thunk that branches to 0x0C066A4C, with the same body. It is called from ble_219_0c04def0 and ble_219_0c051eb8.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "as ll_env_can_send_acl"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c066f74": {
+    "name": "ble_ctrl_hci_cmd_dispatch",
+    "summary": "Apply a host HCI command to the controller state, then forward it to the transport hook",
+    "description": "Reads the opcode (u16 at offset 0) and dispatches on it. Opcode 0x0429 stores the u16 at offset 0x13 in env+0x1D2 and the 6-byte peer address at offset 3, reversed, in env+0x239, with address type 0xFC at env+0x23F. Opcode 0x0428 stores the u16 at offset 0x0F in env+0x1D2. Opcode 0x1802 stores the byte at offset 3 in env+0x75. Opcode 0x0405 is the create-connection path: the peer address is compared with the local address at env+0x0E (memcmp), a match emits a Connection Complete event (0x03, length 11) with status 0x0F, and otherwise a record of type 0xFD is found (ble_ctrl_conn_find_by_addr) or allocated (ble_ctrl_conn_alloc_and_register, status 0x56 on failure) and put in state 1. Every path decrements the pending-command counter at env+0x177, calls ble_hook_invoke4 (0x0C06C0C0) with hook id 1, then calls the transport hook at *env+0x18 with (1, command, length). The return value is 0 when the hook accepts and 3 otherwise.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "HCI command buffer, opcode u16 at +0, parameters from +3"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "command buffer length"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "HCI status: 0 accepted, 3 transport hook refused, or an error status (0x0B, 0x0F, 0x56) from an opcode handler"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the stored env fields at 0x1D2, 0x239, 0x23F and 0x75 is inferred from the writes. The status constants are taken from the Connection Complete and HCI status codes."
+  },
+  "ble_219_0c067178": {
+    "name": "hci_send_cmd",
+    "summary": "Reserve the HCI packet buffer and send one command, or report that it is busy",
+    "description": "BTstack hci_send_cmd. If the controller is not ready (ll_env_is_ready, 0x0C066978) it logs 'hci_send_cmd called but cannot send packet now' (hci.c line 0x1C6C) and returns 0x0C (Command Disallowed). Otherwise it stores the opcode in env+0x1AE. If the packet-buffer-reserved byte at env+0x170 is already set it logs 'hci_reserve_packet_buffer called but buffer already reserved' (line 0x2F5) and 'hci_host_num_completed_packets, hci packet buffer reserved' (line 0x1C76), then returns 0x0C. Otherwise it sets the reserved byte, packs the command with hci_cmd_pack_format (0x0C06BC74), and dispatches it through ble_ctrl_hci_cmd_dispatch (0x0C066F74). On success it returns 0. On failure it clears the reserved byte, emits a 2-byte internal event 0x6E through hci_emit_event and returns the error.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "command descriptor, u16 opcode at +0"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "parameter word passed to hci_cmd_pack_format"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the command was accepted, 0x0C when it cannot be sent now, or the dispatch error"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06722c": {
+    "name": "hci_send_cmd_no_status",
+    "summary": "Send an HCI command through hci_send_cmd and discard its status",
+    "description": "Calls hci_send_cmd (0x0C067178) with the same argument and ignores its return value. Callers are ble_219_0c051eb8, ble_219_0c06464c, ble_219_0c065038, ble_219_0c067248, ble_219_0c0674e8, ble_219_0c068cc8 and ble_219_0c06cdb8.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "command descriptor passed through to hci_send_cmd"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06d474": {
+    "name": "l2cap_channel_pool_init",
+    "summary": "Initialise the L2CAP channel pool header, CID counter and channel handlers",
+    "description": "Sets up the L2CAP state at 0x2001944C. It writes 0x40 to the local CID counter at 0x200194A4 (the first dynamic CID used by l2cap_create_channel_entry) and 0xFF to 0x200194B4. It writes four (u16, u16) pairs into the record: (1, 2) at +0x0C/+0x0E, (4, 7) at +0x1C/+0x1E, (3, 4) at +0x2C/+0x2E and (3, 6) at +0x3C/+0x3E, and links the record with btstack_linked_list_add (0x0C0653EC) each time. It stores 0x0C06E7D0 at 0x20019498 as a channel callback and 0x0C06DC50 at env+0x18 as the transport hook, then registers the packet handler with hci_add_event_handler (0x0C066DBC).",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Reading the pairs as fixed-channel or protocol IDs is inferred, not confirmed. The callback and hook targets are taken from the stored addresses."
+  },
+  "ble_219_0c06f220": {
+    "name": "sqrt",
+    "summary": "Double square root with domain check: returns NaN and sets EDOM for negative input",
+    "description": "newlib sqrt wrapper (w_sqrt). It computes __ieee754_sqrt (0x0C06F2CC) on the argument. If the argument is not NaN (__unorddf2) and is less than zero (__aeabi_dcmplt against 0.0) it sets errno to 0x21 (EDOM) through __errno and returns NaN, computed as 0/0 with __aeabi_ddiv. Otherwise it returns the __ieee754_sqrt result.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "low word of the double argument"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "high word of the double argument"
+      }
+    ],
+    "returns": {
+      "type": "f64",
+      "description": "IEEE double square root in r0:r1, or NaN for negative input"
+    },
+    "confidence": "high"
+  },
+  "ble_219_0c06f2cc": {
+    "name": "__ieee754_sqrt",
+    "summary": "Bit-by-bit software double square root (fdlibm __ieee754_sqrt)",
+    "description": "Soft-float IEEE double square root in the fdlibm style. Inf and NaN return x*x + x (__aeabi_dmul then __aeabi_dadd). Negative finite input returns (x - x) / (x - x) (__aeabi_dsub then __aeabi_ddiv), which is NaN. Otherwise it normalises the mantissa and computes the root one bit at a time, with a 22-step loop for the high digits and a 32-step loop for the low digits, keeping the restoring remainder in a register pair, then rounds the last bit.",
+    "category": "libc",
+    "params": [],
+    "returns": {
+      "type": "f64",
+      "description": "square root in d0; the decompiler shows only the low word"
+    },
+    "confidence": "medium",
+    "notes": "The argument arrives in d0, which the decompiler shows as an implicit input. The result is correct for the branches that the callees identify."
+  },
+  "ble_219_0c071618": {
+    "name": "sscanf",
+    "summary": "Parse values from a NUL-terminated string with a scanf format",
+    "description": "Newlib sscanf. It builds a string-backed FILE on the stack with read flags 0x204, _file set to -1, the buffer set to the string, the size set to strlen of the string (0x0C071756), and the end-of-file read stub at 0x0C071692. It then calls __ssvfiscanf_r (0x0C0728B0) on the impure reent (DAT_200049A8) with the format and the variadic argument list.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "input string"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "format string"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "first variadic argument"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "second variadic argument"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of assigned fields from __ssvfiscanf_r, which the decompile does not capture"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c071a70": {
+    "name": "_gettimeofday_r",
+    "summary": "Reentrant gettimeofday wrapper that copies a failure errno into the reent",
+    "description": "Newlib _gettimeofday_r style wrapper. It clears the errno scratch word at 0x20019540, calls gettimeofday (0x0C0400CC, the FreeRTOS tick plus the epoch offset), and if that returns -1 with a non-zero scratch errno it stores the scratch value into the first word of the impure reent (DAT_200049A8), which is _errno.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "struct timeval output"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "struct timezone, or NULL"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0723ec": {
+    "name": "setenv",
+    "summary": "Front end for setenv: look up NAME in environ with the impure reent",
+    "description": "Newlib-style setenv(name, value, overwrite) front end. It keeps value and overwrite in stack slots and calls the environ lookup _findenv_r (0x0C072404) with the impure reent (DAT_200049A8), the name and the stack slots by address. The decompiled call has five arguments, so the lifted argument list is unreliable and this is only the best reading of the setenv entry point.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "variable name"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "value pointer, as lifted"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "overwrite flag, as lifted"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Low confidence: the wrapper body does not show the full setenv logic and the argument mapping is inconsistent. It may be getenv-related."
+  },
+  "ble_219_0c07247c": {
+    "name": "_setenv_r",
+    "summary": "Reentrant setenv front end: look up NAME in environ and pass the result on",
+    "description": "Same shape as setenv (0x0C0723EC) but takes the reent pointer as its first argument. It calls the environ lookup _findenv_r (0x0C072404) with (reent, name, a stack slot holding the value, param_4, reent) and returns nothing in the decompile.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "reent structure"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "variable name"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "value, as lifted"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "overwrite flag, as lifted"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "Low confidence for the same reason as setenv: the four-argument call is lifted with five words, so the mapping of the arguments is inferred."
+  },
+  "ble_219_0c086e08": {
+    "name": "norflash_erase_range",
+    "summary": "Erase a byte range of a flash slot with 4 KiB, 32 KiB or whole-chip erases",
+    "description": "Checks the start address against the slot size at 0x20003568 + id*0x24 (returns 0x0B if the start is out of range, 0x0C if the length runs past the end) and rounds the start down and the end up to 4 KiB. It calls norflash_pre_operation (0x0C088858), then erases: if the range covers the whole chip it issues one whole-chip norflash_erase (kind 4, 0x0C088F20); otherwise it issues 4 KiB sector erases (kind 1) until the address is 32 KiB aligned, 32 KiB block erases (kind 2) while at least 0x8000 bytes remain, and 4 KiB erases for the tail. norflash_post_operation (0x0C0888D8) runs at the end. If an erase reports 1 (suspended), the progress is saved in 0x20003598[id] (address) and 0x200035A8[id] (remaining length), the state byte at 0x200035B0[id] is set to 2, and the function returns 1.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "start address, low 26 bits used"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "extra argument passed to the flash operations"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when complete, 1 when suspended with progress saved, 0x0B or 0x0C for a bad range, otherwise the error from the erase"
+    },
+    "confidence": "medium",
+    "notes": "The erase kind mapping (1 = 4 KiB, 2 = 32 KiB, 4 = whole chip) comes from norflash_erase (0x0C088F20)."
+  },
+  "ble_219_0c086f38": {
+    "name": "norflash_program_range",
+    "summary": "Program a byte range of a flash slot page by page, with suspend and resume state",
+    "description": "Checks the start address against the slot size at 0x20003568 + id*0x24 (returns 0x0B) and that the length fits (returns 0x0C). It then programs in pieces that stop at page boundaries, each no larger than the page size at 0x2000356C + id*0x24, by calling norflash_page_program (0x0C089064) and advancing the flash address, the source buffer and the remaining length. norflash_pre_operation and norflash_post_operation bracket the loop. A suspended result (1) saves the address, buffer and remaining length in 0x20003598, 0x200035A0 and 0x200035A8 (indexed by id) and sets the state byte at 0x200035B0[id] to 4.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "start address, low 26 bits used"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "source buffer"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "extra argument passed to the page program"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when complete, 1 when suspended with progress saved, 0x0B or 0x0C for a bad range, otherwise the page-program error"
+    },
+    "confidence": "medium"
+  },
+  "ble_219_0c0873ec": {
+    "name": "norflash_slot_op_locked",
+    "summary": "Run a flash slot callback with the flash bracketed and interrupts masked",
+    "description": "Rejects an id above 1, or a slot whose initialised flag at 0x20003550[id*0x24] is clear, with 0x12. It brackets the slot callback with norflash_pre_operation_alt (0x0C088898) and norflash_post_operation_alt (0x0C088928), with ble_slot_invoke_callback_evt4 (0x0C08915C) in between. Interrupts are masked with disableIRQinterrupts unless the privileged-mode check reports them already masked. In the masked branch it first writes a debug marker, the return address 0x0C08742E and the link register, to 0x20003D78 and 0x20003D7C, clears the marker afterwards and re-enables interrupts. Returns 0 on success or 10 when the callback fails.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "argument passed to the slot callback"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 10 (0x0A) when the callback fails, 0x12 for a bad id or uninitialised slot"
+    },
+    "confidence": "medium",
+    "notes": "The interpretation of the isIRQinterruptsEnabled result is taken from the branch sense in the code. The debug words suggest a crash-diagnostic marker, which is inferred."
+  },
+  "ble_219_0c087464": {
+    "name": "norflash_erase_checked",
+    "summary": "Erase a flash slot range after checking that no erase is suspended",
+    "description": "Public erase entry. An id above 1, or an uninitialised slot, hangs in an infinite loop (a trap in the binary). If an erase is already suspended (state byte 0x200035B0[id] non-zero) it returns 10. Otherwise it calls ble_slot_get_field_0x14 (0x0C088520) for its side effect, then norflash_erase_range (0x0C086E08) with a zero extra argument and returns that result.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "start address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "result of norflash_erase_range, or 10 when an erase is suspended"
+    },
+    "confidence": "medium",
+    "notes": "The result of ble_slot_get_field_0x14 is not used by this function in the decompile."
+  },
+  "ble_219_0c087cdc": {
+    "name": "norflash_apply_protect_entry",
+    "summary": "Pick the largest protect-table entry clear of an address range and apply it",
+    "description": "Works on flash slot 0 only (any other id hangs). If the protect table has entries (count at 0x200038C0), it walks the 3-word entries at 0x200035C0 (SR code, range start, range end). It skips entries that overlap [addr, addr+len) and keeps the largest of the rest, then calls norflash_slot_op_locked (0x0C0873EC) with that entry's SR code. If the call fails it hangs. If no entry qualifies, the initial code 0x7C is left and the function hangs.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (must be 0)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "start address"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "length in bytes"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "extra argument, passed through"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the SR code and of the entry ordering is inferred from the layout built by norflash_probe_protect_layout."
+  },
+  "ble_219_0c087d70": {
+    "name": "norflash_probe_protect_layout",
+    "summary": "Probe a flash slot's JEDEC ID and build its block-protect table",
+    "description": "Runs once per slot, while the flag at 0x200038C4[id] is clear. It reads the first three JEDEC ID bytes with norflash_get_id (0x0C087394) and selects a block-protect layout. Two manufacturer and type patterns are built inline (0xC8 with 0x40 and capacity code 0x12..0x13, and 0x0B with 0x60 and 0x14), writing 3-word entries (SR code, start, end) at 0x200035C0 and the entry count at 0x200038C0. For other IDs it calls the generic builder norflash_build_protect_table (0x0C087A34) when the capacity lies between 64 KiB and just under 32 MiB. The value that norflash_get_id sets at 0x200038C4 scales the block sizes. Unrecognised sizes return or hang.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "flash slot id (0 or 1)"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "flash capacity in bytes"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The vendor patterns are matched by the decompiled comparisons only, with no datasheet check. The layout of the table entries is inferred."
+  }
+}

@@ -1,0 +1,761 @@
+{
+  "bms_4168_080010f0": {
+    "name": "bms_epoch_to_tm_20005d48",
+    "summary": "Converts the epoch value at param_1 into the broken-down time block at 0x20005D48",
+    "description": "Thin wrapper around bms_epoch_to_tm (bms_4168_08001278) that passes the RAM block at 0x20005D48 as the output record. param_1 is the address of a 32-bit Unix epoch seconds value and is forwarded unchanged, so the wrapper does no arithmetic itself. Its single caller in this packet is bms_4168_08009e40, which suggests 0x20005D48 holds a cached current date and time.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "epoch_ptr",
+        "type": "ptr",
+        "description": "param_1, address of the 32-bit Unix epoch seconds value to convert"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The use of 0x20005D48 as a cached current time is inferred from its one caller, which is outside this packet."
+  },
+  "bms_4168_0800113c": {
+    "name": "bms_sdiv32",
+    "summary": "Signed 32-bit division truncating toward zero, built on bms_udiv32",
+    "description": "Takes the absolute values of both operands, divides them with bms_udiv32 (bms_4168_08001110), and negates the quotient when the operand signs differ. The quotient matches ARM EABI __aeabi_idiv (truncation toward zero). A zero divisor returns the bms_udiv32 result (0xFFFFFFFF), negated when the signs differ. Callers in this packet read the high word of this call's 64-bit result as a remainder, so the remainder register is set here as well.",
+    "category": "util",
+    "params": [
+      {
+        "name": "dividend",
+        "type": "s32",
+        "description": "param_1, signed dividend"
+      },
+      {
+        "name": "divisor",
+        "type": "s32",
+        "description": "param_2, signed divisor"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "truncated quotient of param_1 / param_2"
+    },
+    "confidence": "high",
+    "notes": "bms_4168_08001188 reads r1 of this call as a remainder. That remainder comes from the unsigned division of the absolute values, so it is not sign-corrected for negative dividends. The wave1 description of bms_udiv32 says only the quotient is returned, which conflicts with callers reading r1; its owner should check."
+  },
+  "bms_4168_08001188": {
+    "name": "bms_tm_to_epoch",
+    "summary": "Converts a broken-down time record to Unix epoch seconds and normalises it in place",
+    "description": "Reads a struct-tm style record (word 0 sec, 1 min, 2 hour, 3 mday, 4 month 0-11, 5 year minus 1900). It divides the month count (year*12 + month - 840) by 48 with bms_sdiv32 to get 4-year blocks since 1970, multiplies the block count by 126230400 (1461 days), adds 365 days per whole year inside the block, and adds the lengths of completed months from a byte table at 0x08010AB3. A leap day (86400 s) is added when the month index inside the block is 26 or more, which matches the 1972 leap year of the 1970-based cycle. It then calls bms_epoch_to_tm to rewrite all eight words in normalised form and returns the epoch value.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "tm",
+        "type": "ptr",
+        "description": "param_1, struct-tm style record, read and rewritten in normalised form"
+      },
+      {
+        "name": "unused_2",
+        "type": "u32",
+        "description": "param_2, not used"
+      },
+      {
+        "name": "unused_3",
+        "type": "u32",
+        "description": "param_3, not used"
+      },
+      {
+        "name": "unused_4",
+        "type": "u32",
+        "description": "param_4, read into a local and then overwritten, not used"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "Unix epoch seconds"
+    },
+    "confidence": "medium",
+    "notes": "The month length table at 0x08010AB3 is not decoded in this packet, so the day counts are inferred from the code. The leap-day rule assumes the 1970-based 4-year cycle. Pre-1970 inputs go through the unsigned remainder of bms_sdiv32 and are not reliable."
+  },
+  "bms_4168_08001246": {
+    "name": "bms_mem_zero",
+    "summary": "Zero-fills count bytes at dst by calling bms_mem_fill with value 0",
+    "description": "Thin wrapper: bms_mem_fill (bms_4168_08001238) with the value argument set to 0, so it writes count zero bytes starting at dst. It returns nothing and has no other side effects. bms_4168_080033ce uses it to clear its output before unpacking.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "param_1, start of the buffer to clear"
+      },
+      {
+        "name": "count",
+        "type": "u32",
+        "description": "param_2, number of bytes to clear"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800124a": {
+    "name": "memset",
+    "summary": "Standard memset: fills count bytes at dst with value and returns dst",
+    "description": "Implements C memset(dst, value, count) with the standard argument order. It forwards to bms_mem_fill (bms_4168_08001238) as (dst, count, value), so only the low byte of value is stored, and it returns the destination pointer unchanged. The behaviour is that of memset, so the library name is used.",
+    "category": "libc",
+    "params": [
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "param_1, destination buffer"
+      },
+      {
+        "name": "value",
+        "type": "u32",
+        "description": "param_2, fill value (low byte stored)"
+      },
+      {
+        "name": "count",
+        "type": "u32",
+        "description": "param_3, number of bytes to fill"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "dst, the original destination pointer"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08001278": {
+    "name": "bms_epoch_to_tm",
+    "summary": "Converts Unix epoch seconds to an eight-word struct-tm style broken-down time",
+    "description": "Splits the 32-bit epoch at *param_1 with successive bms_udiv32 calls: by 60 for seconds and minutes, by 24 for hours, and by 7 on the day count plus 4 for the weekday (0 is Sunday, since 1970-01-01 was a Thursday). The day count plus 731 (days since 1968-01-01) is divided by 1461 to give a year quotient (tm_year = 68 + quotient) and a day-of-cycle index taken as remainder divided by 4. That index is stored as tm_yday before a one-day correction for non-leap years after February, then month lengths from the table at 0x08010AC0 are subtracted to give tm_mon and the 1-based tm_mday. The output words are sec, min, hour, mday, mon, year-1900, wday, yday, and the function returns param_2.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "epoch_ptr",
+        "type": "ptr",
+        "description": "param_1, address of the 32-bit Unix epoch seconds value"
+      },
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "param_2, eight-word output record"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "param_2, the output record"
+    },
+    "confidence": "medium",
+    "notes": "The month length table at 0x08010AC0 and the non-leap correction (which tests the low two bits of the year quotient) are inferred from the code and not checked against test vectors. The division remainders are read from r1 of bms_udiv32, see the notes on bms_sdiv32. This is the inverse of bms_tm_to_epoch (bms_4168_08001188)."
+  },
+  "bms_4168_080012ec": {
+    "name": "bms_startup_init_unpack",
+    "summary": "Startup: runs two init-table hooks, then LZ-unpacks a stream before main",
+    "description": "Walks a two-entry init table at 0x08010ACC and calls each entry's function pointer with its three argument words (the entries are probably block copy and fill operations). It then calls thunk_FUN_08010558 (bms_call_main_loop) and uses the return value as the compressed-stream pointer. The stream is decoded with the token format of bms_lzrle_decompress (bms_4168_08001310): a literal run, then a back-reference or a zero run, with extension bytes. Output goes from the RAM output pointer (shown as 0 in the decompile, probably the RAM base 0x20000000 named in the packet's RAM references) until the end pointer, and the function returns 0.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "always 0"
+    },
+    "confidence": "low",
+    "notes": "Two sources conflict: bms_call_main_loop (wave1) says its target never returns, yet this function uses the thunk's return value as a stream pointer and continues. Reset_Handler (wave1) calls this function before the main loop, which supports the decode being real. The decompiled output pointer starts at address 0. Verify the thunk target at bms_4168_08010558 before trusting either reading."
+  },
+  "bms_4168_08001368": {
+    "name": "EXTI0_1_IRQHandler",
+    "summary": "EXTI line 0 interrupt: latches its rising or falling edge into flag word 0x200001C8",
+    "description": "Checks pending bit 0 of EXTI RPR1 (0x4002180C) and FPR1 (0x40021810). For each pending edge it sets flag 0x4 in the 32-bit word at 0x200001C8 (address from bms_ram_200001c8_addr) and clears the pending bit by writing 1 to the EXTI register. Only line 0 is serviced here even though the vector covers lines 0 and 1, and there are no other side effects.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of flag 0x4 in the word at 0x200001C8 is not established in this packet."
+  },
+  "bms_4168_080013a0": {
+    "name": "EXTI2_3_IRQHandler",
+    "summary": "EXTI line 2 interrupt: records a falling edge in flag word 0x200001C8",
+    "description": "Tests bit 2 of EXTI FPR1 (0x40021810), the falling-edge pending flag of line 2. When it is set, the function ORs 0x100002 (bits 1 and 20) into the word at 0x200001C8 and clears the pending bit by writing 4 to FPR1. Rising edges and line 3 are not handled here.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The meaning of bits 1 and 20 in the flag word is not established in this packet."
+  },
+  "bms_4168_080013c8": {
+    "name": "EXTI4_15_IRQHandler",
+    "summary": "EXTI lines 5, 8, 11 and 12 interrupt: flags their edges into 0x200001C8 and clears pending",
+    "description": "Services four EXTI lines on the EXTI4_15 vector, each checked against its pending bit and cleared by writing 1 back. The checks run in this order: line 8 falling edge (FPR1 bit 8) and line 5 rising edge (RPR1 bit 5) set 0x100002 in the word at 0x200001C8; line 12 rising edge (RPR1 bit 12) and line 12 falling edge (FPR1 bit 12) set 0x400; line 11 rising edge (RPR1 bit 11) sets 0x400.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08001460": {
+    "name": "bms_flash_wait_idle_check",
+    "summary": "Waits for flash to go idle, clears its error flags, and reports errors or timeouts",
+    "description": "Polls FLASH.SR (0x40022010) while busy bits 16 and 17 are set, for up to param_1 ms on the 1 kHz tick (bms_get_ram_word_200006a0). It then writes 0x8C3FB to SR, which clears the EOP and error flags (write one to clear), and tests the earlier SR value against 0xC3FA. If an error bit was set it saves those bits to RAM 0x20005D30 and returns 1. Otherwise it waits up to param_1 ms for SR bit 18 to clear and returns 0, or returns 3 on timeout, following the HAL status codes.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "timeout_ms",
+        "type": "u32",
+        "description": "param_1, timeout in milliseconds"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 1 flash error (bits saved at 0x20005D30), 3 timeout"
+    },
+    "confidence": "high",
+    "notes": "The 1 ms tick is an assumption: bms_get_ram_word_200006a0 is used as the timeout clock throughout this packet, but its own code does not show the unit. SR bit 18 is not named in this packet."
+  },
+  "bms_4168_08001732": {
+    "name": "HAL_FDCAN_DeInit",
+    "summary": "Deinitialises FDCAN: stops the node, clears interrupt line enables, runs MSP deinit",
+    "description": "Calls HAL_FDCAN_Stop (bms_4168_08001d22) to take the node off the bus, then clears interrupt line enable bits 0 and 1 in the instance ILE register (instance offset 0x5C). It calls HAL_FDCAN_MspDeInit (bms_4168_08001bf4), then sets the handle error word (+0x60) to 0 and the handle state (+0x5C) to RESET (0). This is the teardown counterpart of HAL_FDCAN_Init (bms_4168_080019d0).",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_0800185a": {
+    "name": "HAL_FDCAN_IRQHandler",
+    "summary": "FDCAN interrupt dispatcher: acknowledges enabled IR flags and calls their callbacks",
+    "description": "Reads IR (instance offset 0x50) and IE (0x54). For each enabled flag group it writes the flag back to IR to clear it and calls the matching callback: bit 6 to bms_fdcan_cb_ir_40, bit 7 to bms_fdcan_cb_ir_80 (TXBTO AND TXBTIE), bit 8 to bms_fdcan_cb_ir_100 (TXBCF AND TXBCIE), bit 9 to bms_fdcan_cb_ir_200, bit 13 to bms_fdcan_cb_ir_2000, bit 15 to bms_fdcan_cb_ir_8000, bits 10-12 to bms_fdcan_cb_ir_1c00, bits 3-5 to bms_fdcan_cb_ir_38, bits 17-19 to bms_fdcan_cb_ir_e0000, and bits 0-2 to bms_fdcan_rx_fifo0_service. Bit 14 sets error 0x80 in the handle, bits 16 and 20-23 are ORed into the handle error word, and HAL_FDCAN_ErrorCallback (bms_4168_08001754) runs when any error bit is set. The FDCAN interrupt line is IRQ 21 (TIM16_FDCAN_IT0); the function that calls this dispatcher is not in this packet.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_080019d0": {
+    "name": "HAL_FDCAN_Init",
+    "summary": "Initialises FDCAN: init mode, CCCR modes, bit timing and message RAM layout",
+    "description": "On first use (state RESET) it clears the lock and calls HAL_FDCAN_MspInit (bms_4168_08001c24). It clears CCCR.CSR, waits up to 10 ms for CSA to clear, sets CCCR.INIT, waits up to 10 ms for it to read back, then sets CCE. The init record is read in ST FDCAN_InitTypeDef order: FrameFormat sets FDOE and BRSE, AutoRetransmission sets DAR (bit 6), TransmitPause sets TXP (bit 14), ProtocolException sets PXHD (bit 12), and Mode selects restricted operation (ASM, bit 2), bus monitoring (MON, bit 5) or internal loopback (TEST.LBCK plus MON and TEST bit 7). NBTP is built from the nominal prescaler, SJW and time segments, DBTP from the data values when the format is FD with BRS, and TXBC and RXGFC take the queue mode and list sizes. For FDCAN1 it writes the clock divider to 0x40006500. It clears 0x350 bytes of the FDCAN1 or FDCAN2 message RAM and stores the message RAM base and the standard filter (+0x70), extended filter (+0xB0), RX FIFO0 (+0x188), RX FIFO1 (+0x260) and TX buffer (+0x278) addresses in handle words 16 to 21. It sets state READY and returns 0, or on a 10 ms timeout sets error 1, state ERROR and returns 1.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle with the init record in words 2 to 15"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 on timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08001bf4": {
+    "name": "HAL_FDCAN_MspDeInit",
+    "summary": "Disables the FDCAN2 clock, deinitialises PC2 and PC3, and disables IRQ 21",
+    "description": "For FDCAN2 only, it clears RCC APBENR1 bit 12 (FDCAN enable), calls HAL_GPIO_DeInit (bms_4168_08001f4c) on GPIOC pins 2 and 3 (mask 0xC), and calls __NVIC_DisableIRQ(21) for TIM16_FDCAN_IT0. For FDCAN1 it does nothing. It is called from HAL_FDCAN_DeInit (bms_4168_08001732).",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08001c24": {
+    "name": "HAL_FDCAN_MspInit",
+    "summary": "Enables FDCAN2 clocks, maps PC2 and PC3 to AF3, and enables IRQ 21 at priority 1",
+    "description": "For FDCAN2 only, it sets RCC APBENR1 bit 12 (FDCAN enable) and IOPENR bit 2 (GPIOC clock), reading each back, then calls HAL_GPIO_Init (bms_4168_0800202c) on GPIOC pins 2 and 3 in alternate-function mode (mode 2) with alternate function 3. It sets NVIC priority 1 on IRQ 21 (TIM16_FDCAN_IT0) and enables it. Nothing is done for FDCAN1. It is called from HAL_FDCAN_Init on first use.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08001c90": {
+    "name": "bms_fdcan_rx_fifo0_service",
+    "summary": "Drains up to three frames from RX FIFO0 of handle 0x20005C50 to the RX callback",
+    "description": "Runs only for the handle at RAM 0x20005C50 and only when bit 0 (RF0N, new message) is set in the mask passed by the dispatcher. It calls HAL_FDCAN_GetRxMessage (bms_4168_08001758) on FIFO0 up to three times, storing the header at 0x20005CD8 and the 8 data bytes in a stack buffer, and stops early when the FIFO is empty. Each frame becomes a six-word record (the upper half of header word 0x20005CE4, header words 0x20005CDC, 0x20005CE0 and 0x20005CD8, and the two data words), and the function pointer in RAM 0x20000684 is called with the record's address.",
+    "category": "fdcan",
+    "params": [
+      {
+        "name": "hfdcan",
+        "type": "ptr",
+        "description": "param_1, FDCAN handle (must be the one at 0x20005C50)"
+      },
+      {
+        "name": "irq_mask",
+        "type": "u32",
+        "description": "param_2, pending IR bits from the dispatcher (bit 0 selects RX FIFO0)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The callback pointer at 0x20000684 is set outside this packet. The field meanings of the six-word record are inferred from the header layout that HAL_FDCAN_GetRxMessage writes."
+  },
+  "bms_4168_08001dbc": {
+    "name": "HAL_FLASHEx_Erase",
+    "summary": "Erases flash pages or a bank under a busy lock, reporting the first failing page",
+    "description": "Returns 2 (HAL_BUSY) when the lock byte at 0x20005D2C is set. Otherwise it takes the lock and clears the flash error word at 0x20005D30. When the first word of the erase record is 4 it ORs the second word and STRT (bit 16) into FLASH.CR and waits, which looks like a mass-erase start. For the page path it loops over NbPages pages from the first page, writing PNB (bits 3-10), bank bits (selected by whether the bank word equals 4), PER (bit 1) and STRT (bit 16) into CR, then waits with bms_flash_wait_idle_check for up to 1000 ms per page. It stops at the first failure and stores that page in *PageError (preset to 0xFFFFFFFF), clears PER, releases the lock and returns the status.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "erase",
+        "type": "ptr",
+        "description": "param_1, erase record: type word, bank word, first page, page count"
+      },
+      {
+        "name": "page_error",
+        "type": "ptr",
+        "description": "param_2, output: failing page number or 0xFFFFFFFF"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 1 error, 2 busy, 3 timeout"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the type value 4 and of the bank bits is not established in this packet, so the mass-erase reading is a guess."
+  },
+  "bms_4168_08001e90": {
+    "name": "HAL_FLASH_Program",
+    "summary": "Programs one double-word or a 256-byte fast row into flash, masking IRQs during the copy",
+    "description": "Uses the same busy lock and error word as HAL_FLASHEx_Erase and returns 2 when busy. Type 1 (double-word) sets CR.PG (bit 0), writes the two 32-bit words to the target address and issues a barrier. Any other type sets CR.FSTPG (bit 18), copies 64 words (256 bytes) from the source buffer into flash with interrupts disabled during the copy (PRIMASK is saved when privileged), and waits without a timeout for BSY (bits 16 and 17). Both paths then call bms_flash_wait_idle_check with a 1000 ms timeout, clear the CR bits named by the type value, release the lock and return the status.",
+    "category": "flash",
+    "params": [
+      {
+        "name": "type",
+        "type": "u32",
+        "description": "param_1, programming type: 1 double-word, other values fast row"
+      },
+      {
+        "name": "address",
+        "type": "ptr",
+        "description": "param_2, flash destination address"
+      },
+      {
+        "name": "data_or_src",
+        "type": "u32",
+        "description": "param_3, first data word for double-word, or source buffer pointer for a fast row"
+      },
+      {
+        "name": "data_hi",
+        "type": "u32",
+        "description": "param_4, second data word (double-word only)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 1 error, 2 busy, 3 timeout"
+    },
+    "confidence": "medium",
+    "notes": "In the fast path the final CR write uses the type value (2 or 3) as the clear mask, which clears PER and PG but not FSTPG (bit 18). FSTPG may therefore stay set after a fast row program; check against the reference manual."
+  },
+  "bms_4168_080021c4": {
+    "name": "bms_hw_init_systick_prefetch",
+    "summary": "Enables flash prefetch, starts the 1 kHz SysTick at lowest priority, then runs UCPD setup",
+    "description": "Sets bit 8 (PRFTEN) in the flash ACR register (the FLASH base word), then calls bms_systick_1khz_start (bms_4168_080021ec) with priority 3, the lowest. If that succeeds it calls bms_ucpd_clock_irq_setup (bms_4168_08002234) and ignores its result. The return value is true when the SysTick start failed, so the caller can treat it as an init error.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when the SysTick could not be started"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_080021ec": {
+    "name": "bms_systick_1khz_start",
+    "summary": "Starts SysTick as a 1 kHz tick at the given priority when the enable byte at 0x20000698 is set",
+    "description": "Returns 1 unless the byte at 0x20000698 is non-zero. When it is, it computes the SysTick reload as the 32-bit clock word at 0x200006A4 divided by a value derived from 1000 through bms_udiv32, which for a 1 ms tick gives clock/1000, then calls SysTick_Config (bms_4168_080028b8). On success it sets the SysTick priority with __NVIC_SetPriority(-1, param_1), stores param_1 at 0x2000069C and returns 0. A failed SysTick_Config (reload out of range) or a priority of 4 or more also returns 1.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "priority",
+        "type": "u32",
+        "description": "param_1, SysTick priority, 0 (highest) to 3 (lowest)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 when disabled, out of range or priority 4 or more"
+    },
+    "confidence": "medium",
+    "notes": "The divisor passed to bms_udiv32 is partly invisible in the decompile (one argument comes from a register that is not set here), so the 1 kHz reading is inferred. The clock word at 0x200006A4 is presumed to be SystemCoreClock. The enable byte at 0x20000698 is also the step word read by bms_counter_accumulate."
+  },
+  "bms_4168_08002234": {
+    "name": "bms_ucpd_clock_irq_setup",
+    "summary": "Enables SYSCFG and PWR clocks, prioritises IRQ 4 (RCC_CRS) and sets the UCPD strobes",
+    "description": "Sets APBENR2 bit 0 (SYSCFG clock) and APBENR1 bit 28 (PWR clock), each read back, then calls __NVIC_SetPriority(4, 0) and __NVIC_EnableIRQ(4) for IRQ 4, which the IRQ table names RCC_CRS. Finally it writes 0x600 to SYSCFG CFGR1 through bms_syscfg_set_ucpd_strobe (bms_4168_080028a4), setting both UCPD strobe bits 9 and 10. It has no return value and only bms_4168_080021c4 calls it, so it is probably USB Power Delivery port setup.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The IRQ 4 name comes from the stm32g0b1_irqs.json table. The UCPD purpose is inferred from the strobe bits and the caller."
+  },
+  "bms_4168_08002348": {
+    "name": "HAL_RTCEx_DeactivateWakeUpTimer",
+    "summary": "Disables the RTC wake-up timer and its interrupt, waiting for WUTWF",
+    "description": "Returns 2 (HAL_BUSY) if the lock byte at handle+0x28 is set. Otherwise it takes the lock, sets state BUSY, unlocks RTC write protection with 0xCA then 0x53 (WPR at offset 0x24), and clears CR bit 10 (WUTE) and bit 14 (WUTIE). It waits up to 1000 ms for ICSR bit 2 (WUTWF) to set, relocks write protection with 0xFF, sets state READY and returns 0. On timeout it relocks, sets state TIMEOUT (3) and returns 3.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 2 busy, 3 timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_080023ca": {
+    "name": "HAL_RTCEx_SetSynchroShift",
+    "summary": "Writes RTC SHIFTR (add-one-second and sub-second shift) after waiting for SHPF",
+    "description": "Uses the same busy and write-protection pattern as HAL_RTCEx_DeactivateWakeUpTimer. It waits up to 1000 ms for ICSR bit 3 (SHPF, shift pending) to clear and returns 3 on timeout. If CR bit 4 is clear it writes SHIFTR = param_3 | param_2, then unless CR bit 5 is set it waits for RSF through bms_4168_08002868. Success returns 0 with state READY; a set CR bit 4 or a failed RSF wait sets state ERROR and returns 1.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      },
+      {
+        "name": "add1s",
+        "type": "u32",
+        "description": "param_2, ShiftAdd1S value (bit 31 of SHIFTR)"
+      },
+      {
+        "name": "subfs",
+        "type": "u32",
+        "description": "param_3, ShiftSubFS sub-second shift value"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 1 error, 3 timeout"
+    },
+    "confidence": "medium",
+    "notes": "Bit numbers follow STM32G0 RTC naming (CR bits 4 and 5, ICSR bit 3 SHPF). The meaning of the bit-4 check is not confirmed."
+  },
+  "bms_4168_08002470": {
+    "name": "HAL_RTCEx_SetWakeUpTimer_IT",
+    "summary": "Sets the RTC wake-up counter and clock, unmasks EXTI line 19 and enables the interrupt",
+    "description": "After the busy check and write-protection unlock, it clears CR bit 10 (WUTE) and sets SCR bit 2 to clear any stale wake-up flag. Unless ICSR INIT (bit 7) is set, it waits up to 1000 ms for WUTWF (ICSR bit 2) and returns 3 on timeout. It then writes the counter to WUTR (offset 0x14), puts the clock select into CR bits 0-2 from param_3, sets EXTI IMR1 bit 19 (0x40021880) for the RTC wake-up line, and sets CR WUTIE (bit 14) and WUTE (bit 10). It relocks write protection, sets state READY and returns 0.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      },
+      {
+        "name": "counter",
+        "type": "u32",
+        "description": "param_2, wake-up counter value (WUTR)"
+      },
+      {
+        "name": "clock",
+        "type": "u32",
+        "description": "param_3, wake-up clock select (WUCKSEL)"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 3 timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08002542": {
+    "name": "HAL_RTCEx_WakeUpTimerIRQHandler",
+    "summary": "RTC wake-up interrupt handler: clears WUTF, runs the event callback, sets READY",
+    "description": "If the masked flag WUTMF (instance MISR offset 0x50, bit 2) is set, it writes SCR bit 2 to clear the wake-up flag and calls bms_empty_stub (bms_4168_08002540), the weak HAL_RTCEx_WakeUpTimerEventCallback. It then sets the handle state to READY (1) unconditionally. It is called from bms_4168_08003614 in another packet, and the vector is probably RTC_TAMP (IRQ 2).",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08002628": {
+    "name": "HAL_RTC_Init",
+    "summary": "Initialises the RTC: enters init mode, programs format, output and prescalers, exits init",
+    "description": "Returns 1 for a NULL handle. On first use (state RESET) it clears the lock, stores 0x8800 in handle word 1 and runs HAL_RTC_MspInit (bms_4168_080026cc). It sets state BUSY, unlocks write protection and enters init mode with RTC_EnterInitMode (bms_4168_0800352c). It then rewrites CR from handle words 2, 5 and 7 (hour format, output and output polarity), after clearing those fields, and writes PRER from word 4 (synchronous prescaler) and word 3 (asynchronous prescaler in bits 16 and up). It calls RTC_ExitInitMode (bms_4168_08003570), rebuilds CR bits 29-31 from handle words 6, 8 and 9, relocks, sets READY and returns the first failing status (3 on timeout).",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle with Init fields at words 1 to 9"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 1 NULL handle, 3 timeout"
+    },
+    "confidence": "medium",
+    "notes": "The handle layout is inferred from offsets only, not from a struct definition. The 0x8800 value stored in word 1 has no clear meaning here."
+  },
+  "bms_4168_08002704": {
+    "name": "HAL_RTC_SetDate",
+    "summary": "Writes the RTC date register from a weekday, month, date and year record",
+    "description": "Returns 2 when the lock is held. In binary format it first handles a month byte with bit 4 set (month becomes (month & 0xEF) + 10) and converts weekday, month, date and year to BCD with bms_u8_to_bcd (bms_4168_08003514). It sets state BUSY, unlocks write protection, enters init mode through bms_4168_0800352c, writes DR (offset 4) as year << 16 | month << 8 | date | weekday << 13 masked with 0xFFFF3F, and exits init mode through bms_4168_08003570. It relocks, sets READY and returns the first failing status.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      },
+      {
+        "name": "sdate",
+        "type": "ptr",
+        "description": "param_2, date record: weekday, month, date, year bytes"
+      },
+      {
+        "name": "format",
+        "type": "u32",
+        "description": "param_3, 0 for binary input, non-zero for BCD"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 2 busy, 3 timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_080027a4": {
+    "name": "HAL_RTC_SetTime",
+    "summary": "Writes the RTC time register from hours, minutes and seconds, plus DST and store bits",
+    "description": "Same lock and write-protection sequence as HAL_RTC_SetDate. The TimeFormat byte of the record is cleared when CR bit 6 (12-hour format) is clear, and in binary format hours, minutes and seconds are converted to BCD with bms_u8_to_bcd. After entering init mode through bms_4168_0800352c it writes TR (offset 0) as the packed fields masked with 0x7F7F7F, clears CR bit 18, ORs in the DayLightSaving and StoreOperation words from the record, and exits init mode through bms_4168_08003570. It relocks, sets READY and returns the first failing status.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      },
+      {
+        "name": "stime",
+        "type": "ptr",
+        "description": "param_2, time record: hours, minutes, seconds, TimeFormat, DayLightSaving, StoreOperation"
+      },
+      {
+        "name": "format",
+        "type": "u32",
+        "description": "param_3, 0 for binary input, non-zero for BCD"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 2 busy, 3 timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08002868": {
+    "name": "HAL_RTC_WaitForSynchro",
+    "summary": "Clears RSF and waits up to 1000 ms for the RTC shadow registers to resynchronise",
+    "description": "Writes ICSR with RSF (bit 5) and INIT (bit 7) cleared, which clears RSF, then polls ICSR until RSF is set. It returns 0 when RSF sets, or 3 when it has not set within 1000 ms by the tick counter. It is called from HAL_RTCEx_SetSynchroShift (bms_4168_080023ca) in this packet.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 3 timeout"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08002d0c": {
+    "name": "bms_rcc_get_clock_freqs",
+    "summary": "Fills a three-word record with SYSCLK, HCLK and PCLK frequencies in Hz",
+    "description": "Stores HAL_RCC_GetSysClockFreq (bms_4168_080034b4) in word 0, applies the AHB prescaler (rcc_hclk_divide, bms_4168_08003474) for HCLK in word 1, and applies the APB prescaler (rcc_pclk_divide, bms_4168_08003494) for PCLK in word 2. It has no side effects beyond the output record. Its caller bms_4168_08003140 is outside this packet.",
+    "category": "clock",
+    "params": [
+      {
+        "name": "out",
+        "type": "ptr",
+        "description": "param_1, three-word output record: SYSCLK, HCLK, PCLK in Hz"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "bms_4168_08002d24": {
+    "name": "bms_rcc_periph_clk_get",
+    "summary": "Returns a peripheral's kernel clock selected from a CCIPR field: SYSCLK, HSI16, LSE or PCLK",
+    "description": "Selects one RCC_CCIPR field from the argument: 3 uses bits 1-0, 0xC uses bits 3-2 and 0x30 uses bits 5-4. A field value of 1 gives SYSCLK (bms_4168_080034b4), 2 gives HSI16 at 16 MHz when CR HSIRDY is set (0 otherwise), and 3 gives LSE at 32768 Hz when BDCR LSERDY is set (0 otherwise). Field value 0 or any other value gives the APB clock (bms_4168_08003494). Any argument other than 3, 0xC or 0x30 returns 0.",
+    "category": "clock",
+    "params": [
+      {
+        "name": "selector",
+        "type": "u32",
+        "description": "param_1, peripheral selector: 3, 0xC or 0x30 choose a CCIPR field"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "clock frequency in Hz, 0 if the source is not ready or the selector is unknown"
+    },
+    "confidence": "medium",
+    "notes": "The mapping from selector values to peripherals is not identified in this packet."
+  },
+  "bms_4168_0800334c": {
+    "name": "bms_pack_7bit_string",
+    "summary": "Packs a NUL-terminated string of 7-bit characters at a 7-bit stride into a bit stream",
+    "description": "Zeroes the destination with bms_mem_zero, then for each source byte up to a NUL writes its low 7 bits doubled (value << 1) at bit offset 7*i of the output, LSB first. Character i therefore occupies bits 7i+1 to 7i+7, and bit 0 of the stream stays 0. Overlapping bytes are combined with OR, which is harmless because the doubled value has a zero bit 0. Packing stops at the end of the source, at a NUL, or when the destination holds param_4 bytes, and it returns the number of output bytes used, rounded up, or -1 for NULL or negative arguments.",
+    "category": "util",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "param_1, source string"
+      },
+      {
+        "name": "src_len",
+        "type": "s32",
+        "description": "param_2, source length limit in bytes"
+      },
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "param_3, output buffer"
+      },
+      {
+        "name": "dst_len",
+        "type": "s32",
+        "description": "param_4, output buffer size in bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "bytes written, or -1 for bad arguments"
+    },
+    "confidence": "medium",
+    "notes": "The packing format is inferred from the code. It is the inverse of bms_unpack_7bit_string (bms_4168_080033ce), but it is not checked against any standard packing scheme."
+  },
+  "bms_4168_080033ce": {
+    "name": "bms_unpack_7bit_string",
+    "summary": "Unpacks a stream written at 7-bit stride into a NUL-terminated character buffer",
+    "description": "Zeroes the output with bms_mem_zero, then reads an 8-bit window at bit offset 7*i of the input and stores window >> 1 as a character, so character i is the 7 bits at 7i+1. This is the inverse of bms_pack_7bit_string (bms_4168_0800334c). It stops at a zero character, when the output holds param_4 bytes, or when the input's param_2 bytes are used up, and returns the number of characters written, or -1 for NULL or negative arguments.",
+    "category": "util",
+    "params": [
+      {
+        "name": "src",
+        "type": "ptr",
+        "description": "param_1, packed input stream"
+      },
+      {
+        "name": "src_len",
+        "type": "s32",
+        "description": "param_2, input length in bytes"
+      },
+      {
+        "name": "dst",
+        "type": "ptr",
+        "description": "param_3, output character buffer"
+      },
+      {
+        "name": "dst_len",
+        "type": "s32",
+        "description": "param_4, output buffer size in bytes"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "characters written, or -1 for bad arguments"
+    },
+    "confidence": "medium"
+  },
+  "bms_4168_080034b4": {
+    "name": "HAL_RCC_GetSysClockFreq",
+    "summary": "Computes SYSCLK from RCC CFGR SWS: the PLL output, or HSI16 divided by HSIDIV",
+    "description": "Reads CFGR SWS (bits 3-5). For SWS 2 (PLL) it computes source * PLLN / (PLLM * PLLR), where the source is HSI16 at 16 MHz unless PLLCFGR source bits are 3 (HSE, assumed 8 MHz), PLLM = PLLCFGR bits 6-4 plus 1, PLLN = PLLCFGR bits 14-8, and PLLR = PLLCFGR bits 31-29 plus 1. For HSI16 (SWS 0 and other values) it returns 16 MHz divided by 2^HSIDIV, where HSIDIV is CR bits 13-11. For SWS 1 (HSE) the decompile shows no value being produced, so the result is undefined.",
+    "category": "clock",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "SYSCLK in Hz"
+    },
+    "confidence": "high",
+    "notes": "The HSE branch is missing from the decompile, so callers get whatever is in r0 when SWS is 1. HSE is not read anywhere in this packet. The PLL bit positions are as they appear in the decompile and were not checked against the reference manual."
+  },
+  "bms_4168_0800352c": {
+    "name": "RTC_EnterInitMode",
+    "summary": "Sets RTC INIT and waits up to 1000 ms for INITF before RTC registers are written",
+    "description": "If INITF (ICSR bit 6) is already set nothing is done. Otherwise it sets INIT (ICSR bit 7) and polls INITF; if it stays clear for more than 1000 ms by the tick counter it sets the handle state to TIMEOUT (3) and returns 3. Returns 0 on success. It is called by HAL_RTC_Init, HAL_RTC_SetDate and HAL_RTC_SetTime in this packet, and the matching exit routine is bms_4168_08003570, which is outside this packet.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "hrtc",
+        "type": "ptr",
+        "description": "param_1, RTC handle"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "HAL status: 0 OK, 3 timeout"
+    },
+    "confidence": "high"
+  }
+}

@@ -1,0 +1,457 @@
+{
+  "mcu_0160_0800c940": {
+    "name": "mcu_ctx_cfg_byte_set",
+    "summary": "Store one byte into a field of the context config words at +0xA0 and +0xA4 (index 1..7)",
+    "description": "Always sets bit 24 of the word at struct+0xA4 (a changed flag that this function never clears), then merges the low byte of the value into one of six byte fields selected by the index: 1 = +0xA0 byte 0, 2 = +0xA0 byte 1, 3 = +0xA0 byte 2, 4 = +0xA0 byte 3, 5 = +0xA4 byte 0, 6 = +0xA4 byte 1, 7 = +0xA4 byte 2. Each write is a read-modify-write that keeps the other bytes and the flag. Any other index only sets the flag. The packet does not show the consumer of these fields, so their individual meanings are unknown; they are presumably per-channel settings of the drive context that are applied to hardware later.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "context struct; config words at +0xA0 and +0xA4, bit 24 of +0xA4 is a changed flag"},
+      {"name": "param_2", "type": "u32", "description": "field index 1..7; other values only set the flag"},
+      {"name": "param_3", "type": "u32", "description": "value; only the low byte is stored"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Owning structure and field meanings are not visible in this packet. The bit 24 flag may be a dirty bit for a later apply step."
+  },
+  "mcu_0160_0800c9d4": {
+    "name": "dma_init",
+    "summary": "Load a DMA channel's control, count and address registers from a dma_init_type record",
+    "description": "SDK dma_init. It clears the DTD (bit 4) and M2M (bit 14) bits of CTRL with mask 0xBFEF and ORs in the direction halfword at record+8. It then writes the channel priority (bits 12-13, from record byte +0x11), memory width (bits 10-11, byte +0x0F), peripheral width (bits 8-9, byte +0x0E), memory increment (bit 7, byte +0x0D), peripheral increment (bit 6, byte +0x0C) and loop/circular mode (bit 5, byte +0x10). The transfer count is the halfword at record+0x0A, the peripheral address is the word at +0x00 and the memory address the word at +0x04. The channel is not enabled here.",
+    "category": "dma",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DMA channel register block: CTRL at +0, DTCNT at +4, PADDR at +8, MADDR at +12"},
+      {"name": "param_2", "type": "ptr", "description": "dma_init_type record: peripheral address +0, memory address +4, direction +8, count +0x0A, see description for the byte fields"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800ca30": {
+    "name": "dma_reset",
+    "summary": "Disable a DMA channel, zero its registers and clear its flags in DMA1.CLR or DMA2.CLR",
+    "description": "SDK dma_reset. It clears CTRL bit 0 (channel enable), then zeroes CTRL, DTCNT, PADDR and MADDR. The channel number is derived from the low byte of the channel block address as ((addr - 8) / 0x14) masked to 6 bits, and a 4-bit group for that channel is cleared through DMA1.CLR (0x40020004) for channels in the DMA1 address range, or DMA2.CLR (0x40020404) for the DMA2 range. Because the index comes from the address, the argument must be the real channel register block.",
+    "category": "dma",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DMA channel register block (CTRL, DTCNT, PADDR, MADDR)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cac4": {
+    "name": "mcu_swap_u16",
+    "summary": "Swap two 16-bit values through pointers",
+    "description": "Exchanges the halfwords at both pointers using a temporary variable. It is a generic in-place reordering helper for 16-bit entries, for example when sorting or rotating a table. The callers are not in this packet, so the purpose is inferred from the operation only.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "first u16 operand, read and overwritten"},
+      {"name": "param_2", "type": "ptr", "description": "second u16 operand, read and overwritten"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cad0": {
+    "name": "exint_flag_clear",
+    "summary": "Clear pending EXINT line flags by writing the line mask to EXINT.INTSTS",
+    "description": "SDK exint_flag_clear. It writes the caller's line mask to EXINT.INTSTS (0x40010414). The SDK uses this write to acknowledge pending external interrupt lines, so only the lines in the mask are cleared. It is a one-line helper called from the EXINT handler paths in the other callers listed in the packet.",
+    "category": "exint",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "EXINT line bit mask (bit n = line n)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cadc": {
+    "name": "exint_flag_get",
+    "summary": "Return true when any of the given EXINT lines has a pending flag",
+    "description": "SDK exint_flag_get. It reads EXINT.INTSTS (0x40010414), ANDs it with the line mask and returns whether the result is non-zero. This is an any-line test, not an all-lines test, and a zero mask always returns false.",
+    "category": "exint",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "EXINT line bit mask"}
+    ],
+    "returns": {"type": "bool", "description": "true when at least one masked line is pending"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800caf4": {
+    "name": "exint_init",
+    "summary": "Configure EXINT lines for interrupt or event mode and an edge, or disable them",
+    "description": "SDK exint_init, with the EXINT base at 0x40010400. It takes an exint_init_type record: the mode byte at +0 (0 = interrupt, otherwise event), the line mask at +4, the edge byte at +8 (0 = rising, 1 = falling, otherwise both) and the enable byte at +9. The selected lines are first removed from INTEN (0x40010400) and EVTEN (0x40010404) in every case. When enabled, they are added to INTEN or EVTEN, their bits in POLCFG1 (0x40010408, rising) and POLCFG2 (0x4001040C, falling) are cleared, and then the selected edge bits are set again.",
+    "category": "exint",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "exint_init_type record: mode byte +0, line mask u32 +4, edge byte +8, enable byte +9"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cb74": {
+    "name": "mcu_byte_sum16_store",
+    "summary": "Sum a byte buffer modulo 2^16 and store the total as a halfword",
+    "description": "Adds up param_3 bytes starting at param_1 into a 16-bit accumulator and stores the result as a signed halfword at param_2. A zero length stores 0. The sum is not complemented, unlike mcu_byte_sum_checksum16, so this is the raw checksum body that a caller may complement or compare itself. The accumulator is a short, so the total wraps modulo 2^16 both during accumulation and on storage.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "byte buffer"},
+      {"name": "param_2", "type": "ptr", "description": "receives the 16-bit sum as a short"},
+      {"name": "param_3", "type": "u32", "description": "buffer length in bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cb98": {
+    "name": "flash_flag_clear",
+    "summary": "Clear flash status flags by writing the mask to FLASH.STS",
+    "description": "SDK flash_flag_clear. It writes the flag mask to FLASH.STS (0x4002200C). The status flags are cleared by this write, so it is used after a program or erase to acknowledge the operation-done and error flags before the next operation.",
+    "category": "flash",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "flash status flag mask"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The packet shows the STS write only in MCU_143, MCU_152 and MCU_0160 builds."
+  },
+  "mcu_0160_0800cbc8": {
+    "name": "flash_lock",
+    "summary": "Lock the flash program and erase controller by setting FLASH.CTRL.OPLK",
+    "description": "SDK flash_lock. It sets bit 7 (OPLK) of FLASH.CTRL (0x40022010), which locks the program and erase controller so that writes and erases are refused until flash_unlock is run again. Reads of flash are not affected.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cbd8": {
+    "name": "flash_operation_status_get",
+    "summary": "Report the state of the last flash operation from FLASH.STS",
+    "description": "SDK flash_operation_status_get. It reads FLASH.STS (0x4002200C) and checks in this order: OBF (bit 0) set gives 0 (busy), PRGMERR (bit 2) gives 1 (program error), EPPERR (bit 4) gives 2 (erase/program protection error), and if none is set the result is 3 (operation done). A program error therefore wins over a protection error when both are set.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "u32", "description": "0 busy, 1 program error, 2 EPP error, 3 operation done"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cc68": {
+    "name": "mcu_copy_bytes",
+    "summary": "Copy a byte block forward, one byte at a time",
+    "description": "Copies param_3 bytes from param_1 to param_2 in ascending order, one byte per iteration, and returns nothing. A zero count does nothing. The forward copy is only safe when the destination is below the source or the regions do not overlap. It is called from six places across the MCU and 12b builds, including mcu_12b_0800b0a4, so it is a shared utility rather than a protocol routine.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source buffer"},
+      {"name": "param_2", "type": "ptr", "description": "destination buffer"},
+      {"name": "param_3", "type": "u32", "description": "number of bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800ccac": {
+    "name": "flash_unlock",
+    "summary": "Unlock the flash controller with the two-key sequence written to FLASH.UNLOCK",
+    "description": "SDK flash_unlock. It writes 0x45670123 and then 0xCDEF89AB to FLASH.UNLOCK (0x40022004). The controller clears its lock bit only when the two keys arrive in this order, which is the standard FPEC key pair. Program and erase operations are only accepted after this sequence and until flash_lock is called.",
+    "category": "flash",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cec4": {
+    "name": "mcu_ctx_set_field_0x14",
+    "summary": "Store a 32-bit value at offset 0x14 of a context struct",
+    "description": "Plain setter: it writes param_2 to the 32-bit word at param_1 + 0x14. It is the counterpart of mcu_ctx_set_field_0x10 and the getters for other context offsets. The packet lists seven callers that configure the context, so the field is a per-context parameter set at setup time.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "context struct"},
+      {"name": "param_2", "type": "u32", "description": "value to store at +0x14"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cec8": {
+    "name": "mcu_ctx_set_field_0x10",
+    "summary": "Store a 32-bit value at offset 0x10 of a context struct",
+    "description": "Plain setter: it writes param_2 to the 32-bit word at param_1 + 0x10. It is the companion of mcu_ctx_set_field_0x14 and is called from the same seven setup callers, so the two fields are configured together.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "context struct"},
+      {"name": "param_2", "type": "u32", "description": "value to store at +0x10"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800cecc": {
+    "name": "mcu_rec8_reset_defaults",
+    "summary": "Reset an 8-byte record to defaults with a 0xFFFF marker and fixed small codes",
+    "description": "Initialises an 8-byte record: the word at +0 becomes 0x0000FFFF, byte +4 is cleared, byte +5 is set to 4, byte +6 is cleared and byte +7 is set to 1. The 0xFFFF halfword looks like a not-set or invalid marker and the small byte values look like enumerated states, but the record's owner and the meaning of its fields are not visible in this packet.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "8-byte record"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The caller mcu_0160_0800c058 is in another packet, so the record's role is inferred only from the default values."
+  },
+  "mcu_0160_0800cee2": {
+    "name": "mcu_gpio_cfg_shadow_build",
+    "summary": "Fold a pin configuration record into the 4-bit pin nibbles of two shadow config words",
+    "description": "Applies one pin configuration record to a shadow of two 32-bit words, where each pin owns a 4-bit nibble. Word 0 holds pins 0..7 and word 1 holds pins 8..15, like the GPIO CFGLR and CFGHR layout. The 16-bit pin mask is the halfword at record+0. The nibble value follows the SDK gpio_init rule: analog mode (mode byte +6 = 3) gives 0, input mode (0) takes the low four bits of byte +5, and other modes give (mode & 8) | (out type byte +4 & 4) | (drive byte +7 & 3). For input records whose byte +5 is 0x18 or 0x28 the pin mask is also stored at shadow +0x10 or +0x14, most likely the pull-up and pull-down (set and clear) masks. Nothing is written to a peripheral register here.",
+    "category": "gpio",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "shadow block: nibble words at +0 (pins 0..7) and +4 (pins 8..15), pin masks at +0x10 and +0x14"},
+      {"name": "param_2", "type": "ptr", "description": "pin record: pin mask u16 +0, out type byte +4, pull byte +5, mode byte +6, drive byte +7"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The record layout is taken from the code, not from a header. The 0x18 and 0x28 pull codes and the +0x10 and +0x14 mask roles are guesses from gpio_init semantics."
+  },
+  "mcu_0160_0800cf94": {
+    "name": "gpio_pin_remap_config",
+    "summary": "Set or clear one bit field of an IOMUX remap register from a packed remap code",
+    "description": "SDK gpio_pin_remap_config. The register is the IOMUX base plus the top byte of the code (the packet shows IOMUX.EVTOUT). The field offset is bits 16..23, the field width is bits 8..15 and the value is the low byte. The field mask is built as in the SDK, cleared, and if new_state is set the value is ORed in at the field offset. The remap codes are packed constants, so each remap function passes its own code.",
+    "category": "gpio",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "packed remap code: register offset in bits 24..31, bit offset 16..23, width 8..15, value 0..7"},
+      {"name": "param_2", "type": "bool", "description": "new state: true sets the value, false only clears the field"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800d0e8": {
+    "name": "mcu_xfer_request_arm",
+    "summary": "Arm a transfer request with buffer, length, repeat count and user argument",
+    "description": "Returns 0 unless the request object, the count and the buffer are all non-zero. On success it stores the buffer pointer at +4, the length halfword at +8 and the count halfword at +0x14, sets the state byte at +2 to 1 (armed or pending) and stores the user argument at +0x20. Nothing is transmitted or copied here, so this only prepares the request for a later service routine. The caller mcu_0160_0800cd18 is in another packet.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "request object"},
+      {"name": "param_2", "type": "s16", "description": "count stored at +0x14, must be non-zero"},
+      {"name": "param_3", "type": "ptr", "description": "buffer, must be non-null"},
+      {"name": "param_4", "type": "u16", "description": "length stored at +8"},
+      {"name": "param_5", "type": "u32", "description": "user argument stored at +0x20"}
+    ],
+    "returns": {"type": "bool", "description": "1 when armed, 0 when an argument is zero or null"},
+    "confidence": "medium",
+    "notes": "The request object's role is not visible here, so the field names are the code's offsets only."
+  },
+  "mcu_0160_0800d4a8": {
+    "name": "mcu_frame_build_checksum16",
+    "summary": "Build a framed message with three header bytes, a payload and a 16-bit checksum trailer",
+    "description": "Validates the object, the payload pointer, the payload length (below 0x6FA) and the capacity (payload + 5 must fit the halfword at +8). It sets the state byte at +2 to 3 and copies param_4 and param_5 into object bytes +0 and +1. The frame buffer at +4 receives byte 0 = param_3, byte 1 = param_6, byte 2 = param_7, then the payload, then a 16-bit trailer equal to the complement of (param_3 + param_6 + param_7 + sum of payload bytes), stored little-endian. The frame length (payload + 5) is stored as a halfword at +0x0C and the counter at +0x1A is cleared. The repeat count at +0x1C is ceil(param_10 / period), where period is the halfword at +0x14. Param_2 is not used.",
+    "category": "protocol",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "frame object: buffer pointer +4, capacity u16 +8, state +2, length +0x0C, period u16 +0x14, counter +0x1A, repeat count +0x1C"},
+      {"name": "param_2", "type": "u32", "description": "not used"},
+      {"name": "param_3", "type": "u8", "description": "header byte 0 (also a checksum term)"},
+      {"name": "param_4", "type": "u8", "description": "stored at object byte +0"},
+      {"name": "param_5", "type": "u8", "description": "stored at object byte +1"},
+      {"name": "param_6", "type": "u8", "description": "header byte 1 (also a checksum term)"},
+      {"name": "param_7", "type": "u8", "description": "header byte 2 (also a checksum term)"},
+      {"name": "param_8", "type": "ptr", "description": "payload source, must be non-null"},
+      {"name": "param_9", "type": "u32", "description": "payload length in bytes, below 0x6FA"},
+      {"name": "param_10", "type": "s32", "description": "total to cover, divided by the period to give the repeat count"}
+    ],
+    "returns": {"type": "bool", "description": "1 when the frame was built, 0 when a check failed"},
+    "confidence": "medium",
+    "notes": "The meaning of the header bytes and of object bytes +0 and +1 is not visible in this packet. The period is assumed non-zero because it is used as a divisor."
+  },
+  "mcu_0160_0800d6a0": {
+    "name": "mcu_read_le32",
+    "summary": "Read a little-endian 32-bit value from four bytes at the pointer",
+    "description": "Assembles bytes 0..3 of the buffer into a 32-bit value in little-endian order, using byte loads so no alignment is required. The result is byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24. It is the reader counterpart of mcu_write_le32.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "four bytes, least significant first"}
+    ],
+    "returns": {"type": "u32", "description": "little-endian 32-bit value"},
+    "confidence": "high"
+  },
+  "mcu_12b_0800d6b0": {
+    "name": "mcu_12b_bit4_offset_select",
+    "summary": "Store the inverted bit 4 flag and add 0x48 to the base when that flag is set",
+    "description": "MCU_12b build only. It stores the inverse of bit 4 of param_1 in the flag byte at 0x200006E2 (1 when bit 4 is clear). If that flag is 1 the function returns param_2 + 0x48, otherwise param_2 unchanged. The 0x48 displacement suggests a choice between two layouts of a table or structure depending on a hardware or option bit, but the consumer is not in this packet.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value whose bit 4 selects the variant"},
+      {"name": "param_2", "type": "s32", "description": "base value or offset"}
+    ],
+    "returns": {"type": "s32", "description": "param_2 plus 0x48 when bit 4 of param_1 is clear, else param_2"},
+    "confidence": "medium"
+  },
+  "mcu_0160_0800d6b6": {
+    "name": "mcu_can_ef00_frame_build",
+    "summary": "Build a 29-bit PGN 0xEF00 CAN frame with three header bytes and up to five payload bytes",
+    "description": "Fills a software CAN frame (word 0 = 29-bit identifier, byte 4 = DLC, bytes 5..12 = data). The identifier is priority << 26 | destination << 8 | source, masked to 29 bits, then ORed with 0x00EF0000 (PDU1 format 0xEF, the proprietary-A PGN 0xEF00) and 0x20000000 (bit 29, set as the extended-identifier marker). Bit 31 of the old word is preserved. The DLC is payload + 3, the three header bytes go to data bytes 0..2 and the payload follows from data byte 3. The call fails when priority is 8 or more, when the payload is 6 bytes or longer, or when a pointer is null. The TP functions below use the same identifier scheme for multi-packet transfers on this channel.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "CAN priority 0..7"},
+      {"name": "param_2", "type": "u8", "description": "data byte 0 (header)"},
+      {"name": "param_3", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_4", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_5", "type": "u8", "description": "data byte 1 (header)"},
+      {"name": "param_6", "type": "u8", "description": "data byte 2 (header)"},
+      {"name": "param_7", "type": "ptr", "description": "payload source"},
+      {"name": "param_8", "type": "u32", "description": "payload length 0..5"},
+      {"name": "param_9", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success, 0 on bad arguments"},
+    "confidence": "medium",
+    "notes": "The header byte semantics are not known from this function alone. The VCU twin annotation vcu_can_ef00_frame_build describes the same routine."
+  },
+  "mcu_0160_0800d72a": {
+    "name": "mcu_can_tp_abort_frame_build",
+    "summary": "Build a J1939 TP.CM connection-abort frame for PGN 0xEF00",
+    "description": "Builds an 8-byte J1939 TP.CM frame. The identifier is 0x20EC0000 | destination << 8 | source (PF 0xEC = TP.CM, bit 29 set, no priority bits). The data is FF FF FF FF FF 00 EF 00: control byte 0xFF (connection abort), reason 0xFF, reserved bytes 0xFF, and the aborted PGN 0x00EF00 in bytes 5..7. It is used when a multi-packet transfer on the proprietary channel must stop.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_2", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_3", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success, 0 when the frame pointer is null"},
+    "confidence": "medium",
+    "notes": "The VCU twin annotation vcu_can_tp_abort_frame_build describes the identifier as 0x18EC (priority 6). This MCU code does not set the priority bits, so the identifier here is 0x20EC.... The difference should be checked against the binary."
+  },
+  "mcu_0160_0800d768": {
+    "name": "mcu_can_tp_cts_frame_build",
+    "summary": "Build a J1939 TP.CM clear-to-send frame (control 0x11) for PGN 0xEF00",
+    "description": "Builds the TP.CM clear-to-send frame with the same identifier scheme as the abort frame. Data bytes: 0x11, the number of packets the receiver accepts now (param_3), the next packet number expected (param_4), 0xFF, 0xFF, then the PGN bytes 00 EF 00. The receiver sends it to start or resume a multi-packet transfer.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_2", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_3", "type": "u8", "description": "number of packets the receiver accepts now"},
+      {"name": "param_4", "type": "u8", "description": "next packet number expected"},
+      {"name": "param_5", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success, 0 when the frame pointer is null"},
+    "confidence": "medium"
+  },
+  "mcu_0160_0800d7c4": {
+    "name": "mcu_can_tp_eom_ack_frame_build",
+    "summary": "Build a J1939 TP.CM end-of-message acknowledgment (control 0x13) for PGN 0xEF00",
+    "description": "Builds the TP.CM end-of-message acknowledgment. Data bytes: 0x13, the total message size in bytes little-endian (bytes 1..2), the number of data packets (size + 6) / 7 = ceil(size / 7) in byte 3, 0xFF in byte 4, then the PGN bytes 00 EF 00. The receiver sends it after the last data packet arrives.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_2", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_3", "type": "u32", "description": "total message size in bytes"},
+      {"name": "param_4", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success, 0 when the frame pointer is null"},
+    "confidence": "medium"
+  },
+  "mcu_0160_0800d820": {
+    "name": "mcu_can_tp_rts_frame_build",
+    "summary": "Build a J1939 TP.CM request-to-send (control 0x10) for a multi-packet PGN 0xEF00 message",
+    "description": "Builds the TP.CM request-to-send for a message longer than 8 bytes. Data bytes: 0x10, total size in bytes little-endian (bytes 1..2), the number of data packets (size + 6) / 7 in byte 3, 0xFF in byte 4 (no limit on packets per CTS) and the PGN bytes 00 EF 00. The call fails when the size is 8 or less or the pointer is null, because such messages go in a single frame.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_2", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_3", "type": "u32", "description": "total message size in bytes, must be more than 8"},
+      {"name": "param_4", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success, 0 when the size is 8 or less or the pointer is null"},
+    "confidence": "medium"
+  },
+  "mcu_0160_0800d880": {
+    "name": "mcu_can_tp_dt_frame_build",
+    "summary": "Build one J1939 TP.DT data frame for PGN 0xEF00 from a 7-byte aligned message offset",
+    "description": "Builds one TP.DT frame with identifier 0x20EB0000 | destination << 8 | source. Data byte 0 is the sequence number (offset / 7) + 1, computed as (offset + 6) / 7 + 1, followed by payload bytes: the byte count is min(*remaining, 7), copied from the message, and the rest of the data bytes are filled with 0xFF. The count is written back to *remaining. The offset must be a multiple of 7 or the call fails. The decompiled loop bounds look off by one: the copy loop runs count + 1 times and the padding loop starts at the last copied payload byte, so that byte is overwritten with 0xFF, and a full 7-byte chunk also writes one byte past the frame data. The VCU twin annotation reports the same pattern. Verify against the disassembly before relying on exact byte counts. On success the low word of the return value is 1; the high word holds an unclear count or 0xFF.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "source address (ID bits 0..7)"},
+      {"name": "param_2", "type": "u32", "description": "destination address (ID bits 8..15)"},
+      {"name": "param_3", "type": "u32", "description": "byte offset of this chunk in the message, must be a multiple of 7"},
+      {"name": "param_4", "type": "ptr", "description": "message source at the chunk offset"},
+      {"name": "param_5", "type": "ptr", "description": "in/out u16: bytes remaining; clamped to 7 and written back"},
+      {"name": "param_6", "type": "ptr", "description": "output CAN frame struct"}
+    ],
+    "returns": {"type": "bool", "description": "1 on success in the low word, 0 on bad arguments"},
+    "confidence": "low",
+    "notes": "The sequence number formula matches the TP.DT convention (1-based packet number). The byte-count and padding arithmetic is uncertain, see description."
+  },
+  "mcu_0160_0800d924": {
+    "name": "mcu_write_le32",
+    "summary": "Store a 32-bit value as four little-endian bytes",
+    "description": "Writes the 32-bit value into four consecutive bytes at the destination, least significant byte first, using byte stores so no alignment is required. It is the writer counterpart of mcu_read_le32.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "value to store"},
+      {"name": "param_2", "type": "ptr", "description": "destination, at least four bytes"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800d9c4": {
+    "name": "mcu_sample_history3_rise_detect",
+    "summary": "Push a 0..200 sample into a 3-deep history and flag three consecutive large rises",
+    "description": "Ignores samples of 201 or more. For a valid sample it writes the output word at 0x20000680 as floor(sample * 4095 / 242) shifted left by 15 (a scaled Q-format value). It then checks whether the new sample and the three most recent history bytes at 0x20000670..0x20000672 form a run where each step (newer minus older) exceeds 35 (0x23); if so the byte at 0x20000673 is set to 20 (0x14). The history is then shifted by one (newest in 0x20000670). The flag is only set here and is not cleared, so some other code must clear or count it down. The meaning of the input signal is not visible in this packet.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "new sample, 0..200"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The 4095 / 242 scaling was checked numerically for inputs 0..200. The purpose of the signal and the 0x20000673 consumer are unknown."
+  },
+  "mcu_0160_0800da14": {
+    "name": "nvic_irq_enable",
+    "summary": "Set the preempt and sub priority of an IRQ with the current group, then enable it",
+    "description": "SDK nvic_irq_enable. It encodes the two priorities with the CMSIS NVIC_EncodePriority rule for the current group in SCB->AIRCR bits 8..10: preempt bits = min(4, 7 - group), sub bits = 0 when group + 4 < 7, else group - 3. The encoded value goes into the top four bits of the priority byte. For device interrupts the byte is IPR at 0xE000E400 + IRQn, and the enable bit is then set in NVIC ISER. For negative IRQn (system handlers) the byte goes into the SHP array instead and nothing is enabled.",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "IRQn; negative values address system exception priorities"},
+      {"name": "param_2", "type": "u32", "description": "preempt priority"},
+      {"name": "param_3", "type": "u32", "description": "sub priority"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800da98": {
+    "name": "nvic_priority_group_config",
+    "summary": "Set the NVIC priority grouping in SCB->AIRCR with the VECTKEY",
+    "description": "SDK nvic_priority_group_config. It writes SCB->AIRCR (0xE000ED0C) as the existing value with mask 0xF8FF, the group (0..7) in bits 8..10, and the VECTKEY 0x05FA in the upper half. It sets how later priority values split into preempt and sub bits, so it is normally called once at startup before nvic_irq_enable.",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "priority group 0..7"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800dabc": {
+    "name": "nvic_vector_table_set",
+    "summary": "Set the vector table base in SCB->VTOR with 128-byte offset alignment",
+    "description": "SDK nvic_vector_table_set. It writes SCB->VTOR (0xE000ED08) as base | (offset & 0x1FFFFF80). The offset is aligned to 128 bytes, and the base argument selects the memory region. It relocates the vector table, for example to the application after the 4 KiB bootloader at 0x08001000.",
+    "category": "isr",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "region base, for example the flash or RAM base"},
+      {"name": "param_2", "type": "u32", "description": "offset within the region"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800dad0": {
+    "name": "pwc_battery_powered_domain_access",
+    "summary": "Enable or disable write access to the battery-powered backup domain",
+    "description": "SDK pwc_battery_powered_domain_access. It sets or clears bit 8 of PWC.CTRL (the battery-powered domain write enable), leaving the other control bits unchanged. Write access must be enabled before the RTC or backup registers can be changed.",
+    "category": "power",
+    "params": [
+      {"name": "param_1", "type": "bool", "description": "new state: true enables write access"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800dae0": {
+    "name": "pwc_power_voltage_monitor_enable",
+    "summary": "Enable or disable the programmable voltage monitor in PWC.CTRL",
+    "description": "SDK pwc_power_voltage_monitor_enable. It sets or clears bit 4 (PVMEN) of PWC.CTRL, leaving the other bits unchanged. The threshold is chosen separately by pwc_pvm_level_select.",
+    "category": "power",
+    "params": [
+      {"name": "param_1", "type": "bool", "description": "new state: true enables the voltage monitor"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800daf0": {
+    "name": "pwc_pvm_level_select",
+    "summary": "Select the programmable voltage monitor threshold in PWC.CTRL bits 5..7",
+    "description": "SDK pwc_pvm_level_select. It writes the 3-bit PVM voltage select into bits 5..7 of PWC.CTRL and keeps the other bits. The selection takes effect when the monitor is enabled with pwc_power_voltage_monitor_enable.",
+    "category": "power",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "PVM threshold code 0..7"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  }
+}

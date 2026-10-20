@@ -1,0 +1,13 @@
+{
+  "bms_g_4148_20000510": {
+    "name": "balance_reeval_timer",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4148",
+      "0x20000510"
+    ],
+    "category": "balancing",
+    "description": "Tick counter of the 30000-tick balancing re-evaluation timer. bms_balance_timer_step adds its step argument while the sum stays below 30000. When the next step would reach 30000, the counter is reset to 0 and the balancing state is re-evaluated from the state block words at +0x104, +0x11E and +0x19C. The counter is held at 0 while the enable bit 0 of state byte DAT_20000504 is clear. The width is not visible in the decompile; u32 is probably right because the step is a 32-bit argument. Present in builds 4130, 4139 and 4148 only."
+  }
+}

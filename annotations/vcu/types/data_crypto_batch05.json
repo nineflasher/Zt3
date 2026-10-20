@@ -1,0 +1,46 @@
+{
+  "structs": {
+    "UpgradeRecord": {
+      "size": 12,
+      "description": "12-byte firmware-upgrade record: kept in flash at 0x0801F800 and mirrored in RAM at 0x200020D0 (vcu_upgrade_record_store writes it, vcu_crypto_identity_record_init reads it).",
+      "fields": [
+        {
+          "name": "tag",
+          "offset": 0,
+          "type": "u32",
+          "description": "Record tag. It must equal the built-in default at 0x200014BC, otherwise the record is replaced by that default at start-up."
+        },
+        {
+          "name": "pending",
+          "offset": 4,
+          "type": "u32",
+          "description": "1 when a complete, verified image is staged and must be installed on the next reset (probably). Set by update sub-command 9, cleared when sub-command 7 starts a transfer."
+        },
+        {
+          "name": "image_size",
+          "offset": 8,
+          "type": "u32",
+          "description": "Size in bytes of the staged image, copied from DAT_2000149C when the update completes."
+        }
+      ]
+    },
+    "DeviceId": {
+      "size": 6,
+      "description": "6-byte device identifier held in RAM at 0x20001C7C, compared with the copy in flash at 0x08001430.",
+      "fields": [
+        {
+          "name": "word0",
+          "offset": 0,
+          "type": "u32",
+          "description": "First four identifier bytes, little-endian as stored by the identity write."
+        },
+        {
+          "name": "word1",
+          "offset": 4,
+          "type": "u16",
+          "description": "Last two identifier bytes, little-endian."
+        }
+      ]
+    }
+  }
+}

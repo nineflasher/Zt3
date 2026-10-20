@@ -1,0 +1,502 @@
+{
+  "bms_g_4139_2000011c": {
+    "name": "bms_legacy_buf_a_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000011c"
+    ],
+    "category": "protocol",
+    "description": "Write index into the legacy record buffer at 0x20000A7C used by the 4139 frame parser. bms_frame_parse_legacy_4139 sets it to 1 at the start of a frame, stores each payload byte at this index and increments it (probably so that byte 0 is left for the frame header). It is reset for every frame and has no meaning between frames."
+  },
+  "bms_g_4139_2000011d": {
+    "name": "bms_legacy_buf_b_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000011d"
+    ],
+    "category": "protocol",
+    "description": "Write index into the second legacy buffer at 0x20000AAE. The 4139 frame parser resets it to 0 and copies each payload byte there alongside the writes to 0x20000A7C, so both buffers hold the same payload bytes (probably a second copy for the bank step)."
+  },
+  "bms_g_4139_2000011e": {
+    "name": "bms_legacy_record_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000011e"
+    ],
+    "category": "protocol",
+    "description": "Record count N of the 4139 legacy frame, taken from the high nibble of the frame's second byte (0 to 15). The payload is N*4 bytes, so the parser checks N*4+2 against the received length. N equal to 0 goes straight to the CRC states. After a valid CRC, N is capped at 63 before the records are stored."
+  },
+  "bms_g_4139_2000011f": {
+    "name": "bms_legacy_payload_cursor",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x2000011f"
+    ],
+    "category": "protocol",
+    "description": "Cursor used while the 4139 legacy records are rebuilt. It is reset to 0 and read both as a byte index and as the word base (cursor >> 2) * 4, so it steps through the 4-byte records (probably). Each record is written to 0x20000840 with its byte order reversed."
+  },
+  "bms_g_4139_20000120": {
+    "name": "bms_legacy_frame_ready",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x20000120"
+    ],
+    "category": "protocol",
+    "description": "Flag set to 1 by bms_frame_parse_legacy_4139 once a frame has passed its CRC and its records are stored. bms_4139_dual_bank_step reads and writes it, and it flips the active accumulator bank after an accepted frame. bms_auth_verify_response and bms_comm_await_reply_cmd03 also write it; the value they write is not stated in this packet."
+  },
+  "bms_g_4139_20000122": {
+    "name": "bms_legacy_rx_crc",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4139",
+      "0x20000122"
+    ],
+    "category": "protocol",
+    "description": "CRC-16 received at the end of a 4139 legacy frame. The two bytes arrive most significant first and are combined here. The parser compares this value with crc16_usb_compute over the header and payload (reflected polynomial 0x8005, init 0xFFFF, final complement); a mismatch drops the frame."
+  },
+  "bms_g_4139_20000124": {
+    "name": "bms_legacy_header_word",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4139",
+      "0x20000124"
+    ],
+    "category": "protocol",
+    "description": "16-bit header word of the 4139 legacy frame, built from the second and third bytes: the record count nibble and the first nibble pair go in first, then the following byte completes it. It is probably the CRC seed or state. Its bit meanings beyond that are not established in this packet."
+  },
+  "bms_g_4139_200004fc": {
+    "name": "bms_telemetry11_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x200004fc"
+    ],
+    "category": "protocol",
+    "description": "State of the 11-record telemetry scheduler bms_telemetry_sched_11_step. 0 means not initialised (the first pass sets it to 1). 1 means ready. 2 means a reply is awaited: bms_rx_frame_7f0_7f1 arms it when a 0x7F0 or 0x7F1 frame arrives, and it is checked against a 2000-tick timeout from bms_telemetry11_tick. The meanings are inferred from the code."
+  },
+  "bms_g_4139_200004fd": {
+    "name": "bms_telemetry11_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4139",
+      "0x200004fd"
+    ],
+    "category": "protocol",
+    "description": "Index (0 to 10) of the next of the 11 telemetry records at 0x20001B90 that bms_telemetry_sched_11_step sends. It is reset to 0 after record 10, so one record is sent per call and the table cycles."
+  },
+  "bms_g_4139_20000500": {
+    "name": "bms_telemetry11_tick",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4139",
+      "0x20000500"
+    ],
+    "category": "protocol",
+    "description": "32-bit stamp returned by FUN_080097e8 when bms_rx_frame_7f0_7f1 arms state 2 of the 11-record telemetry scheduler. bms_telemetry_sched_11_step passes it to FUN_080099c8 with a 2000-tick limit to detect the timeout."
+  },
+  "bms_g_4168_200001aa": {
+    "name": "bms_app_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001aa"
+    ],
+    "category": "protocol",
+    "description": "Application state byte. bms_app_state_reset clears its block of state bytes and then writes 2 to this one as a default. bms_limit_report_cmd08 takes its address, so the value is probably read through a pointer there. The meaning of the value 2 is not named in the code."
+  },
+  "bms_g_4168_200001ab": {
+    "name": "bms_pool_threshold_flag",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001ab"
+    ],
+    "category": "protocol",
+    "description": "Flag cleared by bms_app_state_reset. bms_comm_pool_tick_with_threshold reads it: when it is 1, or the reply buffer word at +6 is set, that routine publishes the threshold pair from state +0x6C in record 0x2C. This byte exists only in the 4148 and 4168 builds."
+  },
+  "bms_g_4168_200001ac": {
+    "name": "bms_frame_parser_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001ac"
+    ],
+    "category": "protocol",
+    "description": "State of the byte-wise 0x5A/0xA5 frame parser bms_frame_parse_legacy_4168. 0 is idle and waits for a start byte. 1 waits for the count byte, 2 for the second header byte, 3 is the payload, and 4 and 5 are the high and low CRC bytes. bms_comm_send_frame and bms_app_state_reset reset it to 0."
+  },
+  "bms_g_4168_200001ad": {
+    "name": "bms_frame_pending",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001ad"
+    ],
+    "category": "protocol",
+    "description": "Set to 1 by bms_frame_parse_legacy_4168 when a frame passes its CRC and its records are rebuilt at 0x2000092C. bms_auth_verify_response and bms_comm_await_reply_cmd03 consume it and clear it to 0 on every pass, so it marks one unprocessed frame."
+  },
+  "bms_g_4168_200001ae": {
+    "name": "bms_frame_mode",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001ae"
+    ],
+    "category": "protocol",
+    "description": "Mode byte of the 4148/4168 host link. While it equals 2, every received byte goes to bms_frame_rx_byte and the frame parser is skipped. bms_comm_send_frame uses 1 to pick the 0x5A start byte (0xA5 otherwise). bms_comm_pool_state_step writes it, with 2 on its reset path."
+  },
+  "bms_g_4168_200001af": {
+    "name": "bms_pool_not_timed_out",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001af"
+    ],
+    "category": "protocol",
+    "description": "Flag that is nonzero while the message-pool busy timer at 0x200001BA has not timed out. bms_comm_pool_state_step writes it from the timeout test (the timer saturates at 3000). bms_limit_report_cmd08 tests it before it builds and sends the limit report."
+  },
+  "bms_g_4168_200001b2": {
+    "name": "bms_auth_value_len",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b2"
+    ],
+    "category": "protocol",
+    "description": "Length in bytes of the value that bms_4168_080106c8 computes for the authentication reply (probably 16, the four 32-bit words that bms_auth_verify_response compares). bms_auth_verify_response repacks that value four bytes at a time up to this length. The value itself is not described in this packet."
+  },
+  "bms_g_4168_200001b3": {
+    "name": "bms_auth_repack_end",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b3"
+    ],
+    "category": "protocol",
+    "description": "Scratch byte of bms_auth_verify_response. It is set to 0 before the repack loop and then to the last repacked offset plus 4 on each iteration, so it ends as the repack end offset. Nothing else in this packet reads it."
+  },
+  "bms_g_4168_200001b4": {
+    "name": "bms_frame_buf_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b4"
+    ],
+    "category": "protocol",
+    "description": "Write index into the 4148/4168 frame buffer at 0x20000B68. The count byte is stored at index 0 and the index is then set to 1, and it advances for each header, payload and CRC byte that is stored. The start byte is kept separately at 0x20000929."
+  },
+  "bms_g_4168_200001b5": {
+    "name": "bms_frame_rec_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b5"
+    ],
+    "category": "protocol",
+    "description": "Index into the record-byte array at 0x20000B9A, used while the payload of a 4148/4168 frame is copied. It is reset to 0 when the header is complete and advances with each payload byte (state 3 of the parser)."
+  },
+  "bms_g_4168_200001b6": {
+    "name": "bms_frame_rec_count",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b6"
+    ],
+    "category": "protocol",
+    "description": "Record count of the current 4148/4168 frame, the high nibble of the byte after the start byte (0 to 15). After a good CRC it is replaced by N*4 (N capped at 63), which is the payload byte count. The parser probably uses it to know when the payload is complete."
+  },
+  "bms_g_4168_200001b7": {
+    "name": "bms_frame_rec_cursor",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b7"
+    ],
+    "category": "protocol",
+    "description": "Cursor for rebuilding the 4-byte records once a 4148/4168 frame passes its CRC. It is reset to 0 at the start of that copy and read both as a byte index and as the word base (cursor >> 2) * 4, the same pattern as bms_legacy_payload_cursor in the 4139 parser."
+  },
+  "bms_g_4168_200001b8": {
+    "name": "bms_comm_send_pending",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200001b8"
+    ],
+    "category": "protocol",
+    "description": "Flag stored from the return value of bms_comm_service_step, which sends the periodic 14-byte message. bms_comm_pool_state_step tests it with zero and nonzero outcomes, and its reset path also sets it through the service step. Probably nonzero means a message is queued, but the code does not say so."
+  },
+  "bms_g_4168_200001bc": {
+    "name": "bms_frame_crc_rx",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200001bc"
+    ],
+    "category": "protocol",
+    "description": "CRC-16 received after the payload of a 4148/4168 frame, most significant byte first (states 4 and 5 of bms_frame_parse_legacy_4168). It is compared with the value that FUN_08004da4 computes over the frame bytes, and a match accepts the frame."
+  },
+  "bms_g_4168_200001be": {
+    "name": "bms_frame_header_rx",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200001be"
+    ],
+    "category": "protocol",
+    "description": "Header word of the current 4148/4168 frame. The byte after the start byte fills the count nibble (bits 12 to 15) and bits 8 to 11, and the next byte fills the low byte. It is reset to 0 at each start byte and is probably part of the CRC input."
+  },
+  "bms_g_4168_200001c0": {
+    "name": "bms_limit_scaled",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200001c0"
+    ],
+    "category": "protocol",
+    "description": "Intermediate limit computed by bms_limit_report_cmd08: the 12-bit field at +4 of the argument times 100000, passed through FUN_08001110 with a second argument (that helper is not named here). It is probably a scaled charge or discharge limit, and the same function derives the reserve at DAT_200001C4 from it. The width (16 bits) is inferred from the neighbouring families."
+  },
+  "bms_g_4168_200001c2": {
+    "name": "bms_limit_working",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200001c2"
+    ],
+    "category": "protocol",
+    "description": "Working limit built by bms_limit_report_cmd08. It starts from the charge limit at state +0x120, is replaced by reply word +0x0C under the conditions described in that function, and is halved when DAT_20000A53 and DAT_20000B57 are both 1."
+  },
+  "bms_g_4168_200005d0": {
+    "name": "bms_telemetry16_state",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005d0"
+    ],
+    "category": "protocol",
+    "description": "State of the 16-record telemetry scheduler bms_telemetry_sched_16_step (4148/4168 builds). 0 means not initialised: the first pass stamps the table and sets the CAN IDs 0x420 to 0x425. 1 means ready. 2 means armed, with a 2000-tick timeout from bms_telemetry16_tick. bms_can_status_frame_rx also writes this state when 0x7F0 or 0x7F1 frames arrive."
+  },
+  "bms_g_4168_200005d1": {
+    "name": "bms_telemetry16_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x200005d1"
+    ],
+    "category": "protocol",
+    "description": "Index of the next of the 16 telemetry records at 0x20001C8C. The scheduler branches on whether the index is below 12 or below 16, so records 12 to 15 are handled on a separate path. It is reset to 0 after the last record."
+  },
+  "bms_g_4168_200005d4": {
+    "name": "bms_telemetry16_tick",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200005d4"
+    ],
+    "category": "protocol",
+    "description": "32-bit stamp taken by bms_can_status_frame_rx with FUN_0800a348 when the 16-record scheduler is armed. bms_telemetry_sched_16_step passes it to FUN_0800a528 with a 2000-tick limit while the scheduler state is 2."
+  },
+  "bms_g_4168_200005d8": {
+    "name": "bms_can_status_tick",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200005d8"
+    ],
+    "category": "protocol",
+    "description": "32-bit stamp of the most recent 0x212 CAN status frame, taken by bms_can_status_frame_rx with FUN_0800a348. The same routine passes it, with its own address, to FUN_0800a528 against a 2000-tick window and ages out the 0x212 status flag when the window has passed."
+  },
+  "bms_g_4168_200005e0": {
+    "name": "bms_tp_req4_value",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005e0"
+    ],
+    "category": "protocol",
+    "description": "u16 from bytes 1 and 2 of a type-4 data-block request. bms_msg_dispatch_request accepts it only when it is not larger than the u32 from bms_u32_20001348_get. It is then stored with the requester pair as a 4-byte pool entry at 0x200005E0, and bms_tp_send_block_4 sends the 20-byte block at 0x20001D9C after the request."
+  },
+  "bms_g_4168_200005e2": {
+    "name": "bms_tp_req4_peer",
+    "type": "u8",
+    "count": 2,
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005e2"
+    ],
+    "category": "protocol",
+    "description": "Requester pair of the last accepted type-4 request: the two arguments the dispatcher received (its param_4 and param_1, probably the peer address bytes). bms_tp_send_block_4 uses them as the peer key of its TP session send."
+  },
+  "bms_g_4168_200005e4": {
+    "name": "bms_tp_req5_values",
+    "type": "u16",
+    "count": 2,
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200005e4"
+    ],
+    "category": "protocol",
+    "description": "Two u16 values of an accepted type-5 request. Element 0 comes from bytes 1 and 2 and is accepted only when it is at most 10. Element 1 comes from bytes 3 and 4 and is accepted only when the u32 from bms_u32_20001348_get is at least it. The pair is the 4-byte pool entry for pool type 3, and bms_tp_send_block_5 sends the 64-byte block at 0x20001DB0 after it."
+  },
+  "bms_g_4168_200005e8": {
+    "name": "bms_tp_req5_peer",
+    "type": "u8",
+    "count": 2,
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005e8"
+    ],
+    "category": "protocol",
+    "description": "Requester pair of the last accepted type-5 request. bms_tp_send_block_5 uses it as the peer key of its TP session send."
+  },
+  "bms_g_4168_200005ea": {
+    "name": "bms_tp_req6_value",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200005ea"
+    ],
+    "category": "protocol",
+    "description": "u32 from bytes 1 to 4 of a type-6 request. The dispatcher accepts it only when it is at most the word from bms_get_word_20001354, then registers it as the 4-byte pool entry for pool type 4. bms_tp_send_block_6 sends the 64-byte block at 0x20001DF0 after this request."
+  },
+  "bms_g_4168_200005ee": {
+    "name": "bms_tp_req6_peer",
+    "type": "u8",
+    "count": 2,
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x200005ee"
+    ],
+    "category": "protocol",
+    "description": "Requester pair of the last accepted type-6 request. bms_tp_send_block_6 uses it as the peer key of its TP session send."
+  },
+  "bms_g_4168_20000610": {
+    "name": "bms_rx_write_index",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000610"
+    ],
+    "category": "protocol",
+    "description": "Write index into the receive buffer at 0x2000256D used by bms_frame_rx_byte. It is cleared and then set to 1 at the start of a frame, and 0xA5 is written at 0x2000256D plus the index, probably as a frame start marker. Later bytes are stored at increasing indexes."
+  },
+  "bms_g_4168_20000611": {
+    "name": "bms_rx_remaining",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000611"
+    ],
+    "category": "protocol",
+    "description": "Remaining payload byte count of the frame that bms_frame_rx_byte is receiving. It is loaded from the length byte and counted down with each payload byte, probably reaching 0 when the payload is complete."
+  },
+  "bms_g_4168_20000612": {
+    "name": "bms_rx_checksum",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "BMS_4168",
+      "0x20000612"
+    ],
+    "category": "protocol",
+    "description": "Checksum staged by bms_frame_rx_byte while a frame arrives. The first checksum byte is stored here and the next byte is combined as byte * 0x100 + staged value. bms_frame_rx_byte returns 1 when the staged value checks out against the frame."
+  },
+  "bms_g_4168_20000614": {
+    "name": "bms_rx_dispatch_table",
+    "type": "ptr",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000614"
+    ],
+    "category": "protocol",
+    "description": "First entry of a table of 32-bit code pointers, 4 bytes each, indexed by the receive state byte at 0x2000260D. bms_comm_service_step calls the entry for the current state through it. The later entries of the table are not covered by this packet and probably lie at higher addresses."
+  },
+  "bms_g_4168_20000904": {
+    "name": "bms_tx_magic",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000904"
+    ],
+    "category": "protocol",
+    "description": "Start byte of the outgoing host-link frame written by bms_comm_send_frame: 0x5A when bms_frame_mode is 1, 0xA5 otherwise. bms_app_state_reset sets it to 0x5A as part of its defaults."
+  },
+  "bms_g_4168_20000905": {
+    "name": "bms_tx_command",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000905"
+    ],
+    "category": "protocol",
+    "description": "Command byte of the outgoing host-link frame. It is the low byte of the command argument to bms_comm_send_frame, after the mask that clears bits 8 to 11."
+  },
+  "bms_g_4168_20000906": {
+    "name": "bms_tx_count_seq",
+    "type": "u8",
+    "size": 1,
+    "anchor": [
+      "BMS_4168",
+      "0x20000906"
+    ],
+    "category": "protocol",
+    "description": "Second header byte of the outgoing frame. Its high nibble is the payload word count (word count shifted left by 4) combined with bits 12 to 15 of the command argument, and its low nibble is a 4-bit sequence number from the context at +0xFA, probably."
+  },
+  "bms_g_4168_20000907": {
+    "name": "bms_tx_payload_head",
+    "type": "u8",
+    "count": 5,
+    "size": 5,
+    "anchor": [
+      "BMS_4168",
+      "0x20000907"
+    ],
+    "category": "protocol",
+    "description": "First five bytes of the payload area of the outgoing host-link frame. bms_comm_send_frame writes payload word i at 0x20000907 + 4*i in little-endian order (word 0 is bytes 0 to 3 here, and byte 0 of word 1 is at 0x2000090B); the same words are sent big-endian after the header. Up to 8 words fit before the CRC at 0x20000927. The rest of the payload area from 0x2000090C is described by bms_host_tx_mirror_tail in another packet."
+  }
+}

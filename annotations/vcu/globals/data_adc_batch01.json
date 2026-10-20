@@ -1,0 +1,48 @@
+{
+  "vcu_g_0159_2000329c": {
+    "name": "adc_avg_result_0",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x2000329c"
+    ],
+    "category": "adc",
+    "description": "Element 0 of the five 16-bit ADC channel averages (raw 12-bit ADC counts, 0..4095). vcu_adc_average_16_scans writes it as (sum of 16 scans >> 4) through a (short) cast, and app_get_u16_2000329c returns it to the application (probably the sampled analog input of one sensor). Elements 1..4 at 0x2000329e..0x200032a5 are described as adc_avg_result_1_4 in data_app_batch03; together they form one five-element result array."
+  },
+  "vcu_g_0159_200032a6": {
+    "name": "adc_dma_scan0_ch0",
+    "type": "u16",
+    "size": 2,
+    "anchor": [
+      "VCU_0159",
+      "0x200032a6"
+    ],
+    "category": "adc",
+    "description": "Channel 0 of scan 0 in the ADC1 DMA result buffer: a raw 12-bit conversion result that DMA1 channel 1 writes from the ADC1 data register. Build 0159 runs the buffer as an 80-halfword circular ring; builds 148, 14a, 14b and 14e transfer a single 5-halfword scan at the same address. vcu_adc_average_16_scans reads it each time it runs."
+  },
+  "vcu_g_0159_200032a8": {
+    "name": "adc_dma_scan0_ch1_4",
+    "type": "u16",
+    "size": 8,
+    "anchor": [
+      "VCU_0159",
+      "0x200032a8"
+    ],
+    "category": "adc",
+    "description": "Channels 1..4 of scan 0 in the ADC1 DMA result buffer (raw 12-bit results, one halfword each, at 0x200032a8..0x200032af). The first of them, 0x200032a8, is channel 1; vcu_adc_average_16_scans reads all of them through the 16x5 frame index. Split from adc_dma_scan0_ch0 so that the build-specific family addresses do not overlap.",
+    "count": 4
+  },
+  "vcu_g_0159_200032b0": {
+    "name": "adc_dma_scans_1_15",
+    "type": "AdcScan",
+    "size": 150,
+    "anchor": [
+      "VCU_0159",
+      "0x200032b0"
+    ],
+    "category": "adc",
+    "description": "Scans 1..15 of the 80-halfword circular ADC1 DMA buffer (build 0159 only; vcu_adc_dma_ring_init sets the ring to 0x50 halfwords in circular mode). Each scan is five halfwords, one per channel, in regular-sequence order. vcu_adc_average_16_scans sums all 16 scans per channel and writes the means to adc_avg_result_0..4. The family 0x200032b0 is channel 0 of scan 1.",
+    "count": 15
+  }
+}

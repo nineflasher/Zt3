@@ -1,0 +1,671 @@
+{
+ "ble_219_0c0653e0": {
+  "name": "btstack_linked_list_empty",
+  "summary": "Test whether a BTstack singly linked list is empty",
+  "description": "BTstack btstack_linked_list_empty(). param_1 points at the list head cell (a pointer to the first item); returns true when that head pointer is NULL. No side effects.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "address of the list head pointer (btstack_linked_list_t*)"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "1 if the list has no items"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0653ec": {
+  "name": "btstack_linked_list_add",
+  "summary": "Push an item on the head of a linked list unless already present",
+  "description": "BTstack btstack_linked_list_add(). Walks the list from *param_1 following each item's first word (next pointer); if param_2 is found the list is left unchanged and 0 is returned. Otherwise param_2->next is set to the old head, the head pointer is set to param_2 and 1 is returned. Items embed the next pointer as their first 32-bit word.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "item to insert (btstack_linked_item_t*)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if inserted, 0 if the item was already in the list"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065416": {
+  "name": "btstack_linked_list_add_tail_impl",
+  "summary": "Append an item at the tail of a linked list unless already present",
+  "description": "Body of BTstack btstack_linked_list_add_tail() (0x0c065410 is a 1-insn thunk that branches here, so Ghidra splits it). Starting at the head cell it steps through the next pointers; reaching a NULL next sets param_2->next = NULL, links param_2 at the end and returns 1. If param_2 is met during the walk it returns 0 and does not modify the list. Used with several fixed global lists such as the one at 0x200190a4.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "item to append (btstack_linked_item_t*)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if appended, 0 if already linked"
+  },
+  "confidence": "high",
+  "notes": "The walk compares the successor with the item, so an item that is the very first entry is not detected by the first iteration of the loop; behaviour identical to BTstack for normal use."
+ },
+ "ble_219_0c06542c": {
+  "name": "btstack_linked_list_remove",
+  "summary": "Unlink an item from a singly linked list",
+  "description": "BTstack btstack_linked_list_remove(). Returns 0 immediately for a NULL item. Otherwise walks from the head cell keeping the predecessor; when predecessor->next == param_2 it sets predecessor->next = param_2->next and returns 1. Returns 0 if the item is not found. Very widely used (timers, connections, data sources) across the host stack.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "item to remove (btstack_linked_item_t*)"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if removed, 0 if not found or item NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065450": {
+  "name": "btstack_linked_list_get_first_item",
+  "summary": "Return the first item of a linked list",
+  "description": "BTstack btstack_linked_list_get_first_item(): dereferences the list head cell and returns the first item pointer (NULL when empty).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "first item or NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065454": {
+  "name": "btstack_linked_list_pop",
+  "summary": "Remove and return the first item of a linked list",
+  "description": "BTstack btstack_linked_list_pop(). Loads the first item; if non-NULL the head cell is advanced to item->next. Returns the popped item (or NULL for an empty list). Also exists as an identical compiler copy at 0x0c0656ec.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "popped item or NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065460": {
+  "name": "btstack_linked_list_iterator_init",
+  "summary": "Initialise a removal-safe linked list iterator",
+  "description": "BTstack btstack_linked_list_iterator_init(). The iterator is {u32 advance_on_next; item *prev; item *curr}. Sets advance_on_next = 0, prev = list head cell address (so prev->next is the head) and curr = *list (first item). Counterparts are iterator_has_next (0x0c06546c), iterator_next (0x0c065490) and iterator_remove (0x0c0654b4).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "iterator struct to initialise (btstack_linked_list_iterator_t*, 12 bytes)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "list head cell (btstack_linked_list_t*)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06546c": {
+  "name": "btstack_linked_list_iterator_has_next",
+  "summary": "Check whether the linked list iterator has another item",
+  "description": "BTstack btstack_linked_list_iterator_has_next(). If advance_on_next is 0 (nothing consumed yet) the answer is curr != NULL. Otherwise it looks at prev->next; if that still equals curr it takes curr->next instead (handles the current item having been removed), and returns whether the result is non-NULL. Pure query, does not change the iterator.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "iterator (btstack_linked_list_iterator_t*)"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "1 if another item can be fetched"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065490": {
+  "name": "btstack_linked_list_iterator_next",
+  "summary": "Return the next item from a linked list iterator",
+  "description": "BTstack btstack_linked_list_iterator_next(). On the first call it sets advance_on_next = 1 and returns the current item. Later calls read prev->next: if it still equals curr the iterator advances (prev = curr, next = curr->next); otherwise curr was unlinked by iterator_remove so prev stays and the item after prev is used. Stores the result in curr and returns it (NULL at the end).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "iterator (btstack_linked_list_iterator_t*)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "next item or NULL at the end of the list"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0654b4": {
+  "name": "btstack_linked_list_iterator_remove",
+  "summary": "Unlink the iterator's current item from its list",
+  "description": "BTstack btstack_linked_list_iterator_remove(). Sets curr = curr->next (the old current item's successor), writes it to prev->next, thereby unlinking the item last returned by iterator_next, and clears advance_on_next so the next call re-examines the new current item. Used during list traversals that delete entries.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "iterator (btstack_linked_list_iterator_t*)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065558": {
+  "name": "btstack_memory_free_list_push",
+  "summary": "Push a freed block onto the global free list at 0x20019088",
+  "description": "Walks the singly linked list headed by the global DAT_20019088 to its end with an empty loop (leftover of the inlined duplicate check in btstack_linked_list_add), then sets *param_1 = DAT_20019088 and DAT_20019088 = param_1, i.e. head-insertion into the free list. Called from the small btstack_memory_*_free wrappers (0x0c0654e4, 0x0c065528, 0x0c06554c) and from two large host functions; interpreted as returning a block to the BTstack static memory pool free list.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "block (first word is next pointer) returned to the free list"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Exact owner of the free list at 0x20019088 (which pool) not determined; the shared list for several free wrappers is odd."
+ },
+ "ble_219_0c0656b0": {
+  "name": "btstack_memory_pool_create",
+  "summary": "Build a free list from a contiguous array of fixed-size blocks",
+  "description": "BTstack btstack_memory_pool_create(pool, storage, count, size). Sets *param_1 = NULL. If count > 0 the first block gets next = NULL and becomes the pool head; for each further block (previous + block size) next points at the previous block and the head is moved to the new block, so the head ends at the last block and the chain runs backwards. The inner while loop is a no-op leftover of the inlined duplicate check. Called once at stack start (0x0c065564) for each pool.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "pool free list head cell"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "storage array start"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "number of blocks"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "block size in bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0656ec": {
+  "name": "btstack_memory_pool_get",
+  "summary": "Pop a block from a memory pool free list",
+  "description": "Same code as btstack_linked_list_pop: loads the head block of the pool free list, advances the head to block->next and returns the block (NULL when the pool is exhausted). Called by the btstack_memory_*_get allocation wrappers (0x0c0654c4, 0x0c0654f0, 0x0c06550c, 0x0c065534).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "pool free list head cell"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "free block or NULL if the pool is empty"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06570c": {
+  "name": "btstack_ring_buffer_init",
+  "summary": "Initialise a BTstack ring buffer",
+  "description": "BTstack btstack_ring_buffer_init(). Layout: +0 storage, +4 size, +8 last_read_index, +0xc last_written_index, +0x10 full flag (byte). Stores storage and size, zeroes both indices and the flag. Called when setting up UART and HCI byte queues (e.g. 0x0c059134 with a 16-byte buffer).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring buffer struct (btstack_ring_buffer_t, 0x14 bytes)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "backing storage"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "storage size in bytes"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c06571c": {
+  "name": "btstack_ring_buffer_reset",
+  "summary": "Reset a ring buffer to empty",
+  "description": "BTstack btstack_ring_buffer_reset(): clears last_read_index (+8), last_written_index (+0xc) and the full flag (+0x10); storage and size are preserved.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring buffer struct"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065728": {
+  "name": "btstack_ring_buffer_bytes_available",
+  "summary": "Number of bytes stored in a ring buffer",
+  "description": "BTstack btstack_ring_buffer_bytes_available(). If the full flag (+0x10) is set returns size (+4). Otherwise returns last_written - last_read (+0xc minus +8), adding size when negative (wrap).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring buffer struct"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "bytes currently stored (0..size)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065744": {
+  "name": "btstack_ring_buffer_empty",
+  "summary": "Test whether a ring buffer is empty",
+  "description": "BTstack btstack_ring_buffer_empty(). Computes the stored byte count as in bytes_available (full flag set -> size, else write minus read, wrapped) and returns true when it is 0.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring buffer struct"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "1 if no bytes stored"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065768": {
+  "name": "btstack_ring_buffer_bytes_free",
+  "summary": "Free space in a ring buffer",
+  "description": "BTstack btstack_ring_buffer_bytes_free(). Returns 0 when the full flag is set; otherwise read_index - write_index, plus size when write >= read, i.e. size - bytes_available (equal indices mean empty, so size is free).",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ring buffer struct"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "free bytes (0..size)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065884": {
+  "name": "btstack_run_loop_embedded_init",
+  "summary": "Reset the embedded run loop lists",
+  "description": "Run loop init method (reached only through the btstack_run_loop vtable, so no direct callers). Clears three globals: 0x200190a4 (a linked list head, probably the timer list), 0x200190a8 (data source list polled by 0x0c065a2c) and 0x200190ac (trigger/event flag).",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Assignment of 0x200190a4 vs 0x200190a8 to timers/data sources inferred from the poll function."
+ },
+ "ble_219_0c065a2c": {
+  "name": "btstack_run_loop_embedded_poll_data_sources",
+  "summary": "Call process() of every data source that has POLL enabled",
+  "description": "Part of the embedded run loop execute step. Walks the data source list at DAT_200190a8; for each item it caches the next pointer first (so the callback may remove itself), tests bit 0 of the u16 flags at +0xc (DATA_SOURCE_CALLBACK_POLL) and, if set, calls the process function pointer at +8 as process(ds, 1). Returns at the end of the list. Called from the run loop main routine 0x0c05d108.",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a5c": {
+  "name": "btstack_run_loop_set_timer_handler",
+  "summary": "Set the callback of a timer source",
+  "description": "btstack_run_loop_set_timer_handler(ts, process): stores param_2 into btstack_timer_source_t.process at offset 8. Very many callers (HCI, L2CAP, SM, ATT timeouts) call it before set_timer/add_timer.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "timer source (btstack_timer_source_t*)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "timer handler function"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a60": {
+  "name": "btstack_run_loop_set_data_source_handler",
+  "summary": "Set the process callback of a data source",
+  "description": "btstack_run_loop_set_data_source_handler(ds, process): writes param_2 to btstack_data_source_t.process at offset 8 (same store as the timer variant, kept as a separate function). Used e.g. by 0x0c059134 and 0x0c05ad18 to register UART polling handlers.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "data source (btstack_data_source_t*)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "process callback (ds, callback_type)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a64": {
+  "name": "btstack_run_loop_enable_data_source_callbacks",
+  "summary": "Dispatch enable_data_source_callbacks via the active run loop",
+  "description": "Tail-calls function pointer at offset 0xc of the btstack_run_loop vtable whose address is held in DAT_200190b0, forwarding r0/r1 unchanged (ds, callback_types mask; callers pass 1 = POLL).",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (decompiler lost the forwarded arguments: r0=data source, r1=callback flags)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a70": {
+  "name": "btstack_run_loop_add_data_source",
+  "summary": "Dispatch add_data_source via the active run loop",
+  "description": "Tail-calls vtable entry +4 of the run loop pointed to by DAT_200190b0, forwarding r0 (the data source).",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (forwarded arg r0 = data source)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a7c": {
+  "name": "btstack_run_loop_remove_data_source",
+  "summary": "Dispatch remove_data_source via the active run loop",
+  "description": "Calls vtable entry +8 of the run loop at DAT_200190b0 with the incoming r0 (data source); the result of the call is not used.",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (forwarded arg r0 = data source)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065a98": {
+  "name": "btstack_run_loop_set_timer",
+  "summary": "Dispatch set_timer via the active run loop",
+  "description": "Tail-calls vtable entry +0x14 of the run loop at DAT_200190b0, forwarding r0/r1 (timer source, timeout in ms). Called before add_timer when (re)arming HCI/L2CAP/SM/ATT timers.",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (forwarded args r0 = timer, r1 = timeout ms)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065aa4": {
+  "name": "btstack_run_loop_set_timer_context",
+  "summary": "Store a context pointer in a timer source",
+  "description": "btstack_run_loop_set_timer_context(ts, context): writes param_2 to btstack_timer_source_t.context at offset 0xc.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "timer source"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "user context"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065aa8": {
+  "name": "btstack_run_loop_get_timer_context",
+  "summary": "Read the context pointer of a timer source",
+  "description": "btstack_run_loop_get_timer_context(ts): returns the u32 at offset 0xc, normally fetched at the start of a timer handler.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "timer source"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "user context set earlier"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065aac": {
+  "name": "btstack_run_loop_add_timer",
+  "summary": "Dispatch add_timer via the active run loop",
+  "description": "Tail-calls vtable entry +0x18 of the run loop at DAT_200190b0, forwarding r0 (timer source).",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (forwarded arg r0 = timer)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065ab8": {
+  "name": "btstack_run_loop_remove_timer",
+  "summary": "Dispatch remove_timer via the active run loop",
+  "description": "Calls vtable entry +0x1c of the run loop at DAT_200190b0 with r0 (timer source); the return value (1 if the timer was removed) is ignored by this wrapper.",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none (forwarded arg r0 = timer)"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065ac8": {
+  "name": "btstack_run_loop_get_time_ms",
+  "summary": "Dispatch get_time_ms via the active run loop",
+  "description": "Tail-calls vtable entry +0x28 of the run loop at DAT_200190b0 and returns its result in r0 (system time in milliseconds, used for timer timeouts and timestamps).",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "current time in ms (r0 of the callee; decompiler shows void)"
+  },
+  "confidence": "medium",
+  "notes": "Vtable slot assignment taken from the BTstack btstack_run_loop_t layout; entry +0x24 (dump_timer) is a separate wrapper."
+ },
+ "ble_219_0c065ad4": {
+  "name": "btstack_run_loop_dump_timer",
+  "summary": "Dispatch dump_timer via the active run loop",
+  "description": "Tail-calls vtable entry +0x24 of the run loop at DAT_200190b0 (debug listing of pending timers). Single caller 0x0c059948.",
+  "category": "ble_host",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c065aec": {
+  "name": "btstack_run_loop_init",
+  "summary": "Select the run loop implementation and initialise it",
+  "description": "BTstack btstack_run_loop_init(run_loop): stores the btstack_run_loop vtable pointer in DAT_200190b0, then tail-calls its init method (vtable entry 0), which is btstack_run_loop_embedded_init for this image. Called from the stack bring-up function 0x0c05b67c.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "run loop vtable (btstack_run_loop_t*)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c065af8": {
+  "name": "ble_host_store_arg_pair",
+  "summary": "Save two values into globals 0x200190b8/0x200190b4",
+  "description": "Stores param_1 into DAT_200190b8 and param_2 into DAT_200190b4. Called once from stack bring-up 0x0c05b67c next to btstack_run_loop_init; the matching getter is 0x0c065b0c. Likely the transport/config pair given to the HCI init, but the meaning is not confirmed.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "first value, saved in 0x200190b8"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "second value, saved in 0x200190b4"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Purpose guessed from call placement only."
+ },
+ "ble_219_0c065b0c": {
+  "name": "ble_host_load_arg_pair",
+  "summary": "Read back the two values saved by ble_host_store_arg_pair",
+  "description": "Writes DAT_200190b8 to *param_1 and DAT_200190b4 to *param_2 (pure getter for the pair set at 0x0c065af8). Called from 0x0c04dfb8 and 0x0c04e702 in the host (HCI) code.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "out: value stored in 0x200190b8"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "out: value stored in 0x200190b4"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of the pair (transport/config?) is not confirmed."
+ },
+ "ble_219_0c065b2c": {
+  "name": "bd_addr_copy",
+  "summary": "Copy a 6-byte Bluetooth device address",
+  "description": "BTstack bd_addr_copy(dest, src): copies a u32 followed by a u16 (offset 4), i.e. 6 bytes, from src to dest. Used by HCI/L2CAP/SM when handling connection addresses.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination bd_addr_t"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source bd_addr_t"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ }
+}

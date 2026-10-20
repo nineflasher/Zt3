@@ -1,0 +1,11 @@
+{
+  "mcu_g_0160_200000a8": {
+    "name": "clock_system_core_hz",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x200000a8"],
+    "category": "clock",
+    "description": "SYSCLK frequency in hertz, the value the Artery demo calls SystemCoreClock. Only system_clock_config (mcu_0160_08008dc0) writes it, once at the end of clock bring-up. It reads the CRM clock-switch status: 8000000 or 48000000 when the internal oscillator is the clock source (the choice depends on a CRM bit), 16000000 when HEXT is the source, and 8000000 when the status is unknown. When the PLL is the source, the value is the PLL output, which is HEXT (16 MHz) times the PLL multiplier, so it is 144000000 on this board, then shifted right by the AHB prescaler (/1 here). Timer and serial baud calculations probably read it. It is present in the 12b, 143, 152 and 0160 builds, and its value after startup is 144 MHz with the PLL."
+  }
+}

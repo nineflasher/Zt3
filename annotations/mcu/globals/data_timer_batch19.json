@@ -1,0 +1,20 @@
+{
+  "mcu_g_0160_20000644": {
+    "name": "timer_hold_countdown_ticks",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": ["MCU_0160", "0x20000644"],
+    "category": "timer",
+    "description": "Countdown of the one-shot hold timer. mcu_timed_hold_countdown loads it with 0x567 (1383) when the request byte 0x20001FC8 is set, then decrements it by one on every call while the active byte 0x2000066C is set. The hold ends when the value drops below 1, so it lasts about 1383 calls of the caller's tick (probably the 1 kHz or similar main tick, not confirmed here). Only mcu_timed_hold_countdown reads or writes it in this packet. Its width is not visible in the decompile; s32 is probably right because the loaded value and the signed test both need more than 8 bits. Starts from the power-on value and is only reloaded by a new request."
+  },
+  "mcu_g_0160_20001fc8": {
+    "name": "timer_hold_request_byte",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": ["MCU_0160", "0x20001fc8"],
+    "category": "timer",
+    "description": "Request byte that starts the one-shot hold timer. The command receiver mcu_0160_08005edc sets it to 1 for some incoming command frames, but only when the gate byte 0x20001FCD is zero. mcu_timed_hold_countdown sees it, loads the countdown at 0x20000644, and clears it back to 0. The timer also writes 0 to it when the hold ends. mcu_cmd_state_clear takes its address, so other code may clear it too (probably as part of command cleanup). Values are 0 (idle) or 1 (request pending). It is not touched by mcu_set_request_flags, which writes the neighbouring bytes 0x20001FC9 and 0x20001FCB."
+  }
+}

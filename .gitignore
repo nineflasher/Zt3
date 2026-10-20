@@ -1,0 +1,15 @@
+# Ghidra projects are rebuilt from firmware/ by `zt3 import`
+ghidra_project/
+*.rep/
+*.gpr
+*.lock
+*.lock~
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+# Scratch
+.scratch/
+analysis/decomp/
+analysis/work/

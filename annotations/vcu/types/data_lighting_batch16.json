@@ -1,0 +1,32 @@
+{
+ "structs": {
+  "LightingLevelBar": {
+   "size": 3,
+   "description": "State of the 10-segment level bar drawn by vcu_level_bar_update_hysteresis. The bar dithers between two neighbouring levels so that a value between two 5 percent steps looks smooth.",
+   "fields": [
+    {"name": "lower_pct", "offset": 0, "type": "u8", "description": "Lower of the two neighbouring bar levels, in percent (0..100). The bar lights floor(lower_pct / 10) segments when it redraws at dither phase 119."},
+    {"name": "upper_pct", "offset": 1, "type": "u8", "description": "Upper of the two neighbouring bar levels, in percent (0..100). The bar lights floor(upper_pct / 10) segments when it redraws at dither phase 60."},
+    {"name": "dither_phase", "offset": 2, "type": "u8", "description": "Dither phase counter, 0..119. The counter wraps to 0 after 119 (the character 'w'). Each call advances it by one; the bar redraws only when the previous value was 60 or 119."}
+   ]
+  },
+  "LightingBrightness": {
+   "size": 3,
+   "description": "LED brightness state written by lighting_brightness_percent_set: the displayed level, a software PWM phase counter and the requested target.",
+   "fields": [
+    {"name": "current_pct", "offset": 0, "type": "u8", "description": "Current brightness in percent, moved toward the request in steps of 5 (probably). The code saturates it at 109 (0x6d)."},
+    {"name": "pwm_phase", "offset": 1, "type": "u8", "description": "Software PWM phase counter. It increments on each refresh and resets to 0 after the wrap; the LED is on while the target is not less than this phase (probably)."},
+    {"name": "target_pct", "offset": 2, "type": "u8", "description": "Requested brightness, 0..100 percent. Set by lighting_brightness_percent_set through FUN_0800f050(level, 0, 100, 10)."}
+   ]
+  },
+  "LightingSweepState": {
+   "size": 6,
+   "description": "State of the channel-sweep lighting animation in vcu_channel_sweep_animation. Mode 0 turns all groups on; mode 1 runs the sweep.",
+   "fields": [
+    {"name": "position", "offset": 0, "type": "u16", "description": "Sweep position, counted in sweep steps. It runs from 0 to twice lighting_sweep_channel_count and then restarts at 0 (probably)."},
+    {"name": "mode_latched", "offset": 2, "type": "u16", "description": "Animation mode last applied (0 = all on, 1 = sweep). It is copied from mode_now when the requested mode changes."},
+    {"name": "mode_now", "offset": 4, "type": "u16", "description": "Animation mode requested this tick, taken from bit 6 of DAT_20001e68 (0 or 1)."}
+   ]
+  }
+ },
+ "enums": {}
+}

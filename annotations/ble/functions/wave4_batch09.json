@@ -1,0 +1,708 @@
+{
+  "ble_219_0c0572c0": {
+    "name": "ble_link_try_connect",
+    "summary": "Start the connection attempt for the pending link record selected by key param_2",
+    "description": "Selects and starts the connection for link key param_2 (0..3). Only ble_link_schedule_reconnect calls it, passing reason 2 or 3 in param_1, which this body never reads. It is gated on the link table holding 1 to 4 records, flag bits 2 and 3 of 0x200042FC being clear, the state word 0x200145B0 being neither 0x102 nor 0x110, and (flag bit 0 clear, or the status hook byte 3 not equal to 4, or the link at 0x200042F8 having a pending flag). Inside the gate the record with key param_2 is preferred when its pending byte +5 or +6 is set, otherwise the last record in the table with a pending flag is used; its key goes to 0x200042F9, its 6-byte peer address (+0x0C) to 0x20004328, the last two address bytes (+0x10) to 0x2000432C, and 0x2000432E is set to 1, then the controller routine ble_219_0c06b498 (not yet described) is called. Result 0x56 from that routine re-arms the restart timer through ble_host_restart_timer_start, any other result sets bit 2 (0x04) of 0x200042FC; the function returns 0 when a record was acted on and 0x46 when the gate or the search failed.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "Caller reason code (2 or 3 from ble_link_schedule_reconnect); not read by this body"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "Link key / slot index, 0..3"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 when a record was acted on, 0x46 when the gate or candidate search failed"
+    },
+    "confidence": "medium",
+    "notes": "The stack byte local_14 compared with 2 is never written in this body (the decompile shows it unset); it may be written by a callee through a pointer, not verified. The meaning of the 0x46 and 0x56 codes and of ble_219_0c06b498 is not established."
+  },
+  "ble_219_0c0573c4": {
+    "name": "ble_link_dispatch_peer_addr",
+    "summary": "Mark a known peer address link pending, or hand an unknown address to ble_219_0c06ba90",
+    "description": "Takes a report record whose 6-byte peer address starts at +2 and runs the no-op hook on that address. In the states other than 0x102 and 0x110 a known address sets bit 1 (0x02) of the pending byte 0x200145CA and calls ble_219_0c06ba60 (not yet described) with the address; in the 0x102 and 0x110 states a known address is ignored. An address that is not in the link table always goes to ble_219_0c06ba90 (not yet described). This is the default branch of ble_link_record_peer_addr and uses the same lookup, ble_link_table_find_by_addr.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "Report record; 6-byte peer address at +2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The meanings of ble_219_0c06ba60 and ble_219_0c06ba90 are not established; they are only referenced by address."
+  },
+  "ble_219_0c05741c": {
+    "name": "ble_link_record_peer_addr",
+    "summary": "Create, reuse or refresh the link record for a peer address during connection setup",
+    "description": "Looks up the peer address at +2 of its report record. In the states 0x102 and 0x110, when the address is unknown, byte 2 of 0x200145CC is not 2, or pending bit 0 of 0x200145CA is set, it creates or reuses a record: the key is the low byte of 0x200145CC, the slot comes from ble_link_table_alloc_slot, a new record raises the count at 0x200134EC, and the record gets its key, address (+0x0C), role (byte 2 of 0x200145CC stored at +7), an extra u16 (upper half of 0x200145D4 at +9) and valid flag +4 = 1; the table is then saved and ble_219_0c06ba60 is called. A reused record whose address differs first has its old address passed to the no-op hook and to ll hook ble_219_0c066618. For a known address under the other conditions it calls ble_219_0c06ba90, clears pending bytes +5 and +6, sets +4 = 1, saves, and reports status 0x41 through ble_219_0c059510 (or ble_219_0c05a884 in state 0x102). In any other state it defers to ble_link_dispatch_peer_addr.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "Report record; 6-byte peer address at +2"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "When ble_link_table_alloc_slot finds no free slot it returns 0 with the found flag 0, and this branch still increments the count, which can push it to 5; the lookup routine then treats the table as corrupt. This looks like a real edge case but is not verified. ble_219_0c05a884 and ble_219_0c066618 are referenced by address only."
+  },
+  "ble_219_0c057d9c": {
+    "name": "ble_link_schedule_reconnect",
+    "summary": "Periodic reconnect scheduler: pick the next pending link, start it, re-arm its retry timer",
+    "description": "Called from ble_host_tick_200ms on every tick. It first runs the 1 s timeout on the connect stamp 0x200134B4 (callback 0x200134B8), returns while request flag 0x200145B1 is set in state 0x02 or 0x10, or while flag bit 2 or 3 of 0x200042FC is set. When flag bit 0 is set and the status hook byte 3 is 4 it requires the active link (0x200042F8) to exist with a pending flag, copies that pending byte into 0x20004300, and otherwise returns. It counts the records whose pending byte +5 or +6 is set and whose +0x0B flag is 1 or whose 4 s deadline 0x200145A9 is active. A single pending record is tried directly; with two to four pending records the table is walked round-robin after the key in 0x200042F9, and 0x200145C8 selects reason 3 for the first try and reason 2 afterwards. Each try goes through ble_link_try_connect, and a successful try re-arms timer 0x20014580 with handler 0x0C057179 after 6000 ms (4000, 3000 or 2000 ms for 2, 3 or 4 pending records, and 2000 ms when a pending record lacks its +0x0B flag). Tries are skipped within 9 s of the last one (0x20004340) unless the 4 s deadline is active.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The retry timeouts and reason codes are read from the code; the meaning of reason 2 and 3 is not established. Handler 0x0C057179 is not described in this packet. Part of the connection group with ble_link_try_connect and ble_link_request."
+  },
+  "ble_219_0c05806c": {
+    "name": "ble_host_tick_200ms",
+    "summary": "200 ms host tick: run link events and reconnect scheduling while the state byte is 2",
+    "description": "Self-rescheduling 200 ms tick that does nothing unless the controller state byte at env+0x198 (ble_ctrl_env_get_u8_at_0x198) is 2. When it runs it calls the status hook at 0x20014608, increments the 32-bit tick counter 0x20013074, sends host event 0x0D with reason 4 when the counter reaches 100 (about 20 s), calls ble_link_event_tick with the counter, then ble_link_schedule_reconnect. Every 20 ticks (4 s), when flag bits 0 and 4 of 0x200042FC are clear, it calls ble_219_0c056d5c (0, 0, 1); otherwise it calls ble_219_0c0567d8 (both not yet described). The result is checked with ll_env_get_flag_170: after more than 100 consecutive set results (about 20 s) ll_env_clear_flag_170 clears the controller flag and the streak counter 0x200130D8 resets. The tick ends by re-arming itself through ble_host_timer_restart for 200 ms, using its own address (0x0C05806D) as the handler.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The condition reads status-record bytes 2, 5 and 6 of the hook buffer that this body never writes; they are assumed to be filled by the hook (the decompile shows them as separate stack locals). The argument passed to ll_env_get_flag_170 is an intermediate value from the branch above and the callee's use of it is not visible. The choice between ble_219_0c056d5c and ble_219_0c0567d8 is read from the code only."
+  },
+  "ble_219_0c058168": {
+    "name": "ble_app_addr6_store",
+    "summary": "Store the 6-byte identity at param_1 through the app block writer ble_219_0c045ddc",
+    "description": "Two-instruction wrapper that calls ble_219_0c045ddc (not yet described) with param_1 and length 6. Its caller ble_219_0c02a8f8 is outside this batch. Within the identity code of ble_host_init_identity_addr, ble_219_0c045ddc is the counterpart of ble_app_addr6_read, so this stores a 6-byte device identity into the app block.",
+    "category": "app",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte identity address to store"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The write-side meaning of ble_219_0c045ddc is inferred from how ble_host_init_identity_addr uses it, not from its own body."
+  },
+  "ble_219_0c058250": {
+    "name": "ble_host_init_identity_addr",
+    "summary": "Load the device identity; if it is all zero, generate, store and install a new one",
+    "description": "Reads the 6-byte identity from the app block with ble_app_addr6_read. When it is all zero (bt_bdaddr_is_zero) it fills 6 bytes from ble_219_0c04585c (not yet described), replaces the first three with the fixed bytes F4 1A 7A, and writes the result back with ble_219_0c045ddc. It then installs the address with ble_ctrl_env_set_peer_addr(addr, 0), calls ble_219_0c06b178(0) and ble_219_0c06b1e0(0), sets env+0x45 to 0 through ble_ctrl_env_set_u8_at_0x45, and sets env+0x42 to 3 through ble_ctrl_env_set_u8_at_0x42.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The fill with random bytes is inferred from the flow and from the name of ble_219_0c04585c, whose body is not in this packet. The meaning of the fixed prefix and of the env bytes 0x42 and 0x45 is not established here."
+  },
+  "ble_219_0c058458": {
+    "name": "ble_event_report_frame",
+    "summary": "Build a 0x0171 host event frame in the static buffer at 0x20013104 and send it via the TX hook",
+    "description": "Builds a 7-byte header at 0x20013104: type word 0x0171, a big-endian length (payload + 3), event code param_1, and a big-endian payload length param_2; it then copies param_2 bytes from param_3 to offset 7 with memcpy. The length fields are byte-reversed in place with bt_bytes_reverse_inplace. When the TX hook at 0x200130DC is set it is called with the frame, total length param_2 + 7 and param_4 + 7 (the meaning of the third argument is not known), and then the frame is dumped in hex through the debug printf ble_219_0c035d0c (not yet described). Every host event reporter in this batch (ble_evt_report_*, ble_host_report_clock_0d, ble_event_stats_report_11) builds its frame here.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "Event code"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "Payload length in bytes"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "Payload source"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "Tag; the hook receives param_4 + 7"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The 7-byte header layout (type 2 bytes, length 2 bytes, event 1 byte, payload length 2 bytes) is inferred from the offsets used and the total length of payload + 7."
+  },
+  "ble_219_0c058520": {
+    "name": "ble_event_stats_report_11",
+    "summary": "Send the 0x11 event statistics once either of two event counters passes 29, then reset them",
+    "description": "Does nothing unless counter A (0x200130FC) or counter B (0x2001322F) is above 29. It then reads clock_gettime(CLOCK_MONOTONIC) and uses its first 16 bits as the current time, computes each channel's elapsed time from its start stamp (0x20013100 for A, 0x20013230 for B) when that counter is non-zero, and sends host event 0x11 with a 6-byte payload: count B, count A, elapsed B and elapsed A, the two elapsed values byte-reversed to big-endian. Both counters and both stamps are then reset to zero. It is called at the end of the 0x01 and 0x03 reporters.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low",
+    "notes": "What the two counters count is not established from this function. The second bt_bytes_reverse_inplace call has no length argument visible in the decompile; 2 is assumed."
+  },
+  "ble_219_0c058980": {
+    "name": "ble_host_report_clock_0d",
+    "summary": "Send host event 0x0D: a reason code, the 64-bit millisecond clock and the flags low byte",
+    "description": "Reads the time with _gettimeofday_r, converts it to a 64-bit millisecond count (seconds times 1000 plus microseconds divided by 1000), and stores it big-endian with bt_bytes_reverse_inplace. It then sends host event 0x0D with an 11-byte payload: the reason code param_1, the 8-byte clock, and the low byte of the flag word 0x200042FC (the last byte is unset). Reason codes passed by this batch's callers are 1, 2, 3, 4, 8 and 10; their meanings are not defined in this function. ble_host_restart_timer_start also calls it.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "Reason code carried as payload byte 0"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058a0c": {
+    "name": "ble_evt_report_link_status_0b",
+    "summary": "Send host event 0x0B: link key, code, role, peer address, extra byte and flags",
+    "description": "Sends host event 0x0B with a 12-byte payload (the last byte unset): the link key from 0x200042F8, param_1 as the code, the role byte at +7 of that key's link record (0xFF when there is none), the 6-byte peer address from param_2, param_3, and the low byte of 0x200042FC. Its callers in this batch are ble_link_request_timer_cb, and ble_219_0c05a608 which is outside this batch.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "Event code / status passed to the report"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "Extra status byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058a64": {
+    "name": "ble_evt_report_state_flags_01",
+    "summary": "Send host event 0x01 with the link key and flags byte, then flush the event counters",
+    "description": "Sends host event 0x01 with a 3-byte payload: the link key byte from 0x200042F8, the low byte of 0x200042FC, and one unset trailing byte. It then calls ble_event_stats_report_11, which sends its 0x11 report only when a counter is above 29.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058a94": {
+    "name": "ble_evt_report_conn_state_02",
+    "summary": "Map an internal connection event type and HCI reason to a status code and send event 0x02",
+    "description": "param_1 selects the mapping: type 1 gives 2 when param_2 is 1 (that branch also clears byte 0x20004324) and 6 otherwise, type 2 gives 3, type 3 gives 4, type 10 gives 8 and type 11 gives 7. For type 4 (disconnect) param_3 == 1 gives 5; otherwise param_4 is read as an HCI reason: 0x13 (remote user terminated) gives 1, 0x16 (connection terminated by local host) gives 0x16, 0x08 (connection timeout) gives 9, and any other reason gives 0xFF. The mapped code, the link key and the flags low byte are sent as host event 0x02 with a 4-byte payload whose last byte is unset.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "Internal connection event type"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "Sub-flag; value 1 selects the type-1 success branch"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "Sub-flag; value 1 maps type 4 to 5"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "HCI disconnect reason for type 4"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The HCI reason meanings are the standard Bluetooth Core values. For event types not listed the mapped byte is left unassigned in the decompile."
+  },
+  "ble_219_0c058b48": {
+    "name": "ble_evt_report_br_acl_03",
+    "summary": "Log a BR/EDR ACL connect success and send host event 0x03 with the peer address",
+    "description": "Prints 'br acl succeed- mac:' with the 6-byte address at param_1 through the debug printf, then sends host event 0x03 with a 10-byte payload: the link key, the 6-byte address, the role byte of the link record for that key (0xFF when there is none), and the flags low byte, with one unset trailing byte. It calls ble_event_stats_report_11 afterwards.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte BD_ADDR of the connected peer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058bc0": {
+    "name": "ble_evt_report_addr_status_04",
+    "summary": "Send host event 0x04: link key, peer address, status byte from param_2 and flags",
+    "description": "Sends host event 0x04 with a 10-byte payload: the link key from 0x200042F8, the 6-byte address at param_1, the status byte param_2, and the low byte of 0x200042FC, with the last byte unset. The layout matches ble_evt_report_addr_status_05, and only the event code differs.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "Status byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058c00": {
+    "name": "ble_evt_report_addr_status_05",
+    "summary": "Send host event 0x05 with the same layout as event 0x04",
+    "description": "Identical to ble_evt_report_addr_status_04 except for the event code 0x05: link key, 6-byte address from param_1, status byte param_2, flags low byte, and one unset trailing byte in a 10-byte payload.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "Status byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058c40": {
+    "name": "ble_evt_report_link_role_06",
+    "summary": "Send host event 0x06: link key, peer address, role byte, status byte and flags",
+    "description": "Sends host event 0x06 with an 11-byte payload (the last byte unset): the link key, the 6-byte address at param_1, the role byte at +7 of the key's link record (0xFF when there is none), the status byte param_2, and the low byte of 0x200042FC. ble_link_request_timer_cb calls it with status 2 when a request has stalled.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "Status byte"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058c90": {
+    "name": "ble_evt_report_rssi_setpoints_0c",
+    "summary": "Send host event 0x0C: link key, role, peer address, two RSSI setpoints and flags",
+    "description": "Sends host event 0x0C with an 11-byte payload: the link key, the role byte of the key's link record (0xFF when there is none), the 6-byte address at param_1, param_2 and param_3 each stored as value + 0x80 (offset binary), and the low byte of 0x200042FC. The two signed inputs are the record's setpoint bytes +1 and +2 as written by ble_link_request_timer_cb, and they behave like dBm values between about -85 and -45 (inferred from the clamps in that function).",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "6-byte peer address"
+      },
+      {
+        "name": "param_2",
+        "type": "s8",
+        "description": "First RSSI setpoint (record +1)"
+      },
+      {
+        "name": "param_3",
+        "type": "s8",
+        "description": "Second RSSI setpoint (record +2)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The record lookup is shown with no argument in the decompile; the key is presumably the byte in local_24 as in the other reporters. The unit of the setpoints is inferred."
+  },
+  "ble_219_0c058ce8": {
+    "name": "ble_evt_report_state_flags_10",
+    "summary": "Send host event 0x10 with the link key and flags byte",
+    "description": "Sends host event 0x10 with a 3-byte payload: the link key from 0x200042F8, the low byte of 0x200042FC, and one unset trailing byte. It has the same layout as ble_evt_report_state_flags_01 but does not flush the counters.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": ""
+  },
+  "ble_219_0c058f00": {
+    "name": "ble_hid_service_register",
+    "summary": "Register the 'ninebot HID' SDP record, the HID descriptor and PSMs 0x11 and 0x13",
+    "description": "Builds the HID service's SDP record with hid_create_sdp_record into the buffer at 0x200132C0, using the service name 'ninebot HID', the attribute word 0x00010101, the value 5000, the 0x73-byte HID report descriptor at 0x0C081930, and the second argument 0x00010007. It registers the record with sdp_register_service, starts the HID device with hid_device_init(0, 0x73, descriptor), which registers PSMs 0x11 and 0x13, and stores the HID callback at 0x0C058D40 through bthost_set_var_2000fa00. It is called once from ble_host_init_services in full mode.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The meanings of 0x00010101, 5000 and 0x00010007 are not established by this function; the labels are taken from the SDP calls it makes."
+  },
+  "ble_219_0c059180": {
+    "name": "ble_host_restart_timer_start",
+    "summary": "Send a 0x0D status event, reset the run-loop timers and start the 60 s 'bts restart timer'",
+    "description": "Sends host event 0x0D through ble_host_report_clock_0d (the decompile shows no reason argument), calls btstack_run_loop_embedded_remove_all_timers (ble_219_0c0658d8) and ble_219_0c06b154 (not yet described), then creates a one-shot FreeRTOS timer named 'bts restart timer' with a 60000 ms period and expiry callback 0x0C0591CC (xTimerCreate), stores the handle at 0x200134A8 and starts it with xTimerGenericCommand. ble_host_init_services registers this function as a BTstack callback, and ble_link_try_connect calls it when the connect routine returns 0x56.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The argument passed by ble_link_try_connect (5) is ignored by this body. ble_219_0c06b154 and the expiry callback are not described here."
+  },
+  "ble_219_0c059230": {
+    "name": "ble_host_init_services",
+    "summary": "Initialise host services; full mode also reconciles links and starts SDP, HID and ATT",
+    "description": "Always runs l2cap_channel_pool_init (ble_219_0c06d474), sm_init and hci_add_event_handler (called with no argument visible in the decompile). When param_1 is 2 it first runs ble_link_table_prune_by_ctrl, bthost_latch_ctrl_mode_2000fb90, sdp_init and ble_hid_service_register. In every mode it then stores the function at 0x0C0575ED into 0x200134B0, runs le_device_db_tlv_check_init, sets ble_ctrl_set_flag_3fac(3) and ble_ctrl_set_flag_fdc5(1), initialises the ATT server on the object at 0x20004348 with read and write callbacks 0x0C05ADA4 and 0x0C05AFA4 (att_server_init), registers the ATT packet handler, and stores ble_host_restart_timer_start as a callback in the BTstack data block at 0x200190D0 + 0x28.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "Init mode; 2 selects the full bring-up"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The exact ordering of the mode-independent calls follows the decompile; the reason hci_add_event_handler takes no argument here is not established."
+  },
+  "ble_219_0c0592a4": {
+    "name": "ble_host_start",
+    "summary": "Start the BLE host: hooks, role byte, bts task, packet ring, queues, identity and HCI handler",
+    "description": "Returns 0 in all cases. If ble_app_magic_caf_check returns 1 it only runs three other init routines (ble_219_0c03bb70, ble_219_0c0420d0, ble_219_0c04696c, not yet described) and returns. Otherwise it runs ble_219_0c05b67c (not yet described), ble_rom_table_get_0c0810e0 (result unused) and ble_hook_table_register, stores param_1 at 0x20004345, creates the bts task (ble_bts_task_create), sets up the packet ring on buffer 0x20013420 with 5 descriptor slots (ble_pktq_init(4, 10)), creates the message queues (ble_msg_queues_init) and the event source (ble_evt_source_init), loads the identity (ble_host_init_identity_addr), re-registers the HCI handler object at 0x200134AC (hci_remove_event_handler, then hci_add_event_handler), calls ble_219_0c06b048(1), and finally creates the 'bt stack' task with ble_bt_stack_task_create.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "Role/mode byte stored at 0x20004345"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "Always 0"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the CAF check result branch and of ble_219_0c06b048 is not established. The stored role byte's meaning is not established either."
+  },
+  "ble_219_0c0593a4": {
+    "name": "ble_link_request",
+    "summary": "Start, release or re-arm a link connection request from a key, mode and peer address block",
+    "description": "param_1 is a request block: key at +0 (0..3), mode at +1 (0 or 1; other values return 0x47), type at +2, peer address at +3..+8, and a u16 at +10. While the state word 0x200145B0 is 0x110 it only re-arms the 60 s request timer 0x20014590 (handler ble_link_request_timer_cb) and returns bit 0 of 0x200145CA. Otherwise it clears 0x200145CA and looks up the link: mode 0 on a known link clears pending byte +6 and saves, aborting through ble_219_0c06b8bc (DAT_20004338) when bit 3 is set and +5 is clear. Otherwise it copies the block into the request words 0x200145CC, 0x200145D0 and 0x200145D4, sets the state word to 0x110, and either calls ble_219_0c057288 and returns 0 (non-zero address that matches the stored link which is not already valid) or calls ble_219_0c0571d4, stores the key in 0x200042F8 and returns 1; it arms the 60 s timer on that path.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "Request block: key, mode, type, peer address, extra u16"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "Not read directly by this body; passed to the connection helpers"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "Not read directly by this body; passed to the connection helpers"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "Passed only to the timer re-arm in the 0x110 path"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "1 or 0 as described; bit 0 of 0x200145CA in the 0x110 path; 0x47 for an invalid block"
+    },
+    "confidence": "medium",
+    "notes": "Under flag bit 6 with a matching stored address the function returns 0 at once after setting the 1 s stamp at 0x200134B4 and marking +6 pending; a non-matching address aborts first. Flag bit 2 is cleared and flags 0x28 are cleared with a 100 ms delay on the way. The decompile passes extra arguments to bt_bdaddr_is_zero which are ignored by that routine."
+  },
+  "ble_219_0c059510": {
+    "name": "ble_link_request_complete",
+    "summary": "Finish the pending link request with a status: stop its timer, update the link, call 0x200134B8",
+    "description": "Acts only when request flag 0x200145B1 is set and the state word is 0x10. It stops the 60 s timer 0x20014590 (btstack_run_loop_remove_timer thunk), clears 0x200145B1, calls ble_219_0c05a874 (not yet described), then looks up the link for the key in 0x200145CC. With status 0 and a known link it sets +4 = 0, +6 = 1 and +0x0B = 1 and saves; with status 0 and no link the status becomes 0x41; with a non-zero status and flag bit 3 set it aborts through ble_219_0c06b8bc and clears bit 3 with ble_flags_clear. It then calls the result callback at 0x200134B8 with the final status and clears 0x200145CC, 0x200145D0 and 0x200145D4.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "Completion status; 0 means success, otherwise a failure code"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The packet lists ble_219_0c05952c as a callee of this function, but the decompiled body shown here does not call it; the two may share a tail (uncertain). The meaning of the 0x41 status is taken from the code only."
+  },
+  "ble_219_0c05952c": {
+    "name": "ble_link_request_complete_nonzero",
+    "summary": "Entry variant of ble_link_request_complete that turns any non-zero status into 0x41",
+    "description": "Runs the same completion path as ble_link_request_complete with the same guard (0x200145B1 set in state 0x10). A non-zero argument is replaced by status 0x41 before the common path runs, and a zero argument behaves exactly as ble_link_request_complete(0).",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "Status; non-zero is replaced by 0x41"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The packet lists this as a callee of ble_link_request_complete; see the notes of that function."
+  },
+  "ble_219_0c0598b8": {
+    "name": "ble_bts_task_periodic_check",
+    "summary": "Periodic bts check: report faults as events 2, 3, 8 and 10, then back off 500 ms and recover",
+    "description": "Called by ble_bts_task_handler when its status hook reports 1. It sends host event 0x0D with reason 2 when ble_link_get_byte_200134a4 is 0x41, and when ble_219_0c03df24 (not yet described) returns non-zero it sends reason 3 and calls ble_219_0c03d69c(0). DAT_20004304 (set by ble_rssi_sample_ingest after a long run of identical samples) sends reason 8, and DAT_20004306 sends reason 10, each being cleared when sent. When none of these applies and the status is not 0x41 and DAT_20004305 is not 1 it returns early; otherwise it waits 500 ms with vTaskDelay (ble_219_0c0441a8) and calls ble_219_0c041d28 (not yet described) with 0.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low",
+    "notes": "The recovery call and the sources of DAT_20004305 and DAT_20004306 are not established in this packet. Group: bts task loop with ble_bts_task_handler and ble_host_stall_watchdog."
+  },
+  "ble_219_0c059948": {
+    "name": "ble_host_stall_watchdog",
+    "summary": "Check every 200 ms that the host tick advances; after about 120 s stalled, report reason 1",
+    "description": "Called from the bts task loop. On the 200 ms deadline at 0x20014560 it reschedules the deadline, reads the host tick counter through ble_get_word_13074 and compares it with the last value at 0x2001455C. A change stores the new value and clears the streak at 0x2001456C; no change increments the streak, which at 600 (about 120 s) sends host event 0x0D with reason 1. Once the streak passes 609 while the status hook byte 2 is set it calls ble_219_0c041d28 with 0 as recovery. The hook at 0x20014608 is called on entry to fetch that byte.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The run-loop call ble_219_0c065ad4 (btstack_run_loop_dump_timer by name) is made on each check; its role here is unclear."
+  },
+  "ble_219_0c0599d4": {
+    "name": "ble_bts_task_handler",
+    "summary": "bts task loop: check in with the watchdog, wait for its event, drain the rings, run periodic work",
+    "description": "Entry point of the 'bts_task' created by ble_bts_task_create. It logs 'bts_task_handler started' with the debug printf, runs ble_219_0c036328 (not yet described), then loops forever: it checks in with the watchdog (hal_wdt_task_checkin), sets busy flag 0x20014558 to 0, waits up to 100 ticks for bit 0x01 of event group 0x20014564 (xEventGroupWaitBits, clear on exit), sets the busy flag to 1, drains the inbound message ring (ble_msg_drain_to_host), dispatches the callback ring (ble_ring_dispatch_pending) and runs ble_host_stall_watchdog. Once the status hook at 0x20014608 is installed it calls it until its byte 2 is 1, then runs ble_bts_task_periodic_check.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c059a40": {
+    "name": "ble_bts_task_create",
+    "summary": "Create the bts event group and the 'bts_task' (depth 0x400, priority 2) with static buffers",
+    "description": "Creates the event group stored at 0x20014564 (ble_219_0c04283c), then creates the task 'bts_task' with entry 0x0C0599D5 (ble_bts_task_handler), depth 0x400, priority 2, static stack 0x20013558 and TCB 0x20004AD8 through xTaskCreateStatic. The task handle goes to 0x20014568. It is called once from ble_host_start.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c059ac0": {
+    "name": "ble_link_request_complete_alt",
+    "summary": "Alternate request completion: mark the link valid and pending, then call the callback at 0x20014600",
+    "description": "Stops the 60 s timer 0x20014590, clears 0x200145B1 and 0x200145CA, and calls ble_219_0c06b178 (not yet described). It asks the status hook at 0x20014608 for a record, and with a link record for the key in 0x200145CC, status 0 sets +4 = 0, +5 = 1, +0x0B = 1, sets +6 = 1 unless the hook record's byte 0 is 1, sets DAT_20004300 = 1, calls ble_219_0c06b1e0 (not yet described) and saves the table. Status 0 with no link becomes 0x41; a non-zero status with bit 3 of 0x200042FC set aborts through ble_219_0c06b8bc and clears bit 3. It then calls the completion callback at 0x20014600 with the status and clears 0x200145CC, 0x200145D0 and 0x200145D4.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "Completion status; 0 means success"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The status-0 branch is the mirror of ble_link_request_complete, which uses the 0x200134B8 callback and sets +6 instead of +5."
+  },
+  "ble_219_0c059d0c": {
+    "name": "ble_link_request_timer_cb",
+    "summary": "Request timer callback: finish a stalled connect request, or step the link's RSSI setpoints",
+    "description": "Runs when the 60 s timer 0x20014590 expires and also acts as a link state step. While 0x200145B1 is 1 and the state word is 0x02 or 0x10 it reports the link (ble_evt_report_link_role_06 with status 2, and ble_evt_report_link_status_0b), then completes the request through ble_link_request_complete or ble_link_request_complete_alt with status 0x42 when the type byte is 2, byte 0x200145CA is 3 and the address at 0x200145CF is all zero, and 0x43 otherwise. In state 0x03 with a current link (0x200042F8) it sets the link's index byte +3 to 3 and computes two RSSI setpoints: -74 when fewer than five samples exist, otherwise the 0x20004330 average minus 16 clamped to -45 or lower; the second setpoint uses the 0x20004317 value minus 16 when more than four samples exist and is kept between the first setpoint minus 4 and the first setpoint. It saves, reports them through ble_evt_report_rssi_setpoints_0c, refreshes the thresholds at 0x2000432F and 0x20004316, and calls the setpoint callback at 0x2001460C. It clears 0x200145B1 at the end.",
+    "category": "ble_controller",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The 0x42 and 0x43 status meanings are not established. Thresholds 0x2000432F and 0x20004316 are the same ones refreshed by ble_link_device_event."
+  },
+  "ble_219_0c059f64": {
+    "name": "ble_rssi_sample_ingest",
+    "summary": "Ingest one RSSI sample into channel window 1 or 2 and flag 300 identical samples",
+    "description": "param_3 selects the channel. Channel 1 (BR/EDR ACL, handle DAT_20004338) takes a negative sample (a valid dBm reading) for a matching handle only while flag bit 3 is set: the five-byte window at 0x20004331..0x20004335 shifts, the new sample goes in, and ble_rssi_filter_update returns the mean stored in DAT_20004330. Channel 2 (BLE, handle DAT_20004308) does the same with window 0x20004318..0x2000431C, output DAT_20004317, gated by flag bit 0. Separately, while the channel's flag bit is set, a streak counter at 0x20014578 counts consecutive identical samples (the last value is kept at 0x2001457D for channel 1 or 0x2001457C for channel 2), and DAT_20004304 is set to 1 once the streak passes 299.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "Connection handle the sample belongs to"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "Sample; negative values are valid dBm readings"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "Channel selector: 1 for ACL, 2 for BLE"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "Passed through to the filter; not used otherwise"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "DAT_20004304 is read as a fault flag by ble_bts_task_periodic_check. The meaning of the two channels is taken from the handle and RSSI reader names used elsewhere."
+  },
+  "ble_219_0c05a06c": {
+    "name": "ble_rssi_sample_poll",
+    "summary": "Read the BR/EDR ACL or BLE RSSI for this tick and feed the sample to the filter",
+    "description": "Called once per tick from ble_link_event_tick with the 200 ms tick counter as argument. When DAT_20004300 and 0x200145B1 are both zero it resets the window bytes and the mean bytes first. It then picks the source from flag bits 0 and 3 of 0x200042FC and the low bit of the argument: the BR/EDR ACL RSSI (ble_219_0c03e264, bt_drv_reg_op_read_acl_rssi, for handle DAT_20004338) is read when bit 3 is set and either the argument is odd or bit 0 is clear, and the BLE RSSI (ble_219_0c03e2c0, bt_drv_reg_op_read_ble_rssi, for handle DAT_20004308) is read when bit 0 is set otherwise. The signed result goes to ble_rssi_sample_ingest. In state 0x103 valid (negative) readings are accumulated: count and sum in DAT_200145D8/DAT_200145DC for ACL and DAT_200145E4/DAT_200145E8 for BLE.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "200 ms tick counter; its low bit selects the channel when both flags are set"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "That the tick parity alternates the channel when both flags are set is read from the branch structure; it is an inference about intent."
+  },
+  "ble_219_0c05a224": {
+    "name": "ble_link_event_tick",
+    "summary": "200 ms link event tick: connect setpoint steps, 1 s and 4 s deadlines, RSSI poll and notify",
+    "description": "Called from ble_host_tick_200ms with the tick counter. It reads the status hook and sets DAT_20004300 from the flag bits. If DAT_200145FC (the hook's byte 2 from the previous tick) was 1, DAT_200145F8 is set, the clock is within 31 units of DAT_200145F4 and flag bit 3 is set, it looks up the connect target at 0x20004328 and, when its counter at +0x12 is below 3 and its setpoint at +1 lies 1 to 16 above 0x200145F9, lowers the setpoint by 5 (floor -85), mirrors it to 0x2000432F, and when it drops below entry +2 also to 0x20004316 and entry +2; then it increments the counter and saves. A 1 s timeout on DAT_200145F0 runs the completion callback at 0x20014600, and the 4 s deadline 0x200145AC clears DAT_200145A9 when it expires. It then runs ble_rssi_sample_poll and, when the flag bits allow, ble_event_count_reached_check, and it updates the notification state DAT_20004970 and the four callbacks at 0x20014610 to 1 (active) or 2 (inactive), following the same rule as ble_state_change_notify.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "200 ms tick counter, forwarded to ble_rssi_sample_poll"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "low",
+    "notes": "The purpose of the setpoint step and of the deadline windows is inferred from the arithmetic; the 1 s and 4 s intervals are taken from the code. The function is long and only the main flow is described."
+  },
+  "ble_219_0c05a53c": {
+    "name": "ble_link_device_event",
+    "summary": "Handle a link device event record: event 'f' removes the link record, others cancel requests",
+    "description": "param_1 is an event record whose byte +5 is the event type and whose 6-byte address starts at +6. It copies the address and finds its link record. For type 'f' (0x66) it cancels an active request with status 0x41 when 0x200145B1 is set in state 2, and in state 0x102 it calls ll hook ble_219_0c066618 on 0x20004328 and removes the link key 0x200042F8 with ble_link_table_remove_key. For other non-zero types it only cancels an active state-2 request with 0x41. For type 0 it resets 0x2000432F to -74, refreshes both thresholds from the current link record when there is one (as in ble_event_thresholds_refresh_from_link), and completes an active state-2 request with status 0 through ble_link_request_complete_alt. When a record is found on type 0, DAT_20004300 is set from its byte +5, and again at exit.",
+    "category": "ble_controller",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "Event record: type byte at +5, 6-byte address at +6"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": ""
+    },
+    "confidence": "medium",
+    "notes": "The exit path reads record byte +5 without a NULL check on the lookup result, which the decompile does not guard; it may be a real edge case (uncertain). The meaning of type 'f' as a forget or unlink event is inferred from the removal it performs."
+  }
+}

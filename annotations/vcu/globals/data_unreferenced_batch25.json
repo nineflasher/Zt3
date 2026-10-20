@@ -1,0 +1,525 @@
+{
+ "vcu_g_0159_20000001": {
+  "name": "unreferenced_rx_in_frame",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20000001"
+  ],
+  "category": "protocol",
+  "description": "Frame-parser state set by FUN_08008AEC: 1 after the 0x5A 0xA5 frame header has been seen and bytes are being collected, 0 while it searches for the header. Written only by that parser."
+ },
+ "vcu_g_0159_20000002": {
+  "name": "unreferenced_rx_byte_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20000002"
+  ],
+  "category": "protocol",
+  "description": "Number of bytes already stored in the receive frame buffer at 0x200018C0 (index of the next byte). FUN_08008AEC increments it per received byte and clears it when a frame starts or is dropped."
+ },
+ "vcu_g_0159_20000003": {
+  "name": "unreferenced_rx_frame_len",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20000003"
+  ],
+  "category": "protocol",
+  "description": "Expected total length of the frame being received, stored as the received length byte plus 7. FUN_08008AEC rejects a length whose value minus 7 is above 0xEC (probably the frame size limit)."
+ },
+ "vcu_g_0159_20000006": {
+  "name": "unreferenced_rx_timeout_ticks",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20000006"
+  ],
+  "category": "protocol",
+  "description": "Receive-side counter cleared by FUN_08008AEC on the bad-header and reset paths. Its increment is not in this packet, so it is probably a receive timeout or error counter."
+ },
+ "vcu_g_0159_2000103c": {
+  "name": "unreferenced_settings_master",
+  "type": "u8",
+  "size": 512,
+  "anchor": [
+   "VCU_0159",
+   "0x2000103c"
+  ],
+  "category": "app",
+  "description": "512-byte RAM block, probably the parameter or settings master copy. FUN_08009DA8 compares it with its shadow at 0x20001AB4 at start-up and copies all 0x200 bytes over the shadow when they differ. Filled from elsewhere (not in this packet).",
+  "count": 512
+ },
+ "vcu_g_14a_2000123d": {
+  "name": "unreferenced_b14a_123d",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x2000123d"
+  ],
+  "category": "app",
+  "description": "Build-14a-only byte whose address is taken by FUN_080054EC. No direct access line appears in this packet, so its role is unknown."
+ },
+ "vcu_g_0159_2000123f": {
+  "name": "unreferenced_flag_table_123f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000123f"
+  ],
+  "category": "app",
+  "description": "First element of an indexed flag table: FUN_080054EC tests (&DAT_2000123F)[i + j] against 1. The table length is not visible in this packet, so the size here covers only element 0. Build 0159 only."
+ },
+ "vcu_g_153_2000123f": {
+  "name": "unreferenced_b153_123f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000123f"
+  ],
+  "category": "app",
+  "description": "Build-153 counterpart of the indexed flag table at 0x2000123F, read the same way by FUN_080054EC (the build-0159 start is documented as unreferenced_flag_table_123f)."
+ },
+ "vcu_g_148_2000134c": {
+  "name": "unreferenced_b148_134c",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x2000134c"
+  ],
+  "category": "app",
+  "description": "Build-148-only byte read and written through a pointer in FUN_080054EC. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_2000135d": {
+  "name": "unreferenced_init_done",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000135d"
+  ],
+  "category": "app",
+  "description": "One-shot start-up flag. FUN_0800A39C runs the one-time init (FUN_08007CFC, FUN_080053EC, FUN_08005410, FUN_080054A4, FUN_080054B4, then sets DAT_20001F54) while this is 0, sets it to 1, and clears it again on another path of the same function."
+ },
+ "vcu_g_14f_2000135d": {
+  "name": "unreferenced_b14f_135d",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x2000135d"
+  ],
+  "category": "app",
+  "description": "Build-14f counterpart of unreferenced_init_done. Only accessed through a pointer in FUN_080047AC here."
+ },
+ "vcu_g_0159_2000135e": {
+  "name": "unreferenced_src_copy_135e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000135e"
+  ],
+  "category": "app",
+  "description": "Current copy of the byte at 0x2000123E. FUN_080047AC refreshes it whenever the two differ, moving the old value into unreferenced_src_prev_135f. Together they form a current/previous pair."
+ },
+ "vcu_g_14f_2000135e": {
+  "name": "unreferenced_b14f_135e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x2000135e"
+  ],
+  "category": "app",
+  "description": "Build-14f counterpart of the copy byte at 0x2000135E, with the same copy logic in FUN_080047AC."
+ },
+ "vcu_g_0159_2000135f": {
+  "name": "unreferenced_src_prev_135f",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000135f"
+  ],
+  "category": "app",
+  "description": "Previous value of the copy at 0x2000135E, written by FUN_080047AC before the copy is refreshed. FUN_080047AC also writes it back to 0x2000123E, probably a rollback path."
+ },
+ "vcu_g_0159_2000136c": {
+  "name": "unreferenced_retry_count",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000136c"
+  ],
+  "category": "app",
+  "description": "Retry or wait counter capped at 100. FUN_0800A39C increments it while FUN_08007AB8 returns 0 and the tick counter at 0x2000136E is more than 1100, so it is probably a bounded wait. Cleared at the start of the sequence."
+ },
+ "vcu_g_0159_2000136e": {
+  "name": "unreferenced_tick_wrap",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x2000136e"
+  ],
+  "category": "timer",
+  "description": "16-bit tick counter incremented on each FUN_0800A39C call and reset to 0 when it reaches 1000, probably a slow periodic divider. Used by the condition on unreferenced_retry_count."
+ },
+ "vcu_g_0159_20001370": {
+  "name": "unreferenced_step_1370",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001370"
+  ],
+  "category": "timer",
+  "description": "Step counter in FUN_0800A120. It is cleared when FUN_08007AB8 returns 0, otherwise counted up to 5. At 5 the function sets 0x20001FB7 to 2 and clears this counter, probably a debounce or retry step."
+ },
+ "vcu_g_0159_20001376": {
+  "name": "unreferenced_step_counters",
+  "type": "u16",
+  "size": 6,
+  "anchor": [
+   "VCU_0159",
+   "0x20001376"
+  ],
+  "category": "vehicle",
+  "description": "Three 16-bit counters at 0x20001376, 0x20001378 and 0x2000137A, cleared and incremented in FUN_080047AC. 0x20001376 is compared with 0x20001FE9 + 0x28, 0x2000137A with 0x20001FE9, and 0x20001378 with the literal 5, so they are probably per-stage timers or retry counts.",
+  "count": 3
+ },
+ "vcu_g_14f_20001376": {
+  "name": "unreferenced_b14f_counters",
+  "type": "u16",
+  "size": 6,
+  "anchor": [
+   "VCU_14f",
+   "0x20001376"
+  ],
+  "category": "vehicle",
+  "description": "Build-14f counterparts of the three 16-bit counters at 0x20001376 to 0x2000137A, used the same way by FUN_080047AC.",
+  "count": 3
+ },
+ "vcu_g_148_200017c6": {
+  "name": "unreferenced_b148_17c6",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_148",
+   "0x200017c6"
+  ],
+  "category": "app",
+  "description": "Build-148-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_14a_200017ca": {
+  "name": "unreferenced_b14a_17ca",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x200017ca"
+  ],
+  "category": "app",
+  "description": "Build-14a-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_14e_200017ce": {
+  "name": "unreferenced_b14e_17ce",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14e",
+   "0x200017ce"
+  ],
+  "category": "app",
+  "description": "Build-14e-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_14f_200017ce": {
+  "name": "unreferenced_b14f_17ce",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x200017ce"
+  ],
+  "category": "app",
+  "description": "Build-14f-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_152_2000186e": {
+  "name": "unreferenced_b152_186e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_152",
+   "0x2000186e"
+  ],
+  "category": "app",
+  "description": "Build-152-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_153_2000186e": {
+  "name": "unreferenced_b153_186e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x2000186e"
+  ],
+  "category": "app",
+  "description": "Build-153-only byte written through a pointer by FUN_080047AC. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_2000187e": {
+  "name": "unreferenced_flag_187e",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000187e"
+  ],
+  "category": "app",
+  "description": "Cleared to 0 by FUN_080047AC. No other access appears in this packet."
+ },
+ "vcu_g_0159_20001896": {
+  "name": "unreferenced_result_1896",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001896"
+  ],
+  "category": "timer",
+  "description": "Probably a 16-bit output word of FUN_0800B294. FUN_080031F4 passes its address together with the arguments 3 and 0x51. The value is not visible in this packet."
+ },
+ "vcu_g_0159_20001898": {
+  "name": "unreferenced_timeout_ticks",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001898"
+  ],
+  "category": "timer",
+  "description": "Tick counter for the timeout in FUN_080031F4. It is cleared while the enable flag at 0x20001FED is 0 and counts up while it is 1. Once it passes 500, the function clears the enable flag and 0x20001F68, restarts via FUN_08008BB0 and FUN_08009DA8, and reports via FUN_0800B294."
+ },
+ "vcu_g_0159_200018c0": {
+  "name": "unreferenced_rx_frame_buf",
+  "type": "u8",
+  "size": 244,
+  "anchor": [
+   "VCU_0159",
+   "0x200018c0"
+  ],
+  "category": "protocol",
+  "description": "Receive buffer for one frame, filled byte by byte by FUN_08008AEC at the index in 0x20000002 and handed to FUN_080054EC as a whole. Byte 0 is the payload length, and the payload starts at byte 5. The 244-byte size is probably the maximum frame, but the extent is not confirmed.",
+  "count": 244
+ },
+ "vcu_g_14f_20001a98": {
+  "name": "unreferenced_b14f_1a98",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001a98"
+  ],
+  "category": "app",
+  "description": "Build-14f-only byte read and written by FUN_080047AC through a pointer. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_20001af4": {
+  "name": "unreferenced_buf16_1af4",
+  "type": "u8",
+  "size": 16,
+  "anchor": [
+   "VCU_0159",
+   "0x20001af4"
+  ],
+  "category": "protocol",
+  "description": "16-byte field filled from frame payload bytes 5 to 20 by FUN_080054EC and initialised from a constant string by FUN_08009DA8. FUN_080054EC runs a checksum-like loop over it and also passes it to FUN_08008BB0, probably as an identifier or challenge.",
+  "count": 16
+ },
+ "vcu_g_153_20001b24": {
+  "name": "unreferenced_b153_1b24",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_153",
+   "0x20001b24"
+  ],
+  "category": "app",
+  "description": "Build-153-only byte written through a pointer by FUN_080054EC. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_20001b34": {
+  "name": "unreferenced_setting_1b34",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x20001b34"
+  ],
+  "category": "app",
+  "description": "16-bit setting written by FUN_080054EC. It is zeroed on one path and otherwise loaded from the 16-bit word at frame byte 0x0D."
+ },
+ "vcu_g_152_20001b38": {
+  "name": "unreferenced_b152_1b38",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_152",
+   "0x20001b38"
+  ],
+  "category": "app",
+  "description": "Build-152 small counter. FUN_08009DA8 tests it against 3 (it sets DAT_20001CF6 when below 3 and the mode byte is not 4), and FUN_080047AC reads and writes it. Probably a retry count."
+ },
+ "vcu_g_0159_20001c34": {
+  "name": "unreferenced_payload_1c34",
+  "type": "u8",
+  "size": 20,
+  "anchor": [
+   "VCU_0159",
+   "0x20001c34"
+  ],
+  "category": "protocol",
+  "description": "Buffer filled by FUN_080054EC with as many frame payload bytes as the frame length byte says. The 20-byte size is the distance to the next known variable and is probably the real buffer size, but the extent is not confirmed.",
+  "count": 20
+ },
+ "vcu_g_0159_20001c48": {
+  "name": "unreferenced_flag_1c48",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001c48"
+  ],
+  "category": "app",
+  "description": "Cleared to 0 by FUN_08009DA8 at start-up in builds 153 and 0159. No other access appears in this packet."
+ },
+ "vcu_g_0159_20001c84": {
+  "name": "unreferenced_flag_1c84",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001c84"
+  ],
+  "category": "app",
+  "description": "Set to 1 by FUN_08009DA8 at start-up. No other access appears in this packet."
+ },
+ "vcu_g_14f_20001f01": {
+  "name": "unreferenced_b14f_1f01",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14f",
+   "0x20001f01"
+  ],
+  "category": "app",
+  "description": "Build-14f-only byte read and written by FUN_080047AC and written by FUN_0800A39C through pointers. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_20001f57": {
+  "name": "unreferenced_flag_1f57",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f57"
+  ],
+  "category": "app",
+  "description": "Flag set to 1 or cleared to 0 by FUN_080054EC. No reader in this packet."
+ },
+ "vcu_g_0159_20001f5a": {
+  "name": "unreferenced_flag_1f5a",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f5a"
+  ],
+  "category": "app",
+  "description": "Cleared to 0 by FUN_080054EC. No reader in this packet."
+ },
+ "vcu_g_0159_20001f5b": {
+  "name": "unreferenced_flag_1f5b",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001f5b"
+  ],
+  "category": "app",
+  "description": "Cleared to 0 by FUN_080054EC. No reader in this packet."
+ },
+ "vcu_g_14a_20001f90": {
+  "name": "unreferenced_b14a_1f90",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_14a",
+   "0x20001f90"
+  ],
+  "category": "app",
+  "description": "Build-14a-only byte whose address is taken by FUN_080054EC. Its role is not visible in this packet."
+ },
+ "vcu_g_0159_20001fb9": {
+  "name": "unreferenced_flag_1fb9",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fb9"
+  ],
+  "category": "vehicle",
+  "description": "Flag of value 0 or 1, set by FUN_080047AC and FUN_0800A39C and tested by FUN_080047AC. Probably a mode or session flag."
+ },
+ "vcu_g_0159_20001fcc": {
+  "name": "unreferenced_state_1fcc",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fcc"
+  ],
+  "category": "vehicle",
+  "description": "Mode value of 0, 1 or 2. FUN_080054EC sets it to 1 or 2, and FUN_080047AC tests it together with 0x200021B5 == 6, 0x20002049 and 0x20001F69. Probably a state-machine state."
+ },
+ "vcu_g_0159_20001fd8": {
+  "name": "unreferenced_flag_1fd8",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fd8"
+  ],
+  "category": "app",
+  "description": "Flag set to 1 by FUN_080054EC. No reader in this packet."
+ },
+ "vcu_g_0159_20001fda": {
+  "name": "unreferenced_value_1fda",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fda"
+  ],
+  "category": "protocol",
+  "description": "Byte copied from frame byte 5 by FUN_080054EC. It is passed by address to FUN_0800D018 as a 1-byte payload together with the command 0x56, probably a send or reply helper."
+ },
+ "vcu_g_0159_20001fed": {
+  "name": "unreferenced_timer_enable",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20001fed"
+  ],
+  "category": "timer",
+  "description": "Enable flag for the timeout in FUN_080031F4. While it is 1 the tick counter at 0x20001898 runs. FUN_080054EC sets it to 1, and it is cleared on timeout."
+ }
+}

@@ -1,0 +1,914 @@
+{
+ "ble_219_0c06ed64": {
+  "name": "l2cap_send",
+  "summary": "BTstack l2cap_send: send an SDU on a local CID as one HCI ACL packet, or park it",
+  "description": "BTstack l2cap_send(local_cid, data, len). CIDs below 0x40 are never dynamic channels and return 0x6E after logging 'l2cap_send no channel for cid'. The channel is found by walking the list at DAT_2001944C with the btstack_linked_list iterator and matching the local CID at +6. A channel whose type byte at +4 is non-zero is only handled for type 2: if len fits the remote MTU at +0x34 and no send is parked at +0x48, the pointer, length and offset are stored at +0x48, +0x4C and +0x4E and ble_219_0c06cb3c is called to drain them; otherwise 0x57 (busy) or 0x6C (exceeds MTU) is returned, and other types return 0x1F. For a type-0 channel the function checks len against the MTU, ll_env_can_send_acl for the handle at +0x24 (0x57 if no slot), and hci_reserve_packet_buffer (0x0C when the single outgoing buffer is taken). It copies the payload to offset 8 of the buffer from ll_env_get_u32_68, rechecks the reservation flag and free ACL slots, then writes the ACL header: handle | 0x2000 (start-of-PDU flag, cleared only when ble_ctrl_env_get_flag_bit6_at_0x18e is set and ble_ctrl_env_get_u16_at_0x56 is zero), total length len+4, L2CAP length len, and the peer CID from +0x30 at offset 6. Finally hci_send_acl_packet_buffer is called with len+8.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u16",
+    "description": "local CID of the channel; values below 0x40 are never valid dynamic channels"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "SDU payload to send; copied into the HCI packet buffer on the direct path"
+   },
+   {
+    "name": "param_3",
+    "type": "u16",
+    "description": "payload length in bytes; must not exceed the remote MTU at channel +0x34"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 when queued or sent; 0x0C no packet buffer, 0x1F wrong channel type, 0x57 busy or no ACL slots, 0x6C exceeds MTU, 0x6E no channel"
+  },
+  "confidence": "high",
+  "notes": "Identity from the BTstack l2cap_send signature and its log strings. The type-2 parking path and the 0x2000 flag rule are read from the code but their protocol meaning is inferred."
+ },
+ "ble_219_0c06ee70": {
+  "name": "l2cap_create_channel",
+  "summary": "BTstack l2cap_create_channel: allocate an outgoing channel for a peer and PSM, return its CID",
+  "description": "BTstack l2cap_create_channel(handler_ctx, peer_addr, psm, mtu, out_cid). The MTU is clamped to 0xFB (251) with co_min_u32. l2cap_create_channel_entry (0x0C06CD00) takes an entry from the pool, returning 0 when it is empty, which gives 0x56. The entry is appended to the list at DAT_2001944C through the btstack_linked_list_add_tail thunk and its CID is written to *out_cid. The mode/security argument is ble_ctrl_env_get_mode_or_4() unless the PSM is 1 (SDP) and the flag byte at 0x200194AE is clear. If the peer already has a connection record (ble_ctrl_conn_find_by_addr with address type 0xFD) in state 4, its handle at +0x0A is copied to the channel's +0x24 and the channel state at +0x20 is advanced, with the pending-authentication flag at +0x3A and ble_ctrl_conn_get_flag_bit4 deciding part of the path. The channel then runs ble_219_0c06d698 and ble_219_0c06ca80, and ble_219_0c06cdb8 when the latter returns 0.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "channel packet-handler context, stored at channel +0x08"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "peer Bluetooth device address (6 bytes), copied into the channel at +0x26"
+   },
+   {
+    "name": "param_3",
+    "type": "u16",
+    "description": "PSM (protocol/service multiplexer); stored at channel +0x38; PSM 1 is special-cased"
+   },
+   {
+    "name": "param_4",
+    "type": "u16",
+    "description": "requested MTU, clamped to 251"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "output: receives the new local CID as u16"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "0 on success, 0x56 when no channel entry could be allocated"
+  },
+  "confidence": "medium",
+  "notes": "Parameter roles follow the field names of l2cap_create_channel_entry, which are in another annotation. The states reached on the connected path are inferred from the code. ble_219_0c06b2b0, ble_219_0c06b374, ble_219_0c06c8f4, ble_219_0c06d698, ble_219_0c06ca80 and ble_219_0c06cdb8 are not described in this packet, so their roles are guessed from call order and return use."
+ },
+ "ble_219_0c06ef68": {
+  "name": "l2cap_accept_connection",
+  "summary": "BTstack l2cap_accept_connection: mark an incoming channel accepted and run its state step",
+  "description": "BTstack l2cap_accept_connection(local_cid). Walks the channel list at DAT_2001944C for the entry whose CID at +6 matches. A CID below 0x40 or no match logs 'accept called but local_cid 0x%x not found' (l2cap.c line 0xC51) and does nothing. On a match the channel state byte at +0x20 is set to 0x11 (accept pending), ble_219_0c06d698 runs, and ble_219_0c06ca80 is called; when that returns 0, ble_219_0c06cdb8 also runs.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u16",
+    "description": "local CID of the pending incoming channel"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": "State value 0x11 is read directly from the code; its name as accept-pending is inferred from the function."
+ },
+ "ble_219_0c06efd0": {
+  "name": "l2cap_decline_connection",
+  "summary": "BTstack l2cap_decline_connection: reject a pending incoming channel with result 4",
+  "description": "BTstack l2cap_decline_connection(local_cid). Same channel-list lookup and not-found log as l2cap_accept_connection (l2cap.c line 0xC64). On a match it sets the channel state at +0x20 to 0x10 (decline pending) and stores 4 in the u16 at +0x3C, which is the L2CAP connection-response result for 'no resources available' (0x0004). It then runs the same ble_219_0c06d698, ble_219_0c06ca80 and ble_219_0c06cdb8 step as the accept path.",
+  "category": "ble_host",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u16",
+    "description": "local CID of the pending incoming channel"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": "Result code 4 and state 0x10 are inferred from the L2CAP specification and the function's name."
+ },
+ "ble_219_0c0701e8": {
+  "name": "calloc",
+  "summary": "Newlib calloc: overflow-checked nmemb*size allocation through malloc, zero-filled",
+  "description": "Newlib calloc(nmemb, size) on the global reent. The two arguments are multiplied as 64-bit values; when the high word is non-zero, errno (reent word 0) is set to 12 (ENOMEM) and NULL is returned. Otherwise _malloc_r (0x0C071080) allocates the product and, when that succeeds, memset (0x0C070A0A) zero-fills the block. Returns the block or NULL.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "number of elements"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "size of each element in bytes"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "zero-filled block, or NULL on overflow or allocation failure"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c070204": {
+  "name": "startup_run_main_entry",
+  "summary": "Startup entry from Reset_Handler: optional reent cleanup hook, then a word-array reversal",
+  "description": "Called once from Reset_Handler (ble_219_0c028570) after .data and .bss are set up. It first calls the function pointer at 0x200049D4, which is the cleanup slot (reent offset 0x28) of the newlib reent record at 0x200049AC, passing that record and the other arguments; the slot is normally zero, so the call is skipped. It then calls ble_219_0c035fc0 with param_1, treats the 64-bit result as a 32-bit word array (base in the low word, word count in the high word) and reverses those words in place. Reset_Handler's annotation expects this to start the RTOS scheduler, and it returns only if that fails.",
+  "category": "startup",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "forwarded to ble_219_0c035fc0; its meaning is not established"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "forwarded to the reent cleanup hook"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "forwarded to the reent cleanup hook"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "forwarded to the reent cleanup hook"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "low",
+  "notes": "Low confidence. The decompiled body (hook call, then word reversal of the array returned by ble_219_0c035fc0) does not clearly match a scheduler start. ble_219_0c035fc0 is annotated in another wave as rtos_task_exit_handler, a handler that never returns, which conflicts with its use here."
+ },
+ "ble_219_0c0702f8": {
+  "name": "_getopt_internal_r",
+  "summary": "Newlib _getopt_internal_r: GNU-style option parser with long options and argv permutation",
+  "description": "Newlib getopt engine. Its state is a 7-word block (optarg, optind, opterr, optopt, next-char index, first and last non-option positions, and permutation offset). Long options come from a table of 16-byte entries (name, has_arg, flag, val) ending in a NULL name. It checks POSIXLY_CORRECT via a getenv-style lookup (0x0C0723EC) and a leading '+' or '-' in optstring to choose how non-options are handled, and permutes argv with ble_219_0c07022c (in-place word-array reversal) when needed. It handles '--', long options (exact or unique-prefix match, with the GNU ambiguity error) and short options with required (':' suffix) or optional ('::') arguments. Errors print GNU-style messages to stderr with fputs and fputc, set optopt and return '?' or ':'; the function returns -1 when no options remain.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "argc"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "argv array"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "optstring of short option characters"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "long option table (struct option), NULL-name terminated, or NULL"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "output: index of the matched long option, or NULL"
+   },
+   {
+    "name": "param_6",
+    "type": "s32",
+    "description": "long_only flag"
+   },
+   {
+    "name": "param_7",
+    "type": "ptr",
+    "description": "getopt state block (optarg at +0, optind at +4, opterr at +8, optopt at +0xC)"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "option character, '?' or ':' on error, a long option's val, or -1 when parsing is complete"
+  },
+  "confidence": "medium",
+  "notes": "The function's identity is inferred from the GNU-style messages and the state layout. The getenv-style lookup at 0x0C0723EC is named setenv in another wave's annotation, but this use (one name argument, NULL test) matches getenv."
+ },
+ "ble_219_0c0707bc": {
+  "name": "getopt",
+  "summary": "Newlib getopt: run the option parser on the global getopt state, stored back afterwards",
+  "description": "Wrapper with the POSIX getopt(argc, argv, optstring) shape; the decompile shows only argc. It copies the seven words of global getopt state into a local block with libc_state_block_load (0x0C070268), runs _getopt_internal_r (0x0C0702F8) on that block, then writes the block back with libc_state_block_store (0x0C0702B0) so that optind, opterr and the other fields persist between calls. Returns the parser's result unchanged.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "argc; argv and optstring are passed in the next registers and are not shown in the decompile"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "option character, '?' or ':', or -1 when parsing is complete"
+  },
+  "confidence": "medium",
+  "notes": ""
+ },
+ "ble_219_0c0707e8": {
+  "name": "gmtime",
+  "summary": "Newlib gmtime: convert time_t seconds to a shared static struct tm (civil-date algorithm)",
+  "description": "Newlib gmtime(const time_t *t) for a 64-bit time. On first use it allocates the 36-byte struct tm buffer with malloc (0x0C07097C) and stores it at reent+0x3C; if that fails the REENT assertion (0x0C071FFC, gmtime.c line 0x39) runs. It splits the time with __divdi3 (0x0C06FE20) into days, hours, minutes and seconds, borrowing one day for negative times. The year, month and day come from a 400-year (146097-day) civil-from-days calculation with an epoch offset of 719468 days, and tm_wday is (days+4) mod 7. The function fills tm_sec, tm_min, tm_hour, tm_mday, tm_mon, tm_year (year minus 1900), tm_wday, tm_yday and tm_isdst (set to 0), then returns the shared buffer, which later calls overwrite.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "pointer to a 64-bit time_t (low word first)"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the shared static struct tm"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c07097c": {
+  "name": "malloc",
+  "summary": "Newlib malloc: allocate through _malloc_r on the global reent",
+  "description": "Newlib malloc(size). Calls _malloc_r (0x0C071080) with the global reent pointer and the requested size and returns its result. Failure sets errno 12 inside _malloc_r.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "number of bytes requested"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "allocated block, or NULL"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c07098c": {
+  "name": "free",
+  "summary": "Newlib free: release a block through _free_r on the global reent",
+  "description": "Newlib free(ptr). Calls _free_r (0x0C070F40) with the global reent pointer and the block pointer.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "block previously returned by malloc, or NULL"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c070bcc": {
+  "name": "mktime",
+  "summary": "Newlib mktime: normalise struct tm, apply the TZ rules and return time_t seconds",
+  "description": "Newlib mktime(struct tm *tm). It calls _tzset_unlocked (0x0C071C50) so the TZ rules are current, then libc_tm_normalize (0x0C070A1C) to carry out-of-range fields. It converts year, month and day to days since 1970 with a month-length table and the leap-year rule, then adds the seconds of the day. When DST rules exist it computes the year's transition instants with __tzcalc_limits (0x0C071AE4), compares the local time with them, and adjusts by the DST offset, updating tm_isdst. tm_wday and tm_yday are filled in, and -1 is returned when the year is out of range.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "struct tm to normalise and convert, updated in place"
+   }
+  ],
+  "returns": {
+   "type": "s64",
+   "description": "time_t seconds since 1970-01-01 UTC, or -1 when out of range"
+  },
+  "confidence": "medium",
+  "notes": "The tz state block returned by ble_219_0c0724b0 is used here as tzinfo, although that function is named __get_current_locale in another annotation; this was not verified."
+ },
+ "ble_219_0c070f00": {
+  "name": "mallinfo",
+  "summary": "Newlib mallinfo: heap statistics through _mallinfo_r, returned by hidden pointer",
+  "description": "Newlib mallinfo(). The struct mallinfo (ten ints) is returned through a hidden pointer. The function calls _mallinfo_r (0x0C070FD8) on the global reent with that pointer and returns it.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "hidden return pointer to the struct mallinfo to fill"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "the filled struct mallinfo"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c070f40": {
+  "name": "_free_r",
+  "summary": "Newlib _free_r: return a block to the address-sorted free list, merging neighbours",
+  "description": "Newlib _free_r(reent, ptr). A NULL pointer returns at once. The block size is in the word before ptr, with a negative value adjusted as in newlib. It takes the malloc lock (ble_stack_lock_take, 0x0C046E88) and walks the address-sorted free list at DAT_20019510. A block that ends where the freed block starts is merged with it, and a free block that starts where the freed block ends is absorbed; otherwise the block is inserted in address order. If the freed block would overlap the previous free block, errno is set to 12 and the list is left alone. The lock is released with ble_stack_lock_give (0x0C046EC0).",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record whose errno is set on error"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "block pointer previously returned by _malloc_r"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c070fd8": {
+  "name": "_mallinfo_r",
+  "summary": "Newlib _mallinfo_r: fill struct mallinfo from the heap base, break and free-list totals",
+  "description": "Fills the ten-int struct mallinfo at the first argument while holding the malloc lock. Field 0 (arena) is the current break minus the heap base at DAT_20019514, where the break comes from _sbrk_r(reent, 0) (0x0C071550). Field 8 (fordblks) is the sum of the free block sizes on the list at DAT_20019510, and field 7 (uordblks) is arena minus free. Fields 1 to 6 and 9 (ordblks, smblks, hblks, hblkhd, usmblks, fsmblks, keepcost) are copied from the counters at 0x200194EC to 0x200194F8, 0x20019500 and 0x2001950C, not recomputed here. Returns the output pointer.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output struct mallinfo (ten ints)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "reent record used for the sbrk query and the malloc lock"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "the output struct"
+  },
+  "confidence": "medium",
+  "notes": "The meaning of the copied counters (fields 1 to 6 and 9) is not established from this packet."
+ },
+ "ble_219_0c071040": {
+  "name": "malloc_morecore",
+  "summary": "Heap growth for _malloc_r: sbrk the requested bytes and return a 4-byte aligned start",
+  "description": "Extends the heap for _malloc_r by nbytes. On the first call it records the current break as the heap base (DAT_20019514) from _sbrk_r(reent, 0). It then calls _sbrk_r (0x0C071550) for nbytes; if the break cannot move it returns 0xFFFFFFFF. If the old break is not 4-byte aligned it moves the break once more by the padding, returning the aligned start of the new region, or 0xFFFFFFFF if that second move fails.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record passed to _sbrk_r for errno"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "bytes to add to the heap"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "4-byte aligned start of the new region, or 0xFFFFFFFF on failure"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071080": {
+  "name": "_malloc_r",
+  "summary": "Newlib _malloc_r: first-fit allocation from the address-sorted free list, growing the heap",
+  "description": "Newlib _malloc_r(reent, nbytes). The request is rounded up to a multiple of 4, plus an 8-byte header, with a minimum block of 12 bytes; a size that overflows sets errno to 12 and returns NULL. Under the malloc lock (ble_stack_lock_take and ble_stack_lock_give) it does a first-fit search of the address-sorted free list at DAT_20019510, splitting a block when the remainder is at least 12 bytes and unlinking it otherwise. When nothing fits it calls malloc_morecore (0x0C071040); if the new space is contiguous with the last free block, that block is reused and enlarged. The payload is aligned to 8 bytes, and a word before it holds the offset back to the block header when the two differ.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record; errno is set to 12 on failure"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "bytes requested"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "8-byte aligned payload pointer, or NULL"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071478": {
+  "name": "srand",
+  "summary": "Newlib srand: store the seed as the 64-bit rand state, creating the state block on first use",
+  "description": "Newlib srand(seed) on the global reent. If the rand state pointer at reent+0x38 is NULL it allocates a 24-byte block with malloc (0x0C07097C); on failure the REENT assertion (rand.c line 0x42) runs. The new block gets the rand48 constants 0xABCD330E, 0xE66D1234, 0x5DEEC (multiplier 0x5DEECE66D) and addend 0xB, and the 64-bit state is first set to 1. The seed then replaces the low word of the state at block+0x10 and the high word is cleared.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "seed"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c0714d4": {
+  "name": "rand",
+  "summary": "Newlib rand: advance the 64-bit LCG state and return bits 32 to 62",
+  "description": "Newlib rand() on the global reent. The 64-bit state at reent+0x38 block+0x10 is advanced as state = state * 0x5851F42D4C957F2D + 1, the Knuth MMIX multiplier, computed as 32-bit partial products with the carry from the low word folded into the high word. The result is the high word of the new state masked to 31 bits. If the state block does not exist yet it is created as in srand, with state 1.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "pseudo-random value in 0..0x7FFFFFFF"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071550": {
+  "name": "_sbrk_r",
+  "summary": "Reentrant sbrk wrapper: call _sbrk and copy its errno into the reent record on failure",
+  "description": "Newlib _sbrk_r(reent, incr). It clears the captured errno at 0x20019540, calls _sbrk (0x0C046E04) with incr, and if the call fails with a non-zero captured errno it stores that value in the reent record. Used by malloc_morecore and the heap statistics. The _sbrk result is left in r0, which the decompile does not show as a return value.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record; receives errno on failure"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "byte increment for the break"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "previous break (in r0), or -1 on failure"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071570": {
+  "name": "vsnprintf",
+  "summary": "Newlib vsnprintf: format into a bounded buffer through a stack string FILE, then NUL-terminate",
+  "description": "Newlib vsnprintf(buf, size, fmt, ap) on the global reent. A negative size sets errno to 0x8B (EOVERFLOW) and returns -1. Otherwise it builds a stack string FILE with flags 0x208 (write, string), a write count of size-1 (0 when size is 0), and buf as the buffer, then calls the vfprintf worker (0x0C0725FC). A worker result below -1 sets errno to 0x8B. When size is non-zero, the byte after the last character written is set to NUL. The worker's count is returned.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "buffer size including the terminating NUL"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "format string"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "number of characters the full output would take, or -1 on error"
+  },
+  "confidence": "high",
+  "notes": "The va_list argument is not visible in the decompile; it is passed through."
+ },
+ "ble_219_0c0715d8": {
+  "name": "vsprintf",
+  "summary": "Newlib vsprintf: unbounded format into a stack string FILE, then NUL-terminate",
+  "description": "Newlib vsprintf(buf, fmt, ap) on the global reent. Builds a stack string FILE (flags 0x208, unlimited write count) that points at buf, calls the vfprintf worker (0x0C0725FC), then writes a NUL after the output. There is no size check, so the caller must provide room for the whole result.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output buffer; must be large enough for the whole result"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "format string"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071696": {
+  "name": "__swrite",
+  "summary": "Newlib __swrite: write to the file descriptor, seeking to end first for O_APPEND files",
+  "description": "Newlib __swrite(reent, fp, buf, size), the FILE write hook. If the FILE has the append flag 0x100, it first moves the descriptor to the end with the lseek worker (0x0C0724C4, offset 0, whence 2). It then clears the 0x1000 offset-cached flag in fp->_flags and calls _write (0x0C04846C) with the descriptor from fp+0xE. A failed write copies the captured errno into the reent record.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "FILE structure; descriptor at +0xE, flags at +0xC"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "data to write"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "number of bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "bytes written (in r0), or -1 on error; the decompile shows no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c0716ce": {
+  "name": "__sseek",
+  "summary": "Newlib __sseek: seek the FILE's descriptor and cache the resulting position",
+  "description": "Newlib FILE seek hook __sseek(reent, fp). It calls the lseek worker (0x0C0724C4) on the descriptor at fp+0xE; the offset and whence arrive in argument registers the decompile does not show. On failure it clears the 0x1000 'offset valid' flag in fp->_flags. On success it stores the new position at fp+0x54 and sets the flag.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "FILE structure"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "medium",
+  "notes": "Called through the FILE table, so there are no direct callers in this packet."
+ },
+ "ble_219_0c071790": {
+  "name": "strtok",
+  "summary": "Newlib strtok: split a string by delimiters, saving the position in the per-reent state",
+  "description": "Newlib strtok(s, delim). The saved position lives in the first word of an 80-byte per-reent block at reent+0x58, which is allocated with malloc (0x0C07097C) on first use (strtok.c line 0x57 assertion on failure); the rest of the block is zeroed and not used on this path. A NULL s continues from the saved position. The function skips leading delimiters, finds the next delimiter, writes a NUL over it, and saves the position after it, or NULL when the string has ended.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "string to tokenise, or NULL to continue"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "delimiter characters"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "start of the next token, or NULL when no tokens remain"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071a60": {
+  "name": "close",
+  "summary": "POSIX close: forward to fd_close and copy errno to the reent record on failure",
+  "description": "Wrapper with the close(fd) shape. It clears the captured errno at 0x20019540, calls fd_close (0x0C0482E4) with the descriptor, and if that fails with a captured errno it stores that value in the global reent record. The result of fd_close is returned in r0.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "file descriptor"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value; fd_close's result is left in r0"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071a80": {
+  "name": "lseek",
+  "summary": "POSIX lseek: forward (fd, offset, whence) to the reent lseek worker",
+  "description": "Wrapper with the lseek(fd, offset, whence) shape. It passes the global reent, the descriptor, offset and whence to the lseek worker (0x0C0724C4). __swrite makes the same call with offset 0 and whence 2 (SEEK_END). The result is left in r0.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "file descriptor"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "offset"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "whence (SEEK_SET, SEEK_CUR or SEEK_END)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value; the worker's result is left in r0"
+  },
+  "confidence": "medium",
+  "notes": "The argument order is inferred from the worker call pattern in __swrite."
+ },
+ "ble_219_0c071a94": {
+  "name": "lseek64",
+  "summary": "64-bit lseek wrapper: pass the reent, descriptor and a stack copy of the offset to 0x0C07342C",
+  "description": "Wrapper that stores two argument words in an 8-byte frame slot and calls the 64-bit seek worker at 0x0C07342C with the global reent, the descriptor, the arguments, and a pointer to that slot. The decompiled call is (reent, param_1, param_2, param_3, param_1, &slot), so the argument roles are not certain from this packet. The function is included here for its naming; its worker is not described in this packet.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "file descriptor"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "whence, probably; not confirmed"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "low word of the offset, probably; not confirmed"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "high word of the offset, probably; not confirmed"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value; the worker's result is left in r0"
+  },
+  "confidence": "low",
+  "notes": "Argument roles are guesses. The worker at 0x0C07342C is not in this packet."
+ },
+ "ble_219_0c071c50": {
+  "name": "_tzset_unlocked",
+  "summary": "Newlib _tzset_unlocked: parse the TZ string into tzname, timezone, daylight and DST rules",
+  "description": "Newlib _tzset_unlocked() on the global reent. It gets TZ through a getenv-style lookup (0x0C07247C; named _setenv_r in another annotation, but used here as a lookup). If TZ is unset it sets tzname[0] and tzname[1] (0x20004A0C, 0x20004A10) to 'GMT', clears daylight (0x20019534) and timezone (0x20019538). If TZ has changed since the last call (copy kept at 0x20019530), it frees the old copy, duplicates the new string and parses it: the standard name, the standard offset [+-]hh:mm:ss, an optional DST name and offset, and the ',Mm.w.d[/time]' rules. Rules are stored as tzinfo records, ble_219_0c071AE4 (__tzcalc_limits) computes the year's transitions, and daylight is set when the DST offset differs from the standard one.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": "The lookup at 0x0C07247C is named _setenv_r in another wave's annotation, but its use (name argument, NULL test) matches _getenv_r. The tz state block read in mktime through 0x0C0724B0 is also not the locale object that earlier annotation names."
+ },
+ "ble_219_0c071f64": {
+  "name": "_vsnprintf_r",
+  "summary": "Newlib _vsnprintf_r: reentrant bounded vsprintf through a stack string FILE",
+  "description": "Reentrant bounded formatter _vsnprintf_r(reent, buf, size, fmt, ap). It works as vsnprintf (0x0C071570) with the reent record passed explicitly. A negative size sets reent errno to 0x8B and returns -1; otherwise a stack string FILE (flags 0x208) is set up and the vfprintf worker (0x0C0725FC) runs. Results below -1 set errno to 0x8B, and when size is non-zero the output is NUL-terminated.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "buffer size"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "format string"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "va_list argument pointer"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "number of characters the full output would take, or -1 on error"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071fbc": {
+  "name": "snprintf",
+  "summary": "Newlib snprintf: variadic bounded format, forwarded to _vsnprintf_r on the global reent",
+  "description": "Variadic snprintf(buf, size, fmt, ...). It passes the global reent, buf, size, fmt and the variadic words through to _vsnprintf_r (0x0C071F64), which does the formatting. Callers use it to format into bounded buffers.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "buffer size"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "format string"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "first variadic argument word, forwarded unchanged"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "number of characters the full output would take, or -1 on error"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c071ffc": {
+  "name": "__assert_func",
+  "summary": "Newlib __assert_func: print the failed assertion with file and line to stderr, then abort",
+  "description": "Newlib __assert_func(file, line, function, expr). It prints 'assertion \"%s\" failed: file \"%s\", line %d%s%s' to stderr (reent+0xC) through fprintf (0x0C07222C), adding ', function: ' when a function name is given, then calls abort (0x0C073764), which does not return; the loop is a guard. The REENT allocation checks in gmtime, rand and strtok call it with their source file and line.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source file name"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "line number"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "function name, or NULL"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "failed expression text"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "does not return"
+  },
+  "confidence": "high",
+  "notes": "The four arguments come from the callers; the decompiled signature shows none."
+ },
+ "ble_219_0c0720d4": {
+  "name": "__sfmoreglue",
+  "summary": "Newlib __sfmoreglue: allocate a glue block of n zeroed FILE structures for the FILE pool",
+  "description": "Newlib __sfmoreglue(reent, n). Allocates 12 + 0x68*n bytes with _malloc_r (0x0C071080): 0x68 is sizeof(__sFILE) and 12 is the glue header. On success it sets the header to next = NULL, niobs = n and iobs = the FILE array after the header, then zeroes the array. Returns the glue block, or NULL if the allocation fails.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "number of FILE structures in the block"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "new glue block, or NULL"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c072130": {
+  "name": "__sinit",
+  "summary": "Newlib __sinit: once-only setup of the FILE pool and stdin, stdout and stderr",
+  "description": "Newlib __sinit(reent), run with the sinit lock (0x0C072118) held. It only does its work once, tracked by the flag at reent+0x18. It installs the cleanup hook at reent+0x28 and, for the global reent, sets DAT_200049C4 to 1. It allocates three FILEs with __sfp (0x0C0721A0) for stdin, stdout and stderr (reent+4, +8, +0xC), initialises them with std (0x0C072080) using flags 4, 9 and 0x12 and descriptors 0, 1 and 2, then sets the initialised flag and releases the lock with __retarget_lock_release_recursive.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "no return value"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c0721a0": {
+  "name": "__sfp",
+  "summary": "Newlib __sfp: find or create a free FILE in the glue pool and mark it in use",
+  "description": "Newlib __sfp(reent). Under the FILE-pool lock (0x0C072100 and 0x0C07210C) it runs __sinit first if the pool is not initialised. It then walks the glue list headed at 0x200049F4, looking for a FILE whose _flags (short at +0xC) are zero. On a match it sets _flags to 1 and the descriptor to -1 (word 0xFFFF0001), initialises its recursive lock with __retarget_lock_init_recursive (0x0C0724B8), clears its buffer and offset fields and the 8-byte mbstate at +0x5C, and returns it. Without a free slot it adds a glue block with __sfmoreglue (0x0C0720D4) and tries again; if that fails it sets errno to 12 and returns NULL.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent record"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "claimed FILE, or NULL"
+  },
+  "confidence": "high",
+  "notes": ""
+ },
+ "ble_219_0c07222c": {
+  "name": "fprintf",
+  "summary": "Newlib fprintf: variadic formatted output to a FILE through the reent vfprintf worker",
+  "description": "Variadic fprintf(stream, fmt, ...). It forwards the global reent, the stream, the format and the variadic words to the vfprintf worker _vfprintf_r (0x0C072BFC). In this packet its only caller is __assert_func, which passes stderr and the assertion format.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "output stream"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "format string"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "first variadic argument word, forwarded unchanged"
+   },
+   {
+    "name": "param_4",
+    "type": "u32",
+    "description": "second variadic argument word, forwarded unchanged"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "number of characters written, or a negative value on error"
+  },
+  "confidence": "high",
+  "notes": ""
+ }
+}

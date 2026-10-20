@@ -1,0 +1,24 @@
+{
+  "bms_g_4168_20000674": {
+    "name": "bms_adc_channel_desc",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x20000674"
+    ],
+    "category": "adc",
+    "description": "One 32-bit ADC channel descriptor read by bms_adc_read_mv, which takes an index and reads the word at 0x20000674 + index*4. Bits 26 to 29 become the regular-channel number written to the low nibble of ADC CHSELR (0x40012428), and the word shifted left by 8 selects the SMPR sample-time bits that are cleared before the conversion. In this image the only call passes index 0. The table is probably a single entry: index 1 would read the tick word at 0x20000678 (bms_tick_get), which another object owns, so the object is limited to 4 bytes."
+  },
+  "bms_g_4168_200006a4": {
+    "name": "bms_sysclk_hz",
+    "type": "u32",
+    "size": 4,
+    "anchor": [
+      "BMS_4168",
+      "0x200006a4"
+    ],
+    "category": "clock",
+    "description": "System clock frequency in hertz. The start-up paths bms_4168_0800a130 and bms_4168_0800a2e0 store 16000000 here through bms_set_state_word, whose name calls it a state word, which is probably a misnomer. bms_systick_1khz_start divides it by 1000 to get the SysTick reload for a 1 kHz tick, and bms_adc_hw_init and bms_adc_read_mv use it to scale their regulator and conversion busy-waits. Nothing in this packet writes any other value."
+  }
+}

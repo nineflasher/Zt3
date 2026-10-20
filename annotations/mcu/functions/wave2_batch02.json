@@ -1,0 +1,383 @@
+{
+ "mcu_0160_080031cc": {
+  "name": "mcu_speed_estimate_update",
+  "summary": "Turn the encoder count accumulator into a filtered Q15 speed estimate",
+  "description": "Periodic speed estimator called from mcu_0160_0800a320. Inside an interrupt-disabled section it reads the 32-bit accumulator at +0x9C of the context object whose pointer is in DAT_2000002C (mcu_ctx_get_field_0x9c) and clears it (mcu_ctx_clear_field_0x9c), so each call consumes the counts gathered since the previous call. The count is clamped to +/-0x270 (624), converted to float, multiplied by 0x42D16EF3 (about 104.72, which is 1000 x 2pi / 60 and suggests an rpm to milli-rad/s conversion) and scaled by 2^15 before truncation to int. That sample is blended into the filtered value as DAT_200000A0 = 0.4 x sample + 0.6 x previous, using soft-float and the routine at mcu_0160_080012b8 (assumed to be a float add). DAT_2000009C is incremented on entry and cleared on exit, so it works as a sampling-in-progress marker.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Units and the meaning of the +0x9C accumulator are inferred from the constants. mcu_0160_080012b8 is assumed to be a float add and is not yet described."
+ },
+ "mcu_0160_080032cc": {
+  "name": "CAN1_RX0_IRQHandler",
+  "summary": "CAN1 RX FIFO 0 interrupt: move one received frame into message ring 1",
+  "description": "Vector handler for CAN1_RX0 (IRQ 20, enabled in mcu_can_init). If the FIFO 0 message-pending flag (SDK flag code 9) is set, it reads one frame from RX FIFO 0 into a 20-byte stack buffer with can_message_receive, which also releases the FIFO slot, and appends that 5-word record to message ring 1 with mcu_msg_ring1_push. Only one frame is taken per entry; if more frames remain the pending flag stays set and the interrupt fires again. A full ring drops the frame silently.",
+  "category": "isr",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "Flag code 9 is taken to be the FIFO 0 message-pending flag from the SDK enum; the enum is not in this repo."
+ },
+ "mcu_0160_080032f8": {
+  "name": "CAN1_SE_IRQHandler",
+  "summary": "CAN1 status/error interrupt: latch bus-off and copy error counters and error type",
+  "description": "Vector handler for CAN1_SE (IRQ 22). It reads CAN1.ESTS (0x40006418) once. If the bus-off flag BOF (bit 2) is set it latches DAT_2000031F to 1, a sticky indicator that this function never clears. If the error flag tested by can_flag_get with code 4 is set, it stores TEC (ESTS bits 23:16) at DAT_2000033D, REC (bits 31:24) at DAT_2000033E and the error type record ETR (bits 6:4) at DAT_2000031C. It then clears flags 4 and 3 with can_flag_clear (write-1-to-clear) so the interrupt does not re-fire for them. The counters are read only when flag 4 is set, so they can be older than the bus-off latch.",
+  "category": "isr",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Register field positions come from at32f415_registers.json (TEC bits 16-23, REC bits 24-31, ETR bits 4-6, BOF bit 2). Flags 3 and 4 are assumed to be error-group status flags; their SDK names are not checked."
+ },
+ "mcu_0160_08003368": {
+  "name": "mcu_can_init",
+  "summary": "Initialise CAN1: bus clock, bit timing, six accept-all filters, NVIC and interrupts",
+  "description": "Runs once at startup to bring up CAN1. It calls mcu_0160_0800c058 (not yet described), enables a bus clock through crm_periph_clock_enable with peripheral id 0x1C0019 (presumably CAN1), and builds a 7-byte base configuration on the stack with all bytes zero except byte 3, which is 1, then passes it to can_base_init (freeze mode and control/loopback bits). Bit timing is programmed with can_baudrate_set using prescaler 9, resync width 1, BS1 10 and BS2 3, which is 14 time quanta per bit; the bit rate itself depends on the APB1 clock, which is not in this packet. Filter banks 0 to 5 are each configured with can_filter_init, activated, with all ID and mask words zero so every frame is accepted. It then sets NVIC priorities for IRQ 0x16 (CAN1_SE, preempt 2, sub 0) and IRQ 0x14 (CAN1_RX0, preempt 1, sub 0), and enables interrupt bits 0x2, 0x400, 0x800 and 0x8000 through can_interrupt_enable.",
+  "category": "can",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Interrupt bit 0x2 is FIFO 0 message-pending, confirmed by the INTEN field names. 0x400, 0x800 and 0x8000 are taken to be bus-off, error type change and error by analogy with the bxCAN layout. The 0x1C0019 id and the byte-3 field are SDK-level assumptions."
+ },
+ "mcu_0160_0800337c": {
+  "name": "mcu_ramp_asym_track",
+  "summary": "Ramp DAT_20000BE0 toward its target: distance-scaled steps down, fixed 0x20 up",
+  "description": "Moves the ramp output DAT_20000BE0 one step toward the target DAT_20000170 on each call. The call mcu_0160_0800ce3c(DAT_20000F30, 0x28000) is made for side effects only (its result is discarded and that callee is not yet described). When the target is below the output, the step depends on the distance: 0x20 up to a distance of 0x146, 0x41 up to 0x665, 0xA3 up to 0xCCB, 0x147 up to 0x1998, 0x666 up to 0x3FFF and 0xCCC beyond that. The step is forced to 0x20 while DAT_20000168 differs from DAT_20000164 (a target change still pending), and the output snaps to the target when the distance is below the step. When the target is above the output, the output rises by a fixed 0x20 per call and snaps when within 0x20. DAT_2000010A is set to 1 while DAT_20000168 differs from the position DAT_20000164.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Caller mcu_0160_08004e78 is not in this packet. The asymmetry (distance-scaled fast down, fixed slow up) is read directly from the decompiled comparisons."
+ },
+ "mcu_0160_08003434": {
+  "name": "mcu_edge_pos_track",
+  "summary": "Track the edge-counted position estimate and retarget the ramp in drive-active mode",
+  "description": "Per-tick position tracker. While DAT_20000E33 (drive-active flag) is clear it resets the four edge counters at 0x20000D14, D00, D3C and D28 and clears DAT_20000E24 and DAT_20000E28. While active it steps those counters on bit 12 (A) and bit 13 (B) of DAT_20001FD4. A debounced A-only pulse from the first pair adds 0x8000 (one unit in Q15) to the position DAT_20000164, a B-only pulse subtracts 0x8000, and both or neither change nothing. The second pair counts pulses in groups of 200 and resets the first pair, and sets the event flag DAT_20000E39 on the limit comparisons (A pulses test the new position against DAT_20000660, B pulses against 0x28000). When the position changes, the target DAT_20000168 is set to the position bounded by 0x28000 below and DAT_20000660 above, mcu_ramp_toward_target_s32 moves DAT_20000164 toward it by at most 0x1EB per call, and DAT_20000170 is set to mcu_0160_0800ce3c(DAT_20000164, 0x28000).",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The meaning of the event flag DAT_20000E39 and of the 200-count second pair is only partly understood. Caller mcu_0160_08004e78 is not in this packet."
+ },
+ "mcu_0160_08003608": {
+  "name": "mcu_limit_chan_init_mode6",
+  "summary": "Set limit channel to mode 6 and enabled, clear +0x0C, reset edge counter D78",
+  "description": "Configures the limit channel object passed in param_1 (its layout is inferred from these writes and is not yet typed). It clears the 32-bit word at +0x0C, sets the mode byte at +0x27 to 6 and the enable byte at +0x29 to 1, then calls mcu_edge_counter_reset on the shared edge counter at DAT_20000D78. Mode 6 differs from the mode 5 used by the other channel setups in this packet, so this channel presumably takes a different limiting branch in its consumer. The only caller is mcu_0160_08004e78, which is not in this packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Object layout inferred from writes only."
+ },
+ "mcu_143_08003624": {
+  "name": "mcu_limit_chan_cfg_a",
+  "summary": "Load limit channel A from RAM block 0x224 and reset edge counter D58",
+  "description": "Fills a limit channel object from the RAM configuration block at 0x20000224..0x2000023D: DAT_20000224 goes to +0x00, DAT_20000230 to +0x04, DAT_20000234 to +0x10, DAT_20000238 to +0x14 and the byte at 0x2000023D to +0x28. It also copies DAT_20000654 to +0x1C and DAT_20000E08 to +0x20, writes the constants 0x78000 at +0x0C and 0x8F999 at +0x18, and writes two 32-bit words 0x41F00000 (f32 30.0) at +0x2C and +0x30. It zeroes +0x08 and the bytes at +0x24..+0x26, sets the mode byte at +0x27 to 5, and finishes by resetting the edge counter at DAT_20000D58 with mcu_edge_counter_reset (called as 0x080099AE in this image). Present only in the 12b and 143 builds, and no caller is listed in the packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The packet callee list names mcu_edge_counter_reset for this call; the 143 image address for that routine is 0x080099AE. The 0x41F00000 words are read as f32 30.0."
+ },
+ "mcu_0160_08003664": {
+  "name": "mcu_limit_chan_update_c",
+  "summary": "Update limit channel C: decay its limit on a hold counter and reload gain constants",
+  "description": "Recomputes limit channel C for the 152 and 0160 builds. When |DAT_20000F30| is below 0x147 the hold counter DAT_20000114 counts down toward zero and, on reaching zero from 1, increments the event count DAT_20000109 (capped at 5); a larger |DAT_20000F30| reloads the hold counter to 2000. While the hold counter is below 2 and DAT_20000109 is below 3, the word at +0x0C is reduced by 0x147 per call toward 0, otherwise it is set to 0x30000 (6.0 in Q15). The object is then loaded from RAM 0x20000230..0x20000249 and DAT_20000E2C and DAT_20000668 with mode 5 and enable cleared at +0x29, and the shared edge counter DAT_20000D78 is reset. Finally the leaky counter DAT_20000112 (+10 when |DAT_20000F30| is at least 0x10CCC, otherwise -1 per call, capped at 1000) selects the constant pair written to DAT_200008B4 and DAT_200008BC: 0x1A666 and 0xA50000 below 10, otherwise 0x6999 and 0x294000.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Caller mcu_0160_08004e78 is not in this packet. The gain constants are read as Q15/Q16 values but their consumers are not identified."
+ },
+ "mcu_143_08003910": {
+  "name": "mcu_limit_chan_cfg_b",
+  "summary": "Load limit channel B from RAM block 0x240 and reset edge counter D58",
+  "description": "Same pattern as mcu_limit_chan_cfg_a for the second configuration block. DAT_20000240 goes to +0x00, DAT_2000024C to +0x04, DAT_20000250 to +0x10, DAT_20000254 to +0x14 and the byte at 0x20000259 to +0x28, with DAT_20000E08 at +0x20 and DAT_20000654 at +0x1C. The constants are 0x78000 at +0x0C, 0x11F333 at +0x18 and two 0x41F00000 words (f32 30.0) at +0x2C and +0x30. It zeroes +0x08 and the bytes at +0x24..+0x26, sets mode 5 at +0x27, and resets the edge counter at DAT_20000D58 (called as 0x080099AE in this image). Present only in the 12b and 143 builds, and no caller is listed in the packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Object layout inferred from writes only. Constant 0x11F333 is taken as a limit or rate value."
+ },
+ "mcu_0160_080039e0": {
+  "name": "mcu_b90_low_and_enabled",
+  "summary": "Return 1 when enable byte F54 is set and the value at B90 is below 0x666",
+  "description": "Returns 1 only when DAT_20000F54 is non-zero and the scaled field of the object at 0x20000B90 is below 0x666 (1638, about 0.05 in Q15). The field value comes from the thunk at 0x0800A56C (decompiled as thunk_FUN_0800a588), which tail-calls mcu_get_field_0x0c_ashr_scale: the s32 at +0x0C shifted right by the signed byte at +0x32. The callers listed in the packet are mcu_0160_08003ab8, mcu_0160_08003f2c, mcu_0160_0800517c, mcu_0160_08005930 and mcu_143_080052ac, none of which is in this packet. Reading it as a near-zero test on the B90 quantity is a guess from the threshold.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "bool", "description": "1 when enabled and the value is below 0x666, else 0"},
+  "confidence": "medium",
+  "notes": "The thunk relation between 0x0800A56C and 0x0800A588 is inferred from the decompiled call name and the caller list of mcu_get_field_0x0c_ashr_scale, which includes mcu_0160_0800a56c. mcu_0160_0800a56c itself is listed as not yet described."
+ },
+ "mcu_0160_08003a0c": {
+  "name": "mcu_limit_chan_cfg_d",
+  "summary": "Load limit channel D with |DAT_20000780|/4 capped at 10.0 and gain 0.8",
+  "description": "Configures a limit channel object for the 152 and 0160 builds from the signed value DAT_20000780. Its magnitude divided by 4 (signed division rounding) goes to +0x0C while the magnitude is below 0x140000 (40.0 in Q15), otherwise +0x0C is 0x50000 (10.0). It then loads the object from RAM block 0x2000024C..0x20000265 and DAT_20000E2C and DAT_20000668 (DAT_2000024C to +0x00, DAT_20000258 to +0x04, DAT_2000025C to +0x10, DAT_20000260 to +0x14, the byte at 0x20000265 to +0x28), with constant 0x5FBBB at +0x18, mode 5 at +0x27 and enable cleared at +0x29. It resets the shared edge counter DAT_20000D78 and sets DAT_200008BC = 0x294000 and DAT_200008B4 = 0x6999 (0.8 in Q15).",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Caller mcu_0160_08004e78 is not in this packet. The meaning of DAT_20000780 is not established."
+ },
+ "mcu_0160_08003cc8": {
+  "name": "mcu_limit_chan_cfg_high_seed",
+  "summary": "Seed limit channel from block 0xB3C, set mode 1, and force edge counter D78 high",
+  "description": "Loads a limit channel object from the 0x20000B3C block: DAT_20000B3C goes to +0x00, the larger of DAT_20000B40 and DAT_20000B48 to +0x04, DAT_20000B4C to +0x10, DAT_20000B50 to +0x14, DAT_20000F20 to +0x18 and DAT_20000F24 to +0x1C. It zeroes +0x08, +0x0C, +0x24..+0x26, +0x29 and finally +0x28, sets the mode byte at +0x27 to 1, and writes two 0x41A00000 words (f32 20.0) at +0x2C and +0x30. The shared edge counter at DAT_20000D78 is then forced high with mcu_edge_counter_force_high, which reloads it and drives its output high, so the next step continues from the reload value. DAT_20000B3C is the output of mcu_limit_target_b3c_update (0x080055C4).",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "limit channel object"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Object layout inferred from writes only. The 0x41A00000 words are read as f32 20.0."
+ },
+ "mcu_0160_080047d0": {
+  "name": "mcu_limit_668_or_default",
+  "summary": "Return the RAM limit DAT_20000668 when enabled, else 0.5 (0x4000)",
+  "description": "Selects the limit used by the caller. If the inhibit byte DAT_20000A9A is set it returns 0 and, when the latch DAT_200000B5 is still zero, copies the inhibit value into it (a one-time latch). With the inhibit clear it calls mcu_cond_658_and_not_a9a, which is true when the enable byte DAT_20000658 is set; in that case it returns the word DAT_20000668, otherwise the default 0x4000 (0.5 in Q15). The only caller listed is mcu_0160_080054fc, which is not in this packet.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "s32", "description": "Q15 limit; 0 while inhibited, DAT_20000668 when enabled, else 0x4000"},
+  "confidence": "medium",
+  "notes": "The meaning of the inhibit and enable bytes is inferred from their names only."
+ },
+ "mcu_0160_0800480c": {
+  "name": "mcu_target_derate_calc",
+  "summary": "Compute the Q15 drive target from the B14 band, base DAT_200003DC and a derate term",
+  "description": "Computes a Q15 target, returns it, and stores a physical value in DAT_200000FC. The base is DAT_200003DC x 0x8000. An offset is taken from DAT_20000B14: zero at or below 0x2F8000, then a negative offset that falls linearly (Q15 division by 0xA0000) to -0x4000 at 0x348000, -0x6000 at 0x370000 and clamps at -0x8000. The target is base + base x offset (mcu_q15_mul_sat), then multiplied by (1 + k/2), where k = clamp(DAT_20000A44 - DAT_200003E6 - 2.0, -1.87, 0) in Q15. The result is capped at DAT_20000664 and at the base, and floored at 0x10000 (2.0); DAT_200000FC is set to the float target divided by 35.885 (f32 0x420F999A) and truncated. Finally mcu_cond_mode_bit0_and_level_ok selects a lower bound: when it holds the function returns the larger of the target and the word at +0x30 of an object whose pointer the decompiler lost.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "s32", "description": "Q15 target, or the lower bound when that applies"},
+  "confidence": "low",
+  "notes": "The meaning of DAT_20000B14, the 35.885 divisor and the final clamp are not established. The +0x30 object pointer is lost in the decompile (extraout_r3). Callers listed: mcu_0160_080054fc."
+ },
+ "mcu_0160_080049b8": {
+  "name": "mcu_cfg_gain_10c_q15",
+  "summary": "Return cfg+0x10C times DAT_200003CC/5.3036 as a Q15 value",
+  "description": "Converts the f32 value DAT_200003CC to a Q15 integer by dividing it by 5.3036 (the double constant 0x401538A6_13CD503A), done in soft-float double precision: widen with __aeabi_f2d, compute 1/(c/x), which equals x/c, scale by 2^15 and truncate through mcu_0160_0800187e (double to int, not yet described). It multiplies that integer by the 32-bit configuration word at cfg+0x10C, where cfg is the pointer at DAT_200000F8, and returns the product shifted right by 15. Its twin mcu_cfg_gain_108_q15 uses cfg+0x108. Callers include mcu_0160_0800a320, mcu_0160_08004944, mcu_0160_08004db8, mcu_0160_08004e78 and mcu_0160_08008a14.",
+  "category": "util",
+  "params": [],
+  "returns": {"type": "u32", "description": "Q15 product of the configuration word and the scaled input"},
+  "confidence": "medium",
+  "notes": "The meaning of cfg+0x10C and of DAT_200003CC is not established. The divisor 5.3036 is read from the double constant."
+ },
+ "mcu_0160_08004a0c": {
+  "name": "mcu_cfg_gain_108_q15",
+  "summary": "Return cfg+0x108 times DAT_200003CC/5.3036 as a Q15 value",
+  "description": "Same computation as mcu_cfg_gain_10c_q15: DAT_200003CC is divided by 5.3036 as a Q15 integer, multiplied by a configuration word and shifted right by 15. The only difference is that the word is taken from cfg+0x108 instead of cfg+0x10C, where cfg is the pointer at DAT_200000F8. The only caller in this packet is mcu_0160_0800a320.",
+  "category": "util",
+  "params": [],
+  "returns": {"type": "u32", "description": "Q15 product of the configuration word and the scaled input"},
+  "confidence": "medium",
+  "notes": "Meaning of cfg+0x108 is not established."
+ },
+ "mcu_0160_08004d3c": {
+  "name": "mcu_limiter_set_range",
+  "summary": "Store the larger of two bounds at cfg+0x25C and retarget limiter object C0",
+  "description": "Stores the larger of param_1 and param_2 at cfg+0x25C, where cfg is the pointer at DAT_200000F8. It then calls mcu_0160_08007c08 (not yet described) on the limiter object at 0x200000C0 with both bounds, each paired with a Q15 limit taken from the low and high bytes of DAT_20001FDE (each shifted left by 15), and the constant 0xA3 (163). Finally it stores param_3 as a flag byte in DAT_200000F6. The only caller listed is mcu_0160_08003c78, which is not in this packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "first bound (Q15)"},
+   {"name": "param_2", "type": "s32", "description": "second bound (Q15)"},
+   {"name": "param_3", "type": "u8", "description": "flag value stored at DAT_200000F6"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The roles of the two bounds, the 0xA3 constant and the meaning of the limiter object at 0x200000C0 are not established."
+ },
+ "mcu_0160_08004d94": {
+  "name": "mcu_position_zero_and_latch",
+  "summary": "Rebase the multi-turn position at the context object and latch the new reference",
+  "description": "Rebases the position of the context object at DAT_2000002C to its current raw counter by calling mcu_position_rebase, which also clears the wrap count, so the reported multi-turn position becomes zero. It then stores the value returned by mcu_0160_080031b8 (not yet described) into DAT_200008F8 and copies it to DAT_200008FC. The callers mcu_0160_08004e78, mcu_0160_08005480 and mcu_143_080052ac are not in this packet.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "The rebase effect is taken from the mcu_position_rebase summary. mcu_0160_080031b8 is not described."
+ },
+ "mcu_0160_08004e48": {
+  "name": "mcu_fault_b1c_mask_any",
+  "summary": "Return 1 when any status bit in mask 0x44A7 of B1C is set",
+  "description": "Returns 1 if (DAT_20000B1C & 0x44A7) is non-zero, that is if any of bits 0, 1, 2, 5, 7, 10 or 14 of the 32-bit status word is set. That word collects status bits set by mcu_bus_threshold_monitor, mcu_fb_threshold_monitor, mcu_speed_mismatch_check and mcu_fault_monitor_update. Its only caller in the packet is mcu_drive_state_set, which uses the result to clear the transition flag.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "bool", "description": "1 when any masked status bit is set"},
+  "confidence": "medium",
+  "notes": "The meaning of the individual status bits is not established in this packet."
+ },
+ "mcu_12b_08004e74": {
+  "name": "mcu_over_limit_latch_12b",
+  "summary": "12b: integrate an over-limit condition and latch fault bit 0x4 of status BD0",
+  "description": "12b-only supervisor for one over-limit condition. It takes a measurement from FUN_08004970 (no summary in this packet) and debounces the test measurement > DAT_20000BCC x 0x8000 through FUN_080096F8 on the object at 0x20000D40. Bit 0x2 of DAT_20000BD0 follows the debounced result, and DAT_20000144 integrates it: it counts up while bit 0x2 is set and latches bit 0x4 once it reaches 201, and counts down otherwise. A window timer DAT_20000140 runs for 200 ticks after DAT_20000B9F is set, and while it runs a measurement above (DAT_20000BC8 + 1) x 0x8000 sets bits 0x2 and 0x4 and ends the window. Bit 0x1 is cleared when FUN_080036F8 returns non-zero and DAT_20000AFC is above 99.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Which real condition this guards, and what FUN_08004970, FUN_080096F8 and FUN_080036F8 do, are not in the packet, so the name is generic. These three callees are not in the packet's callee list."
+ },
+ "mcu_0160_08005090": {
+  "name": "mcu_fb_lpf_select_update",
+  "summary": "Low-pass the feedback with a Q30 coefficient chosen from the drive state",
+  "description": "Per-tick feedback filter. While DAT_20000E33 (drive-active) is clear it clears DAT_20000E30 and sets be4 = mcu_get_param_654_q15() and r118 = mcu_get_var_67c(). While active it sets be4 = DAT_20000BEC x DAT_20000BE0 and sets DAT_20000E30 when that product is outside the lowest 10% of the window (mcu_below_10pct_of_window returns 0). The Q30 coefficient DAT_20000144 is 0x05832840 (about 0.086), or 0x00664D0A (about 0.0062) when DAT_2000010B is set, or 1.0 (0x40000000, no filtering) while active; if DAT_20000E19 is set it is forced to 1.0, otherwise 0x23A3A3C0 (about 0.55) is used when |DAT_20000BE8 - P| is below 4 percent of DAT_20000BEC, or when DAT_20000BE8 is below P (P is the parameter value). mcu_lpf_q30_step then filters be4 into DAT_20000BE8 and r118 into r11c, and mcu_0160_0800a644 (not yet described) updates the object at 0x20000B90 from them. DAT_2000010B is copied from DAT_20000E33 at the end.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "What DAT_20000BE8 represents is not established. The coefficient selection follows the decompiled order, including the override by DAT_20000E19. mcu_0160_0800a644 is not described."
+ },
+ "mcu_0160_080051bc": {
+  "name": "mcu_digital_input_debounce",
+  "summary": "Debounce digital input bytes 0x1BC and 0x1BD through a bank of edge counters",
+  "description": "Runs a bank of six edge counters that debounce digital inputs. DAT_20000E18 comes from counter C60 on DAT_200001BC, DAT_20000E1A (copied to E1B) from counter C74 on DAT_200001BC, DAT_20000E19 from counter C88 on that output, DAT_20000E1C from counter CC4 on DAT_200001BD, DAT_20000E20 from counter CB0 on the result of mcu_below_10pct_of_window, and DAT_20000E1F from counter D8C on DAT_20000E33 == 0. A counter output changes only after its input has been held for its limit count, so the E-bytes are debounced versions of the inputs. The call to mcu_below_10pct_of_window passes whatever is left in r0 by the mcu_get_param_654_q15 call made just before it, so its input is that parameter value.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Counter limits are set in the edge counter init routines, not here. The meaning of the input bytes 0x1BC and 0x1BD is not established."
+ },
+ "mcu_0160_080052bc": {
+  "name": "mcu_drive_state_update",
+  "summary": "Enter or leave active drive mode DAT_20000E33 from speed, faults and counters",
+  "description": "Decides whether the drive is in active mode (DAT_20000E33) and seeds the ramp and position state when it enters. It reads x = mcu_get_cfg_field_0x28_q15() and steps counter D50 on x > DAT_2000040A x 0x8000; that output ANDed with DAT_20000E20 is the over-limit flag. The gate requires DAT_20000E34 set, DAT_20000E32 and DAT_20000E1A clear, no over-limit flag, mcu_status_bf4_any_low_bits clear and bit 0x4 of DAT_20000BF4 clear, and the counter DB4 is stepped on bit 1 of DAT_20001FD4. Entering needs the gate, E33 clear, the DB4 output set and DAT_20000F30 above 0x27FFF; it sets DAT_20000E24 to the lesser of F30 and (byte 0x20001FDC + 1) x 0x4000, computes a ramp value from the limit (x 10/9) and sets DAT_20000164 and DAT_20000168 to it, and sets DAT_20000BE0 and E33. While active it stays active while the gate and the DB4 output hold and |F30| is above 0x10000, and otherwise E33, E24 and DAT_20000E28 are cleared; whenever the gate fails those three are cleared as well.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The meaning of the state byte DAT_20000E33 is taken as the active drive or ramp mode. Caller mcu_0160_08004e78 is not in this packet. The limit used on entry comes from mcu_0160_0800ce3c and mcu_get_var_34c_ashr_scale as in the decompile."
+ },
+ "mcu_0160_08005424": {
+  "name": "mcu_neg_limit_flag_update",
+  "summary": "Update flag DAT_20000E35 from the cfg+0x28 value and DAT_20000F2C",
+  "description": "Updates the flag DAT_20000E35 from x = mcu_get_cfg_field_0x28_q15(). When DAT_20000E1A and DAT_20000E31 are both clear and x is below -0x20000 (-4.0) with DAT_20000E1D clear, the flag is set if DAT_20000F2C is below -0x1999 (about -0.2) and cleared if it is 1 or more, and is otherwise left as it was. If that first case does not apply and x is above -0x10000 (-2.0), the flag is cleared. When DAT_20000E1A or DAT_20000E31 is set, the flag is forced to 1. Only DAT_20000E35 is written.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The name reflects the thresholds; the meaning of DAT_20000E35 is not established. Caller mcu_0160_08004e78 is not in this packet."
+ },
+ "mcu_0160_080055c4": {
+  "name": "mcu_limit_target_b3c_update",
+  "summary": "Compute the limited target DAT_20000B3C from the B14 band and base DAT_200003DE",
+  "description": "Computes the limited output DAT_20000B3C from the base DAT_200003DE x 0x8000 and the band of DAT_20000B14. Inside 0x348001..0x36FFFF the output is base + base x offset, where offset is q15 division of (0x348000 - B14) by 0x50000 clamped to [-0x4000, 0]; at or above 0x370000 the offset is q15 division of (0x370000 - B14) by 0x88000, shifted by -0x4000 and clamped to [-0x6666, -0x4000]. At or below 0x348000 the output is just the cap. The result is capped at the first word of the object selected by the pointer table at 0x20000268 with index DAT_20000B54, and then mcu_0160_080070AC (not yet described; it calls mcu_lpf_q30_step) filters the object at 0x20000C3C.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The cap table at 0x20000268 is read as pointers to objects whose first word is the cap. Caller mcu_0160_08004e78 is not in this packet."
+ },
+ "mcu_0160_08005690": {
+  "name": "mcu_a50_debounce_latch",
+  "summary": "Latch flag DAT_20000E36 from the debounced test DAT_20000A50 above -5.0",
+  "description": "Feeds the test DAT_20000A50 > -0x28000 (above -5.0 in Q15) into the edge counter at 0x20000CEC and writes its output to DAT_20000E36, but only while that byte is still zero. Once set, the flag therefore stays set, since nothing in this function clears it. The threshold and the counter limit together set the debounce; both are outside this packet.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Meaning of DAT_20000A50 is not established."
+ },
+ "mcu_0160_080056e4": {
+  "name": "mcu_run_enable_update",
+  "summary": "Set or clear run-enable DAT_20000E34 from hall input bit 2, speed and B20",
+  "description": "Updates the run-enable flag DAT_20000E34. Its input is bit 2 of DAT_20001FD4 ANDed with mcu_flag_1fce_is_clear(), debounced by counter DC8. While DAT_20000E1D is set the flag is cleared. Otherwise it is set when it is currently clear, DAT_20000B20 is above 0x31 (49), DAT_2000066C is clear and the debounced input is high. It is cleared when it is set and either the debounced input is low or DAT_2000066C is set, but only while |DAT_20000F30| is below 0x24000 (4.5 in Q15).",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Meaning of DAT_20000B20, DAT_2000066C and the 0x20001FCE flag is not established in this packet. Bit 2 of 0x20001FD4 is taken as a digital input."
+ },
+ "mcu_0160_0800576c": {
+  "name": "mcu_speed_limit_calc",
+  "summary": "Compute limit outputs F38, F3C and F40 from a speed-like input and the mcu limit",
+  "description": "Takes a speed-like Q15 input param_2 and writes three outputs. DAT_20000F38 is param_2 x 30 - 3.0 (0xF0000 and 0x18000) when param_2 is below 0.1 (0xCCC), and otherwise (param_2 - 0.1) x mcu_get_limit_min3_or_unbounded() x 10/9 (0x8E38 in Q15). DAT_20000F3C is the mcu limit when that limit is below F38, otherwise F38 floored at 0x18000. DAT_20000F40 is copied from the word at +0x14 of param_1. Callers are mcu_0160_08003f2c and mcu_143_080052ac, not in this packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "object whose +0x14 word is copied to DAT_20000F40"},
+   {"name": "param_2", "type": "s32", "description": "speed-like input in Q15"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Meaning of the input and of the limit reported by mcu_get_limit_min3_or_unbounded is inferred from the names and constants."
+ },
+ "mcu_0160_08005978": {
+  "name": "mcu_drive_state_set",
+  "summary": "Store drive state DAT_20000F44 and set the transition flag DAT_20000E37",
+  "description": "Setter for the drive state byte DAT_20000F44 that also maintains the transition flag DAT_20000E37. If the state changes the flag is cleared, then set for the transitions 3 to anything, 2 to 1 and 1 to 2. Afterwards the flag is cleared if mcu_status_bf4_any_low_bits() is set and the new state is not 2, and cleared again if mcu_fault_b1c_mask_any() is set; the new state is then stored. The callers are not in this packet.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "u8", "description": "new drive state"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The meaning of states 1 to 3 is not established."
+ },
+ "mcu_12b_080059ec": {
+  "name": "mcu_threshold_status_12b",
+  "summary": "12b: run the threshold debounce on A80 and mirror its trip states into status bit 0x20",
+  "description": "12b-only wrapper. It runs mcu_threshold_debounce_update_v12b on the object at 0x20000A80 with sample DAT_20000AF0. If the upper trip state byte DAT_20000A92 is set it sets bit 0x20 of the status word DAT_20000AF8 with mcu_bits_set; if the lower trip state byte DAT_20000A93 is set it clears that bit with mcu_bits_clear and returns, so the bit ends cleared when both are set. The caller listed is mcu_12b_08005b60, which is not in this packet.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": "Trip state byte meanings follow the mcu_threshold_debounce_update_v12b summary."
+ },
+ "mcu_0160_08005a00": {
+  "name": "mcu_bus_threshold_monitor",
+  "summary": "Monitor DAT_20000B14 against thresholds 0x3E8 and 0x3EA and mirror trips into B1C bit 0x20",
+  "description": "Runs mcu_threshold_monitor_update_std on the object at 0x20000A9C with sample DAT_20000B14, thresholds DAT_200003E8 (upper, also used as the release level) and DAT_200003EA (lower), each shifted left by 15, and a trailing 0. If the upper trip flag DAT_20000AB4 is set it sets bit 0x20 of the status word DAT_20000B1C, and if the lower trip flag DAT_20000AB5 is set it clears that bit and returns. The sample is the filtered value written by mcu_fault_monitor_update, and its nominal band (0x348000 to 0x370000) suggests a voltage, though that is a guess.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The identity of the monitored quantity is inferred from its band and from the default 0x368000 that mcu_fault_monitor_update uses for it."
+ },
+ "mcu_0160_08005a58": {
+  "name": "mcu_speed_mismatch_check",
+  "summary": "Set status bit 0x4000 when DAT_20000780 is large while the command is near zero",
+  "description": "Counts the condition that |DAT_20000780| is above 0x1DFFFF (about 60.0 in Q15) while |DAT_20000F30| is below 0x8000 (1.0). The condition is debounced by edge counter AD4 and, when that counter fires, bit 0x4000 of the status word DAT_20000B1C is set with mcu_bits_set. The meaning of DAT_20000780 is not established, so the name describes the test rather than a known fault.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "low",
+  "notes": "Name describes the test only. The fault meaning of bit 0x4000 is inferred."
+ },
+ "mcu_12b_08005a80": {
+  "name": "mcu_12b_supervisor_update",
+  "summary": "12b: threshold supervisor on A68 that updates status bits 0x1 and 0x2 in AF8",
+  "description": "12b-only supervisor. It runs mcu_threshold_debounce_update_v12b on the object at 0x20000A68 with sample DAT_20000A28. While the upper trip state DAT_20000A7A is clear it counts DAT_200000B8 up to 4000 while DAT_20000A2C is below DAT_200003DC x 0x8000, then clears bit 0x2 of DAT_20000AF8; when the state is set it resets the count and sets bit 0x2. While the lower trip state DAT_20000A7B is set it counts DAT_200000B4 up to 1000 while DAT_20000A2C is below DAT_200003DE x 0x8000 - 0x4000; once the count is exceeded it sets DAT_20000B00 to (DAT_20000AFC > 449), sets bit 0x1 unless that holds, and clears DAT_200000B2. While the lower trip is clear it resets B4, and when DAT_20000A2C is above DAT_200003DE x 0x8000 it counts DAT_200000B2 up to 16000, then clears bit 0x1 and DAT_20000B00.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The limits and the meanings of DAT_20000A2C and DAT_20000AFC are 12b-specific and not established. The counter DAT_20000AFC is read as a count, as in mcu_over_limit_latch_12b."
+ },
+ "mcu_0160_08005ab0": {
+  "name": "mcu_fb_threshold_monitor",
+  "summary": "Monitor DAT_20000A40 against the A80 thresholds and mirror trips into B1C bits 0x1 and 0x2",
+  "description": "Runs mcu_threshold_monitor_update_std on the object at 0x20000A80 with sample DAT_20000A40, upper DAT_200003E2 and lower DAT_200003E6 (each shifted left by 15), release DAT_200003E4 (shifted left by 15) and a trailing 0x1A000 (3.25 in Q15). Bit 0x2 of the status word DAT_20000B1C follows the upper trip state DAT_20000A98 (set when set, cleared when clear). Bit 0x1 follows the lower trip state DAT_20000A99: when it is clear, the bit is cleared and DAT_20000B24 is cleared; when it is set, the bit is set if DAT_20000B20 is below 450 and DAT_20000B24 is cleared, and otherwise DAT_20000B24 is set and the bit is left as it was. The sample DAT_20000A40 is the output of mcu_mul_q15_f5e_by_3f2 in mcu_fault_monitor_update.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Meaning of the monitored quantity and of DAT_20000B20 is not established."
+ },
+ "mcu_0160_08005b3c": {
+  "name": "mcu_fault_monitor_update",
+  "summary": "Main protection tick: filter the references, run threshold monitors, set hall fault bits",
+  "description": "Protection and reference update called from mcu_0160_0800a320 that does nothing unless DAT_20000B38 is set. It reads a40 = mcu_mul_q15_f5e_by_3f2() and b10 = mcu_0160_08002148(&b18), using 0x368000 as b10 when b18 is non-zero. When DAT_200000B1 is clear it runs seven mcu_lpf_q30_step filters on their own inputs (a40 into a48 and a44, a4c into a50, a54 into a58, a5c into a60, a64 into a68, and b10 into b14) with fixed Q30 coefficients; when the flag is set it copies the samples into the filter states, sets a60 to 0x8000 and clears the flag. It then calls mcu_bus_threshold_monitor, reads the hall transition status of the context object with mcu_hall_get_transition_status, and steps two counters: AE8 on status 7 sets bit 0x400 of B1C when it fires, and AFC on statuses 1 to 6 (invalid transitions) sets bit 0x80000 when it fires.",
+  "category": "protection",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Status 7 and statuses 1 to 6 follow the mcu_hall_get_transition_status summary. The 0x80000 bit is set on an invalid transition, which reads as a fault, but the counter output polarity is assumed. mcu_0160_08002148 is not described."
+ }
+}

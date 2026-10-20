@@ -1,0 +1,614 @@
+{
+  "mcu_g_0160_20000024": {
+    "name": "protection_level_pair",
+    "type": "s16",
+    "count": 2,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000024"
+    ],
+    "category": "protection",
+    "description": "Two signed 16-bit bus level values in whole volts (probably), as one array of two. Index 0 at 0x20000024 is the bus voltage, taken as (0x20000B10 >> 15) by mcu_0160_0800a320 each run; index 1 at 0x20000026 is the same kind of value from the 0x20000A7C source (probably another sensor path). Both are initialised to 25 at startup. mcu_cond_mode_bit0_and_level_ok and mcu_0160_0800e238 compare both with the bus upper limit minus 10 (0x200003EA - 10); the telemetry code adds 0x14 and saturates to 8 bits. Units not confirmed."
+  },
+  "mcu_g_0160_200000b0": {
+    "name": "protection_fault_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x200000b0"
+    ],
+    "category": "protection",
+    "description": "Fault state code written each run of mcu_fault_monitor_update from FUN_0800915c(0x2000002C) (cast to a byte). Values 0 and 7 mean no fault. The value 7 is fed through the debouncer at 0x20000AE8 and sets B1C bit 0x400 when it is confirmed; any other nonzero value is fed through the debouncer at 0x20000AFC and sets B1C bit 0x80000 when confirmed. The individual codes are not decoded here."
+  },
+  "mcu_g_0160_200000b1": {
+    "name": "protection_reseed_request",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x200000b1"
+    ],
+    "category": "protection",
+    "description": "Reseed request flag. When it is nonzero, mcu_fault_monitor_update clears it and reseeds the monitor filters from the raw values instead of filtering: 0x20000A48 and 0x20000A44 take 0x20000A40, 0x20000B14 takes 0x20000B10, and 0x20000A60 takes 0x8000. Set by code outside this packet (probably on a clear or a reconfiguration)."
+  },
+  "mcu_g_12b_200000b2": {
+    "name": "protection_12b_sup_hi_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_12b",
+      "0x200000b2"
+    ],
+    "category": "protection",
+    "description": "12B supervisor counter for the high-value branch. Counts consecutive supervisor ticks (probably 1 ms) while the value at 0x20000A2C stays above 0x200003DE * 0x8000, and resets to 0 when it is at or below that level. When it exceeds 15999 the supervisor sets bit 1 of status 0x20000AF8 and clears 0x20000B00. Type u16 is probable: the next 12B counter sits 2 bytes later."
+  },
+  "mcu_g_12b_200000b4": {
+    "name": "protection_12b_sup_recover_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_12b",
+      "0x200000b4"
+    ],
+    "category": "protection",
+    "description": "12B supervisor counter for the second branch. While flag 0x20000A7B is set and 0x20000A2C is below 0x200003DE * 0x8000 - 0x4000, it counts ticks. When it exceeds 999 the supervisor sets 0x20000B00 to (0x20000AFC > 0x1C1) and, if that is false, sets bit 1 of 0x20000AF8, then clears the counter at 0x200000B2. It is reset to 0 whenever 0x20000A7B is clear."
+  },
+  "mcu_g_12b_200000b8": {
+    "name": "protection_12b_sup_low_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_12b",
+      "0x200000b8"
+    ],
+    "category": "protection",
+    "description": "12B supervisor counter for the low-value branch. While flag 0x20000A7A is zero it counts ticks in which 0x20000A2C is below 0x200003DC * 0x8000, up to 4000; reaching the cap sets bit 2 of status 0x20000AF8. When 0x20000A7A is set it is cleared to 0 and bit 2 is cleared. Type u16 is probable."
+  },
+  "mcu_g_0160_2000010f": {
+    "name": "protection_f30_range_latch",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x2000010f"
+    ],
+    "category": "protection",
+    "description": "Latch set by mcu_f30_range_latch when the magnitude of the s32 at 0x20000F30 exceeds 0xFFFF and the latch is clear. A call with argument 0 clears it. Readers are outside this packet."
+  },
+  "mcu_g_12b_20000140": {
+    "name": "protection_12b_overlimit_ticks",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_12b",
+      "0x20000140"
+    ],
+    "category": "protection",
+    "description": "12B over-limit counter. While flag 0x20000B9F is set it counts calls of mcu_over_limit_latch_12b; after more than 199 calls it clears the flag and resets itself to 0. Type u16 is probable."
+  },
+  "mcu_g_12b_20000144": {
+    "name": "protection_12b_overlimit_persist",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_12b",
+      "0x20000144"
+    ],
+    "category": "protection",
+    "description": "12B over-limit persistence counter. While bit 1 of status 0x20000BD0 is clear it counts down to 0; while bit 1 is set it counts up, and at 201 (0xC9) it sets bit 2 (0x4) of 0x20000BD0 as the latched over-limit fault. Probably the debounce for that fault. Type u16 is probable."
+  },
+  "mcu_g_0160_200001bc": {
+    "name": "protection_din_1bc_raw",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x200001bc"
+    ],
+    "category": "protection",
+    "description": "Raw digital input byte 1BC, set in mcu_0160_0800adde to 1 when the value at 0x20000650 is above 0 (probably a pin or comparator state). Input of the debouncers at 0x20000C60 and 0x20000C74 in mcu_digital_input_debounce, and tested with the debounced state 0x20000E18 in mcu_0160_08003f2c."
+  },
+  "mcu_g_0160_200001bd": {
+    "name": "protection_pc9_raw",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x200001bd"
+    ],
+    "category": "protection",
+    "description": "Raw PC9 input, written by mcu_poll_pc9_input_and_flag as the inverted GPIOC PC9 level: 1 when the active-low pin reads low. Input of the debouncer at 0x20000CC4 (result 0x20000E1C), which mirrors into bit 3 of status word 0x20001FEE."
+  },
+  "mcu_g_0160_20000344": {
+    "name": "protection_norm_sq_count",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000344"
+    ],
+    "category": "protection",
+    "description": "Debounce counter of mcu_fault_norm_sq_debounce_check. It is incremented on each call and the function returns 0 once the old value is above 3, so the test trips after about four failing calls; the counter is cleared on the reset path. Probably counts consecutive failures of the squared-magnitude limit on the (+0x18, +0x1C) pair. Type u8 is probable."
+  },
+  "mcu_g_0160_200003e2": {
+    "name": "protection_fb_lo_limit",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x200003e2"
+    ],
+    "category": "protection",
+    "description": "Lower limit of the feedback band monitor. mcu_fb_threshold_monitor and mcu_0160_08005c0c pass it shifted left 15 bits (Q15) as the lower bound for the value at 0x20000A40, with the upper bound at 0x200003E6. Units not confirmed. Writers are outside this packet."
+  },
+  "mcu_g_0160_200003e4": {
+    "name": "protection_fb_aux_limit",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x200003e4"
+    ],
+    "category": "protection",
+    "description": "Third feedback threshold. mcu_fb_threshold_monitor passes it Q15-shifted to FUN_0800844c as an extra argument, followed by the constant 0x1A000. Probably the release or hysteresis level of the feedback band (not confirmed)."
+  },
+  "mcu_g_0160_200003e8": {
+    "name": "protection_bus_lo_limit",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x200003e8"
+    ],
+    "category": "protection",
+    "description": "Lower bus voltage limit (probably volts) for the bus band monitor at 0x20000A9C, which tests the filtered bus level at 0x20000B14. Passed Q15-shifted by mcu_bus_threshold_monitor and mcu_0160_08005c0c. Writers are outside this packet."
+  },
+  "mcu_g_0160_200003ea": {
+    "name": "protection_bus_hi_limit",
+    "type": "u16",
+    "count": 1,
+    "size": 2,
+    "anchor": [
+      "MCU_0160",
+      "0x200003ea"
+    ],
+    "category": "protection",
+    "description": "Upper bus voltage limit (probably volts). It bounds the bus band monitor at 0x20000A9C and is the lower bound of the second bus band at 0x20000AB8 (upper bound 0x200003EC). It is also the reference of the level checks: mcu_cond_mode_bit0_and_level_ok and mcu_0160_0800e238 need the values at 0x20000024 and 0x20000026 to be at least 10 below it. Writers are outside this packet."
+  },
+  "mcu_g_0160_20000a40": {
+    "name": "protection_ref_sample",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a40"
+    ],
+    "category": "protection",
+    "description": "Raw reference sample (Q15) from the sensor reader FUN_08002208, taken in mcu_fault_monitor_update each run. It is the input of the filters at 0x20000A44 and 0x20000A48, and the monitored value of the feedback band at 0x20000A80. Units not confirmed."
+  },
+  "mcu_g_0160_20000a48": {
+    "name": "protection_ref_sample_lp",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a48"
+    ],
+    "category": "protection",
+    "description": "Low-pass filtered copy of 0x20000A40 (FUN_0800721a with constant 0xA49B4). Reseeded from the raw value on a reseed request. mcu_0160_0800a320 scales it by 0x320000 for the telemetry word at 0x20002044."
+  },
+  "mcu_g_0160_20000a4c": {
+    "name": "protection_metric_raw",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a4c"
+    ],
+    "category": "protection",
+    "description": "Raw metric written each run by mcu_dq_power_step_and_scale from FUN_0800767c over the sample buffer at 0x20000758. It is multiplied by the filtered reference at 0x20000A44 to form the power estimate at 0x20000A64. Probably a current-like quantity (not confirmed)."
+  },
+  "mcu_g_0160_20000a50": {
+    "name": "protection_metric_lp",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a50"
+    ],
+    "category": "protection",
+    "description": "Low-pass filtered copy of 0x20000A4C (FUN_0800721a, constant 0x7250810), Q15. Compared with -0x28000 (-5.0 in Q15) by the debouncer at 0x20000CEC, with 0x11F333 by mcu_0160_08003f2c, and with the limiter bounds at 0x200000C0 and 0x200000C4 by mcu_0160_08003c78. mcu_q15_to_percent_s16 converts it to a percentage. Units probably amperes (not confirmed)."
+  },
+  "mcu_g_0160_20000a54": {
+    "name": "protection_ref2_sample",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a54"
+    ],
+    "category": "protection",
+    "description": "Second raw reference sample, from FUN_08002078 in mcu_dq_power_step_and_scale. It is filtered into 0x20000A58 in mcu_fault_monitor_update. Probably the same kind of quantity as 0x20000A40 from another sensor path (not confirmed)."
+  },
+  "mcu_g_0160_20000a58": {
+    "name": "protection_ref2_lp",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a58"
+    ],
+    "category": "protection",
+    "description": "Low-pass filtered copy of 0x20000A54 (FUN_0800721a, constant 0x7250810), updated every run of mcu_fault_monitor_update. The reseed path does not touch it."
+  },
+  "mcu_g_0160_20000a5c": {
+    "name": "protection_ref3_filter_in",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a5c"
+    ],
+    "category": "protection",
+    "description": "Input of the filter FUN_0800721a (constant 0x664D0B) whose output is 0x20000A60, run each tick by mcu_fault_monitor_update. The value is written outside this packet. Probably a third reference (not confirmed). 0x20000A60 belongs to another packet."
+  },
+  "mcu_g_0160_20000a64": {
+    "name": "protection_power_raw",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a64"
+    ],
+    "category": "protection",
+    "description": "Power-like product in Q15, computed each run in mcu_dq_power_step_and_scale as (0x20000A4C * 0x20000A44) >> 15. It is filtered into 0x20000A68 by FUN_0800721a (constant 0x1F30A72) in mcu_fault_monitor_update. Probably a power estimate (not confirmed)."
+  },
+  "mcu_g_0160_20000a68": {
+    "name": "protection_power_lp",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a68"
+    ],
+    "category": "protection",
+    "description": "Low-pass filtered copy of 0x20000A64 (FUN_0800721a, constant 0x1F30A72), updated by mcu_fault_monitor_update. The same address in the 12B build is a different variable, see protection_12b_mon_a68."
+  },
+  "mcu_g_12b_20000a68": {
+    "name": "protection_12b_mon_a68",
+    "type": "ProtBandMonitor12b",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_12b",
+      "0x20000a68"
+    ],
+    "category": "protection",
+    "description": "State block of the 12B band monitor on the value at 0x20000A28. FUN_0800822a updates it each run, and the test FUN_0800829e runs in mcu_12b_fault_monitors_init with the limits 0x200003DA and 0x200003DE (Q15) and times 200 and 8000. Its flags at +0x12 (0x20000A7A) and +0x13 (0x20000A7B) are read by mcu_12b_supervisor_update, which selects its counter branches from them."
+  },
+  "mcu_g_12b_20000a80": {
+    "name": "protection_12b_mon_a80",
+    "type": "ProtBandMonitor12b",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_12b",
+      "0x20000a80"
+    ],
+    "category": "protection",
+    "description": "State block of the second 12B band monitor, on the filtered value at 0x20000AF0 (the status copy read by mcu_threshold_status_12b). FUN_0800829e runs in mcu_12b_fault_monitors_init with the limits 0x200003E0 and 0x200003E2 (Q15) and times 100 and 100. Its flags at +0x12 (0x20000A92) and +0x13 (0x20000A93) are read by mcu_threshold_status_12b, which mirrors them into status bit 0x20."
+  },
+  "mcu_g_0160_20000a80": {
+    "name": "protection_fb_mon",
+    "type": "ProtBandMonitor",
+    "count": 1,
+    "size": 26,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a80"
+    ],
+    "category": "protection",
+    "description": "Band monitor of the feedback reference. FUN_0800844c runs each tick in mcu_fb_threshold_monitor on 0x20000A40 with the Q15 limits 0x200003E2 and 0x200003E6, the third threshold 0x200003E4 and the constant 0x1A000. Its flag +0x18 (0x20000A98) sets or clears B1C bit 0x2, and its flag +0x19 (0x20000A99) selects the derate path, which sets B1C bit 0x1 and 0x20000B24 once the counter at 0x20000B20 reaches 0x1C2 (450). mcu_0160_08005c0c initialises it with 200, 4000, 8000, 75000 and mode 2, and its result goes into 0x20000B38."
+  },
+  "mcu_g_0160_20000a9c": {
+    "name": "protection_bus_mon",
+    "type": "ProtBandMonitor",
+    "count": 1,
+    "size": 26,
+    "anchor": [
+      "MCU_0160",
+      "0x20000a9c"
+    ],
+    "category": "protection",
+    "description": "Band monitor of the bus voltage. FUN_0800844c runs each tick in mcu_bus_threshold_monitor on the filtered bus level at 0x20000B14, with the Q15 limits 0x200003E8 and 0x200003EA. Flag +0x18 (0x20000AB4) sets B1C bit 0x20 when nonzero and flag +0x19 (0x20000AB5) clears it when nonzero. mcu_0160_08005c0c initialises it with the 100 times and the same limits, and its result goes into 0x20000B38."
+  },
+  "mcu_g_0160_20000ad4": {
+    "name": "protection_speed_mismatch_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000ad4"
+    ],
+    "category": "protection",
+    "description": "Debouncer of the speed mismatch test in mcu_speed_mismatch_check, timed with 5000 and 10 ticks by mcu_0160_08005c0c. When the mismatch is confirmed the function sets B1C bit 0x4000."
+  },
+  "mcu_g_0160_20000ae8": {
+    "name": "protection_state7_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000ae8"
+    ],
+    "category": "protection",
+    "description": "Debouncer of the fault code test: its input is (0x200000B0 == 7) in mcu_fault_monitor_update, timed with 2000 and 1000 ticks by mcu_0160_08005c0c. When the result is set, mcu_fault_monitor_update sets B1C bit 0x400."
+  },
+  "mcu_g_0160_20000afc": {
+    "name": "protection_fault_code_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000afc"
+    ],
+    "category": "protection",
+    "description": "Debouncer of the 'fault code present' test: its input is 1 when 0x200000B0 is neither 0 nor 7, timed with 10 and 1000 ticks by mcu_0160_08005c0c. When the result is set, mcu_fault_monitor_update sets B1C bit 0x80000."
+  },
+  "mcu_g_0160_20000b10": {
+    "name": "protection_bus_level_raw",
+    "type": "s32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b10"
+    ],
+    "category": "protection",
+    "description": "Bus voltage sample in Q15 fixed point (probably volts scaled by 2^15), from FUN_08002148 in mcu_fault_monitor_update. When 0x20000B18 is set the sample is replaced by the constant 0x368000 (110 in whole units, probably a fallback). It is filtered into 0x20000B14 (constant 0x14901A), and mcu_0160_0800a320 converts it to whole units for 0x20000024."
+  },
+  "mcu_g_0160_20000b18": {
+    "name": "protection_bus_fallback",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b18"
+    ],
+    "category": "protection",
+    "description": "Invalid flag of the bus voltage sample from FUN_08002148. When it is nonzero, mcu_fault_monitor_update substitutes the fallback 0x368000 for 0x20000B10. mcu_0160_0800e238 copies it to telemetry byte 0x20001FF5 when it is set, instead of the level plus 0x14."
+  },
+  "mcu_g_0160_20000b1c": {
+    "name": "protection_fault_bits",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b1c"
+    ],
+    "category": "protection",
+    "description": "Fault and owner status word (bit field). Bits used by this packet: 0x1 and 0x2 (feedback band monitor, from 0x20000A99 and 0x20000A98), 0x20 (bus band monitor, from 0x20000AB4 and 0x20000AB5), 0x8 (cleared by mcu_cmd_state_clear), 0x400 (state-7 debouncer), 0x4000 (speed mismatch), 0x80000 (fault code debouncer). mcu_fault_b1c_mask_any tests the mask 0x44A7, and mcu_fault_owner_arbitrate sets and clears the fault IDs in the owner byte 0x200003BC from these bits."
+  },
+  "mcu_g_0160_20000b24": {
+    "name": "protection_cmd_limit_flag",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b24"
+    ],
+    "category": "protection",
+    "description": "Command limit flag. mcu_fb_threshold_monitor sets it to 1 when flag 0x20000A99 is set and the counter 0x20000B20 has reached 0x1C2 (450 ticks), and to 0 otherwise. While it is 1, mcu_cmd_ramp_update uses 0x4000 (Q15 0.5, a derate) in place of the commanded magnitude. mcu_0160_08003c78 and mcu_0160_0800e238 also read it."
+  },
+  "mcu_g_0160_20000b38": {
+    "name": "protection_monitors_ok",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000b38"
+    ],
+    "category": "protection",
+    "description": "Combined health flag of the 0160 monitors. mcu_0160_08005c0c sets it to the AND of six results: the feedback band (0x20000A80), the bus band (0x20000A9C), the second bus band (0x20000AB8), and the timers 0x20000AD4, 0x20000AE8 and 0x20000AFC. mcu_fault_monitor_update returns at once while it is 0."
+  },
+  "mcu_g_12b_20000b9f": {
+    "name": "protection_12b_overlimit_flag",
+    "type": "bool",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_12b",
+      "0x20000b9f"
+    ],
+    "category": "protection",
+    "description": "Over-limit flag of the 12B build. It is set outside this packet and cleared by mcu_over_limit_latch_12b, either when the counter at 0x20000140 passes 199, or at once when the monitored value stays above (0x20000BC8 + 1) * 0x8000, in which case it also sets bits 0x2 and 0x4 of 0x20000BD0."
+  },
+  "mcu_g_0160_20000bf4": {
+    "name": "protection_status_bf4",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000bf4"
+    ],
+    "category": "protection",
+    "description": "Protection status byte. mcu_0160_0800500c sets bit 0 (0x1). mcu_status_bf4_any_low_bits tests bits 0 and 1. mcu_drive_state_update refuses to enter drive mode while bit 2 (0x4) is set. mcu_telemetry_group_get also reads it."
+  },
+  "mcu_g_0160_20000c60": {
+    "name": "protection_din_1bc_db_long",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000c60"
+    ],
+    "category": "protection",
+    "description": "Debouncer of raw input 0x200001BC with 200 and 300 ticks, set in mcu_0160_08003784. Its output goes to 0x20000E18 on each run of mcu_digital_input_debounce."
+  },
+  "mcu_g_0160_20000c74": {
+    "name": "protection_din_1bc_db_short",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000c74"
+    ],
+    "category": "protection",
+    "description": "Second debouncer on raw input 0x200001BC, 2 ticks each way, reset by FUN_08009a7a in init. Its output (uVar1 in mcu_digital_input_debounce) is the input of the two stage-2 debouncers at 0x20000C88 and 0x20000CB0."
+  },
+  "mcu_g_0160_20000c88": {
+    "name": "protection_din_stage2_a",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000c88"
+    ],
+    "category": "protection",
+    "description": "Stage-2 debouncer fed from 0x20000C74, 60 ticks. Its output goes to 0x20000E19 (another packet's byte) in mcu_digital_input_debounce."
+  },
+  "mcu_g_0160_20000cb0": {
+    "name": "protection_din_stage2_b",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000cb0"
+    ],
+    "category": "protection",
+    "description": "Stage-2 debouncer fed from 0x20000C74, 20 ticks. Its output goes to 0x20000E20, which mcu_drive_state_update reads."
+  },
+  "mcu_g_0160_20000cc4": {
+    "name": "protection_din_1bd_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000cc4"
+    ],
+    "category": "protection",
+    "description": "Debouncer of the PC9 raw input at 0x200001BD, 200 and 200 ticks. Its output goes to 0x20000E1C."
+  },
+  "mcu_g_0160_20000cec": {
+    "name": "protection_a50_neg_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000cec"
+    ],
+    "category": "protection",
+    "description": "Debouncer of the test 0x20000A50 > -0x28000 (-5.0 in Q15), timed with 2 and 1 ticks by mcu_0160_08003784. Its output is the input of the latch at 0x20000E36 in mcu_a50_debounce_latch."
+  },
+  "mcu_g_0160_20000d8c": {
+    "name": "protection_drive_inactive_db",
+    "type": "ProtDebouncer",
+    "count": 1,
+    "size": 20,
+    "anchor": [
+      "MCU_0160",
+      "0x20000d8c"
+    ],
+    "category": "protection",
+    "description": "Debouncer whose input is (0x20000E33 == 0), so it follows the drive-inactive state, timed with 60 ticks by mcu_0160_08003784. Its output is 0x20000E1F, one half of the drive-cycle gate."
+  },
+  "mcu_g_0160_20000e18": {
+    "name": "protection_din_1bc_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e18"
+    ],
+    "category": "protection",
+    "description": "Debounced state of raw input 0x200001BC (output of the debouncer at 0x20000C60 in mcu_digital_input_debounce). mcu_0160_08003f2c tests it together with the raw input and FUN_080039E0 (probably an edge that starts or stops a drive step; not confirmed)."
+  },
+  "mcu_g_0160_20000e1b": {
+    "name": "protection_drive_ok_a",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1b"
+    ],
+    "category": "protection",
+    "description": "Drive gate byte. It is set to 1 by init (mcu_0160_08003784) and is updated by the drive-cycle code, which calls FUN_08006580 with it and the value at 0x20000F30. The checks in mcu_0160_08003ab8 and mcu_0160_08003d2c run only while it and 0x20000E1F are both nonzero."
+  },
+  "mcu_g_0160_20000e1c": {
+    "name": "protection_din_1bd_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1c"
+    ],
+    "category": "protection",
+    "description": "Debounced state of the PC9 input (output of 0x20000CC4 in mcu_digital_input_debounce). mcu_poll_pc9_input_and_flag copies bit 0 into bit 3 (0x8) of status word 0x20001FEE."
+  },
+  "mcu_g_0160_20000e1f": {
+    "name": "protection_drive_inactive_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e1f"
+    ],
+    "category": "protection",
+    "description": "Output of the debouncer at 0x20000D8C, which follows the drive-inactive state 0x20000E33 (60 ticks). Half of the drive-cycle gate with 0x20000E1B; both must be nonzero, see mcu_0160_08003ab8."
+  },
+  "mcu_g_0160_20000e20": {
+    "name": "protection_din_stage2_b_state",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "MCU_0160",
+      "0x20000e20"
+    ],
+    "category": "protection",
+    "description": "Output of the stage-2 debouncer at 0x20000CB0 (20 ticks). mcu_drive_state_update treats a zero value as one of the conditions that stop it from entering or staying in drive mode."
+  }
+}

@@ -1,0 +1,80 @@
+{
+ "vcu_g_0159_20000009": {
+  "name": "dma_tx_queue_wr_idx",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x20000009"
+  ],
+  "category": "dma",
+  "description": "Write (producer) index of the 8-slot DMA1 channel 7 transmit queue whose header starts at 0x20000008. FUN_08008bb0 writes a record at this index and advances it (wraps at 8). The queue is non-empty while it differs from the read index at 0x20000008 (a family of another packet), and vcu_dma_tx_queue_service consumes records from there."
+ },
+ "vcu_g_0159_2000000a": {
+  "name": "dma_tx_queue_credits",
+  "type": "u8",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000000a"
+  ],
+  "category": "dma",
+  "description": "Free record slots of the transmit queue at 0x20000008 (probably initialised to 8). FUN_08008bb0 decrements it for each enqueued record and refuses records at 0. vcu_dma_tx_queue_service increments it after each transmit that it starts successfully."
+ },
+ "vcu_g_0159_2000000b": {
+  "name": "dma_tx_enqueue_busy",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000000b"
+  ],
+  "category": "dma",
+  "description": "Re-entrancy guard of the transmit-queue enqueue function FUN_08008bb0: set to 1 while a record is being written. vcu_dma_tx_queue_service does nothing while it is set."
+ },
+ "vcu_g_0159_2000000c": {
+  "name": "dma_tx_service_busy",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x2000000c"
+  ],
+  "category": "dma",
+  "description": "Re-entrancy guard of vcu_dma_tx_queue_service (FUN_08005704): set to 1 while it starts the next queued transmit and cleared afterwards. FUN_08008bb0 refuses to enqueue while it is set."
+ },
+ "vcu_g_0159_20000010": {
+  "name": "dma_tx_records",
+  "type": "VcuDmaTxRecord",
+  "size": 2048,
+  "count": 8,
+  "anchor": [
+   "VCU_0159",
+   "0x20000010"
+  ],
+  "category": "dma",
+  "description": "Eight 256-byte records of the DMA1 channel 7 transmit queue; record i starts at 0x20000010 + 0x100*i. Each has a 32-bit length word (only the low 16 bits are read by the DMA start) and a payload of up to 242 bytes accepted by the enqueue. vcu_dma_tx_queue_service passes the payload (0x20000014 + 0x100*i) and its length to vcu_dma_tx_start."
+ },
+ "vcu_g_0159_200018a4": {
+  "name": "dma1_ch7_started",
+  "type": "bool",
+  "size": 1,
+  "anchor": [
+   "VCU_0159",
+   "0x200018a4"
+  ],
+  "category": "dma",
+  "description": "Set to 1 by vcu_dma_tx_start each time it starts a DMA1 channel 7 transfer (memory address written to DMA1 channel 7 at 0x4002008c, count through FUN_0800c848). Together with the channel's transfer-complete flag (FUN_0800c884 on 0x02000000) it decides whether the channel is still busy. Who clears it is not in this packet."
+ },
+ "vcu_g_0159_200018b8": {
+  "name": "dma_rx_read_pos",
+  "type": "u16",
+  "size": 2,
+  "anchor": [
+   "VCU_0159",
+   "0x200018b8"
+  ],
+  "category": "dma",
+  "description": "Read position (0..249) in the 250-byte receive ring at 0x20002eb4 for RX channel 0; vcu_dma_ring_drain indexes it as [channel] with stride 2, and only channel 0 is used in VCU_0159. It is advanced by one for each byte copied, wraps to 0 after 249, and catches up to the DMA write position computed from the count register at 0x4002006c that the caller passes in."
+ }
+}

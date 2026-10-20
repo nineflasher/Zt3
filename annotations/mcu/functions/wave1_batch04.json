@@ -1,0 +1,713 @@
+{
+  "mcu_0160_08007bcc": {
+    "name": "NMI_Handler",
+    "summary": "Non-maskable interrupt handler: returns immediately",
+    "description": "Cortex-M NMI vector target. The body is a bare return, so NMI is acknowledged by doing nothing; no clock, watchdog or fault register is touched. Reached only through the vector table, no direct callers.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": null
+  },
+  "mcu_0160_08007bce": {
+    "name": "mcu_block200_alloc",
+    "summary": "Allocate one 200-byte block from the 4088-byte first-fit pool at 0x200027CC",
+    "description": "Fixed-size 200-byte block allocator. The free list head is the global DAT_2000073C; each free node holds its size in bytes at +0 and the next-node pointer at +4. The first node with size >= 200 is used: an exact 200-byte node is unlinked, a larger node is split and its remainder (size - 200) is re-linked 200 bytes further on. The allocated block's size word is set to 200 and the payload pointer (block + 4) is returned, so the usable payload is 196 bytes. On first use DAT_20000740 is 0, so the pool is initialised as one 0xFF8 (4088) byte node at 0x200027CC and DAT_20000740 is set to 1; afterwards an exhausted pool returns NULL. No locking and no interrupt masking.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "payload pointer to a 196-byte area, or NULL when no block of 200 bytes is free"
+    },
+    "confidence": "high",
+    "notes": "The pool's purpose (message or CAN buffers are likely) and the matching free routine are not in this packet. The block size word is written but not read here. Only caller: mcu_0160_08008f34."
+  },
+  "mcu_143_08007dc4": {
+    "name": "mcu_timeout_tick_v143",
+    "summary": "Advance the MCU_143 100-tick timeout counter, decade counter and saturating byte counter",
+    "description": "Per-call tick of a timeout. Counter DAT_200003AC counts up to 100; on every 10th count the decade counter DAT_20000324 is incremented. At 100 the counter stays saturated, DAT_20001FAA is set to 1 (timeout flag), and the overflow counter DAT_20000326 increments on every further call. Independently, the byte DAT_200003AE increments as a saturating 8-bit counter that stops at 0xFF. The 100-count saturation suggests a heartbeat or message-loss timeout of about 100 ticks (the tick period is not shown in this packet).",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Timeout purpose is inferred from the 100-count saturation. The consumer of DAT_20001FAA is outside this packet."
+  },
+  "mcu_152_08007e4c": {
+    "name": "mcu_timeout_tick_v152",
+    "summary": "Advance the MCU_152 100-tick timeout counter and the level field in status halfword 0x20001FCE",
+    "description": "Same timeout pattern as mcu_timeout_tick_v143 on DAT_200003B0: the counter saturates at 100, the decade counter DAT_20000330 steps every 10 counts, DAT_20001FC2 is set on saturation and the overflow counter DAT_20000332 increments while saturated, and the byte DAT_200003B2 is an 8-bit saturating counter. While saturated, DAT_20000634 counts timed-out ticks up to 0x189C (6300). Bits 9..11 of the status halfword DAT_20001FCE are a 3-bit level: after 300 timed-out ticks the level is forced to 2 (0x400) on every 100th tick unless it already is 2, and the level field is cleared when the 6300 cap is reached. The counter DAT_20000634 is reset to 0 as soon as the timeout counter is below saturation.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the level field (escalation of a fault or timeout severity) is inferred from the write pattern only."
+  },
+  "mcu_12b_08007ed0": {
+    "name": "mcu_timeout_tick_v12b",
+    "summary": "Advance the MCU_12b 100-tick timeout counter and set flag DAT_20001F8A at saturation",
+    "description": "Counts DAT_200003B4 up to 100, one step per call. At 100 the counter stays there and the byte DAT_20001F8A is set to 1 on every call. This build has no decade or overflow counter. It is the same timeout pattern as mcu_timeout_tick_v143 and mcu_timeout_tick_v152.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Consumer of DAT_20001F8A is outside this packet. The 12b build is the only one with DAT_20001F8A."
+  },
+  "mcu_12b_08007ef4": {
+    "name": "mcu_setpoint_slew_limit_v12b",
+    "summary": "Slew-limit the scaled setpoint into filter DAT_20000F02 and derive output limit DAT_20000F04 (12b)",
+    "description": "The raw setpoint DAT_20000EEC is scaled by 20/65536 (x * 0x14 >> 16). The filter state DAT_20000F02 moves toward it: within +-20 counts it steps by 1 per call, beyond that it steps by about one twentieth of the error, and it is clamped to be non-negative. If the mode byte DAT_20000E0B is 1, the output DAT_20000F04 follows the filter until the filter's 10-count bucket, (F02 + 10) / 10, equals DAT_20000DFC >> 15 for 200 consecutive calls (counter DAT_2000062A); then it snaps to DAT_20000DFC scaled by 20/65536. Otherwise a threshold T = 5 x (byte at 0x20001F98 rounded up to even) sets flag DAT_20000628 (T <= DAT_20000F04), and the output follows the filter outside a 10-count band around T, holds T inside the band, and keeps its old value on the lower edge of the band unless DAT_20001F8E >= 195 and T <= output.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Units of the setpoint and of the mode byte are not established. The decompiler renders the step as a magic-number division by 20 with a sign fix-up, read here as delta/20. The 12b build has its own variant of the 143/152/0160 function mcu_setpoint_slew_limit_std."
+  },
+  "mcu_0160_08007f24": {
+    "name": "mcu_setpoint_slew_limit_std",
+    "summary": "Slew-limit the scaled setpoint into filter DAT_20000F46 and derive output limit DAT_20000F48",
+    "description": "Same algorithm as mcu_setpoint_slew_limit_v12b with the 143/152/0160 RAM layout: input DAT_20000F30 scaled by 20/65536, filter DAT_20000F46 (+-1 step inside 20 counts, otherwise about delta/20, clamped to >= 0), output DAT_20000F48, mode byte DAT_20000E33 and threshold T = 5 x round-up-even(DAT_20001FDC). When the mode byte is not 1, the output follows the filter 20 or 10 counts above it, holds T inside a 10-count band and uses counter DAT_2000063C (up to 200) as a sustain count on the upper edge. When the mode byte is 1, DAT_2000063A counts how long the filter stays one bucket (200 calls) or two buckets (500 calls) away from DAT_20000E24 >> 15, and the output then snaps to DAT_20000E24 scaled by 20/65536; a filter more than two buckets away resets the count and passes the filter through.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Built for MCU_143, MCU_152 and MCU_0160 (not 12b). Units of DAT_20000F30, DAT_20000E24 and the mode byte are not established. Only caller: mcu_0160_0800a480."
+  },
+  "mcu_0160_08008128": {
+    "name": "mcu_pid_update_q15",
+    "summary": "PID-style controller step in Q15 with derivative on measurement and clamped output",
+    "description": "Controller object fields: enable byte +0x3E, gate byte +0x3F, Kp at +0x0C, Ki at +0x10, Kd at +0x14, error-abort threshold at +0x38, output minimum +0x24 and maximum +0x28, integrator +0x30, previous measurement +0x34, saturation status byte +0x3C. The error is e = *(+0x20) - *(+0x18) (reference minus measurement). If disabled it returns 0 and changes nothing. If the gate byte is set and |e| exceeds +0x38 the integrator is cleared and no integral step is taken. The integral step is (Ki*e + 0x4000) >> 15, applied one-sided while the output was saturated high (flag +0x3C or +0x3D equal to 1: only negative steps) or low (equal to 2: only positive steps) - conditional-integration anti-windup. The output is param_2 (feed-forward base) + (Kp*e >> 15) + integrator - (Kd*(meas - previous) >> 15), clamped to [min,max]; +0x3C becomes 1 (high), 2 (low) or 0, the result is written through *(+0x1C) and the measurement is stored at +0x34.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "controller object (layout above)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "feed-forward base value added to the output"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 if the controller ran, 0 if disabled"
+    },
+    "confidence": "high",
+    "notes": "The algorithm is read directly from the code; the role as a motor or current loop is a guess. Callers mcu_0160_08007364 and mcu_0160_0800772c are outside this packet."
+  },
+  "mcu_12b_0800822a": {
+    "name": "mcu_threshold_debounce_update_v12b",
+    "summary": "Debounce an upper and/or lower threshold with per-side counters and latched trip flags (12b)",
+    "description": "Control object: upper threshold word at +0x00, lower at +0x04, mode byte at +0x08 (0 = upper only, 1 = lower only, 2 = both), counters at +0x0A (upper) and +0x0C (lower) as halfwords with limits at +0x0E and +0x10, state bytes +0x12 and +0x13, latched flags +0x14 and +0x15. For the upper side, each sample above the threshold increments the counter until it reaches its limit, which latches the trip (+0x12 and +0x14 set to 1); a sample at or below the threshold decrements the counter, and when it is already zero clears +0x12. The lower side works the same with samples below the lower threshold and state bytes +0x13 and +0x15. The function always returns 1.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "threshold debounce object (layout above)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "current sample"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "Only in the 12b build. The thresholds' physical meaning (for example over-current or over-temperature) is not shown here."
+  },
+  "mcu_0160_08008260": {
+    "name": "mcu_pid_sync_integrator",
+    "summary": "Reset PID integrator to the clamped current output and latch the current measurement",
+    "description": "Sets the integrator at +0x30 to the present output *(+0x1C) clamped to [+0x24, +0x28], and stores the current measurement *(+0x18) in the previous-measurement slot +0x34. The clamp takes the output as-is if it lies within the limits and otherwise uses the nearer limit. Used to make the controller start from its current output (bumpless transfer), so the derivative term does not see a step at the restart.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "PID object (layout as in mcu_pid_update_q15)"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The bumpless-transfer purpose is inferred. Its caller mcu_0160_080082ac is outside this packet."
+  },
+  "mcu_0160_08008282": {
+    "name": "mcu_pid_set_limits",
+    "summary": "Store PID output limits (min < max) and clamp the live output when the loop is enabled",
+    "description": "Accepts the new limits only when min (param_2) is below max (param_3): min is stored at +0x24 and max at +0x28, and 1 is returned. Otherwise nothing changes and 0 is returned. If the enable byte +0x3E is set, the output *(+0x1C) is clamped to [min, max] at once: a value above max becomes max, a value below min becomes min.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "PID object (layout as in mcu_pid_update_q15)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "new minimum output"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "new maximum output"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 if the limits were accepted, 0 if min >= max"
+    },
+    "confidence": "high",
+    "notes": "Callers mcu_0160_08003f2c, mcu_0160_08007822 and mcu_0160_08008204 are outside this packet."
+  },
+  "mcu_12b_0800829e": {
+    "name": "mcu_threshold_debounce_init_v12b",
+    "summary": "Initialise a 12b threshold debounce object: thresholds, mode, counter limits, clear state",
+    "description": "Writes the upper threshold (param_2) at +0x00 and lower threshold (param_3) at +0x04, the upper and lower counter limits (param_4 at +0x0E, param_5 at +0x10) as halfwords, and the mode byte (param_6) at +0x08. The up and down counters at +0x0A and +0x0C, the state and latch bytes +0x12, +0x13, +0x14 and +0x15 are all cleared. Returns 1.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "threshold debounce object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "upper threshold"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "lower threshold"
+      },
+      {
+        "name": "param_4",
+        "type": "u16",
+        "description": "upper counter limit"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "lower counter limit"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "mode: 0 upper only, 1 lower only, 2 both"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "Only caller in this packet's scope: mcu_12b_08005c80."
+  },
+  "mcu_0160_0800833c": {
+    "name": "mcu_pi_update_gain_sched",
+    "summary": "PI step with speed-scheduled gains (Kp doubled, Ki halved below 0xF0001) and one-sided anti-windup",
+    "description": "Error e = *(+0x20) - *(+0x18). The divisor g is 2 when DAT_20000F30 < 0xF0001 and 1 otherwise: the proportional gain is Kp*g (Kp at +0x0C) and the integral gain is Ki/g (Ki at +0x10), i.e. gain scheduling on DAT_20000F30. The integrator at +0x30 accumulates (Ki/g * e + 0x4000) >> 15; the step is one-sided while the previous output saturated high (DAT_20000348 set: only negative steps) or low (DAT_20000349 set: only positive steps). The integrator is clamped to [+0x24, +0x28]. The output (Kp*g*e + 0x4000) >> 15 plus the integrator is clamped: above max it writes max and sets DAT_20000348, below min it writes min and sets DAT_20000349, otherwise both flags are cleared. The result goes to *(+0x1C). There is no derivative term and no enable check.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "PI object: refs +0x18/+0x20, output ptr +0x1C, Kp +0x0C, Ki +0x10, integrator +0x30, limits +0x24/+0x28"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The scheduling interpretation (low-speed gain change) follows from the threshold constant only; DAT_20000F30 units unknown. Only caller: mcu_0160_08003f2c."
+  },
+  "mcu_0160_0800844c": {
+    "name": "mcu_threshold_monitor_update_std",
+    "summary": "Update thresholds and run upper/lower trip monitor with reload counters and hysteresis (143/152/0160)",
+    "description": "Stores the new thresholds param_3 at +0x00 and param_4 at +0x04. Upper side (mode byte +0x08 equal to 0 or 2): a sample above the upper threshold increments counter A at +0x0A up to its limit at +0x0E; at the limit the trip flag +0x18 and latch +0x1A are set and counter A is reloaded from +0x10. A sample at or below the release level param_5 decrements the counter and clears +0x18 when it is zero. Lower side (mode 1 or 2): a sample below +0x04 increments counter B at +0x0C up to its limit at +0x12; at the limit flag +0x19 and latch +0x1B are set and counter B is reloaded from +0x14. A sample at or above (+0x04 + param_6 hysteresis) decrements counter B and clears +0x19 at zero. Returns 1.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "monitor object (layout above)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "current sample"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "new upper threshold"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "new lower threshold"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "upper release level"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "lower hysteresis width"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "The protected quantity is not identified in this packet. Callers mcu_0160_08005a00 and mcu_0160_08005ab0 are outside this packet."
+  },
+  "mcu_0160_080084dc": {
+    "name": "mcu_threshold_monitor_init_std",
+    "summary": "Initialise the 143/152/0160 threshold monitor object with limits, reload values and mode",
+    "description": "Writes the mode byte (param_8) at +0x08, thresholds param_2 at +0x00 and param_3 at +0x04, counter A limit param_4 at +0x0E, reload value param_5 at +0x10, counter B limit param_6 at +0x12 and reload value param_7 (word) at +0x14. The counters at +0x0A and +0x0C and the flag and latch bytes +0x18, +0x19, +0x1A and +0x1B are cleared. Returns 1.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "threshold monitor object"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "upper threshold"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "lower threshold"
+      },
+      {
+        "name": "param_4",
+        "type": "u16",
+        "description": "counter A limit"
+      },
+      {
+        "name": "param_5",
+        "type": "u16",
+        "description": "counter A reload value"
+      },
+      {
+        "name": "param_6",
+        "type": "u16",
+        "description": "counter B limit"
+      },
+      {
+        "name": "param_7",
+        "type": "u32",
+        "description": "counter B reload value"
+      },
+      {
+        "name": "param_8",
+        "type": "u8",
+        "description": "mode: 0 upper only, 1 lower only, 2 both"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "Only caller: mcu_0160_08005c0c."
+  },
+  "mcu_0160_08008594": {
+    "name": "mcu_pwm_outputs_set_enable",
+    "summary": "Enable or disable the main and complementary outputs of TMR1 channels 1-3 from flag +0x2E5",
+    "description": "Reads-modifies-writes TMR1.CCTRL at 0x40012C20. If the byte at param_1+0x2E5 is non-zero it ORs mask 0x555 (C1EN, C1CEN, C2EN, C2CEN, C3EN, C3CEN, bits 0,2,4,6,8,10), otherwise it ANDs with 0xFFFFFAAA, clearing the same six bits. The polarity bits (C1P, C1CP, C2P, C2CP, C3P, C3CP) and channel-4 bits are left unchanged. This is the output-enable gate for the three motor phases, using the complementary PWM of TMR1.",
+    "category": "pwm",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context; enable byte at +0x2E5"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Mapping of the three channels to motor phases is inferred from the three-channel pattern."
+  },
+  "mcu_0160_08008968": {
+    "name": "mcu_set_request_flags",
+    "summary": "Set request flags at 0x20001FC9 and 0x20001FCB to 1",
+    "description": "Writes 1 to the two RAM bytes 0x20001FC9 and 0x20001FCB. Byte 0x20001FC8 of the same block is not touched. This looks like a pair of pending-request flags that the main loop or a timer task acts on later.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The reader of these flags is in mcu_0160_0800672c, which is outside this packet."
+  },
+  "mcu_0160_080089a4": {
+    "name": "mcu_callback_slot_dispatch",
+    "summary": "Call the RAM function pointer in slot 0 or 1 of the two-entry table at 0x20000630",
+    "description": "The slot index is read from a stack argument at entry (decompiler symbol in_stack_00000008, passed by the caller on the stack; there is no register argument). For an index below 2 it loads the pointer at 0x20000630 + index*4 and calls it with no arguments. Indexes 2 and above do nothing. Because the table is in RAM, the handlers are installed at run time by code outside this packet.",
+    "category": "util",
+    "params": [
+      {
+        "name": "in_stack_00000008",
+        "type": "u32",
+        "description": "slot index (0 or 1), read from the caller's stack at entry offset +8"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The fragment shape (stack-passed index, no prototype) suggests a tail-call or shared-code fragment; the handler set is not known. Callers mcu_0160_08005edc, mcu_0160_0800672c, mcu_0160_0800a320."
+  },
+  "mcu_0160_08008c08": {
+    "name": "mcu_msg_ring1_pop",
+    "summary": "Pop one 5-word record from message ring 1 (32 entries at 0x20001B10, consumer index 0x20001B0C)",
+    "description": "Ring 1 has 32 records of five 32-bit words (stride 20 bytes) starting at 0x20001B10. The write (producer) index is DAT_20001B08 and the read (consumer) index is DAT_20001B0C. If they differ, the record at the consumer index is copied to the caller's struct (word 0 to +0, word 1 to +4, word 2 to +8, word 3 to +0xC, word 4 to +0x10) and the consumer index is advanced with mask 0x1F. If the ring is empty the caller's struct is left untouched. There is no interrupt masking, so the ring is only safe for one producer and one consumer.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination: five 32-bit words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The record contents (probably CAN or command data) are not identified in this packet. Caller mcu_0160_08008b60 checks the count first (mcu_msg_ring1_count) and is outside this packet."
+  },
+  "mcu_0160_08008c58": {
+    "name": "mcu_msg_ring2_peek",
+    "summary": "Copy the head record of message ring 2 without advancing its read index",
+    "description": "Ring 2 has the same layout as ring 1, with its records starting at 0x20001888 (stride 20 bytes), write index DAT_20001880 and read index DAT_20001884. If the two differ, the record at the read index is copied to the destination: word 0 from 0x20001888, word 1 from 0x2000188C, word 2 from 0x20001890, word 3 from 0x20001894 and word 4 from 0x20001898. Unlike the ring 1 pop, this routine does not advance DAT_20001884, so the caller must do it after use. If the ring is empty the destination is left untouched.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination: five 32-bit words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The advance of the read index is not in this function. Its caller mcu_0160_08008bb4 is outside this packet; if that caller does not advance DAT_20001884 the head record would be read repeatedly, so it is worth checking."
+  },
+  "mcu_0160_08008c8c": {
+    "name": "mcu_msg_ring1_push",
+    "summary": "Append one 5-word record to message ring 1, dropping it when the ring is full",
+    "description": "The ring is full when (DAT_20001B08 + 1) & 0x1F equals the read index DAT_20001B0C (one slot is kept free, so a full ring holds 31 records). If not full, the five words of the source record are stored at the write index: word 0 to 0x20001B10, word 1 to 0x20001B14, word 2 to 0x20001B18, word 3 to 0x20001B1C and word 4 to 0x20001B20, and the write index is advanced with mask 0x1F. When full the record is silently dropped. No interrupt masking.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source record: five 32-bit words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Only caller in this packet: mcu_0160_080032cc. Drops on full are not reported to the caller."
+  },
+  "mcu_0160_08008ce4": {
+    "name": "mcu_msg_ring2_push",
+    "summary": "Append one 5-word record to message ring 2, dropping it when the ring is full",
+    "description": "Same algorithm as mcu_msg_ring1_push on ring 2: write index DAT_20001880, read index DAT_20001884, full when (DAT_20001880 + 1) & 0x1F equals DAT_20001884. Words 0 to 4 of the source record are stored at 0x20001888, 0x2000188C, 0x20001890, 0x20001894 and 0x20001898 for the write index, which is then advanced with mask 0x1F. Records are dropped when full, with no interrupt masking.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source record: five 32-bit words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Callers mcu_0160_0800bc70 and mcu_0160_0800c294 are outside this packet."
+  },
+  "mcu_0160_08008d2c": {
+    "name": "mcu_msg_rings_init",
+    "summary": "Clear both 32-entry message rings and their write and read indices",
+    "description": "Sets the indices of ring 1 (DAT_20001B08 write, DAT_20001B0C read) to 0 and zeroes its 32 five-word records from 0x20001B10. Then does the same for ring 2 (DAT_20001880 write, DAT_20001884 read, records from 0x20001888). Afterwards both rings are empty.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Called from mcu_0160_0800d548, the application main entry reached from app_main_thunk."
+  },
+  "mcu_0160_08008d84": {
+    "name": "mcu_msg_ring1_count",
+    "summary": "Number of unread records in message ring 1 (write minus read index, modulo 32)",
+    "description": "Returns (DAT_20001B08 - DAT_20001B0C) mod 32: the difference, plus 32 when the read index is ahead of the write index, masked to 16 bits. The result is 0 to 31, since one slot is kept free.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u16",
+      "description": "pending records in ring 1, 0..31"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_08008b60 is outside this packet."
+  },
+  "mcu_0160_08008da4": {
+    "name": "mcu_msg_ring2_count",
+    "summary": "Number of unread records in message ring 2 (write minus read index, modulo 32)",
+    "description": "Returns (DAT_20001880 - DAT_20001884) mod 32 with the same logic as mcu_msg_ring1_count, using ring 2's write index DAT_20001880 and read index DAT_20001884. Result 0 to 31.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u16",
+      "description": "pending records in ring 2, 0..31"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_08008bb4 is outside this packet."
+  },
+  "mcu_0160_08008ea4": {
+    "name": "mcu_read_device_identity",
+    "summary": "Copy the 96-bit UID to RAM, check DBGMCU IDCODE against 0x700301C5 and store a UID checksum",
+    "description": "Copies the three UID words at 0x1FFFF7E8, 0x1FFFF7EC and 0x1FFFF7F0 to 0x20001FBC, 0x20001FC0 and 0x20001FC4, and again to 0x20001F44, 0x20001F48 and 0x20001F4C. It stores the expected IDCODE 0x700301C5 at 0x20001FB4 and reads DEBUG.DEBUG_IDCODE (0xE0042000) into 0x20001FB0; halfword 0x20001E1C becomes 1 when the read value equals 0x700301C5, otherwise 0. Finally it writes the bitwise NOT of the UID word sum, ~(uid0 + uid1 + uid2), to 0x200003B0. That word is the timeout counter of the MCU_152 build, so the value is used as a seed or check value for the device.",
+    "category": "startup",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The IDCODE check confirms the expected Artery part. Why the UID checksum is stored in the timeout counter word is not explained by this packet (medium confidence on that point)."
+  },
+  "mcu_0160_08008f74": {
+    "name": "mcu_ctx_get_field_0x44",
+    "summary": "Getter for the 32-bit raw counter at offset 0x44 of the drive context",
+    "description": "Returns the 32-bit word at param_1 + 0x44. This is the raw count that mcu_position_rebase captures and mcu_position_multiturn_compute extends into a multi-turn value.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "raw counter value"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_08003104 is outside this packet."
+  },
+  "mcu_0160_08008f78": {
+    "name": "mcu_hall_sector_window_update",
+    "summary": "Set magnitude fault 0x4305 and recompute the expected-sector window bounds at +0x50 and +0x54",
+    "description": "If the flag byte at +0x04 is not 1 and |+0x70| is at least the limit at +0x88, byte +0x05 is set and fault code 0x4305 is stored at +0x58; otherwise both are 0. The window centre is C = +0x5C + +0x48, where +0x5C is the sector code (k x 0x10C15) produced by mcu_hall_sector_transition. The window depends on the direction state +0x38 (a signed halfword): 0 gives [C-10, C+10]; +1 gives [C-0x860A-f, C+f] (upper bound C+0x860B+f when +0x04 is 0); -1 gives [C-f, C+0x860A+f] (lower bound C-0x860B-f when +0x04 is 0), where f is the fault offset in +0x58. Half a sector is 0x860A, so the window covers about 30 degrees either side of the sector edge.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context: flag +0x04, value +0x70, limit +0x88, centre inputs +0x48/+0x5C, direction +0x38, outputs +0x50/+0x54/+0x58"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the fault code 0x4305 and of the value at +0x70 is not established. The window interpretation rests on 0x860A being half of the 0x10C15 sector step. Callers mcu_0160_08009160 and mcu_0160_08009598 are outside this packet."
+  },
+  "mcu_0160_08009044": {
+    "name": "mcu_position_rebase",
+    "summary": "Set the multi-turn reference to the current raw counter and clear the wrap count",
+    "description": "Copies the raw counter at +0x44 into the reference at +0xAC and clears the wrap count at +0xA4. After this call mcu_position_multiturn_compute reports zero for the current position.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_08004d94 is outside this packet."
+  },
+  "mcu_0160_08009050": {
+    "name": "mcu_position_multiturn_compute",
+    "summary": "Compute relative position = raw + wraps x 0x6487E - reference, saturated to +-0x7FBC0000",
+    "description": "Computes raw(+0x44) + wraps(+0xA4) x 0x6487E - reference(+0xAC) in 32-bit signed arithmetic. 0x6487E = 411774 = 6 x 0x10C15, which is one electrical revolution when each of the six hall sectors is 0x10C15 counts, so the wrap count +0xA4 counts electrical revolutions. If the result lies within +-0x7FBC0000 it is stored at +0xA8 and returned. Otherwise the saturated value +0x7FBC0000 (positive overflow) or -0x7FBC0000 = 0x80440000 (negative overflow) is stored and returned.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context: raw +0x44, wrap count +0xA4, reference +0xAC, result +0xA8"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "relative position in counts, or the saturated +-0x7FBC0000"
+    },
+    "confidence": "high",
+    "notes": "The relation of 0x6487E to the sector step is numerical, confirmed by 6 x 0x10C15 = 0x6487E. The wrap counter is maintained elsewhere, not in this packet. Caller mcu_0160_080031b8 is outside this packet."
+  },
+  "mcu_0160_08009088": {
+    "name": "mcu_get_global_ctx_field_0x64",
+    "summary": "Return the 32-bit word at offset 0x64 of the object pointed to by global DAT_2000002C",
+    "description": "Dereferences the global pointer at 0x2000002C and returns the word at +0x64 of that object. Present in the MCU_152 and MCU_0160 builds only.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u32",
+      "description": "word at +0x64 of the object"
+    },
+    "confidence": "medium",
+    "notes": "The owning object and the meaning of the word are not established in this packet. Caller mcu_0160_0800c6f0."
+  },
+  "mcu_0160_08009094": {
+    "name": "mcu_ctx_flag4_is_clear",
+    "summary": "Return 1 if the byte at offset +0x04 of the object is zero, else 0",
+    "description": "Boolean test of the mode byte at +0x04. The same byte is the flag that mcu_hall_sector_window_update tests (a value of 1 disables the magnitude fault check).",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object with byte at +0x04"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 when the byte is zero"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_08003130 is outside this packet."
+  },
+  "mcu_0160_080090a0": {
+    "name": "mcu_hall_sector_transition",
+    "summary": "Validate a 60-degree hall sector step from +0x5C to +0x60 and set direction +0x38 to +1 or -1",
+    "description": "Six sector codes are used: 0, 0x10C15, 0x2182A, 0x3243F, 0x43054 and 0x53C69, i.e. k x 0x10C15 for sectors k = 0..5 (60 degrees each, six per electrical revolution). The status byte +0x01 is cleared first. If the current code (+0x5C) is one of the six and the new code (+0x60) is one of its two neighbours mod 6, the direction halfword +0x38 is set to +1 for a step to the lower index (including 0 to 5) and to -1 for a step to the higher index (including 5 to 0), and the status stays 0. An invalid step leaves +0x38 unchanged and stores k+1 (1..6) in the status byte. A current code outside the six leaves the status at 0.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context: current sector +0x5C, new sector +0x60, direction +0x38, status byte +0x01"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "0 for a valid step, 1..6 (k+1 of the current sector) for an invalid step"
+    },
+    "confidence": "high",
+    "notes": "The hall sensor interpretation is inferred from the six-state, neighbour-only transitions. Callers mcu_0160_08009160 is outside this packet."
+  },
+  "mcu_0160_0800915c": {
+    "name": "mcu_hall_get_transition_status",
+    "summary": "Return the hall sector transition status byte at +0x01",
+    "description": "Getter for byte +0x01 of the object, which mcu_hall_sector_transition sets to 0 for a valid step or to 1..6 for an invalid one.",
+    "category": "hall",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "drive context"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "transition status"
+    },
+    "confidence": "high",
+    "notes": "Callers mcu_0160_08005b3c and mcu_12b_08005d30 are outside this packet."
+  },
+  "mcu_0160_080097ac": {
+    "name": "mcu_ctx_clear_field_0x9c",
+    "summary": "Clear the 32-bit field at offset 0x9C of the object",
+    "description": "Stores zero at param_1 + 0x9C. The field is read back by mcu_ctx_get_field_0x9c. Purpose of the field is not shown in this packet.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_080031cc is outside this packet."
+  },
+  "mcu_0160_080097b4": {
+    "name": "mcu_ctx_get_field_0x9c",
+    "summary": "Getter for the 32-bit field at offset 0x9C of the object",
+    "description": "Returns the 32-bit word at param_1 + 0x9C, the field cleared by mcu_ctx_clear_field_0x9c.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "field value"
+    },
+    "confidence": "high",
+    "notes": "Caller mcu_0160_080031cc is outside this packet."
+  }
+}

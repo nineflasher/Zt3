@@ -1,0 +1,26 @@
+{
+  "mcu_g_0160_2000031c": {
+    "name": "isr_can_last_error_code",
+    "type": "u16",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x2000031c"],
+    "category": "isr",
+    "description": "Last CAN error code, a 3-bit field taken from bits 4..6 of the CAN1 error status register (probably the LEC field) in CAN1_SE_IRQHandler (0x080032F8). It is updated only when FUN_0800BF84(&CAN1, 4) reports the interrupt, is not cleared by the handler, and is sent as the low byte in telemetry request 0x341 (mcu_telemetry_group_get)."
+  },
+  "mcu_g_0160_2000031f": {
+    "name": "isr_can_busoff_pending",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["MCU_0160", "0x2000031f"],
+    "category": "isr",
+    "description": "Bus-off recovery request. CAN1_SE_IRQHandler sets it to 1 when bit 0x4 of the CAN1 error status register is set (probably the BOFF bit). mcu_0160_0800DC08 (CAN recovery task, run each tick) waits about 50 ticks using the counter at 0x2000030E, then clears the flag, increments the bus-off count at 0x20000318 and reinitialises CAN1. mcu_0160_0800E238 copies the flag into 0x20001E4E."
+  },
+  "mcu_g_0160_2000033d": {
+    "name": "isr_can_error_counters",
+    "type": "CanErrorCounters",
+    "size": 2,
+    "anchor": ["MCU_0160", "0x2000033d"],
+    "category": "isr",
+    "description": "Copy of the CAN1 receive and transmit error counters, taken in CAN1_SE_IRQHandler from bits 16..31 of the CAN1 error status register. Refreshed on each error interrupt and sent in telemetry request 0x341 (mcu_telemetry_group_get). The layout is in types/data_isr_batch09.json (struct CanErrorCounters)."
+  }
+}

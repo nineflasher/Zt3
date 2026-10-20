@@ -1,0 +1,916 @@
+{
+  "ble_219_0c040378": {
+    "name": "hal_analogif_check_chip_id",
+    "summary": "Check the analog/PMU chip ID (register 0x3000 over ISPI) equals 0x136",
+    "description": "Bring-up check of the analog die. Calls the ISPI setup routine at 0x0C032688 with the constant record at 0x0C084264; if that succeeds it clears the cached ISPI bank in DAT_20003D80 (the bank cache used by hal_analogif_reg_read), then reads register 0x3000 (bank 3, page 0, register 0) with hal_analogif_reg_read. The chip ID is the top 12 bits of the value (value >> 4) and must equal 0x136; any other value returns -1. Errors from either step are returned unchanged.",
+    "category": "hal",
+    "params": [],
+    "returns": {
+      "type": "s32",
+      "description": "0 when the chip ID matches, -1 on mismatch, otherwise the failing step's error code"
+    },
+    "confidence": "medium",
+    "notes": "0x0C032688 is not described in this packet. The bank 3 / register 0 reading of address 0x3000 follows the bit layout documented for hal_analogif_reg_read. 0x136 as chip ID is inferred from the comparison only."
+  },
+  "ble_219_0c041554": {
+    "name": "hal_pinmux_set_function",
+    "summary": "Set the 4-bit function-select nibble of one pad in the pad mux registers",
+    "description": "Writes the function-select nibble of pad (0x00..0x23): word 0x40086004 + 4*(pad>>3) for pads 0x00..0x1F and 0x4008607C for pads 0x20..0x23, nibble at bit (pad&7)*4. Mode 1 writes nibble 0 (default function). Any other mode is looked up in the 6-byte-per-pad table at 0x0C08355C; a mode that is not in the table returns 3, otherwise the nibble is the byte at 0x0C081B44 indexed by the match position. Pads 0x12 and 0x13 also drive bit 0 of 0x40086050: set for every mode except 0xB and 0xC, where both nibbles of the pair are cleared (mask 0xFF00) and the bit is cleared. Pads 0x24 and 0x25 accept only mode 1 (any other mode spins forever), call 0x0C039DC0 and clear bit 0 of 0x40086048; pads above 0x23 are ignored and return 0.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "pad",
+        "type": "u32",
+        "description": "pad number 0x00..0x25"
+      },
+      {
+        "name": "mode",
+        "type": "u32",
+        "description": "mode / function code; 1 = default function"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 3 when the mode is not allowed for this pad"
+    },
+    "confidence": "medium",
+    "notes": "Pad group semantics (0x12/0x13 analog enable, 0x24/0x25 hang on non-default mode) are read from the code. The meaning of mode codes 0xB and 0xC is not known."
+  },
+  "ble_219_0c0416e4": {
+    "name": "hal_pinmux_set_pull",
+    "summary": "Set the pull choice (1 or 2) of one pad in two 1-bit-per-pad register pairs",
+    "description": "Pads 0x00..0x1F use the register pair 0x4008602C (first) and 0x40086030 (second); pads 0x20..0x23 use 0x40086094 and 0x40086098 with bit index pad-0x20. Both bits of the pad are cleared first. Mode 1 then sets the bit in the first register and mode 2 sets it in the second, so the two modes are read as pull-up and pull-down (inferred from the encoding). Any other mode leaves the pad with neither bit set. Pads 0x24 and 0x25 are handed to 0x0C039C40 instead, and pads above 0x25 return 1 without touching hardware. Part of the pad configuration path together with hal_pinmux_set_function and hal_pinmux_apply_table.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "pad",
+        "type": "u32",
+        "description": "pad number"
+      },
+      {
+        "name": "mode",
+        "type": "s32",
+        "description": "pull mode: 1 first register, 2 second register, other = none"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "0 on success, 1 for a pad above 0x25"
+    },
+    "confidence": "medium",
+    "notes": "The pull-up / pull-down reading of the two registers is an inference from the 1 / 2 encoding, not from a datasheet."
+  },
+  "ble_219_0c041758": {
+    "name": "hal_pinmux_apply_table",
+    "summary": "Apply a table of {pad, mode, arg, pull} records under the lock, reporting the first failure",
+    "description": "For each 4-byte record (pad, mode, arg, pull) it calls hal_pinmux_set_function with pad and mode; for pads 0x24 and 0x25 it also calls 0x0C039C30 with pad and arg; then it calls hal_pinmux_set_pull with pad and pull. Before the first record it raises BASEPRI to 0x40 (when privileged) and spins on 0x0C073C40 until that returns non-zero; 0x0C073BA0 releases it. It records the caller's PC and LR in DAT_20003D70 and DAT_20003D74 when not already at BASEPRI 0x40 and clears DAT_20003D70 on exit. A bad pad, a bad mode or a set_function failure fails the record with code 1; a pull failure fails it with code 3. Error code 2 is unreachable because the pad check happens earlier.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "table",
+        "type": "ptr",
+        "description": "array of 4-byte records {pad, mode, arg, pull}"
+      },
+      {
+        "name": "count",
+        "type": "u32",
+        "description": "number of records"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 when all records apply; otherwise (index of failing record << 8) | error code"
+    },
+    "confidence": "medium",
+    "notes": "The lock semantics of 0x0C073C40 and 0x0C073BA0 are inferred from the spin loop and the release pattern. 0x0C039C30 is not described in this packet."
+  },
+  "ble_219_0c0419d0": {
+    "name": "hal_pad_24_25_set_source",
+    "summary": "Set the source select and enable bit of the pad 0x24/0x25 control register 0x40086048",
+    "description": "Calls 0x0C039D24 with 0x25 first, then rewrites 0x40086048: bit 3 is cleared, bits 2:1 are set to param_1 & 3 (source select) and bit 0 is set (enable). Other bits are preserved. It is the counterpart of the pad 0x24/0x25 path in hal_pinmux_set_function, which clears bit 0 of the same register.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "source",
+        "type": "u32",
+        "description": "source select; only the low two bits are used"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "The meaning of bit 3 and of the 0x0C039D24 call are unknown. The register role is inferred from the pinmux function that toggles bit 0."
+  },
+  "ble_219_0c0422d4": {
+    "name": "ble_ring_poll_status",
+    "summary": "Poll four ring or stream objects of a channel and return a two-bit readiness mask",
+    "description": "Takes a channel record: the channel id byte is at +8 and the pointer at +0x10 points to a block whose words at +0x5C, +0x60, +0x64 and +0x68 hold four object pointers, each checked only when non-null. Every check runs inside vPortEnterCritical/vPortExitCritical. The object at +0x5C is tested with 0x0C043338 (bit 0 set when non-zero), the object at +0x60 with 0x0C043364 (bit 1 set when zero), the object at +0x64 with ringbuf_free_space (bit 0 set when free space is non-zero) and the one at +0x68 with ringbuf_is_empty (bit 1 set when not empty). After each check the channel is updated through 0x0C048298(channel, 0 or 1); what that routine stores is left to its own description. Returns the OR of the flags.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "channel",
+        "type": "ptr",
+        "description": "channel record; id byte at +8, object block pointer at +0x10"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "bit 0 and bit 1 readiness flags, 0..3"
+    },
+    "confidence": "medium",
+    "notes": "The meanings of the 0x0C043338 and 0x0C043364 checks and of the 0x0C048298 state write are not established here. The category follows the other BLE host ring helpers."
+  },
+  "ble_219_0c042858": {
+    "name": "xEventGroupWaitBits",
+    "summary": "FreeRTOS xEventGroupWaitBits: wait for event bits, blocking on the group's unordered list",
+    "description": "Upstream FreeRTOS xEventGroupWaitBits(pxEventBits, uxBitsToWaitFor, xClearOnExit, xWaitForAllBits, xTicksToWait) in this port's layout. Flags sit in the top bits of the stored word: 0x10000000 = clear on exit, 0x40000000 = wait for all bits, 0x20000000 = set by the wake side when unblocked by bits. The event bits are the low 28 bits. Under vTaskSuspendAll it tests the bits; if the condition is met it returns them, clearing them first when clear-on-exit was requested. Otherwise, with a non-zero timeout, it places the task on the group's unordered list (0x0C044210), resumes the scheduler (yielding through rtos_pendsv_trigger when needed), and on wake-up returns at once if the unblock came from a bit set, or re-reads the bits, clears them when satisfied and returns on timeout. Part of the event group family with xEventGroupSetBits.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "pxEventBits",
+        "type": "ptr",
+        "description": "event group"
+      },
+      {
+        "name": "uxBitsToWaitFor",
+        "type": "u32",
+        "description": "bit mask to wait for"
+      },
+      {
+        "name": "xClearOnExit",
+        "type": "bool",
+        "description": "clear the waited bits when the wait completes"
+      },
+      {
+        "name": "xWaitForAllBits",
+        "type": "bool",
+        "description": "true to require every bit in the mask"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks; 0 means no blocking"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "event bits at the time the wait completed"
+    },
+    "confidence": "high",
+    "notes": "The flag constants 0x10000000, 0x20000000 and 0x40000000 differ from upstream FreeRTOS (0x01000000 and so on), so this build uses its own layout."
+  },
+  "ble_219_0c04291c": {
+    "name": "xEventGroupSetBits",
+    "summary": "FreeRTOS xEventGroupSetBits: OR bits into the group and wake matching waiters",
+    "description": "Under vTaskSuspendAll it ORs the new bits into the stored word, then walks the waiting list at +4 (xTasksWaitingForBits). A waiter is woken when its condition holds with its mask (low 28 bits of the list value): any bit for wait-any, all bits for wait-all (flag 0x40000000). Woken waiters go through 0x0C0442E4 with the bits or 0x20000000 so they know they were released by a bit set. Waiters that asked for clear-on-exit (flag 0x10000000) contribute their mask to a set that is cleared from the group before returning. The function ends with xTaskResumeAll and returns the stored bits after that clear. Part of the event group family with xEventGroupWaitBits.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "pxEventBits",
+        "type": "ptr",
+        "description": "event group"
+      },
+      {
+        "name": "uxBitsToSet",
+        "type": "u32",
+        "description": "bits to set"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "stored event bits after the clear-on-exit bits were removed"
+    },
+    "confidence": "high",
+    "notes": "Flag layout as in xEventGroupWaitBits."
+  },
+  "ble_219_0c042988": {
+    "name": "rtos_timer_pend_fixed_callback_from_isr",
+    "summary": "ISR-safe post of a fixed deferred callback with two arguments to the timer daemon queue",
+    "description": "Builds a 16-byte timer-daemon message on the stack: command id -2 (tmrCOMMAND_EXECUTE_CALLBACK_FROM_ISR), a constant callback address (thumb address 0x0C042984), the first argument and the second argument. It posts the message to the timer command queue in DAT_2000DE20 at the back with ble_219_0c042eb4 (xQueueGenericSendFromISR), passing the higher-priority-woken pointer through. The callback runs later in the timer service task. A fixed callback address makes this a specialised form of xTimerPendFunctionCallFromISR.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "pvParameter1",
+        "type": "ptr",
+        "description": "first callback argument (pvParameter1)"
+      },
+      {
+        "name": "ulParameter2",
+        "type": "u32",
+        "description": "second callback argument (ulParameter2)"
+      },
+      {
+        "name": "pxHigherPriorityTaskWoken",
+        "type": "ptr",
+        "description": "pxHigherPriorityTaskWoken, may be NULL"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The code at 0x0C042984 that serves as the callback is not described here, so the callee's purpose is unknown."
+  },
+  "ble_219_0c042c8c": {
+    "name": "xQueueGenericSend",
+    "summary": "FreeRTOS xQueueGenericSend: copy an item into a queue, blocking up to a tick timeout when full",
+    "description": "Upstream queue.c xQueueGenericSend(xQueue, pvItemToQueue, xTicksToWait, xCopyPosition); copy positions are 0 back, 1 front and 2 overwrite. It loops inside a critical section. When there is space, or the overwrite position is used, it copies with prvCopyDataToQueue, wakes a waiting receiver through xTaskRemoveFromEventList (yielding if that task outranks the caller) and returns 1. When the queue is full it returns 0 at zero timeout. Otherwise it records a timeout state (vTaskInternalSetTimeOutState), places the caller on xTasksWaitingToSend with vTaskPlaceOnEventList, unlocks the queue with prvUnlockQueue and retries via xTaskCheckForTimeOut. Scheduler suspension brackets the wait logic. Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xQueue",
+        "type": "ptr",
+        "description": "queue handle"
+      },
+      {
+        "name": "pvItemToQueue",
+        "type": "ptr",
+        "description": "item to copy in; NULL for mutex or semaphore give"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks"
+      },
+      {
+        "name": "xCopyPosition",
+        "type": "u32",
+        "description": "0 back, 1 front, 2 overwrite"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the item was queued or the token given, 0 on timeout"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042d80": {
+    "name": "prvInitialiseMutex",
+    "summary": "Initialise a static one-slot, zero-item-size queue as a mutex or semaphore and give its token",
+    "description": "Initialises a caller-supplied static Queue_t as a one-entry, zero-item-size queue: uxLength 1, uxItemSize 0, both lock counters set to unlocked (-1), both wait lists initialised with vListInitialise, the holder and read pointer cleared and the type byte set from param_1. It finishes by calling xQueueGenericSend(queue, NULL, 0, back) so that the new mutex or semaphore starts with its token available. Returns the queue handle, or NULL when the storage pointer is NULL.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "queueType",
+        "type": "u8",
+        "description": "queue type code stored in the queue (1 mutex, 3 binary semaphore)"
+      },
+      {
+        "name": "pxStaticQueue",
+        "type": "ptr",
+        "description": "static Queue_t storage"
+      }
+    ],
+    "returns": {
+      "type": "ptr",
+      "description": "the queue handle, or NULL"
+    },
+    "confidence": "medium",
+    "notes": "Matches upstream prvInitialiseMutex and the static create path, but the decompile merges the two. The name is therefore a best match and is not confirmed against the source."
+  },
+  "ble_219_0c042df4": {
+    "name": "xQueueGiveMutexRecursive",
+    "summary": "FreeRTOS xQueueGiveMutexRecursive: release one level of a recursive mutex the caller holds",
+    "description": "Checks that the caller (xTaskGetCurrentTaskHandle) is the mutex holder stored at +4; if not it returns 0 and changes nothing. Otherwise it decrements the recursion count at +0xC. When the count reaches zero it releases the mutex with ble_219_0c042c8c (xQueueGenericSend with a NULL item and zero timeout). Returns 1 in both the nested and the final release case.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xMutex",
+        "type": "ptr",
+        "description": "recursive mutex handle"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the caller held the mutex and released one level, 0 otherwise"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042e20": {
+    "name": "rtos_mutex_give_checked",
+    "summary": "Release a non-recursive mutex the caller holds: clear the recursion count and send the token",
+    "description": "If the caller (xTaskGetCurrentTaskHandle) is the holder at +4, sets the recursion count at +0xC to zero and posts the token back with xQueueGenericSend (ble_219_0c042c8c) with a NULL item and zero timeout, then returns 1. If the caller is not the holder it returns 0 and does nothing. This is the holder-checked give used for a plain, non-recursive mutex.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xMutex",
+        "type": "ptr",
+        "description": "mutex handle"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when released, 0 when the caller was not the holder"
+    },
+    "confidence": "high",
+    "notes": "Upstream FreeRTOS does not check the holder in xSemaphoreGive, so this name describes this build's variant."
+  },
+  "ble_219_0c042eb4": {
+    "name": "xQueueGenericSendFromISR",
+    "summary": "FreeRTOS xQueueGenericSendFromISR: queue an item from interrupt context inside a critical section",
+    "description": "Enters the port critical section with rtos_enter_critical, which returns the previous BASEPRI. If there is space, or the overwrite position is used, it saves the TX lock count, copies the item with prvCopyDataToQueue and then either increments the TX lock count (queue locked, wake-up deferred to prvUnlockQueue) and returns 1, or wakes a waiting receiver through xTaskRemoveFromEventList and sets *pxHigherPriorityTaskWoken to 1 when the woken task has higher priority. Returns 0 when the queue is full. BASEPRI is restored with rtos_exit_critical on exit. Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xQueue",
+        "type": "ptr",
+        "description": "queue handle"
+      },
+      {
+        "name": "pvItemToQueue",
+        "type": "ptr",
+        "description": "item to copy in"
+      },
+      {
+        "name": "pxHigherPriorityTaskWoken",
+        "type": "ptr",
+        "description": "receives 1 on a higher-priority wake-up; may be NULL"
+      },
+      {
+        "name": "xCopyPosition",
+        "type": "u32",
+        "description": "0 back, 1 front, 2 overwrite"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the item was queued, 0 when the queue was full"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c042fa4": {
+    "name": "xQueueReceive",
+    "summary": "FreeRTOS xQueueReceive: dequeue one item into a buffer, blocking up to a tick timeout when empty",
+    "description": "Upstream xQueueGenericReceive with xJustPeek false. Inside a critical section, when uxMessagesWaiting is non-zero it advances the read pointer by one item (wrapping at the end of the buffer), copies the item out with memcpy (0x0C0709BC), decrements uxMessagesWaiting and wakes one task blocked on xTasksWaitingToSend through xTaskRemoveFromEventList. It returns 1. When the queue is empty and the timeout is zero it returns 0. Otherwise it records the timeout state, blocks on xTasksWaitingToReceive with vTaskPlaceOnEventList, unlocks the queue (prvUnlockQueue) and retries. Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xQueue",
+        "type": "ptr",
+        "description": "queue handle"
+      },
+      {
+        "name": "pvBuffer",
+        "type": "ptr",
+        "description": "destination buffer for one item"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when an item was received, 0 on timeout"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c0430a8": {
+    "name": "xQueueSemaphoreTake",
+    "summary": "FreeRTOS xQueueSemaphoreTake: take a semaphore or mutex token, with priority inheritance for mutexes",
+    "description": "Upstream xQueueSemaphoreGenericTake. If a token is available (uxMessagesWaiting non-zero) it decrements the count. For a mutex (pcHead NULL) it records the holder as pvTaskIncrementMutexHeldCount() in +4 and wakes a waiting giver through xTaskRemoveFromEventList. With a non-zero timeout and no token it records the timeout state and, for a mutex, raises the holder's priority with xTaskPriorityInherit (0x0C044658). It then blocks on xTasksWaitingToReceive and on timeout undoes the inheritance with vTaskPriorityDisinheritAfterTimeout (0x0C044744), using the highest waiter priority derived from the wait list head (6 minus its value). Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xSemaphore",
+        "type": "ptr",
+        "description": "semaphore or mutex handle"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "s32",
+        "description": "timeout in ticks; -1 waits forever"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the token was taken, 0 on timeout"
+    },
+    "confidence": "high",
+    "notes": "The 6 in the priority expression matches the configMAX_PRIORITIES value used by the task list code (six ready lists)."
+  },
+  "ble_219_0c0431f8": {
+    "name": "xQueueTakeMutexRecursive",
+    "summary": "FreeRTOS xQueueTakeMutexRecursive: take a recursive mutex, re-entering when the caller already holds it",
+    "description": "If the caller (xTaskGetCurrentTaskHandle) already holds the mutex at +4, only the recursion count at +0xC is incremented. Otherwise it calls xQueueSemaphoreTake (0x0C0430A8) with the given timeout and, on success, increments the recursion count. Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xMutex",
+        "type": "ptr",
+        "description": "recursive mutex handle"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "s32",
+        "description": "timeout in ticks"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none in the decompile; upstream returns pdPASS or pdFAIL"
+    },
+    "confidence": "high",
+    "notes": "The decompiled function returns nothing, so the upstream pdPASS / pdFAIL result is not visible in this packet."
+  },
+  "ble_219_0c043224": {
+    "name": "xQueuePeek",
+    "summary": "FreeRTOS xQueuePeek: copy the head item to a buffer without removing it, with optional blocking",
+    "description": "Upstream xQueueGenericReceive with xJustPeek true. Like xQueueReceive it waits for an item when the queue is empty. When an item is present it copies the head item with memcpy (0x0C0709BC) but restores the read pointer afterwards, so the item stays queued. It wakes another task waiting on xTasksWaitingToReceive, as upstream does, and otherwise uses the same critical section, timeout and blocking code as xQueueReceive. Part of the FreeRTOS queue family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xQueue",
+        "type": "ptr",
+        "description": "queue handle"
+      },
+      {
+        "name": "pvBuffer",
+        "type": "ptr",
+        "description": "destination buffer for one item"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when an item was peeked, 0 on timeout"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043380": {
+    "name": "vQueueWaitForMessageRestricted",
+    "summary": "FreeRTOS vQueueWaitForMessageRestricted: block the caller on an empty queue without a wake-up time",
+    "description": "Upstream vQueueWaitForMessageRestricted(xQueue, xTicksToWait, xWaitIndefinitely). Inside a critical section it changes the RX and TX lock counts from unlocked (-1) to zero. If the queue is still empty it places the caller on xTasksWaitingToReceive with vTaskPlaceOnEventListRestricted, which uses no wake-up time when xWaitIndefinitely is set. It then unlocks the queue with prvUnlockQueue. Called from ble_219_0c044ee8.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xQueue",
+        "type": "ptr",
+        "description": "queue handle"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks"
+      },
+      {
+        "name": "xWaitIndefinitely",
+        "type": "bool",
+        "description": "block without a timeout"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c043554": {
+    "name": "xStreamBufferSend",
+    "summary": "FreeRTOS xStreamBufferSend: write a stream or message into a buffer, blocking for free space",
+    "description": "Upstream xStreamBufferSend(xStreamBuffer, pvTxData, xDataLengthBytes, xTicksToWait). For a message buffer (bit 0 of the flags byte at +0x1C) a 4-byte length header is added to the space needed. With a non-zero timeout it loops: while the free space is too small it clears the task notification state, records the timeout state and waits with xTaskNotifyWait, then rechecks. A message that still does not fit returns 0. It writes the optional 4-byte header and the payload with prvWriteBytesToBuffer, advances xHead, and when the stored count reaches the trigger level (+0x0C) notifies the waiting receiver (xTaskWaitingToReceive, +0x10) with xTaskGenericNotify. Returns the payload bytes written. Part of the FreeRTOS stream buffer family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xStreamBuffer",
+        "type": "ptr",
+        "description": "stream buffer handle"
+      },
+      {
+        "name": "pvTxData",
+        "type": "ptr",
+        "description": "source data"
+      },
+      {
+        "name": "xDataLengthBytes",
+        "type": "u32",
+        "description": "payload length"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "s32",
+        "description": "timeout in ticks"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "payload bytes written, possibly 0"
+    },
+    "confidence": "high",
+    "notes": "Counterpart of xStreamBufferSendFromISR (0x0C043658) described in an earlier wave."
+  },
+  "ble_219_0c0436f8": {
+    "name": "xStreamBufferReceive",
+    "summary": "FreeRTOS xStreamBufferReceive: read a stream or message from a buffer, blocking until data arrives",
+    "description": "Upstream xStreamBufferReceive(xStreamBuffer, pvRxData, xBufferLengthBytes, xTicksToWait). The wait for data lasts until more bytes are stored than the header size (4 for a message buffer, 0 for a stream); it uses xTaskNotifyWait on the waiting-receiver slot and the timeout-state helpers. For a message buffer the 4-byte length header is read first with prvReadBytesFromBuffer. If the message is longer than the caller's buffer the read pointer is rewound and 0 is returned, so the message stays queued. Otherwise the payload is read and the read pointer advanced. After a successful read a task waiting to send (xTaskWaitingToSend, +0x14) is notified with xTaskGenericNotify. Returns the payload bytes received. Part of the FreeRTOS stream buffer family in this packet.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xStreamBuffer",
+        "type": "ptr",
+        "description": "stream buffer handle"
+      },
+      {
+        "name": "pvRxData",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "xBufferLengthBytes",
+        "type": "u32",
+        "description": "destination buffer size"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "s32",
+        "description": "timeout in ticks"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "payload bytes received; 0 when none or when the message does not fit"
+    },
+    "confidence": "high",
+    "notes": "The message-too-large case rewinds the read pointer instead of dropping the message, which is what the decompile shows."
+  },
+  "ble_219_0c043830": {
+    "name": "stream_buffer_consume_tail",
+    "summary": "Advance a stream buffer's tail by up to N stored bytes and wake a sender waiting for space",
+    "description": "Clamps the requested count to the bytes currently stored (head minus tail, modulo the length), moves xTail forward by that amount with wrap-around, and wakes the task waiting to send (xTaskWaitingToSend, +0x14). With the flag argument zero it runs in task context: scheduler suspended, xTaskGenericNotify, slot cleared, scheduler resumed. With a non-zero flag it runs in ISR context: rtos_enter_critical, xTaskGenericNotifyFromISR with pxHigherPriorityTaskWoken, rtos_exit_critical. Returns the number of bytes consumed. Internal helper of the stream buffer family.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xStreamBuffer",
+        "type": "ptr",
+        "description": "stream buffer"
+      },
+      {
+        "name": "uxBytes",
+        "type": "u32",
+        "description": "bytes to consume"
+      },
+      {
+        "name": "fromISR",
+        "type": "bool",
+        "description": "true for interrupt context"
+      },
+      {
+        "name": "pxHigherPriorityTaskWoken",
+        "type": "ptr",
+        "description": "used in ISR context"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes consumed"
+    },
+    "confidence": "medium",
+    "notes": "Role inferred from the tail update and the sender-side notification. The name is descriptive, not the upstream one."
+  },
+  "ble_219_0c0438d8": {
+    "name": "stream_buffer_commit_head",
+    "summary": "Advance a stream buffer's head by up to N free bytes and wake a receiver at the trigger level",
+    "description": "Clamps the requested count to the free space (length - 1 - stored), advances xHead with wrap-around, and when the stored byte count has reached the trigger level (+0x0C) notifies the task waiting to receive (xTaskWaitingToReceive, +0x10). Task context uses xTaskGenericNotify under scheduler suspension; ISR context uses rtos_enter_critical, xTaskGenericNotifyFromISR with pxHigherPriorityTaskWoken, and rtos_exit_critical. Returns the number of bytes committed. Internal helper of the stream buffer family.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xStreamBuffer",
+        "type": "ptr",
+        "description": "stream buffer"
+      },
+      {
+        "name": "uxBytes",
+        "type": "u32",
+        "description": "bytes written into the free space"
+      },
+      {
+        "name": "fromISR",
+        "type": "bool",
+        "description": "true for interrupt context"
+      },
+      {
+        "name": "pxHigherPriorityTaskWoken",
+        "type": "ptr",
+        "description": "used in ISR context"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "bytes committed"
+    },
+    "confidence": "medium",
+    "notes": "Role inferred from the head update and the receiver-side notification. Counterpart of stream_buffer_consume_tail."
+  },
+  "ble_219_0c043cfc": {
+    "name": "xTaskCreateStatic",
+    "summary": "FreeRTOS xTaskCreateStatic: initialise a caller-supplied TCB and stack and make the task ready",
+    "description": "Upstream xTaskCreateStatic(pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer). Returns NULL when either the TCB buffer or the stack buffer is NULL. Otherwise it stores the stack buffer in the TCB at +0x30 (pxStack), marks the TCB as statically allocated (ucStaticallyAllocated = 2 at +0x5D), initialises the task with prvInitialiseNewTask (0x0C043BA8) and adds it to the ready list with prvAddNewTaskToReadyList (0x0C043978). It returns the TCB handle. The two stack-passed arguments are recovered only partly in the decompile.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "ptr",
+      "description": "task handle (the TCB), or NULL when a buffer is missing"
+    },
+    "confidence": "high",
+    "notes": "Arguments are passed on the stack, so the decompile shows none. The +0x5D flag value follows the upstream constant and was not checked against this TCB layout."
+  },
+  "ble_219_0c0441a8": {
+    "name": "vTaskDelay",
+    "summary": "FreeRTOS vTaskDelay: block the calling task for a number of ticks, with zero only yielding",
+    "description": "With zero ticks it only requests a context switch through rtos_pendsv_trigger. Otherwise it increments the scheduler suspension counter DAT_2000CC20 (uxSchedulerSuspended), moves the running task to the delayed list with prvAddCurrentTaskToDelayedList (0x0C043A7C), calls xTaskResumeAll (0x0C0440AC) and yields only if that call did not already yield.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xTicksToDelay",
+        "type": "u32",
+        "description": "delay in ticks"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c044400": {
+    "name": "vTaskGetInfo",
+    "summary": "FreeRTOS vTaskGetInfo: fill a TaskStatus_t for a task, deriving its state and stack high-water mark",
+    "description": "Upstream vTaskGetInfo(xTask, pxTaskStatus, xGetFreeStackSpace, eState). A NULL handle means the current task. It fills the 9-word TaskStatus_t (36 bytes) with the handle, the name pointer (TCB +0x34), the task number (+0x44), the priority (+0x2C), the stack base and a run-time counter field. When eState is 5 (eInvalid) it derives the state from the list the task sits in: the current TCB gives 0 (eRunning); the delayed lists give 2 (eBlocked); the suspended list gives 3 (eSuspended), or 2 when the task is blocked on an event; the terminated-tasks list or no list gives 4 (eDeleted); any other list gives 1 (eReady). With xGetFreeStackSpace set it counts leading 0xA5 fill bytes from the stack base and reports the count in words (bytes divided by 4).",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xTask",
+        "type": "ptr",
+        "description": "task handle, NULL for the current task"
+      },
+      {
+        "name": "pxTaskStatus",
+        "type": "ptr",
+        "description": "output TaskStatus_t, 36 bytes"
+      },
+      {
+        "name": "xGetFreeStackSpace",
+        "type": "bool",
+        "description": "compute the stack high-water mark"
+      },
+      {
+        "name": "eState",
+        "type": "s32",
+        "description": "task state, or 5 to derive it from the list"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Field offsets of the run-time counter and the high-water mark are only partly visible in the decompile, so the exact field names inside TaskStatus_t are not asserted."
+  },
+  "ble_219_0c0444f4": {
+    "name": "prvListTasksWithinSingleList",
+    "summary": "FreeRTOS prvListTasksWithinSingleList: append a TaskStatus_t for each task of one list",
+    "description": "Upstream prvListTasksWithinSingleList(pxTaskStatusArray, pxList, eState). It walks the list items from the first entry up to the end marker. For each task it calls vTaskGetInfo (0x0C044400) into the next 36-byte slot, with the given state and no stack scan. Returns the number of entries written. Used by uxTaskGetSystemState for the ready, delayed, overflow-delayed, terminated and suspended lists.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "pxTaskStatusArray",
+        "type": "ptr",
+        "description": "output array of TaskStatus_t"
+      },
+      {
+        "name": "pxList",
+        "type": "ptr",
+        "description": "task list to walk"
+      },
+      {
+        "name": "eState",
+        "type": "s32",
+        "description": "state reported for every task in the list"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "number of entries written"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c044544": {
+    "name": "uxTaskGetSystemState",
+    "summary": "FreeRTOS uxTaskGetSystemState: snapshot TaskStatus_t entries for every task and the total run time",
+    "description": "Upstream uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, pulTotalRunTime). It increments the scheduler suspension counter DAT_2000CC20 and, when the task count DAT_2000CC14 fits the array, fills it list by list through prvListTasksWithinSingleList (0x0C0444F4): the six ready lists from priority 5 down to 0, the delayed and overflow-delayed lists, the terminated list (state 4) and the suspended list (state 3). It writes the total run-time counter through the thunk at 0x0C073B70 when pulTotalRunTime is non-NULL, then resumes the scheduler and returns the entry count. It returns 0 when the array is too small.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "pxTaskStatusArray",
+        "type": "ptr",
+        "description": "output array of TaskStatus_t"
+      },
+      {
+        "name": "uxArraySize",
+        "type": "u32",
+        "description": "capacity of the array in entries"
+      },
+      {
+        "name": "pulTotalRunTime",
+        "type": "ptr",
+        "description": "optional total run-time output"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "entries written, or 0 when the array is too small"
+    },
+    "confidence": "high",
+    "notes": "The six ready lists imply configMAX_PRIORITIES = 6, which agrees with the priority arithmetic in xQueueSemaphoreTake."
+  },
+  "ble_219_0c044aa4": {
+    "name": "prvCheckForValidListAndQueue",
+    "summary": "Create the timer lists and the timer command queue (8 x 16 bytes) once, under a critical section",
+    "description": "Upstream prvCheckForValidListAndQueue. Inside a critical section, if the timer command queue handle DAT_2000DE20 is still NULL, it initialises the timer lists at 0x2000DD90 and 0x2000DDA4 and points the current and overflow timer list pointers (DAT_2000CCA8, DAT_2000CCAC) at them. It also initialises the third list at 0x2000DDB8, which ble_219_0c044de8 uses. Then it creates the timer queue with xQueueGenericCreateStatic (0x0C042BA0) as 8 entries of 16 bytes, storage at 0x2000DD10 and Queue_t at 0x2000DDD0. Called from the timer task creation path (ble_219_0c044c2c) and from ble_219_0c044c7c.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c044c2c": {
+    "name": "xTimerCreateTimerTask",
+    "summary": "Create the 'Tmr Svc' FreeRTOS timer daemon task (static, depth 0x400, priority 5)",
+    "description": "Upstream xTimerCreateTimerTask. It makes sure the timer lists and command queue exist through prvCheckForValidListAndQueue (0x0C044AA4), then creates the timer service task statically with xTaskCreateStatic (0x0C043CFC). The entry point is 0x0C044EE8 (prvTimerTask), name 'Tmr Svc', stack depth 0x400, no parameter, priority 5, stack at 0x2000CCB0 and TCB at 0x2000DCB0. The task handle is stored in DAT_2000DE24, and the function returns true only when the task was created.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true when the timer task was created"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c044d90": {
+    "name": "xTimerGenericCommand",
+    "summary": "FreeRTOS xTimerGenericCommand: post a command to the timer daemon queue from task or ISR context",
+    "description": "Upstream xTimerGenericCommand(xTimer, xCommandID, xOptionalValue, pxHigherPriorityTaskWoken, xTicksToWait). It returns 0 when the command queue DAT_2000DE20 does not exist. It builds a message on the stack. Task-context commands (id below 6, tmrFIRST_FROM_ISR_COMMAND) go through xQueueGenericSend. The timeout is used only when the scheduler is running (xTaskGetSchedulerState 2); before that the send uses zero wait. ISR-style commands (id 6 and above, including the -2 callback id) go through xQueueGenericSendFromISR with pxHigherPriorityTaskWoken.",
+    "category": "rtos",
+    "params": [
+      {
+        "name": "xTimer",
+        "type": "ptr",
+        "description": "timer handle"
+      },
+      {
+        "name": "xCommandID",
+        "type": "s32",
+        "description": "timer command id"
+      },
+      {
+        "name": "xOptionalValue",
+        "type": "u32",
+        "description": "command value, for example the new expiry"
+      },
+      {
+        "name": "pxHigherPriorityTaskWoken",
+        "type": "ptr",
+        "description": "used for ISR-style commands"
+      },
+      {
+        "name": "xTicksToWait",
+        "type": "u32",
+        "description": "timeout in ticks for task-context commands"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 when the command was queued, 0 on failure"
+    },
+    "confidence": "high",
+    "notes": ""
+  },
+  "ble_219_0c044de8": {
+    "name": "prvSwitchTimerLists",
+    "summary": "Run the timers in the current list and swap the current and overflow timer lists",
+    "description": "Used when the tick count wraps (upstream prvSwitchTimerLists). While the current timer list is non-empty it takes the head timer, removes it with uxListRemove and moves it onto the internal list at 0x2000DDB8 with vListInsert. It reads a 64-bit hardware counter before and after the timer's callback (the pointer at +0x24) and accumulates the elapsed time, scaled by 1,000,000, into a 64-bit per-timer field at +0x30/+0x34. Auto-reload timers (status word at +0x1C equal to 1) get the next expiry (expiry plus period at +0x18); if that does not wrap they are reinserted into the current list, otherwise they are restarted with xTimerGenericCommand. Finally the current and overflow list pointers at DAT_2000CCA8 and DAT_2000CCAC are swapped.",
+    "category": "rtos",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The 64-bit arithmetic and the time source behind 0x0C071A70 are hard to read in the decompile, so the elapsed-time accounting is the least certain part. The list swap and the auto-reload branch follow upstream closely."
+  },
+  "ble_219_0c045250": {
+    "name": "ble_irq_binary_sem_init",
+    "summary": "One-time setup of a binary semaphore and the IRQ 42 handler for a BLE block",
+    "description": "If the 16-bit field at the start of the block referenced by +0x10 is zero, it stores the static semaphore handle DAT_2000DE28 at +2 of that block, creates a binary semaphore statically with xQueueGenericCreateStatic(1, 0, NULL, 0x2000DE34, type 3), and installs the device argument as the handler of IRQ 0x2A (42) via hal_irq_install_handler. It returns 0 on success, or -19 (0xFFFFFFED) when the block was already set up.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "device",
+        "type": "ptr",
+        "description": "device record; its +0x10 pointer names the setup block"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, -19 when already initialised"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of IRQ 42 and the block referenced by +0x10 are not established here. The installed handler is the argument as decompiled."
+  },
+  "ble_219_0c045518": {
+    "name": "hci_stream_buffer_receive_nowait",
+    "summary": "Non-blocking read of up to N bytes from the global HCI stream buffer DAT_2000F2B0",
+    "description": "Calls the stream buffer receive routine (0x0C0436F8, xStreamBufferReceive) on the global HCI stream buffer handle DAT_2000F2B0 with a zero timeout, so it returns at once with whatever bytes are present, or 0 when empty. The receive side runs as a consumer; this is the read entry used by the HCI transport.",
+    "category": "ble_host",
+    "params": [
+      {
+        "name": "pvRxData",
+        "type": "ptr",
+        "description": "destination buffer"
+      },
+      {
+        "name": "xBufferLengthBytes",
+        "type": "u32",
+        "description": "destination size in bytes"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "bytes read"
+    },
+    "confidence": "high",
+    "notes": "The earlier note on hci_stream_buffer_is_empty (0x0C045534) says this routine fills the buffer through xStreamBufferSend. The decompiled call is to the receive side (prvReadBytesFromBuffer), so that earlier description should be checked."
+  },
+  "ble_219_0c0458a6": {
+    "name": "hal_i2c_open_internal",
+    "summary": "Open an I2C instance: claim it, reset its clocks, program the DesignWare timing and enable its IRQ",
+    "description": "Opens I2C instance n taken from the device record. If the requested speed equals the cached speed at DAT_20003ED0 + 12*n it returns 0 with no reconfiguration. Otherwise it stores the speed, runs the per-instance hook at 0x0C081AC0, and claims the instance by setting byte 0x2000A6F0 + 0x70*n; if already claimed it returns 0x40000000 (busy). The claimed path enables and releases the reset of the two module clocks (ids from 0x0C081AC4 and 0x0C081AC5, via hal_cmu_clock_enable and hal_cmu_reset_clear). It then programs the Synopsys DesignWare I2C block at the instance base (from 0x0C081ABC): the IC_CON speed field (1 standard, 2 fast, 3 high speed), SCL high and low counts from hal_i2c_calc_scl_cnt, spike lengths, SDA hold, FIFO thresholds and the interrupt mask, and it enables the controller. Mode 1 installs hal_i2c_irq_handler (0x0C0302F4) in the vector table through VTOR, sets the NVIC priority to 0xA0 and clears pending and enables the IRQ. Mode 0 returns -0x80000000 when bit 1 of DAT_20003ECD is set. Part of the I2C driver group with hal_i2c_dev_write and the close routine.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "device",
+        "type": "ptr",
+        "description": "device record; the first halfword is the instance number"
+      },
+      {
+        "name": "pxSpeedHz",
+        "type": "ptr",
+        "description": "requested bus speed in Hz (in/out)"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "0 on success, 0x40000000 when the instance is busy, -0x80000000 on a polled-mode configuration error"
+    },
+    "confidence": "medium",
+    "notes": "The per-instance hook at 0x0C081AC0, the clock id tables and the flag at DAT_20003ECD were not decoded further. The IC_* register names are inferred from the offsets and the DesignWare layout."
+  },
+  "ble_219_0c0458e4": {
+    "name": "hal_i2c_dev_write",
+    "summary": "Write a frame to an I2C device under its instance mutex; the first byte is the target address",
+    "description": "Reads the instance number from the first halfword of the device record at +0x10 and takes that instance's mutex at 0x2000F2B4 + 0x50*n (a static Queue_t) with xQueueSemaphoreTake, waiting forever. It sends the first byte as the target address and the remaining param_3-1 bytes as payload with hal_i2c_send (0x0C03134C), then gives the mutex back with xQueueGenericSend. It returns the payload length, or the non-zero error code from hal_i2c_send when there is one.",
+    "category": "hal",
+    "params": [
+      {
+        "name": "device",
+        "type": "ptr",
+        "description": "device record; the first halfword is the instance number"
+      },
+      {
+        "name": "pBuf",
+        "type": "ptr",
+        "description": "frame: first byte is the target address, the rest the payload"
+      },
+      {
+        "name": "length",
+        "type": "u32",
+        "description": "frame length including the address byte"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "payload bytes sent (length - 1), or the error code from hal_i2c_send"
+    },
+    "confidence": "high",
+    "notes": "Requires length of at least 1; a zero length underflows the payload count."
+  }
+}

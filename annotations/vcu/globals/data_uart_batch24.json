@@ -1,0 +1,28 @@
+{
+  "vcu_g_0159_20002c2c": {
+    "name": "util_record_queue_a_ctl",
+    "type": "RecordQueueCtl",
+    "count": 1,
+    "size": 8,
+    "anchor": ["VCU_0159", "0x20002c2c"],
+    "category": "uart",
+    "description": "Index block of receive ring 0, the first 32-entry record queue (slots: util_record_queue_a_slots at 0x20002C34, 20 bytes each). head at 0x20002C2C is advanced by vcu_rx_ring0_push_record (vcu_0159_08007bb0) when a record is stored. tail at 0x20002C30 is advanced by vcu_rx_ring0_pop_record (vcu_0159_08007b58) when a record is read out. Both wrap modulo 32, and a push into a full ring is dropped without a report. uart_rx_ring0_count (vcu_0159_08007c70) returns head minus tail, plus 32 when head is behind tail. vcu_record_queues_init (vcu_0159_08007c20) zeroes both indices at boot. The util note for the slots calls these indices probably 32-bit; this packet reads them as bytes (probably), since the code masks them with 0xFF."
+  },
+  "vcu_g_0159_20002eb4": {
+    "name": "uart_usart2_rx_dma_buf",
+    "type": "u8",
+    "count": 250,
+    "size": 250,
+    "anchor": ["VCU_0159", "0x20002eb4"],
+    "category": "uart",
+    "description": "250-byte receive buffer for USART2. DMA1 channel 6 writes into it from the USART2 data register in circular mode, so new bytes overwrite the oldest ones once the buffer is full. vcu_usart2_rx_dma_init (vcu_0159_08001f50) sets the buffer size to 0xFA and then enables the channel. vcu_0159_08008c1c reads bytes from this buffer with the index (uVar1 + 250 * param_3), so that routine is probably the consumer (not verified here). The buffer starts right after the 640-byte record queue slots, which end at 0x20002EB4."
+  },
+  "vcu_g_0159_200030a8": {
+    "name": "uart_usart2_tx_dma_init_buf",
+    "type": "u8",
+    "size": 1,
+    "anchor": ["VCU_0159", "0x200030a8"],
+    "category": "uart",
+    "description": "Memory address that vcu_usart2_tx_dma_init (vcu_0159_08001fbc) gives to DMA1 channel 7 as its initial source, when it programs the USART2 transmit channel. The channel stays disabled and its count is 0 until a transmit starts. Each real transmit writes a new source address into C7MADDR (vcu_dma_tx_start, vcu_0159_08005754), and the queue service vcu_dma_tx_queue_service sends records from 0x20000014 + 256 * index. So this location is probably only a placeholder and not a transmit buffer. Its real length is unknown; size 1 covers only the first byte, and no function in this packet accesses it directly."
+  }
+}

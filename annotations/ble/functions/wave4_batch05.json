@@ -1,0 +1,420 @@
+{
+  "ble_219_0c044ccc": {
+    "name": "rtos_timer_usage_report",
+    "summary": "Print the software-timer usage table and the summed accumulated run time",
+    "description": "Diagnostic dump of the FreeRTOS software timers. It sums the 64-bit accumulated run-time counters (microseconds, low word at +0x30, high word at +0x34) of every timer in the current timer list at 0x2000CCA8 and in the second timer list at 0x2000DDB8, keeping only the low 32 bits of the sum. It prints a column header (TimerID, Auto, Active, Period, Usage, total time) with the total as seconds.microseconds, then calls the per-timer printer ble_219_0c044b14 once per timer, passing flag 1 for the current list and 0 for the second. The timer layout follows FreeRTOS timers.c (list item at +4, period at +0x18, auto-reload flag at +0x1C, callback at +0x24). It has no direct callers, so it is most likely reached from a console command.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The printed total is truncated to 32 bits and wraps after about 71 minutes of accumulated time. The per-timer printer ble_219_0c044b14 is not described in this packet. The second list at 0x2000DDB8 is inferred from the list-walk pattern."
+  },
+  "ble_219_0c044ee8": {
+    "name": "rtos_timer_daemon_task",
+    "summary": "FreeRTOS timer daemon task: fire expired timers and process the timer command queue",
+    "description": "Body of the FreeRTOS software-timer service task (timers.c prvTimerTask) with run-time accounting added. Each pass either suspends the scheduler and blocks on the timer queue at 0x2000DE20 with vQueueWaitForMessageRestricted when no timer is active, or reads the tick count and blocks until the next expiry. A tick count that went backwards triggers prvSwitchTimerLists, and the last tick is kept at 0x2000DDCC. Each expired timer's callback (+0x24) runs between two gettimeofday reads, and the elapsed microseconds are added to the 64-bit counter at +0x30/+0x34. The command queue is then drained with xQueueReceive and a zero timeout: start and reset commands (IDs 0, 1, 2, 6, 7) reinsert the timer with prvInsertTimerInActiveList, change-period commands (4, 9) store the new period and reinsert, delete (5) unlinks and frees the timer, and negative IDs run a deferred callback. rtos_pendsv_trigger is called when xTaskResumeAll reports a pending switch.",
+    "category": "rtos",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The FreeRTOS core is high confidence. The run-time accounting, the meaning of the second list at 0x2000DDB8, and the free routine behind thunk_FUN_0c07098c for delete are less certain."
+  },
+  "ble_219_0c04533c": {
+    "name": "ble_irq42_rf_queue_isr",
+    "summary": "IRQ42 handler: run the RF status ISR, post to the channel queue, pend PendSV if woken",
+    "description": "Vector handler for IRQ42. It loads the context pointer from DAT_2000F574, follows it to the channel object, runs the RF status interrupt (ble_rf_event_status_isr) and gives the channel queue from ISR context with xQueueGiveFromISR, keeping the higher-priority-task-woken flag. The 16-bit status word at ctx+0x0A is then tested for bit 2 (0x4): when set, the BLE event helper FUN_0C0482B8 (ble_evt_read_bits in the call graph) is called with the index byte at ctx+0x08 and selector 1, and the channel flag byte at channel+2 is set from that bit. When the queue give woke a task, PendSV is requested by writing 0x10000000 to SCB ICSR (0xE000ED04) before returning.",
+    "category": "isr",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The decompile passes a third argument to the event helper that the two-argument annotation of ble_evt_read_bits does not take; it is probably a leftover register and is ignored. The meaning of status bit 2 is not confirmed."
+  },
+  "ble_219_0c04542c": {
+    "name": "ble_hci_intersys_open",
+    "summary": "Open the HCI intersys link: release old IPC user, create 5 KB stream buffer, register ISR",
+    "description": "Opens the HCI transport between the BLE host and the BT controller core (the intersys link). It first releases any previous user of IPC channel 0 with hal_sysipc_close, waits 100 ticks with vTaskDelay, then creates the receive stream buffer over static storage at 0x2000DE8C (0x1400 bytes, trigger level 1, control block at 0x2000F28C, handle stored in DAT_2000F2B0). It registers ISR channel 0 with two callbacks (LAB_0c0453E4 and LAB_0c0453B0) through hal_isr_chan_register. On success it calls hal_isr_chan_disable, which masks the channel IRQ again. On failure it logs 'Failed to open hci intersys'.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The decompile shows no argument for the channel disable call, so channel 0 is taken from the context. Whether the link is meant to be masked after a successful open is not confirmed."
+  },
+  "ble_219_0c0454b0": {
+    "name": "ble_hci_intersys_open_thunk",
+    "summary": "Single-branch thunk to ble_hci_intersys_open at 0x0C04542C",
+    "description": "One-instruction tail branch to ble_hci_intersys_open (0x0C04542C). It exists as a separate entry for the vector or RAM-patch table, and it does the same work as its target.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c0454d0": {
+    "name": "ble_hci_send_packet",
+    "summary": "Send one H4 HCI packet (type 1 to 3, up to 260 bytes) to the controller over IPC",
+    "description": "Sends one HCI packet from the host to the BT controller. Byte 0 must be the H4 packet indicator 1 (command), 2 (ACL data) or 3 (SCO data), and the length must be below 0x105 (260 bytes). Otherwise it logs 'error hci send : length = %d, data[...]' with the first four bytes and returns 0. Valid packets go to hal_sysipc_send on channel 0, user 0, and a non-zero result from that call turns the return value into 0. The return value is the accepted length.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "H4 packet buffer; byte 0 is the packet indicator"},
+      {"name": "param_2", "type": "u32", "description": "packet length in bytes, must be below 0x105"}
+    ],
+    "returns": {"type": "u32", "description": "accepted length, or 0 when rejected or the IPC send fails"},
+    "confidence": "high"
+  },
+  "ble_219_0c04554c": {
+    "name": "ble_ctrl_sysreg_pulse_bit19",
+    "summary": "Assert and release bit 19 of the sysreg pair around the controller state word",
+    "description": "Calls ble_219_0c03bb70 (not described here), then reads the controller state word DAT_2000BD58. When that word is zero it asserts bit 19 of 0x40080004 through bes_sysreg_write_04_bit19, stores state code 0x14 through the pointer in DAT_2000BDA0 when that pointer is set, and if the state word is still zero afterwards it releases bit 19 of 0x40080008 through bes_sysreg_write_08_bit19. When the state word is non-zero it only stores 0x14 through DAT_2000BDA0 and returns.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The bit-19 set and clear pair is described from the callee summaries. The meaning of DAT_2000BD58, the pointer DAT_2000BDA0 and state code 0x14 are not established."
+  },
+  "ble_219_0c0456c0": {
+    "name": "ble_pin_config_record_apply",
+    "summary": "Apply one pad configuration record: mux function, pull, and optional IRQ source setup",
+    "description": "Configures one pad from a pin spec and a 2-byte record. The pad number is the low byte of the spec plus 8 times its high byte, and spec 0x500 selects pad 0x24. The low nibble of record byte 0 selects the function: 10 applies the two-entry table at 0x0C083654 through hal_pinmux_apply_table, 9 runs a BASEPRI-locked sequence on the IO-mux registers 0x40086008, 0x4008602C and 0x40086030, 8 on spec 0x202 or 0x203 calls bes_iomux_reg0c_set_level(1), and other values are translated with bes_iomux_get_pin_table_entry before a one-entry hal_pinmux_apply_table call. Record byte 1 supplies the pull and option bits. For function 1, bit 7 of byte 0 selects enable or disable of the pad's IRQ source through hal_irq_source_ctl, and bits 4 to 6 of byte 0 configure the source through hal_irq_source_configure with trigger type (bits 4 to 6) minus 1.",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "pin spec: 0x100 or 0x101, 0x202 or 0x203, or 0x500; pad = low byte + 8 * high byte"},
+      {"name": "param_2", "type": "ptr", "description": "2-byte record: byte 0 holds function nibble, trigger bits 4 to 6 and enable bit 7; byte 1 holds pull and option bits"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Field meanings come from the decompile and the callee summaries (pin table, IO-mux registers). The mapping of spec values to pads and the exact trigger encoding are inferred."
+  },
+  "ble_219_0c045804": {
+    "name": "ble_pin_config_table_apply",
+    "summary": "Apply the built-in pin configuration table, one selected column per pass",
+    "description": "Walks the five 6-byte entries of the ROM pin table that ends at 0x0C083658. For each entry the u16 pin spec is passed to ble_pin_config_record_apply together with a 2-byte record taken at an offset chosen by param_1. Callers pass 0 for the default map (ble_hw_init_stage0).",
+    "category": "hal",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "column selector, used as a halfword offset into each entry"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Table addresses and the offset arithmetic come from the decompile. The meaning of the column selector is inferred."
+  },
+  "ble_219_0c04585c": {
+    "name": "ble_chunked_write_24",
+    "summary": "Write a buffer in 24-byte pieces through ble_219_0c033328; errors -5 or -8",
+    "description": "Writes param_2 bytes from param_1 by calling ble_219_0c033328 (not described here) for pieces of at most 0x18 (24) bytes, advancing the offset until the buffer is done. It returns 0 when every piece succeeds. A NULL buffer or zero length returns 0xFFFFFFFB, and a non-zero result from the piece writer stops the loop and returns 0xFFFFFFF8. It does not retry.",
+    "category": "util",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "buffer to write"},
+      {"name": "param_2", "type": "u32", "description": "buffer length in bytes"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 0xFFFFFFFB for bad arguments, 0xFFFFFFF8 when a piece fails"},
+    "confidence": "medium",
+    "notes": "The device behind ble_219_0c033328 is unknown, so the destination is not described. The two error codes are kept as raw values."
+  },
+  "ble_219_0c0459d4": {
+    "name": "ble_hw_init_stage0",
+    "summary": "Early hardware init stage 0: default pin map, GPDMA init, clear IRQ slots 3 and 4",
+    "description": "Hardware bring-up step that only runs when its argument is 0. It applies the default pin table with ble_pin_config_table_apply(0), initialises both GPDMA controllers with hal_gpdma_init, clears the software IRQ handler slots 3 and 4 with hal_irq_install_handler (NULL handler), and calls ble_219_0c0420d0 (not described here). A non-zero argument returns at once.",
+    "category": "startup",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "init stage; only 0 does work"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Callers are ble_219_0c0420d0 and ble_219_0c047fec, and this function also calls ble_219_0c0420d0, so the two are mutually linked. That loop is not fully traced."
+  },
+  "ble_219_0c0459fc": {
+    "name": "ble_boot_notice_log",
+    "summary": "Log boot notices: flash size, system clock name, and the raw reset reason",
+    "description": "Boot diagnostics. It logs 'NOTICE:chip flash size %d,chip freq:%s' with the value returned by ble_ram_call_2000110c_arg0 (ble_219_0c045AC0) and the name of the current maximum system clock, from bes_cmu_get_sysclk_request and hal_cmu_get_freq_name. It then logs 'NOTICE:reset raw reason:%x' with bes_boot_flag_get. It only logs and has no other side effects.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The annotation of ble_ram_call_2000110c_arg0 says it returns void, but the decompile uses a return value as the flash size. The flash size interpretation depends on that RAM routine."
+  },
+  "ble_219_0c045a34": {
+    "name": "ble_boot_early_init",
+    "summary": "Early boot init: copy RAM code, clear state, relocate vectors, check boot magic",
+    "description": "Early boot initialisation. Steps in order: select system mode 1 (bes_sysreg_select_mode1), copy 0x3390 bytes of code and data from flash at 0x0C086648 to RAM at 0x200001C0 (the RAM-resident routines reached through the thunks), issue DSB and ISB, and clear 0x838 bytes of state at 0x20003550. It then calls ble_219_0c03ab80, NVIC_InitVectors (relocates the vector table to SRAM 0x20000000), ble_219_0c03a2a0 and ble_219_0c037d08, and checks the boot magic with bes_boot_magic_is_valid. When that check returns 0 it calls scb_init_fpu_faults and returns 0; otherwise it returns the check result unchanged.",
+    "category": "startup",
+    "params": [],
+    "returns": {"type": "s32", "description": "0 on success, otherwise the nonzero boot-check result"},
+    "confidence": "medium",
+    "notes": "The polarity of bes_boot_magic_is_valid is unclear: the normal path appears to run when it returns 0, which conflicts with its name. The error path is therefore medium confidence."
+  },
+  "ble_219_0c045d8c": {
+    "name": "ble_cfg_set_f36c_bytes",
+    "summary": "Store up to 16 bytes into the config field at 0x2000F36C and commit",
+    "description": "Copies up to 16 bytes from param_1 into the 16-byte configuration field at 0x2000F36C, then commits the block through ble_219_0c041dc0. A length above 16 returns 0xFFFFFFEA (-22, EINVAL). The commit's result is returned only when it is negative, otherwise 0. It belongs to a family of fixed-size setters that write one configuration block based at 0x2000F354.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source bytes"},
+      {"name": "param_2", "type": "u32", "description": "length, at most 16"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "u32", "description": "0, the negative commit error, or 0xFFFFFFEA for a bad length"},
+    "confidence": "medium",
+    "notes": "The meaning of the field is not established. The commit routine ble_219_0c041dc0 is not described in this packet."
+  },
+  "ble_219_0c045ddc": {
+    "name": "ble_cfg_set_bd_addr_checked",
+    "summary": "Store a 6-byte Bluetooth device address into the config block; checks length 6",
+    "description": "Checks that param_2 is exactly 6 and returns 0xFFFFFFEA (-22) otherwise. For a valid length it runs the unchecked setter ble_cfg_set_bd_addr_unchecked, which stores bytes 0 to 3 in the u32 at 0x2000F364 and bytes 4 to 5 in the u16 at 0x2000F368 and commits through ble_219_0c041dc0. The commit's error is returned only when it is negative.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte device address, little-endian as in the BLE address format"},
+      {"name": "param_2", "type": "s32", "description": "must be 6"}
+    ],
+    "returns": {"type": "u32", "description": "0, the negative commit error, or 0xFFFFFFEA for a bad length"},
+    "confidence": "medium",
+    "notes": "The decompile shows the unchecked body inline, while the call graph lists ble_219_0c045de6 as a callee. Whether this is an identity or static random address is not established."
+  },
+  "ble_219_0c045de6": {
+    "name": "ble_cfg_set_bd_addr_unchecked",
+    "summary": "Store 6 device-address bytes into 0x2000F364/0x2000F368 without a length check",
+    "description": "Copies 6 bytes from param_1 into the u32 at 0x2000F364 and the u16 at 0x2000F368 and commits the configuration block through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. The length check is done by its caller ble_cfg_set_bd_addr_checked.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte device address"}
+    ],
+    "returns": {"type": "u32", "description": "0 or the negative commit error"},
+    "confidence": "medium"
+  },
+  "ble_219_0c045e24": {
+    "name": "ble_cfg_set_block40",
+    "summary": "Store a 40-byte block into the config area at 0x2000F38C and commit",
+    "description": "Copies a 40-byte block (ten words) from param_1 into the configuration area at 0x2000F38C through 0x2000F3B0, then commits through ble_219_0c041dc0. A length other than 0x28 returns 0xFFFFFFEA (-22). The commit's error is returned only when it is negative. The content is not interpreted in this function.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "40-byte source block"},
+      {"name": "param_2", "type": "s32", "description": "must be 0x28"}
+    ],
+    "returns": {"type": "u32", "description": "0, the negative commit error, or 0xFFFFFFEA for a bad length"},
+    "confidence": "medium",
+    "notes": "The meaning of the 40-byte block is not established."
+  },
+  "ble_219_0c045ec8": {
+    "name": "ble_cfg_set_word_f360",
+    "summary": "Store a 32-bit config word at 0x2000F360 and commit; length must be 4",
+    "description": "Stores the 32-bit value at param_1 into the configuration word at 0x2000F360 and commits through ble_219_0c041dc0. A length other than 4 returns 0xFFFFFFEA (-22). The commit's error is returned only when it is negative.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pointer to the 32-bit value"},
+      {"name": "param_2", "type": "s32", "description": "must be 4"}
+    ],
+    "returns": {"type": "u32", "description": "0, the negative commit error, or 0xFFFFFFEA for a bad length"},
+    "confidence": "medium",
+    "notes": "The meaning of the word is not established."
+  },
+  "ble_219_0c045ee8": {
+    "name": "ble_cfg_set_flag_f36a",
+    "summary": "Set the config flag byte at 0x2000F36A to 0xFF or 0x53 and commit",
+    "description": "Writes 0xFF to the byte at 0x2000F36A when param_1 is 0 and 0x53 otherwise, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flag: 0 selects 0xFF, non-zero selects 0x53"}
+    ],
+    "returns": {"type": "u32", "description": "0 or the negative commit error"},
+    "confidence": "medium",
+    "notes": "The meaning of the two values is not established."
+  },
+  "ble_219_0c045f24": {
+    "name": "ble_cfg_set_flag_f36b",
+    "summary": "Set the config flag byte at 0x2000F36B to 0xFF or 0x6F and commit",
+    "description": "Writes 0xFF to the byte at 0x2000F36B when param_1 is 0 and 0x6F otherwise, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. It is a sibling of ble_cfg_set_flag_f36a.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flag: 0 selects 0xFF, non-zero selects 0x6F"}
+    ],
+    "returns": {"type": "u32", "description": "0 or the negative commit error"},
+    "confidence": "medium",
+    "notes": "The meaning of the two values is not established."
+  },
+  "ble_219_0c045f84": {
+    "name": "ble_cfg_set_word_f3b4",
+    "summary": "Set the config word at 0x2000F3B4 to a tag value or 0xFFFFFFFF and commit",
+    "description": "Writes 0x00464143 to the word at 0x2000F3B4 when param_1 is non-zero and 0xFFFFFFFF when it is zero, then commits through ble_219_0c041dc0. The commit's error is returned only when it is negative, otherwise 0. The value 0x00464143 is ASCII 'CAF' in little-endian byte order.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "flag: zero selects 0xFFFFFFFF, non-zero selects 0x464143"}
+    ],
+    "returns": {"type": "u32", "description": "0 or the negative commit error"},
+    "confidence": "medium",
+    "notes": "The meaning of the tag is not established."
+  },
+  "ble_219_0c045fd4": {
+    "name": "ble_cfg_set_bytes_f3b8",
+    "summary": "Copy up to 16 bytes into the config field at 0x2000F3B8 and commit",
+    "description": "Copies up to 16 bytes from param_1 into the 16-byte field at 0x2000F3B8 with memcpy, then commits through ble_219_0c041dc0. A length above 16 returns 0xFFFFFFEA (-22). It follows the same pattern as ble_cfg_set_f36c_bytes and is called from three routines in ble_219_0c0292f0, ble_219_0c029414 and ble_219_0c02b480 (not described here).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source bytes"},
+      {"name": "param_2", "type": "u32", "description": "length, at most 16"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "u32", "description": "0, the negative commit error, or 0xFFFFFFEA for a bad length"},
+    "confidence": "medium",
+    "notes": "The meaning of the field is not established."
+  },
+  "ble_219_0c0462c4": {
+    "name": "ble_uart_rx_dma_pump",
+    "summary": "Keep one UART instance receive DMA running into its stream write side; signal readable",
+    "description": "Feeds one UART instance's DMA from the write side of its stream buffer. If the instance's record in the 0x18-byte table at 0x2000F420 is active (bit 0 set) and its stream at +0x68 exists, it takes the contiguous free span (ringbuf_contig_write_len). When the instance's DMA is idle (hal_uart_tx_dma_busy is 0), it starts a DMA of that span at the write pointer. When the record's status bit 2 is set and the stream is not empty, it signals the readable event bit with ble_evt_set_index_bit(id, 1) inside a critical section in task context, or calls ble_evt_read_bits(id, 1) in ISR context.",
+    "category": "uart_bridge",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "UART instance context: u16 instance id at +0, stream pointer at +0x68"},
+      {"name": "param_2", "type": "s32", "description": "0 for task context, non-zero for ISR context"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The DMA primitive called here is labelled hal_uart_tx_dma_start in the call graph, but its buffer is the receive-side write pointer. That suggests the labels of hal_uart_tx_dma_start and hal_uart_rx_dma_start are swapped; flagged for review. The even and odd event-bit selectors are read as write-ready and read-ready."
+  },
+  "ble_219_0c046380": {
+    "name": "ble_uart_tx_dma_pump",
+    "summary": "Keep one UART instance transmit DMA fed from the stream read side; signal writable",
+    "description": "Feeds one UART instance's DMA from the read side of its stream buffer. If the instance's record in the table at 0x2000F420 has bit 1 set and its stream exists, it takes the contiguous readable span (ringbuf_contig_read_len). When hal_uart_rx_dma_busy is 0, it starts a DMA from the read pointer with hal_uart_rx_dma_start. When the record's status bit 2 is set and the stream is not full with its reserve (ringbuf_is_full_with_reserve), it signals the writable event bit with ble_evt_set_index_bit(id, 0) in task context, inside a critical section, or calls ble_evt_read_bits(id, 0) in ISR context.",
+    "category": "uart_bridge",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "UART instance context: u16 instance id at +0, stream pointer at +0x68"},
+      {"name": "param_2", "type": "s32", "description": "0 for task context, non-zero for ISR context"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "This is the transmit-side counterpart of ble_uart_rx_dma_pump. The DMA primitive it calls is labelled hal_uart_rx_dma_start, which is the label swap flagged in ble_uart_rx_dma_pump."
+  },
+  "ble_219_0c046468": {
+    "name": "ble_uart_rx_dma_commit",
+    "summary": "Commit DMA-received bytes to the UART stream head from ISR and re-arm the receive pump",
+    "description": "Called from the receive-complete path for one UART channel with the byte count that landed. It finds the instance context through the 0x18-byte record at DAT_2000F428 (context at +0x10) and commits the count to the stream head with stream_buffer_commit_head in ISR mode, with no woken-task pointer. It then calls ble_uart_rx_dma_pump in ISR mode to keep the DMA armed.",
+    "category": "uart_bridge",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "channel index selecting the record at 0x2000F428"},
+      {"name": "param_2", "type": "u32", "description": "number of bytes received"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0467b8": {
+    "name": "ble_uart_irq17_handler",
+    "summary": "UART IRQ17 handler: drain RX FIFO into the instance queue, run the registered callback",
+    "description": "Interrupt handler for a UART instance whose context is at DAT_2000F510. It reads the instance id from the context, takes the hardware block pointer from the table at 0x0C076844, and reads the status word at +0x40. When the receive status bits 0x50 are set and the instance has a receive queue, it drains the FIFO one byte at a time into that queue with xQueueGenericSendFromISR until bit 4 of the line-status word at +0x18 (FIFO empty) is set. It then signals the event group through ble_evt_read_bits when the queue is not empty, and calls the handler registered at 0x2000AA80 with (id, status). It pends PendSV through ICSR when a task was woken, and stores the last status at +0x44.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The branch structure is complex and partly inferred from the callee summaries. The decompile shows the same body in full for IRQ18 and IRQ26."
+  },
+  "ble_219_0c0467c4": {
+    "name": "ble_uart_irq18_handler",
+    "summary": "UART IRQ18 vector entry: same UART IRQ body with context at 0x2000F514",
+    "description": "Interrupt vector entry for IRQ18. The decompile shows the UART IRQ body in full, using the context pointer from DAT_2000F514 instead of DAT_2000F510. The call graph lists ble_219_0c0467b8 as the callee, so this is most likely a short stub that loads its context and branches into the shared body. The shared behaviour is described in ble_uart_irq17_handler.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The stub-to-shared-body reading is inferred from the call graph and the instruction count, not seen directly."
+  },
+  "ble_219_0c0467d0": {
+    "name": "ble_uart_irq26_handler",
+    "summary": "UART IRQ26 vector entry: same UART IRQ body with context at 0x2000F534",
+    "description": "Interrupt vector entry for IRQ26. The decompile shows the UART IRQ body in full, using the context pointer from DAT_2000F534. The call graph lists ble_219_0c0467b8 as the callee, so this is most likely a short stub that loads its context and branches into the shared body. The shared behaviour is described in ble_uart_irq17_handler.",
+    "category": "uart_bridge",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The stub-to-shared-body reading is inferred from the call graph and the instruction count, not seen directly."
+  },
+  "ble_219_0c046838": {
+    "name": "ble_wdt_enable",
+    "summary": "Debug command enable_watchdog: stop when timeout below 2, else start with IRQ 5 callback",
+    "description": "Implements the 'enable_watchdog' command. A reload value below 2 stops the watchdog with hal_wdt_stop and returns 0. Otherwise, if the running flag at 0x2000F45C is not set, it stores the reload value in reload slot 0 with hal_wdt_set_reload_slot, starts the watchdog with hal_wdt_start, installs the watchdog callback on IRQ 5 with hal_wdt_irq_enable, prints 'enable_watchdog', and sets the running flag. A second call while running does nothing and returns 0.",
+    "category": "watchdog",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "reload value: below 2 disables the watchdog"},
+      {"name": "param_2", "type": "u32", "description": "unused"},
+      {"name": "param_3", "type": "u32", "description": "unused"},
+      {"name": "param_4", "type": "u32", "description": "unused"}
+    ],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "Callers are ble_219_0c036328 and ble_219_0c036394, which are not described here."
+  },
+  "ble_219_0c04696c": {
+    "name": "bt_drv_ctrl_bringup",
+    "summary": "BT controller bring-up sequence A: link init, callback, RF regset, vendor FC77 and FC81",
+    "description": "Controller bring-up, always returns 0. It runs bt_drv_intersys_link_init_once, stores the Thumb callback address 0x0C0468B5 with bt_drv_set_global_2000bd1c, calls thunk_FUN_0c03dd9c and bt_drv_reg_op_env_bde4_set_byte18(0), then bt_drv_hci_cmd_post_settle, bt_drv_rf_regset_mode0_select, bt_drv_vendor_fc77_set_value(0) and bt_drv_vendor_fc81_cmd. It ends with an empty stub. Its caller ble_219_0c0592a4 is the controller state machine, which is not described here.",
+    "category": "bt_controller",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 0"},
+    "confidence": "medium",
+    "notes": "The same opening sequence is shared with bt_drv_ctrl_bringup_rf_test. The target of thunk_FUN_0c03dd9c is not named in the call graph."
+  },
+  "ble_219_0c0469a0": {
+    "name": "app_testmode_bt_nonsig_tx",
+    "summary": "Test mode: start Bluetooth non-signalling TX from a 10-byte command payload",
+    "description": "Test-mode command for Bluetooth non-signalling transmit. It logs its own name, runs bt_drv_hci_cmd_post_settle, and builds a 0x20-byte vendor command from a template with constants 0x1CFC8701, 0x0003E800, 0x55555555, 0x00015555 and 0x001B0404. The payload fills in a 16-bit value from bytes 0 and 1, copies the 6-byte address at payload+2 with ble_mem_copy, and sets fields from payload byte 9. Payload byte 8 is matched against the first byte of 27 six-byte records at 0x20003EF0. On a match it fills the template from that record, sends it with bt_drv_hci_cmd_send_wait, and returns 0; without a match it returns 0xFFFFFFFF. A failed copy is logged with line 185.",
+    "category": "factory_test",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "command payload: bytes 0 and 1 are a 16-bit field, 2 to 7 the 6-byte address, 8 the record key, 9 a second value"}
+    ],
+    "returns": {"type": "u32", "description": "0 when the key matches a record, otherwise 0xFFFFFFFF"},
+    "confidence": "medium",
+    "notes": "The payload field meanings and the record layout are inferred from the decompile and are low confidence. The function name is taken from the string it logs."
+  },
+  "ble_219_0c046b18": {
+    "name": "ble_nonsig_bt_result_read",
+    "summary": "Read the BT non-signalling test counters into a 3-halfword output and reset them",
+    "description": "Copies the BT non-signalling test counters into a 3-halfword output: count at DAT_2000F468, head at DAT_2000F46A, and payload length at DAT_2000F46C. It logs 'final bt test result cnt:%d head:%d payload:%d'. When the count is non-zero it clears the count and head word and the payload word (read-and-clear). It returns 0, or 0xFFFFFFFF when the output pointer is NULL.",
+    "category": "factory_test",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "output: three u16 values (count, head, payload)"}
+    ],
+    "returns": {"type": "u32", "description": "0, or 0xFFFFFFFF for a NULL output"},
+    "confidence": "medium",
+    "notes": "The log call's arguments are not visible in the decompile, so the printed values are taken from the output layout."
+  },
+  "ble_219_0c046c50": {
+    "name": "ble_nonsig_ble_count_read",
+    "summary": "Read the BLE non-signalling test packet counter and reset it when non-zero",
+    "description": "Copies the 16-bit BLE test packet counter at DAT_2000F464 into *param_1, logs 'final ble test cnt:%d', and clears the counter when it is non-zero (read-and-clear). It returns 0, or 0xFFFFFFFF when param_1 is NULL. It is the BLE-side companion of ble_nonsig_bt_result_read.",
+    "category": "factory_test",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "output for the 16-bit counter"}
+    ],
+    "returns": {"type": "u32", "description": "0, or 0xFFFFFFFF for a NULL output"},
+    "confidence": "medium",
+    "notes": "The log call's argument is not visible in the decompile, so the printed value is taken from the output."
+  },
+  "ble_219_0c046c7c": {
+    "name": "bt_drv_ctrl_bringup_rf_test",
+    "summary": "BT controller bring-up for RF non-signalling test, then three fixed HCI packets",
+    "description": "Runs the same opening sequence as bt_drv_ctrl_bringup (link init, callback store, reg-op guard, post_settle, RF regset mode 0, FC77 and FC81 steps, stub). It then sends three fixed HCI packets from ROM at 0x0C076918 (4 bytes), 0x0C07692C (5 bytes) and 0x0C07695C (7 bytes), each followed by a 100-unit delay through the RAM thunks at 0x20000570 and 0x20000334. It finishes by setting DAT_2000BD18 to 1 to mark the test setup as done. Its caller ble_219_0c02c49c is not described here.",
+    "category": "factory_test",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The packets are read as the RF test setup from their ROM addresses. Their exact opcodes are not decoded."
+  },
+  "ble_219_0c046d50": {
+    "name": "ble_heap_stats_dump",
+    "summary": "Log heap usage: free, mmap and malloc bytes, SBRK counters, and the mallinfo fields",
+    "description": "Prints heap statistics. It calls mallinfo (ble_219_0c070f00 in the call graph) and logs free memory (the mallinfo fordblks value plus heapBytesRemaining at DAT_20003F98), mmap usage (DAT_2000F4C4), and malloc usage (the heap span 0x659BC minus free bytes). It also logs the SBRK counters, heapBytesRemaining and totalBytesProvidedBySBRK (DAT_2000F4C8), and the mallinfo fields arena, ordblks, smblks, hblks, hblkhd, usmblks, fsmblks, uordblks, fordblks and keepcost. It is called on the failure path of _sbrk.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The field names match newlib struct mallinfo. The heap span constant 0x659BC is taken from the decompile."
+  },
+  "ble_219_0c046e04": {
+    "name": "_sbrk",
+    "summary": "Newlib _sbrk for the BLE heap: move the break within 0x2007EF00, else ENOMEM with heap dump",
+    "description": "Newlib _sbrk for the BLE heap. Under the scheduler lock (vTaskSuspendAll and xTaskResumeAll) it advances the program break DAT_20003F94 by param_1 when the new end, DAT_2000F4C4 plus break plus increment, stays at or below 0x2007EF00. It then reduces the remaining-byte counter DAT_20003F98, grows the total-provided counter DAT_2000F4C8, and returns the previous break. Otherwise it sets errno to ENOMEM (12) through __errno, logs 'sbrk failed' and 'sbrk incr:%d', calls ble_heap_stats_dump, waits 1000 ticks with vTaskDelay, and returns -1.",
+    "category": "libc",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "increment in bytes"}
+    ],
+    "returns": {"type": "s32", "description": "previous program break, or -1 on failure"},
+    "confidence": "high",
+    "notes": "The heap limit 0x2007EF00 is the top of the allowed range, and DAT_2000F4C4 is a base offset whose meaning is inferred."
+  }
+}

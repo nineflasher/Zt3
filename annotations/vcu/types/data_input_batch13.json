@@ -1,0 +1,23 @@
+{
+  "structs": {
+    "InputDebounceCounters": {
+      "size": 4,
+      "description": "Presence and absence tick counters of one debounce state machine (vcu_input_sm_a..e_tick). present_ticks counts consecutive present readings and absent_ticks the absent ones; both are used against small thresholds. Units: ticks of the state machine call rate.",
+      "fields": [
+        {
+          "name": "present_ticks",
+          "offset": 0,
+          "type": "u16",
+          "description": "Ticks in which the qualifier reads present. Saturates at 10000. Above 4 it starts the presence debounce."
+        },
+        {
+          "name": "absent_ticks",
+          "offset": 2,
+          "type": "u16",
+          "description": "Ticks in which the qualifier reads absent. Used with the threshold 9 (more than 9 latches the event from the absence state) and the 3 to 19 window for the 7 to 8 transition (probably)."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

@@ -1,0 +1,803 @@
+{
+ "ble_219_0c0701f8": {
+  "name": "__errno",
+  "summary": "newlib __errno: return pointer to the errno variable",
+  "description": "Returns the 32-bit value stored in the RAM pointer cell DAT_200049a8, which holds the address of the errno variable (the neighbouring word 0x200049ac is the errno storage whose address is taken elsewhere). Library code such as strtoul writes error codes through this pointer (e.g. ERANGE = 0x22). Called from many libc routines and from application code that needs to set or read errno.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the errno int"
+  },
+  "confidence": "medium",
+  "notes": "Name chosen from usage (errno pointer used by strtoul); in newlib the symbol is __errno()."
+ },
+ "ble_219_0c07022c": {
+  "name": "libc_reverse_u32_array",
+  "summary": "Reverse the order of n 32-bit words in an array in place",
+  "description": "Swaps word i with word n-1-i for i in 0..(n>>1)-1, walking one pointer forward from base and one backward from base+4*n. It is a plain in-place reversal of a u32 array; it has no bounds checks. Only caller is the large libc routine at 0x0c0702f8 (locale/time-style string handling), so it is probably a private helper of that routine.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "base address of the u32 array"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "number of 32-bit elements"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Exact enclosing newlib routine unknown; helper name is descriptive."
+ },
+ "ble_219_0c070250": {
+  "name": "libc_is_minus_or_plus_sign",
+  "summary": "Test whether a string is NULL, starts with '-', or (if allowed) starts with '+'",
+  "description": "Returns true when the pointer is NULL or the first character is '-'. Otherwise, if param_2 is non-zero it returns whether the first character is '+'; if param_2 is zero it returns false. Used by the libc routine at 0x0c0702f8 as a sign/prefix check on a string argument.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "NUL-terminated string, may be NULL"
+   },
+   {
+    "name": "param_2",
+    "type": "bool",
+    "description": "non-zero: also accept a leading '+'"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if NULL or leading '-' (or leading '+' when allowed)"
+  },
+  "confidence": "medium",
+  "notes": "Purpose inferred from the single caller; semantics of the NULL case unknown."
+ },
+ "ble_219_0c070268": {
+  "name": "libc_state_block_load",
+  "summary": "Copy seven global words into a caller-provided 28-byte block",
+  "description": "Reads RAM globals DAT_200194d8, DAT_200194dc, DAT_200049a0, DAT_200049a4, DAT_200194e0, DAT_200194e4 and DAT_200194d4 and stores them in this order into out[0..6]. Together with the matching store routine (0x0c0702b0) it saves/restores a 7-word libc configuration block (time-zone/locale style data). Only caller is 0x0c0707bc.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination array of 7 u32 words"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "The semantic meaning of the 7 words is not determined; likely newlib tz/locale state."
+ },
+ "ble_219_0c0702b0": {
+  "name": "libc_state_block_store",
+  "summary": "Write a 28-byte block of seven words into the matching globals",
+  "description": "Inverse of the load routine at 0x0c070268: copies in[0..6] to DAT_200194d8, DAT_200194dc, DAT_200049a0, DAT_200049a4, DAT_200194e0, DAT_200194e4 and DAT_200194d4 respectively. Called only from 0x0c0707bc, which loads the block, modifies it and stores it back.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "source array of 7 u32 words"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Meaning of the words unknown; see load routine."
+ },
+ "ble_219_0c07099c": {
+  "name": "memcmp",
+  "summary": "newlib memcmp: compare n bytes of two buffers",
+  "description": "Byte-wise unsigned comparison of param_3 bytes at param_1 and param_2. Returns 0 if all bytes are equal, otherwise the difference of the first mismatching bytes (s1[i]-s2[i]). Used widely by the BT host (address and key comparisons).",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "first buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "second buffer"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "number of bytes"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 if equal, else difference of first differing bytes"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0709bc": {
+  "name": "memcpy",
+  "summary": "newlib memcpy: forward byte copy",
+  "description": "Copies param_3 bytes one at a time from param_2 (src) to param_1 (dest) in ascending order; no overlap handling and no return value (the standard return of dest is not used here). Heavily used throughout host and controller code.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "byte count"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (dest not returned)"
+  },
+  "confidence": "high",
+  "notes": "Param order in decompiler is dst, src, n."
+ },
+ "ble_219_0c0709d6": {
+  "name": "memmove",
+  "summary": "newlib memmove: overlap-safe byte copy",
+  "description": "If src < dst < src+n (overlapping with destination above source) it copies backwards from the end; otherwise it copies forward byte by byte. Arguments are dst, src, n.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "byte count"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c070a0a": {
+  "name": "memset",
+  "summary": "newlib memset: fill n bytes with a byte value",
+  "description": "Writes the low byte param_2 to each of param_3 bytes starting at param_1, ascending. No return value is used. Called from many init paths to zero structures.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination"
+   },
+   {
+    "name": "param_2",
+    "type": "u8",
+    "description": "fill value"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "byte count"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0716fa": {
+  "name": "strcat",
+  "summary": "newlib strcat: append a string to another",
+  "description": "Scans param_1 to its NUL terminator, then copies param_2 including its terminating NUL onto that position. No bounds checking. Return value is not used.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination string (must have room)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source string"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071718": {
+  "name": "strchr",
+  "summary": "newlib strchr: find a character in a string",
+  "description": "Walks the string, returning a pointer to the first byte equal to param_2. If the terminating NUL is reached, it returns a pointer to the NUL when param_2 == 0, otherwise NULL.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "NUL-terminated string"
+   },
+   {
+    "name": "param_2",
+    "type": "char",
+    "description": "character to find"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to match or NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071732": {
+  "name": "strcmp",
+  "summary": "newlib strcmp: compare two NUL-terminated strings",
+  "description": "Compares byte by byte until the first mismatch or until the first string ends (a zero in string 1 stops the loop), returning s1[i] - s2[i] as unsigned byte difference. 0 means equal.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "first string"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "second string"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "<0, 0, >0 ordering"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071746": {
+  "name": "strcpy",
+  "summary": "newlib strcpy: copy a string including its NUL",
+  "description": "Copies bytes from param_2 to param_1 until and including the terminating NUL. The decompiled function does not return the destination pointer.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "destination"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "source string"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071756": {
+  "name": "strlen",
+  "summary": "newlib strlen: length of a NUL-terminated string",
+  "description": "Advances through the string until a NUL byte and returns the pointer difference, i.e. the number of characters before the NUL. Called from many places (logging, name handling, command parsing).",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "NUL-terminated string"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "string length in bytes"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071766": {
+  "name": "strncmp",
+  "summary": "newlib strncmp: compare at most n characters of two strings",
+  "description": "Returns 0 if n == 0. Otherwise compares bytes pairwise, stopping at the first mismatch, at a NUL in string 1, or after n bytes, and returns s1[i]-s2[i] of the last examined pair.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "first string"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "second string"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "maximum characters to compare"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "<0, 0, >0 ordering"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c071a4c": {
+  "name": "strtoul",
+  "summary": "newlib strtoul: convert string to unsigned long",
+  "description": "Skips leading whitespace using the ctype table at 0x0c0862a9 (bit 0x08 = space), accepts a '+'/'-' sign, and handles base 0 (auto-detect: 0x/0X hex, leading 0 octal, else decimal) and base 16 with optional 0x prefix. Digits 0-9, A-Z, a-z are accumulated with explicit overflow detection against 0xFFFFFFFF/base; on overflow the result is 0xFFFFFFFF and errno (via the pointer in DAT_200049a8) is set to 0x22 (ERANGE). A negative sign negates the result. If endptr (param_2) is non-NULL it receives the address of the first unconverted character (or the start of the string if no digits were consumed).",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "nptr: string to parse"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "endptr: receives pointer past the number, may be NULL"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "base: 0 or 2..36"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "parsed value, 0xFFFFFFFF on overflow"
+  },
+  "confidence": "high",
+  "notes": "Also called from 0x0c071a48 wrapper (an _r/locale-less entry point)."
+ },
+ "ble_219_0c071c38": {
+  "name": "__locale_charset",
+  "summary": "newlib __locale_charset: pointer to the current locale charset string",
+  "description": "Returns the constant RAM address 0x2001953f without dereferencing it; this is the character-set name buffer of the (C) locale object used by multibyte/ctype conversions. Only caller is the libc routine at 0x0c070bcc.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to charset name string in RAM"
+  },
+  "confidence": "low",
+  "notes": "Identification as __locale_charset is inferred from the two sibling accessors returning the same address; may instead be a different locale field."
+ },
+ "ble_219_0c071c44": {
+  "name": "__locale_msgcharset",
+  "summary": "newlib __locale_msgcharset: pointer to the message charset string",
+  "description": "Identical in behaviour to the neighbouring accessor at 0x0c071c38: returns the fixed RAM address 0x2001953f (locale string buffer). Only caller is 0x0c070bcc. In newlib the message charset accessor exists beside __locale_charset, which is why it is named this way.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to charset name string in RAM"
+  },
+  "confidence": "low",
+  "notes": "Duplicate of 0x0c071c38 in this build; name inferred."
+ },
+ "ble_219_0c072058": {
+  "name": "div",
+  "summary": "newlib div: signed division returning quotient and remainder",
+  "description": "Computes quot = num / den and rem = num - den*quot, then normalises the C89 truncation result: if num < 0 and rem > 0 the quotient is decremented and den added to the remainder; if num >= 0 and rem < 0 the quotient is incremented and den subtracted. The pair is returned through the struct pointer in param_1 (out[0] = quot, out[1] = rem), i.e. the div_t result written via a hidden pointer.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "div_t result {quot, rem}"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "numerator"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "denominator"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (result in *param_1)"
+  },
+  "confidence": "high",
+  "notes": "Called by the time/format routine at 0x0c070a1c."
+ },
+ "ble_219_0c0724b0": {
+  "name": "__get_current_locale",
+  "summary": "Return pointer to the default locale object in flash",
+  "description": "Returns the constant address 0x0c073ce0, the read-only default (C) locale structure in the image. Callers (0x0c070bcc, 0x0c071ae4, 0x0c071c50) use it to read locale fields such as numeric/ctype parameters.",
+  "category": "libc",
+  "params": [],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to locale struct at 0x0c073ce0"
+  },
+  "confidence": "low",
+  "notes": "Name inferred from newlib; contents of the target not decoded."
+ },
+ "ble_219_0c0724b8": {
+  "name": "__retarget_lock_init_recursive",
+  "summary": "newlib lock init stub (no-op)",
+  "description": "Empty function (single return). In this single-threaded libc configuration the retargetable lock initialiser does nothing. Its only caller is 0x0c0721a0 (stdio initialisation), consistent with a lock-init hook.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "lock object (ignored)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Identification as lock-init inferred from caller context; could be __sinit_lock-style hook."
+ },
+ "ble_219_0c0724bc": {
+  "name": "__retarget_lock_acquire_recursive",
+  "summary": "newlib lock acquire stub (no-op)",
+  "description": "Empty function. Called at entry of stdio routines (fflush/vfprintf/vfscanf-like) paired with the release stub at 0x0c0724c0; locking is disabled so it does nothing.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "lock object (ignored)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c0724c0": {
+  "name": "__retarget_lock_release_recursive",
+  "summary": "newlib lock release stub (no-op)",
+  "description": "Empty function paired with the acquire stub at 0x0c0724bc; called on exit paths of the same stdio routines. Does nothing.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "lock object (ignored)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c072e5c": {
+  "name": "_printf_common",
+  "summary": "newlib-nano _printf_common: emit sign/prefix/padding for one printf conversion",
+  "description": "Part of the nano vfprintf: given the conversion state struct (param_2: flags at +0, dprec at +8, width at +0xC, size/precision at +0x10, 16-blank pad string at +0x19, zero pad string at +0x1A, sign char at +0x43, 'x' marker at +0x45) it computes the real output size (max of precision/size, +1 if a sign char, +2 for the 0x prefix when the alt flag 0x20 is set) and stores it in *param_3. If neither left-justify nor zero-pad flags (mask 6) are set it emits width-size leading blanks, then the sign/'0x' prefix, then zero padding when the zero-pad flag is set or precision exceeds the size. Output is done by calling the callback param_5(reent, fp, buf, len) (a __sfputs-style writer); any callback result of -1 aborts with -1, otherwise returns 0.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent/context passed to the callback"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "printf conversion state (_prt_data_t)"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "out: computed field size (realsz)"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "FILE/stream passed to the callback"
+   },
+   {
+    "name": "param_5",
+    "type": "ptr",
+    "description": "output callback (ctx, fp, buf, len) returning -1 on error"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 on success, -1 on output error"
+  },
+  "confidence": "medium",
+  "notes": "Struct field layout matches newlib nano _prt_data_t; offsets read directly from code."
+ },
+ "ble_219_0c073188": {
+  "name": "_scanf_chars",
+  "summary": "newlib-nano _scanf_chars: scanf %c / %s / %[ conversion",
+  "description": "Reads characters from the stream pointed to by param_3 (ptr/remaining count pair, refilled through the function pointer at param_2[0x60] when the count runs out). Conversion type in param_2[6]: 0 = %c, 1 = %[ (scanset table at param_2[5], 256 flags), 2 = %s (stops at whitespace using the ctype table 0x0c0862a9 bit 8). Default width is 1 for %c else unlimited; stores characters to the va_list pointer taken from param_4 unless the suppress flag (0x10) is set, decrementing width as it goes. On finish it NUL-terminates for non-%c types, increments the assignment count (param_2[3]) when not suppressed and adds the character count to param_2[4]. Returns 1 when no character could be read at all, else 0.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "reent/context passed to refill"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "scan state struct (_scan_data_t)"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "stream cursor {ptr, remaining}"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "pointer to va_list of destination pointers"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "0 ok, 1 if input failure before any char"
+  },
+  "confidence": "medium"
+ },
+ "ble_219_0c073504": {
+  "name": "__sccl",
+  "summary": "newlib __sccl: build scanf %[...] set table",
+  "description": "Builds a 256-entry byte table at param_1 for a scanf scanset. A leading '^' inverts the set: all entries are first filled with 1 (inverted) or 0, then members listed are set to the opposite value. Handles ranges 'a-z' (a '-' before ']' or a descending range is literal) and stops at the closing ']' or NUL. Returns a pointer to the format character after the ']' (or the NUL if the set is unterminated).",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "256-byte table to fill"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "format string just after '%['"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer past the closing ']'"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0739d8": {
+  "name": "memchr",
+  "summary": "newlib memchr: find a byte in a buffer",
+  "description": "Scans param_3 bytes from param_1 and returns a pointer to the first byte equal to param_2, or NULL if not found within the range. Used by the stdio format code.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "buffer"
+   },
+   {
+    "name": "param_2",
+    "type": "u8",
+    "description": "byte value to find"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "buffer length"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to match or NULL"
+  },
+  "confidence": "high"
+ },
+ "ble_219_0c0739f4": {
+  "name": "crt_eh_get_entry_offset",
+  "summary": "C++/EH runtime helper: resolve an offset word stored before an address",
+  "description": "Reads the word w located at param_2-4. Computes r = w - 4; if w is negative (high bit set) it adds the self-relative value stored at param_2 + r and returns the sum, otherwise returns r. This resembles resolving an ARM EHABI self-relative (prel31-like) table entry located just before a given address. Called only from 0x0c0724e8.",
+  "category": "libc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "unused"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "address whose preceding word is decoded"
+   }
+  ],
+  "returns": {
+   "type": "s32",
+   "description": "resolved offset/address delta"
+  },
+  "confidence": "low",
+  "notes": "Purpose inferred from the arithmetic only; true routine unidentified."
+ },
+ "ble_219_0c073ad0": {
+  "name": "ble_ram_patch_thunk_200005e8",
+  "summary": "Thunk forwarding param_1 to the code at 0x200005e8",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200005e9 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 1 direct caller (0x0c03f1f4).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073ae0": {
+  "name": "ble_ram_patch_thunk_20000348",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000348",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000349 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 8 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073af0": {
+  "name": "ble_ram_patch_thunk_200007f4",
+  "summary": "Thunk forwarding param_1 to the code at 0x200007f4",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x200007f5 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 3 direct callers (0x0c0328cc, 0x0c032954, 0x0c0460e8).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b00": {
+  "name": "ble_ram_patch_thunk_2000065c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000065c",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000065d (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 1 direct caller (0x0c03a038).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b10": {
+  "name": "ble_ram_patch_thunk_20001c10",
+  "summary": "Thunk forwarding param_1 to the code at 0x20001c10",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20001c11 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; no direct caller (used via function pointer).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b20": {
+  "name": "ble_ram_patch_thunk_20001ca0",
+  "summary": "Thunk forwarding param_1 to the code at 0x20001ca0",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20001ca1 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; no direct caller (used via function pointer).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b30": {
+  "name": "ble_ram_patch_thunk_2000031c",
+  "summary": "Thunk forwarding param_1 to the code at 0x2000031c",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x2000031d (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 7 direct callers.",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ },
+ "ble_219_0c073b40": {
+  "name": "ble_ram_patch_thunk_20000934",
+  "summary": "Thunk forwarding param_1 to the code at 0x20000934",
+  "description": "Trampoline (5 insns) that tail-forwards its single argument (param_1/r0) to the function at hard-coded SRAM address 0x20000935 (RAM, Thumb bit set) with an indirect call and returns. The 0x2000xxxx target lies in the early RAM-code area, i.e. a routine copied or patched into RAM at boot (BES ROM-patch / RAM-resident code redirection), so flash code reaches it through this fixed entry point. Behaviour is defined by the RAM target, not by the stub; 3 direct callers (0x0c032c04, 0x0c032d18, 0x0c032d34).",
+  "category": "bt_controller",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "opaque argument passed straight through to the target (r0)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none (target's return value is not used by the stub)"
+  },
+  "confidence": "medium",
+  "notes": "Target identity unknown from the stub; name derived from the target address."
+ }
+}

@@ -1,0 +1,35 @@
+{
+  "structs": {
+    "BmsHistoryFlags": {
+      "size": 4,
+      "description": "Four adjacent state bytes of the status-history ring control block at 0x20000568. Written by bms_status_event_snapshot and bms_history_ring_commit; the ring buffer itself lies at 0x200010A8 to 0x200012FC.",
+      "fields": [
+        {
+          "name": "pending",
+          "offset": 0,
+          "type": "u8",
+          "description": "Snapshot pending flag (0x20000568): 1 while a status snapshot waits in the slot at 0x200010A8. Set by bms_status_event_snapshot, cleared after five commits by bms_history_ring_commit."
+        },
+        {
+          "name": "ring_ready",
+          "offset": 1,
+          "type": "u8",
+          "description": "Ring-initialised flag (0x20000569): 0 until the first bms_history_ring_commit call fills the ten 64-byte records, then 1."
+        },
+        {
+          "name": "commit_count",
+          "offset": 2,
+          "type": "u8",
+          "description": "Commit counter (0x2000056A): counts bms_history_ring_commit calls while a snapshot is pending; reset to 0 when the snapshot is handed to bms_slot_pool_register."
+        },
+        {
+          "name": "flags",
+          "offset": 3,
+          "type": "u8",
+          "description": "Mirror of status bits (0x2000056B): bits 0 and 1 form the two-bit state for the 0x124 bit 2 condition; bits 2 to 7 mirror bits 4, 3, 7 to 10 and 12, 5 and 6, 13 and 14, and 0x126 bits 4, 7, 8 and 12 of the state block."
+        }
+      ]
+    }
+  },
+  "enums": {}
+}

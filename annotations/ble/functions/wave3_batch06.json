@@ -1,0 +1,365 @@
+{
+  "ble_219_0c04bd98": {
+    "name": "sdp_get_service_record_handle",
+    "summary": "Read the 32-bit ServiceRecordHandle (attribute 0x0000) of an SDP record, 0 if absent",
+    "description": "Looks up attribute 0x0000 (ServiceRecordHandle) in the record's attribute list with sdp_record_find_attribute (0x0c04cb6c). It then requires the value element to be a UINT-type data element of 32-bit size (two small predicates at 0x0c04c578 and 0x0c04c570, whose exact meaning is inferred from the return values 1 and 2) and returns the big-endian u32 payload read at element offset 1 with co_read32_be. Returns 0 when the attribute is missing or has the wrong type. sdp_register_service treats any value below 0x10000 as an invalid handle, so 0 is the failure signal. Part of the SDP record-access group (sdp_record_find_attribute, sdp_record_matches_pattern, sdp_record_attribute_list_length, sdp_record_write_attribute_list).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP service record, DE-encoded attribute list"},
+      {"name": "param_2", "type": "u32", "description": "unused by the body"},
+      {"name": "param_3", "type": "u32", "description": "unused by the body"},
+      {"name": "param_4", "type": "u32", "description": "pass-through to co_read32_be, which ignores it"}
+    ],
+    "returns": {"type": "u32", "description": "ServiceRecordHandle value, or 0 if not found or not a 32-bit UINT"},
+    "confidence": "medium",
+    "notes": "The packet callee list names bthost_byte_get_low3_bits and bthost_byte_get_high5_bits, but the decompiled body does not call them; the calls are to 0x0c04c578, 0x0c04c570, 0x0c04cb6c and co_read32_be."
+  },
+  "ble_219_0c04bdc8": {
+    "name": "sdp_register_service",
+    "summary": "Register an SDP service record: validate its handle, reject duplicates, link it into the list",
+    "description": "Reads the record handle with sdp_get_service_record_handle and returns 0x83 (invalid handle) when it is below 0x10000. It walks the global record list at 0x2000fcb4 and returns 0x80 (already registered) when a record with the same handle exists. Otherwise it takes a 12-byte service_record_item_t from btstack_memory_service_record_item_get (8-entry pool), stores the handle at item+4 and the record pointer at item+8, and pushes the item on the list head with btstack_linked_list_add. Returns 0x56 when the pool is exhausted and 0 on success. Registration only; removal is not in this function. Members of the SDP record-table group: sdp_server_build_service_search_response, sdp_server_build_service_attribute_response and sdp_server_build_service_search_attribute_response all walk the same list.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "DE-encoded SDP service record, stored by pointer (not copied)"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 0x83 invalid handle, 0x80 duplicate handle, 0x56 no free item"},
+    "confidence": "high",
+    "notes": "Status code names follow BTstack sdp_server.c; the exact code-to-name mapping is inferred."
+  },
+  "ble_219_0c04be10": {
+    "name": "sdp_server_build_service_search_response",
+    "summary": "Answer an SDP ServiceSearchRequest with the matching record handles",
+    "description": "Parses the request PDU: transaction id at +1, ParameterLength at +3, ServiceSearchPattern DE sequence at +5, MaximumServiceRecordCount u16 right after the pattern, then a continuation-state byte (0, or length 2 followed by a 16-bit resume index). It finds registered records that match the pattern (sdp_record_matches_pattern over list 0x2000fcb4) and writes a ServiceSearchResponse into the global response buffer 0x2000fb98: PDU id 3, transaction id, ParameterLength, TotalServiceRecordCount, CurrentServiceRecordCount, then one raw 32-bit handle per returned record. The count is capped by MaximumServiceRecordCount and by the response budget (roughly (MTU-12)/4 handles); when records remain, a 2-byte resume index is appended as continuation state. Malformed requests return 0 and produce no response. Group: the three SDP request handlers (here, sdp_server_build_service_attribute_response, sdp_server_build_service_search_attribute_response) share the record list and response buffer.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP ServiceSearchRequest PDU"},
+      {"name": "param_2", "type": "u16", "description": "response budget (the ATT/L2CAP MTU of the channel)"}
+    ],
+    "returns": {"type": "u16", "description": "length of the response PDU in 0x2000fb98, 0 if the request is malformed"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04bfd0": {
+    "name": "sdp_server_build_service_attribute_response",
+    "summary": "Answer an SDP ServiceAttributeRequest for one record handle and an attribute id list",
+    "description": "Parses the request: transaction id at +1, ParameterLength at +3, ServiceRecordHandle u32 at +5, MaximumAttributeByteCount u16 at +9, AttributeIDList DE sequence from +0x0b. If the handle does not match a record in list 0x2000fcb4, it writes an ErrorResponse (PDU 1) with error 0x0002 (Invalid Service Record Handle). Otherwise it writes a ServiceAttributeResponse (PDU 5): transaction id, ParameterLength, AttributeListByteCount, then the id/value list produced by sdp_record_write_attribute_list cut at the byte budget. The continuation state is 0 when the list completed, or 2 followed by a 16-bit resume offset when it did not. Returns the total PDU length, or 0 for a malformed request. Member of the SDP request-handler group with sdp_server_build_service_search_response.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP ServiceAttributeRequest PDU"},
+      {"name": "param_2", "type": "u16", "description": "response budget (MTU of the channel)"}
+    ],
+    "returns": {"type": "u16", "description": "length of the response PDU in 0x2000fb98, 0 if malformed"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04c144": {
+    "name": "sdp_server_build_service_search_attribute_response",
+    "summary": "Answer an SDP ServiceSearchAttributeRequest with attribute lists for all matching records",
+    "description": "Parses the request: ServiceSearchPattern at +5, MaximumAttributeByteCount u16 after it, AttributeIDList after that, then a continuation-state field. For a fresh request it first sums the encoded size of each matching record's attribute list (sdp_record_attribute_list_length, plus 3 bytes per record for its sequence header) and stores that total in the AttributeListsByteCount field at 0x2000fb9f. It then emits one attribute list per matching record with sdp_record_write_attribute_list, resuming from the continuation state when one is present and stopping at the budget (MTU minus 12, capped by MaximumAttributeByteCount). The response is ServiceSearchAttributeResponse (PDU 7) with transaction id, ParameterLength, AttributeListsByteCount, the lists, and a continuation trailer. Malformed requests return 0. Member of the SDP request-handler group.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP ServiceSearchAttributeRequest PDU"},
+      {"name": "param_2", "type": "u16", "description": "response budget (MTU of the channel)"}
+    ],
+    "returns": {"type": "u16", "description": "length of the response PDU in 0x2000fb98, 0 if malformed"},
+    "confidence": "medium",
+    "notes": "The continuation-state layout (4 bytes: record index and byte offset) is inferred from the code that reads two u16 values at +1 and +3."
+  },
+  "ble_219_0c04c680": {
+    "name": "sdp_pattern_uuid_match",
+    "summary": "Per-UUID callback for a ServiceSearchPattern: fail unless the record contains the UUID",
+    "description": "Invoked by de_traverse_sequence for each element of a ServiceSearchPattern, with the candidate record as context. A DE_UUID element with 16-, 32- or 128-bit payload is normalised to a 128-bit UUID (uuid_add_bluetooth_prefix for the short forms) and searched for in the record's attribute values with de_traverse_sequence and the comparator at 0x0c04c978. If found, it returns 0 so the traversal continues. If not found, or if the element is not a UUID, it clears the result flag at context+4 and returns 1, which stops the traversal and fails the match. Net effect: a record matches only if every UUID in the pattern occurs in it. Used only by sdp_record_matches_pattern.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "pattern element (DE header followed by UUID bytes)"},
+      {"name": "param_2", "type": "u32", "description": "unused by the body"},
+      {"name": "param_3", "type": "u32", "description": "unused by the body"},
+      {"name": "param_4", "type": "ptr", "description": "context: [0] = service record pointer, [1] = match result flag"}
+    ],
+    "returns": {"type": "u32", "description": "0 = UUID found, continue; 1 = not found or not a UUID, stop"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04c780": {
+    "name": "sdp_attribute_write_fragment",
+    "summary": "Per-attribute callback: write one attribute id and value into a byte-budgeted SDP response",
+    "description": "Callback used by sdp_record_write_attribute_list through sdp_attribute_list_traverse_sequence, once per (id, value) pair in a record. It first checks whether the id is in the requested attribute id list (param_5[3], matched with de_traverse_sequence and the comparator at 0x0c04c528). For a matching attribute it emits the 3-byte id element (DE_UINT16 header 0x09 plus the big-endian id), then copies the value element with memcpy, honouring a resume offset and the bytes still allowed by the budget. The state struct tracks output pointer, skip count, bytes written and bytes remaining. Returns 1 when the budget ran out part-way through (the traversal stops and a continuation is needed) and 0 when the attribute finished or was not requested. Write half of the SDP attribute serializer; the length pass is sdp_attribute_add_length.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "attribute id"},
+      {"name": "param_2", "type": "ptr", "description": "value data element"},
+      {"name": "param_3", "type": "u32", "description": "unused by the body"},
+      {"name": "param_4", "type": "u32", "description": "unused by the body"},
+      {"name": "param_5", "type": "ptr", "description": "write state: [0] output pointer, [1] skip/offset count, [2] bytes written, [3] attribute id list, [4] remaining budget"}
+    ],
+    "returns": {"type": "u32", "description": "1 = budget exhausted mid-attribute, 0 = done or not requested"},
+    "confidence": "medium",
+    "notes": "The state-struct field meanings are inferred from the arithmetic and the traversal call; word offsets are approximate."
+  },
+  "ble_219_0c04c89c": {
+    "name": "sdp_attribute_add_length",
+    "summary": "Per-attribute callback: add 3 + value length to the running attribute-list size",
+    "description": "Callback used by sdp_record_attribute_list_length through sdp_attribute_list_traverse_sequence. For an attribute id that is in the requested id list (*param_5, matched with de_traverse_sequence and the comparator at 0x0c04c528), it adds the value element length from de_get_len plus 3 bytes for the DE_UINT16 id element to the 16-bit running total stored at param_5+4. It always returns 0 so the traversal continues. This is the sizing pass that runs before sdp_record_write_attribute_list writes the bytes.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "attribute id"},
+      {"name": "param_2", "type": "ptr", "description": "value data element"},
+      {"name": "param_3", "type": "u32", "description": "unused by the body"},
+      {"name": "param_4", "type": "u32", "description": "unused by the body"},
+      {"name": "param_5", "type": "ptr", "description": "[0] requested attribute id list, [1] low 16 bits = running byte total"}
+    ],
+    "returns": {"type": "u32", "description": "always 0 (continue)"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cb10": {
+    "name": "sdp_record_write_attribute_list",
+    "summary": "Serialize the requested attributes of an SDP record into a byte-budgeted, resumable buffer",
+    "description": "Wrapper around sdp_attribute_list_traverse_sequence that walks the record's attribute list and applies sdp_attribute_write_fragment (0x0c04c780) to each entry. The arguments give the record, the attribute id list, a resume offset, a byte budget, an out-parameter for the number of bytes written, and the output buffer. It returns 1 when the whole list fit and 0 when the traversal stopped at the budget, in which case the caller writes a continuation state. Callers are sdp_server_build_service_attribute_response and sdp_server_build_service_search_attribute_response.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP service record"},
+      {"name": "param_2", "type": "ptr", "description": "requested attribute id list (DE sequence)"},
+      {"name": "param_3", "type": "u16", "description": "resume offset within the record's attribute list"},
+      {"name": "param_4", "type": "u16", "description": "byte budget for this fragment"},
+      {"name": "param_5", "type": "ptr", "description": "out: u16 number of bytes written"},
+      {"name": "param_6", "type": "ptr", "description": "output buffer"}
+    ],
+    "returns": {"type": "u32", "description": "1 = whole list written, 0 = stopped at the budget"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04cb48": {
+    "name": "sdp_record_attribute_list_length",
+    "summary": "Total encoded size of the requested attributes of an SDP record",
+    "description": "Returns the number of bytes that sdp_record_write_attribute_list would emit for the attribute id list param_2 on record param_1. Each matching attribute contributes its 3-byte id element plus the length of its value element. The sum is accumulated by sdp_attribute_list_traverse_sequence with the callback sdp_attribute_add_length (0x0c04c89c), so the result is a 16-bit total. Used to fill the AttributeListsByteCount field before the bytes are written.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP service record"},
+      {"name": "param_2", "type": "ptr", "description": "requested attribute id list"}
+    ],
+    "returns": {"type": "u16", "description": "encoded byte count of the matching attributes"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cb6c": {
+    "name": "sdp_record_find_attribute",
+    "summary": "Find an SDP record attribute by 16-bit id and return a pointer to its value element",
+    "description": "Walks the attribute list of record param_1 with sdp_attribute_list_traverse_sequence and the id comparator at 0x0c04c518, and returns the value element for attribute id param_2. Returns 0 when the record has no such attribute. Used by sdp_get_service_record_handle with id 0x0000. Member of the SDP record-access group.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP service record"},
+      {"name": "param_2", "type": "u16", "description": "attribute id to find"}
+    ],
+    "returns": {"type": "ptr", "description": "pointer to the value data element, or 0"},
+    "confidence": "high"
+  },
+  "ble_219_0c04cb90": {
+    "name": "sdp_record_matches_pattern",
+    "summary": "Return true when an SDP record contains every UUID of a ServiceSearchPattern",
+    "description": "Walks the ServiceSearchPattern DE sequence param_2 with de_traverse_sequence and the per-UUID callback sdp_pattern_uuid_match (0x0c04c680), using the record as context. The result starts at 1 and is cleared by any failing element, so the function returns true only when every UUID in the pattern is present in the record, which is the BTstack ServiceSearchPattern rule. Used by all three SDP request handlers to select records.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "SDP service record"},
+      {"name": "param_2", "type": "ptr", "description": "ServiceSearchPattern DE sequence"}
+    ],
+    "returns": {"type": "bool", "description": "true if the record matches the whole pattern"},
+    "confidence": "high"
+  },
+  "ble_219_0c04ceb8": {
+    "name": "att_server_handle_request",
+    "summary": "Decode one ATT request PDU and build its response (MTU, discovery, read, write)",
+    "description": "The ATT server request dispatcher: it switches on the request opcode at *param_2 and writes the response PDU into param_4, returning its length or 0 for no response. Exchange MTU (0x02) sets the negotiated MTU to max(23, min(client MTU, server MTU)) in param_1[1]. Find Information (0x04), Find By Type Value (0x06), Read By Type (0x08) and Read By Group Type (0x10) walk the attribute database at 0x2000fcb8 with att_iterator_fetch_next and the UUID matchers, emitting uniform-length entries; group types 0x2800 and 0x2801 drive the grouping. Read (0x0a), Read Blob (0x0c) and Read Multiple (0x0e) check READ permission through att_validate_security and copy values with att_copy_value. Write Request (0x12), Prepare Write (0x16), Execute Write (0x18) and Write Command (0x52) work only on dynamic attributes (flag 0x100) and call the write callback at 0x2000fccc with modes 0 write, 1 prepare, 2 commit, 3 cancel and 4 pre-check; prepared-write state lives at 0x2000fcbc..0x2000fcc4. Any other opcode gets an Error Response with code 0x06 (Request Not Supported).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "ATT connection context: [1] negotiated MTU, [2] server MTU, flags"},
+      {"name": "param_2", "type": "ptr", "description": "request PDU (opcode at +0)"},
+      {"name": "param_3", "type": "u16", "description": "request length in bytes"},
+      {"name": "param_4", "type": "ptr", "description": "response PDU buffer"}
+    ],
+    "returns": {"type": "u32", "description": "response PDU length, 0 when no response is sent"},
+    "confidence": "medium",
+    "notes": "Attribute flag bits used: 0x02 read, 0x04 write without response, 0x08 write, 0x100 dynamic (callback-backed), 0x200 128-bit UUID. Error-code mapping follows the ATT spec; the exact per-branch error codes were not all verified. This function is a dispatcher and is part of the ATT server group with att_server_write_callback."
+  },
+  "ble_219_0c04def0": {
+    "name": "att_event_forward_class4",
+    "summary": "Forward an ATT server event to the hook dispatcher under hook class 4",
+    "description": "Tail-forwards its arguments to the thunk at 0x0c066a4c (the packet lists the final target as ble_219_0c06d5c4, not described here) with the constant class 4, which is the class used by the BLE hook table (ble_sink_init and ble_evt_publish also use class 4). It discards param_2 and passes param_3 and param_4 on. It has no logic of its own. Callers are the ATT packet entry point ble_219_0c04e398 and ble_219_0c04ebc0.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "context pass-through"},
+      {"name": "param_2", "type": "u32", "description": "discarded; replaced by the class constant 4"},
+      {"name": "param_3", "type": "u32", "description": "event payload pass-through"},
+      {"name": "param_4", "type": "u32", "description": "event payload pass-through (also passed as the fifth argument)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "ble_219_0c04dfb8": {
+    "name": "att_server_write_callback",
+    "summary": "ATT write callback: persist CCC bonds, broadcast commit/cancel, dispatch to attribute handlers",
+    "description": "Registered as the ATT write callback (0x2000fccc) by att_server_init, and called with a mode in param_3. Modes 2 (commit) and 3 (cancel) broadcast to every entry of the handler list at 0x2000fcf8 and then to the application callback at 0x2000fcec. Mode 4 (pre-check) does the same but returns the first non-zero status. Modes 0 (write) and 1 (prepare) find the list entry whose handle range covers the attribute handle and call its callback, falling back to the application callback. For a plain 2-byte write to a persistent Client Characteristic Configuration (att_is_persistent_ccc), it also stores the CCC value through the bonding storage callbacks: up to 20 tag slots with keys 0x42544300 plus the slot index ('BTC' plus index), each 8-byte record holding a counter, handle, bond index and tag. Store failures are logged as 'att_server.c:%u: Store tag index %u failed' (lines 0x3b0 and 0x3d1).",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "connection context (passed to the handlers as the connection handle)"},
+      {"name": "param_2", "type": "u16", "description": "attribute handle"},
+      {"name": "param_3", "type": "u32", "description": "mode: 0 write, 1 prepare, 2 execute/commit, 3 cancel, 4 pre-check"},
+      {"name": "param_4", "type": "u32", "description": "write offset (0 for a plain write)"},
+      {"name": "param_5", "type": "ptr", "description": "write data"},
+      {"name": "param_6", "type": "u16", "description": "data length"}
+    ],
+    "returns": {"type": "u32", "description": "0 = accepted, otherwise an ATT error code"},
+    "confidence": "medium",
+    "notes": "The mode meanings are inferred from how att_server_handle_request calls the callback. The 8-byte CCC storage record layout is inferred from the stores and reads, and the storage callback table layout (read, write, delete) is inferred."
+  },
+  "ble_219_0c04eb24": {
+    "name": "att_server_init",
+    "summary": "Initialise the ATT server: GATT database, read and write callbacks, hook and event subscriptions",
+    "description": "Called once from ble_219_0c059230. It stores the application context (param_2) at 0x2000fce8 and the application callback (param_3) at 0x2000fcec, registers the class-4 sink with ble_sink_init (0x0c04ded8 with 0x0c04e399), installs the compiled GATT database through att_set_db (0x0c04cdf0), and registers the read callback 0x0c04e295 through att_set_read_callback. It also performs two event subscriptions (calls to 0x0c066dbc and 0x0c052b2c, which the packet names ble_evt_subscribe and hci_add_event_handler). Finally it sets the ATT write callback at 0x2000fccc to att_server_write_callback (0x0c04dfb9). Two hook pointers (0x2000fcf4 and 0x2000fd00) are set to the same handler at 0x0c04e6fc.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "compiled GATT attribute database"},
+      {"name": "param_2", "type": "ptr", "description": "application context stored for callbacks"},
+      {"name": "param_3", "type": "ptr", "description": "application callback stored at 0x2000fcec"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c04f634": {
+    "name": "sm_device_db_resolve_peer",
+    "summary": "Match a peer against the LE device DB by address and IRK and report its slot",
+    "description": "Identity-resolves the peer of the connection record param_1. With flag bit 2 of 0x2000ff59 set, it walks the device DB slots (count from le_device_db_tlv_max_count, identity from le_device_db_tlv_read_identity) and compares the stored 16-byte IRK words at 0x20010128..0x20010134 and the 6-byte address at 0x20010149. When the address type at 0x20010148 is zero it scans for an address match instead. If no slot matches, it inserts the entry with le_device_db_tlv_add. On success it sends link frame 0xD3 (address pair and slot index) through ble_link_notify_pair_addrs, sets the connection state byte at +0x0b to 3, and stores the slot index at +0x18. When the key-flag bytes on the connection and flags 0x2000ff6c, 0x2000ff59 indicate it, it also writes encryption info with le_device_db_tlv_set_encryption. Part of the SM identity-resolution path with sm_pairing_step_complete.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "connection record: u16 handle at +0, state at +0x0b, DB index at +0x18, key flags at +0x19..+0x23"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Mapping of the four helper addresses (0x0c04ece4, 0x0c04ee74, 0x0c04ed28, 0x0c04eeec) to le_device_db_tlv_max_count, le_device_db_tlv_read_identity, le_device_db_tlv_add and le_device_db_tlv_set_encryption follows the packet callee list and is not independently verified."
+  },
+  "ble_219_0c050700": {
+    "name": "sm_pairing_step_complete",
+    "summary": "Advance the per-link pairing state machine when one pairing or encryption step completes",
+    "description": "Completion handler for one SM step. param_1 == 1 means success, anything else failure. It takes the pending link from global 0x2000fd84 and clears the pending step code at 0x2000fd8c and the saved timer handle at 0x2000fd90. If a pending link exists with step code 2, it sets the link state byte at +0x15 among the encoded pairing states 0x1B, 0x1C, 0x1D, 0x1E and 0x20, and runs the local/identity notifications (ble_link_notify_local, ble_link_notify_id_addr) or the cleanup helpers, depending on the state and on flags 0x2000ff35 and link+0x03. On success it publishes an 11-byte frame 0xCE (handle, state byte from 0x2000fd7a, 6-byte address copied reversed with co_reverse_copy_6) through ble_evt_publish. On failure it sends frame 0xCF through ble_link_notify_pair_addrs. Pairing-state group with sm_device_db_resolve_peer and sm_link_poll_state.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "step result: 1 = success, otherwise failure"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The meanings of the encoded state values 0x1B to 0x20 and of the step codes are inferred from the transitions, not from a spec. The packet does not show the caller of the state change."
+  },
+  "ble_219_0c052b50": {
+    "name": "sm_init",
+    "summary": "One-time SM initialisation: run-loop timer, event handlers, default constants, key tables",
+    "description": "Idempotent: returns at once when 0x2000feb0 is already set. Otherwise it fills two 16-byte byte tables, at 0x2000fed4..0x2000fee3 with (address minus 0x44) and at 0x2000fec4..0x2000fed3 with (address plus 0x5C); the purpose of these tables is unknown. It sets defaults: 0x2000fd79 = 0x0F, 0x2000feb1 = 0x10, 0x2000feb2 = 7, 0x2000fea0 = -1, 0x2000ff08 = 1. It initialises the run-loop timer at 0x2000ff0c with callback 0x0c052ae8 and period 900000 (15 minutes if milliseconds), installs the HCI event handler 0x0c0524f0, and calls le_device_db_tlv_check_init (0x0c065148) and the DB backend init at 0x0c04ecc0. It registers the event handler 0x0c051ef0 for event ids 6 and 7 and clears the pairing state globals. Sets 0x2000feb0 = 1 at the end.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "sm_init is a BTstack name; the packet confirms the TLV device DB and timer callees. The 900000 period unit and the byte-table purpose are unverified."
+  },
+  "ble_219_0c052c7c": {
+    "name": "sm_link_poll_state",
+    "summary": "Periodic SM poll for the current connection: re-check its identity record and re-arm the timer",
+    "description": "Looks up the connection record (ble_ctrl_conn_find_by_handle, handle passed in r0) and returns if none is found. When the state byte at +0x1bd is 0 or 0x1a and the mode byte at +0x1be is 3, it reads DB entry at +0x1d8 with le_device_db_tlv_get_entry and, if the entry has a non-zero key field, sets +0x1bd = 0x1B and calls ble_link_notify_id_addr (0x0c04f948) unless flag +0x1dd is set. For mode 4 it sets the same state and calls ble_link_notify_local (0x0c04f584) unless flag +0x1dc is set. Finally, while 0x2000feb0 is set, it removes the run-loop timer 0x2000ff0c, sets it to 0 ms, and adds it again. Only caller: ble_219_0c04e398.",
+    "category": "ble_host",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The connection lookup takes its handle in r0, which the decompiler does not show. The meaning of the state and mode bytes is inferred from the transitions."
+  },
+  "ble_219_0c053f74": {
+    "name": "ble_app_queue_message",
+    "summary": "Frame an app/UART message and queue it, splitting it when it exceeds the frame limit",
+    "description": "Builds frames in a 0xF7-byte buffer at 0x20012348 (zeroed first with memset). Message codes 0x1FF and 0x6FF use a 1-byte header (0x01) with the payload at +1. Other codes use a 3-byte header: 0x01 followed by the 16-bit message code at +1 (little-endian), and the payload at +3. Payloads larger than the per-frame limit DAT_20004072 are split: the first chunk is queued with ble_app_start_deferred_500ms_op (0x0c05cb08, which stores the operation and arms a 500 ms timer), and the remainder is kept as pending-fragment state in 0x20012310 (code), 0x20012314 (source offset) and 0x20012318 (remaining length). Codes with high byte 0x02 are first checked by ble_slot_mgr_check_flag5 (0x0c0531b8) and dropped when it returns 0.",
+    "category": "uart_bridge",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "context passed to the queue operation"},
+      {"name": "param_2", "type": "u16", "description": "message code"},
+      {"name": "param_3", "type": "ptr", "description": "payload bytes"},
+      {"name": "param_4", "type": "u32", "description": "payload length"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The per-frame limit is a u8 global at 0x20004072. Frame-type meaning of codes 0x1FF and 0x6FF is inferred."
+  },
+  "ble_219_0c054298": {
+    "name": "ble_slot_store_and_queue",
+    "summary": "Store a (u16, u16) record in the next slot and queue it when a slot is in use",
+    "description": "Gets the slot index from ble_counter_20012344_step (0x0c05cb88). Writes the two u16 arguments into the 4-entry table at 0x2001231C, 4 bytes per entry (param_3 at +0, param_4 at +2). If ble_slot_count_used (0x0c05341c) reports a non-zero count, it queues the 4-byte record as a message with code param_1 through ble_app_queue_message (0x0c053f74), using param_2 as the context. Callers: ble_219_0c053018, ble_219_0c054668 and ble_219_0c054734.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u16", "description": "message code used when queueing"},
+      {"name": "param_2", "type": "u32", "description": "context passed to ble_app_queue_message"},
+      {"name": "param_3", "type": "u16", "description": "first value, stored at +0 of the slot entry"},
+      {"name": "param_4", "type": "u16", "description": "second value, stored at +2 of the slot entry"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c058160": {
+    "name": "ble_random_bytes_6",
+    "summary": "Fill a 6-byte field with random bytes",
+    "description": "Calls the random-byte source at 0x0c045db0 (not analysed in this packet) with length 6 and returns nothing. It has no other logic. Used by the address-generation code paths; callers are ble_219_0c02b158 and ble_219_0c05c2c0.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte destination"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c058170": {
+    "name": "ble_random_addr_advance",
+    "summary": "Refresh a 6-byte random address field and advance its sequence bytes",
+    "description": "Fills the 6-byte field at param_1 with random bytes through 0x0c045db0, then advances a sequence counter kept in the same field. While the big-endian u16 at bytes 4..5 is below 2001 (0x7D1), it increments byte 4 and stores (byte 5 + 1) OR 0xC2 in byte 5. Otherwise it increments byte 2 and stores (byte 3 + 1) OR 0xC2 in byte 3. The 0xC2 bits look like address-type flags, but the purpose of the counter is not established. Callers: ble_219_0c02a8f8, ble_219_0c02cca8 and ble_219_0c056a50.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte random address field"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "The arithmetic is unusual (increments byte 4 rather than carrying a 16-bit value, OR-ing into the low byte), so the intent may differ from what is described here."
+  },
+  "ble_219_0c0581a8": {
+    "name": "ble_random_static_addr_build",
+    "summary": "Build a random static Bluetooth device address from 6 random bytes",
+    "description": "Draws 6 random bytes through 0x0c045db0 into a local buffer. Bytes 0..3 are copied unchanged, byte 4 is stored as random+1, and byte 5 as random OR 0xC0. The address is reversed in place with bt_bdaddr_reverse_inplace (0x0c05a9e4) to wire order, and 0xC0 is ORed into the first byte. The two top bits set to 11 mark a static random address. Caller: ble_219_0c056dd0.",
+    "category": "ble_host",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "6-byte output device address"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "ble_219_0c058208": {
+    "name": "ble_link_table_write_at18",
+    "summary": "Copy up to 24 bytes into the current link entry at offset 0x18 and commit",
+    "description": "Gets the current link table entry from ble_link_table_get_base (0x0c059558, table base 0x200134BC), copies param_2 bytes from param_1 to entry+0x18 with memcpy, and calls ble_219_0c059754 (not described in this packet) to commit the change. Returns 0x41 without copying when the length is 0x19 or more, so the field holds at most 24 bytes.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source bytes"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes (must be below 0x19)"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 0x41 when the length is out of range"},
+    "confidence": "medium"
+  },
+  "ble_219_0c05822c": {
+    "name": "ble_link_table_write_at0",
+    "summary": "Copy up to 24 bytes to the start of the current link entry and commit",
+    "description": "Same as ble_link_table_write_at18 (0x0c058208) except that the copy destination is the start of the entry returned by ble_link_table_get_base, not offset 0x18. It also calls ble_219_0c059754 to commit, and returns 0x41 for a length of 0x19 or more.",
+    "category": "ble_controller",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "source bytes"},
+      {"name": "param_2", "type": "u32", "description": "length in bytes (must be below 0x19)"}
+    ],
+    "returns": {"type": "u32", "description": "0 on success, 0x41 when the length is out of range"},
+    "confidence": "medium"
+  },
+  "ble_219_0c0582b0": {
+    "name": "ble_event_window_expire",
+    "summary": "Expire old entries of the 10-slot event ring and count them into two tallies",
+    "description": "Works on a ring of ten 27-byte records: a flag byte at offset 0 (value 9 marks one event kind, anything else the other) and a 32-bit timestamp at offset 0x13. The reference time is the monotonic clock (FUN_0c03feac with id 4, when param_1 is 0), otherwise the timestamp of the record at the head index 0x20013235. Starting at the tail index 0x2001311F, it walks entries that are at least 300 time units older than the reference. Each expired entry increments the tally at 0x2001322F (flag 9) or 0x200130FC (other), records the first expired timestamp in 0x20013230 or 0x20013100, and decrements the pending count at 0x20013234. It stops at the first younger entry and commits the new tail index. Only caller: ble_219_0c0585a4.",
+    "category": "app",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "0 = use the current clock as the reference; otherwise use the head entry timestamp"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 300 threshold unit is presumably milliseconds. The meaning of the two tallies is not established from this function alone."
+  }
+}

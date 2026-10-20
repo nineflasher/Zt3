@@ -1,0 +1,98 @@
+{
+  "bms_g_4139_20001c40": {
+    "name": "bms_telem_stage_copy",
+    "type": "u8",
+    "count": 16,
+    "size": 16,
+    "anchor": [
+      "BMS_4139",
+      "0x20001c40"
+    ],
+    "category": "protocol",
+    "description": "Staging buffer for telemetry records 7 and 8 of the 4130/4139 table. Each block-fill pass copies 14 bytes from the state object (object + 4) to 0x20001C40 and zeroes the rest. Record 7 takes bytes 0 to 7 as its payload and record 8 takes bytes 8 to 15 (from 0x20001C48). The zeroed words at 0x20001C44 and 0x20001C4C follow the same pattern. Size 16 covers both 8-byte pieces."
+  },
+  "bms_g_4148_20001c50": {
+    "name": "bms_telem16_4148_stamp_a",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c50"
+    ],
+    "category": "protocol",
+    "description": "4148-only word written by bms_telemetry_sched_16_step through a pointer, at a 16-byte stride with the three words that follow. Probably the stamp (+0) of a record in the 4148 layout of the 16-record table, which is not shown here."
+  },
+  "bms_g_4148_20001c60": {
+    "name": "bms_telem16_4148_stamp_b",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c60"
+    ],
+    "category": "protocol",
+    "description": "4148-only word written by bms_telemetry_sched_16_step through a pointer, 16 bytes after bms_telem16_4148_stamp_a. Probably the stamp of the next record in the 4148 layout."
+  },
+  "bms_g_4148_20001c70": {
+    "name": "bms_telem16_4148_stamp_c",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c70"
+    ],
+    "category": "protocol",
+    "description": "4148-only word written by bms_telemetry_sched_16_step through a pointer, 16 bytes after bms_telem16_4148_stamp_b. Probably the stamp of the next record in the 4148 layout."
+  },
+  "bms_g_4148_20001c80": {
+    "name": "bms_telem16_4148_stamp_d",
+    "type": "u32",
+    "count": 1,
+    "size": 4,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c80"
+    ],
+    "category": "protocol",
+    "description": "4148-only word written by bms_telemetry_sched_16_step through a pointer, 16 bytes after bms_telem16_4148_stamp_c. Probably the stamp of the next record in the 4148 layout."
+  },
+  "bms_g_4148_20001c12": {
+    "name": "bms_telem16_4148_byte_1c12",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c12"
+    ],
+    "category": "protocol",
+    "description": "4148-only byte written by bms_telemetry_sched_16_step through a pointer. No decompiled line names it and the 4148 record layout is not shown here, so its meaning is unknown."
+  },
+  "bms_g_4148_20001c92": {
+    "name": "bms_telem16_4148_period0",
+    "type": "u8",
+    "count": 1,
+    "size": 1,
+    "anchor": [
+      "BMS_4148",
+      "0x20001c92"
+    ],
+    "category": "protocol",
+    "description": "4148 copy of the period byte of the first record of the 16-record telemetry table (the same role as the 4168 byte at 0x20001C92). bms_telemetry_sched_16_step writes 5 (500 ms in 100 ms units) and reads it to decide when the record is due."
+  },
+  "bms_g_4168_20001c8c": {
+    "name": "bms_telem16_records",
+    "type": "BmsTelemRecord",
+    "count": 16,
+    "size": 256,
+    "anchor": [
+      "BMS_4168",
+      "0x20001c8c"
+    ],
+    "category": "protocol",
+    "description": "Telemetry table of the 4148/4168 builds: sixteen 16-byte records. bms_telemetry_block_fill_16 packs record N and bms_telemetry_sched_16_step sends one due record per call (index DAT_200005D1). The scan wraps at 12 while the reply word at +6 is zero, otherwise at 16. Periods are in 100 ms units. Known records: 0 (CAN ID 0x420, period 5), 1 (0x421, period 5), 2 (0x310, period 2). Payload of record 0: state bytes +0x118..+0x11B, u16 at +0x11E times 10, bytes +0x1E and +0x1F. Payload of record 1: ASCII hex digits of u16 at +0x1C, then bytes +0x26, +0x27, +0xB6 and one more byte. Payload of record 2: bytes +0x122, +0x123, +0x12A, +0x12B, +0x1A2, +0x1A3, and constants. Records 3 to 15 are not described in this packet. The stamp at +0 is written from bms_tick_get."
+  }
+}

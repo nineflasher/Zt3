@@ -1,0 +1,6 @@
+ble_219_0c064000: rename mp_clear -> mp_free (per wave2_batch08 agent); real mp_clear is 0c063fec
+ble_219_0c06c138: wave2_batch10 says this is a printf-style logger (level, file, line), not ble_hook_invoke_indexed; also check timer ctx naming of 0c065f6c/0c066b74
+ble: 0c0739f4 called with no args as old block size - conflicts with wave-1 name crt_eh_get_entry_offset (wave4_batch19)
+ble: 0c035fc0 described as task-exit handler (wave4_batch03) but used as exit(1) by abort 0c073764 (wave4_batch19)
+ble: 0c0723ec named setenv and 0c07247c _setenv_r but used like getenv/_getenv_r (wave4_batch18); 0c0724b0 __get_current_locale returns tz state used by mktime
+ble: 0c070204 startup_run_main_entry low confidence; calls 0c035fc0 (task-exit vs exit(1) conflict)

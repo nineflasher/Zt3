@@ -1,0 +1,586 @@
+{
+ "chip": "at32f415",
+ "cpu": "Cortex-M4F",
+ "svd_cpu": "CM4",
+ "svd_device": "AT32F415xx_v2",
+ "vector_table_slots": 92,
+ "vector_table_source": "startup_at32f415.s",
+ "reserved_irq_numbers": [
+  43,
+  44,
+  45,
+  46,
+  47,
+  48,
+  51,
+  54,
+  55,
+  60,
+  61,
+  62,
+  63,
+  64,
+  65,
+  66,
+  68,
+  69,
+  72,
+  73,
+  74
+ ],
+ "vectors": [
+  {
+   "slot": 0,
+   "name": "_estack",
+   "reserved": false,
+   "standard_name": "_estack"
+  },
+  {
+   "slot": 1,
+   "name": "Reset_Handler",
+   "reserved": false,
+   "standard_name": "Reset_Handler"
+  },
+  {
+   "slot": 2,
+   "name": "NMI_Handler",
+   "reserved": false,
+   "standard_name": "NMI_Handler"
+  },
+  {
+   "slot": 3,
+   "name": "HardFault_Handler",
+   "reserved": false,
+   "standard_name": "HardFault_Handler"
+  },
+  {
+   "slot": 4,
+   "name": "MemManage_Handler",
+   "reserved": false,
+   "standard_name": "MemManage_Handler"
+  },
+  {
+   "slot": 5,
+   "name": "BusFault_Handler",
+   "reserved": false,
+   "standard_name": "BusFault_Handler"
+  },
+  {
+   "slot": 6,
+   "name": "UsageFault_Handler",
+   "reserved": false,
+   "standard_name": "UsageFault_Handler"
+  },
+  {
+   "slot": 7,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 8,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 9,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 10,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 11,
+   "name": "SVC_Handler",
+   "reserved": false,
+   "standard_name": "SVC_Handler"
+  },
+  {
+   "slot": 12,
+   "name": "DebugMon_Handler",
+   "reserved": false,
+   "standard_name": "DebugMon_Handler"
+  },
+  {
+   "slot": 13,
+   "name": null,
+   "reserved": true,
+   "standard_name": null
+  },
+  {
+   "slot": 14,
+   "name": "PendSV_Handler",
+   "reserved": false,
+   "standard_name": "PendSV_Handler"
+  },
+  {
+   "slot": 15,
+   "name": "SysTick_Handler",
+   "reserved": false,
+   "standard_name": "SysTick_Handler"
+  },
+  {
+   "slot": 16,
+   "irq": 0,
+   "name": "WWDT_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 17,
+   "irq": 1,
+   "name": "PVM_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 18,
+   "irq": 2,
+   "name": "TAMP_STAMP_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 19,
+   "irq": 3,
+   "name": "ERTC_WKUP_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 20,
+   "irq": 4,
+   "name": "FLASH_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 21,
+   "irq": 5,
+   "name": "CRM_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 22,
+   "irq": 6,
+   "name": "EXINT0_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 23,
+   "irq": 7,
+   "name": "EXINT1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 24,
+   "irq": 8,
+   "name": "EXINT2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 25,
+   "irq": 9,
+   "name": "EXINT3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 26,
+   "irq": 10,
+   "name": "EXINT4_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 27,
+   "irq": 11,
+   "name": "DMA1_Channel1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 28,
+   "irq": 12,
+   "name": "DMA1_Channel2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 29,
+   "irq": 13,
+   "name": "DMA1_Channel3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 30,
+   "irq": 14,
+   "name": "DMA1_Channel4_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 31,
+   "irq": 15,
+   "name": "DMA1_Channel5_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 32,
+   "irq": 16,
+   "name": "DMA1_Channel6_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 33,
+   "irq": 17,
+   "name": "DMA1_Channel7_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 34,
+   "irq": 18,
+   "name": "ADC1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 35,
+   "irq": 19,
+   "name": "CAN1_TX_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 36,
+   "irq": 20,
+   "name": "CAN1_RX0_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 37,
+   "irq": 21,
+   "name": "CAN1_RX1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 38,
+   "irq": 22,
+   "name": "CAN1_SE_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 39,
+   "irq": 23,
+   "name": "EXINT9_5_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 40,
+   "irq": 24,
+   "name": "TMR1_BRK_TMR9_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 41,
+   "irq": 25,
+   "name": "TMR1_OVF_TMR10_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 42,
+   "irq": 26,
+   "name": "TMR1_TRG_HALL_TMR11_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 43,
+   "irq": 27,
+   "name": "TMR1_CH_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 44,
+   "irq": 28,
+   "name": "TMR2_GLOBAL_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 45,
+   "irq": 29,
+   "name": "TMR3_GLOBAL_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 46,
+   "irq": 30,
+   "name": "TMR4_GLOBAL_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 47,
+   "irq": 31,
+   "name": "I2C1_EVT_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 48,
+   "irq": 32,
+   "name": "I2C1_ERR_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 49,
+   "irq": 33,
+   "name": "I2C2_EVT_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 50,
+   "irq": 34,
+   "name": "I2C2_ERR_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 51,
+   "irq": 35,
+   "name": "SPI1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 52,
+   "irq": 36,
+   "name": "SPI2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 53,
+   "irq": 37,
+   "name": "USART1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 54,
+   "irq": 38,
+   "name": "USART2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 55,
+   "irq": 39,
+   "name": "USART3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 56,
+   "irq": 40,
+   "name": "EXINT15_10_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 57,
+   "irq": 41,
+   "name": "ERTCAlarm_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 58,
+   "irq": 42,
+   "name": "OTGFS1_WKUP_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 59,
+   "irq": 43,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 60,
+   "irq": 44,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 61,
+   "irq": 45,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 62,
+   "irq": 46,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 63,
+   "irq": 47,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 64,
+   "irq": 48,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 65,
+   "irq": 49,
+   "name": "SDIO1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 66,
+   "irq": 50,
+   "name": "TMR5_GLOBAL_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 67,
+   "irq": 51,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 68,
+   "irq": 52,
+   "name": "UART4_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 69,
+   "irq": 53,
+   "name": "UART5_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 70,
+   "irq": 54,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 71,
+   "irq": 55,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 72,
+   "irq": 56,
+   "name": "DMA2_Channel1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 73,
+   "irq": 57,
+   "name": "DMA2_Channel2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 74,
+   "irq": 58,
+   "name": "DMA2_Channel3_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 75,
+   "irq": 59,
+   "name": "DMA2_Channel4_5_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 76,
+   "irq": 60,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 77,
+   "irq": 61,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 78,
+   "irq": 62,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 79,
+   "irq": 63,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 80,
+   "irq": 64,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 81,
+   "irq": 65,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 82,
+   "irq": 66,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 83,
+   "irq": 67,
+   "name": "OTGFS1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 84,
+   "irq": 68,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 85,
+   "irq": 69,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 86,
+   "irq": 70,
+   "name": "CMP1_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 87,
+   "irq": 71,
+   "name": "CMP2_IRQHandler",
+   "reserved": false
+  },
+  {
+   "slot": 88,
+   "irq": 72,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 89,
+   "irq": 73,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 90,
+   "irq": 74,
+   "name": null,
+   "reserved": true
+  },
+  {
+   "slot": 91,
+   "irq": 75,
+   "name": "DMA2_Channel6_7_IRQHandler",
+   "reserved": false
+  }
+ ],
+ "note": "slot = exception number; slot 0 holds the initial stack pointer; IRQ n is slot n+16; 'reserved' slots are .word 0 in the vendor startup file"
+}

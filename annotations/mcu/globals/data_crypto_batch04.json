@@ -1,0 +1,26 @@
+{
+  "mcu_g_152_200006b2": {
+    "name": "crypto_auth_state_flags",
+    "type": "u8",
+    "count": 3,
+    "size": 3,
+    "anchor": [
+      "MCU_152",
+      "0x200006b2"
+    ],
+    "category": "crypto",
+    "description": "Three byte-wide state fields at 0x200006B2 to 0x200006B4, inside the 0x200006AC authentication state block. mcu_auth_key16_init clears all three to 0 on every run, before the key is loaded at 0x20002044. This packet shows no reader or other writer, so their meaning is not visible here (probably per-session flags of the key handshake). Byte 0x200006B5 is not in this packet and is not part of this object."
+  },
+  "mcu_g_152_20002048": {
+    "name": "crypto_auth_key_words_1_3",
+    "type": "u32",
+    "count": 3,
+    "size": 12,
+    "anchor": [
+      "MCU_152",
+      "0x20002048"
+    ],
+    "category": "crypto",
+    "description": "Words 1 to 3 (bytes 4 to 15) of the 16-byte authentication key buffer. The key starts at 0x20002044; word 0 at 0x20002044 is written by the same routine but is not in this packet, so this object covers only the words the packet shows. mcu_auth_key16_init fills the buffer on every run, from one of three sources: (a) a compile-time 16-byte constant stored as a literal in the MCU_152 image in mcu_auth_key16_init (decompiled at 0x08006A7C); (b) the same constant when the 16-byte compare with the flash reference at 0x08001420 (mcu_bytes_equal_n8) matches; (c) a fixed fallback literal of the same routine, used only when the compare fails and the 16-bit word at 0x20001F54 is not 0x4D43 (probably a provisioning or factory marker, not identified here). The consumer of the key is not visible in this packet. The byte values are deliberately not written here; read them from the decompiled routine if needed."
+  }
+}

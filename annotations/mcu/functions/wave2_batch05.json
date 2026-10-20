@@ -1,0 +1,67 @@
+{
+  "mcu_0160_0800d1f0": {
+    "name": "mcu_can_tp_session_handle_frame",
+    "summary": "Advance one J1939 TP.CM/TP.DT session for PGN 0xEF00 by one received frame",
+    "description": "One step of a J1939 multi-packet transport session for the proprietary PGN 0xEF00, called once per received frame for one 36-byte session record selected by the caller mcu_0160_0800d038. The frame's first word holds SA in byte 0, DA (PS field) in byte 1 and PF in byte 2; the TP.CM control byte is data byte 0 at frame offset 5, and the PGN is accepted only when data bytes 5..7 are 00 EF 00. Receiver role: an RTS (control 0x10) from an idle session or from the same peer is accepted when the size (data byte 1 only) is at most the buffer capacity at session+0x08 and the packet count (data byte 3) equals ceil(size/7); the session then sends a CTS for all packets with next packet 1, enters state 10 and arms a 1250 ms timeout, otherwise it sends an abort and goes idle. Each in-sequence TP.DT (PF 0xEB, sequence number = previous + 1) copies min(remaining, 7) payload bytes into the buffer at session+0x04, adds every byte below size-2 into a 16-bit running sum at session+0x1e and re-arms a 750 ms timeout; an out-of-sequence DT sends an abort. After the last byte the final two bytes, read little-endian, must equal the one's complement of that sum: on success an EOM ACK is sent and the message callback receives size-2 bytes, on mismatch an abort is sent. Sender role: in state 6 a zero-count CTS holds the session in state 7 with a 1050 ms timeout, while a non-zero CTS in state 4 or 7 sets the next packet, the byte offset (next-1)*7 and the burst end at session+0x12 and enters state 5; an EOM ACK received in state 9 at the matching offset returns the session to idle and calls the completion callback with status 3, and an abort (control 0xFF) from the peer returns it to idle without a callback.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "TP session record, 36 bytes (layout in notes); state at +0x02, buffer pointer at +0x04"},
+      {"name": "param_2", "type": "ptr", "description": "received CAN frame: 32-bit identifier word at +0, DLC byte at +4, data bytes at +5..+12"},
+      {"name": "param_3", "type": "ptr", "description": "callback table: +0x04 transfer complete(session, byte0, byte1, status), +0x08 message delivered(session, byte0, byte1, buffer, length), +0x0c transmit frame(session, frame)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Session layout (inferred from accesses): +0x00 peer address byte, +0x01 own address byte, +0x02 state (1 = idle, 10 = receiving data, 9 = all data sent and waiting for EOM ACK, 6 = RTS sent and waiting for CTS, 7 = held after a zero-count CTS, 5 = sending a burst, 4 = role not identified), +0x04 buffer pointer, +0x08 u16 buffer capacity, +0x0a u16 byte offset, +0x0c u16 total message size, +0x0e u16 last sequence number, +0x10 u16 total packets (RTS) or next packet (CTS), +0x12 u16 burst end offset, +0x14 u16 time base (ms per tick, inferred), +0x16 u16 cleared at session start (purpose unknown), +0x18 s16 timeout countdown in ticks (decremented outside this function), +0x1e u16 running checksum. The 36-byte stride is taken from the caller. Open points: (1) only data byte 1 of the TP.CM size is read, so messages above 255 bytes cannot be expressed; this needs checking against the disassembly. (2) In state 6 this branch ignores a CTS with a non-zero packet count, so either another path handles the first CTS or the state is reached differently. (3) The timeout values are computed as 1250, 1050 and 750 divided by session+0x14 with no zero check. (4) The meaning of states 4 and 9 is inferred because they are set outside this function. (5) The 750, 1050 and 1250 ms values match the J1939-21 T1, T4 and T2/T3 magnitudes; the mapping to those names is not confirmed. (6) The completion callback at +0x04 is null-checked, the message callback at +0x08 is null-checked, the transmit callback at +0x0c is not."
+  },
+  "mcu_0160_0800d674": {
+    "name": "mcu_xtea_key_load",
+    "summary": "Load a 16-byte XTEA key into four little-endian 32-bit words",
+    "description": "Copies a 128-bit key from the buffer at param_1 into the four u32 words at param_2, using mcu_read_le32 on the 4-byte groups at offsets 0, 4, 8 and 12 so that the words are key[0]..key[3] in the order XTEA uses. No alignment is required and no key schedule is precomputed. It is the key-preparation step of mcu_xtea_decrypt_with_key, which is its only caller in this packet.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "16-byte key, least significant byte of each word first"},
+      {"name": "param_2", "type": "ptr", "description": "output, four u32 key words"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800d934": {
+    "name": "mcu_xtea_decrypt_block",
+    "summary": "Decrypt one 64-bit XTEA block in place with 32 rounds and a four-word key",
+    "description": "Reads the block at param_1 as two little-endian 32-bit words v0 and v1, then runs the 32-round XTEA decryption with delta 0x9E3779B9, starting from sum = 0xC6EF3720 (32 times delta) and subtracting delta each round. In each round v1 is updated with ((v0<<4 ^ v0>>5) + v0) ^ (sum + key[(sum>>11)&3]), sum is decremented by delta, and then v0 is updated with the same mixing function and key[sum&3]. The four key words are read from param_2, and the two result words are written back little-endian to param_1 and param_1+4 through mcu_write_le32. Its delta and round count match mcu_tea_decrypt_block (MCU_152), but the key index depends on sum, which is the XTEA form.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "8-byte block, decrypted in place"},
+      {"name": "param_2", "type": "ptr", "description": "four u32 key words, as produced by mcu_xtea_key_load"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Check that mcu_tea_decrypt_block (0x08006b58, MCU_152) is not the same routine in a different build, and that the two names are kept separate if they differ."
+  },
+  "mcu_0160_0800d9a8": {
+    "name": "mcu_xtea_decrypt_with_key",
+    "summary": "Load a 16-byte XTEA key and decrypt one 64-bit block in place",
+    "description": "Wrapper that copies the 16-byte key at param_2 into a stack array through mcu_xtea_key_load, then decrypts the 8-byte block at param_1 in place through mcu_xtea_decrypt_block. The expanded key stays in the stack frame and is not cleared on return. Its caller mcu_0160_0800672c is not described yet, so the purpose of the decrypted data is unknown.",
+    "category": "crypto",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "8-byte block, decrypted in place"},
+      {"name": "param_2", "type": "ptr", "description": "16-byte key"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "Leftover key material in the stack frame is a possible concern for a key that is reused."
+  },
+  "mcu_0160_0800e18c": {
+    "name": "mcu_can_rx_frame_forward",
+    "summary": "Forward a received CAN frame's 29-bit identifier, DLC and data to the CAN handler",
+    "description": "Receive-callback adapter that unpacks the CAN frame struct: the 29-bit extended identifier is the low 29 bits of the first word (mask 0x1FFFFFFF), the DLC is the byte at offset 4, and the data begins at offset 5. It calls mcu_0160_0800c294 with (identifier, data pointer, DLC) and returns 1 unconditionally. The function does no filtering or dispatch itself; the handler behind mcu_0160_0800c294 is documented in its own packet.",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "not used by this function"},
+      {"name": "param_2", "type": "ptr", "description": "received CAN frame: identifier word at +0, DLC at +4, data at +5"}
+    ],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "high",
+    "notes": "The DLC is passed as a signed char, so a DLC byte above 127 reaches the callee as a negative value."
+  }
+}

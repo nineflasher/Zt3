@@ -1,0 +1,702 @@
+{
+  "vcu_0159_08007e28": {
+    "name": "vcu_input_sm_a_tick",
+    "summary": "Debounce state machine A: advance the input-A presence states once per tick",
+    "description": "Periodic tick of input state machine A. The qualifier FUN_080056e8 (not yet described) is sampled; nonzero means the input is present. Present ticks only act after the armed latch DAT_200014c8 has been set by an earlier absent tick: the presence counter DAT_200014e0 (saturates at 10000) increments, and once the old value exceeds 4 the state DAT_200021b8 goes 0 -> 6, or 7 -> 8 while the new count is 3..24. Absent ticks clear the presence counter, set the armed latch, count absent ticks in DAT_200014e2, move 6 -> 7 and 8 -> 2, and after more than 9 absent ticks a machine in state 7 latches state 1 and sets the shared event flag DAT_20001fbc, while any other state falls back to 0.",
+    "category": "input",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The physical input is not identified; FUN_080056e8 is not yet described. State 1 is an event latch; DAT_20001fbc is also set by the other input machines (vcu_input_sm_b_tick to vcu_input_sm_e_tick). No 150-tick long-hold state exists in this machine, unlike B to E."
+  },
+  "vcu_0159_0800809c": {
+    "name": "vcu_input_sm_b_tick",
+    "summary": "Debounce state machine B for input B (qualifier FUN_08006994) with a 150-tick hold state",
+    "description": "Periodic tick of input state machine B. The qualifier FUN_08006994 (not yet described) is sampled; nonzero means present. Present: the counter DAT_200014cc (saturating at 10000) increments; when the old value exceeded 4 the state DAT_200021c1 goes 0 -> 6, goes 7 -> 8 while the new count is 3..19, and a new count of 150 (0x96) forces state 3 from any state. Absent: DAT_200014cc clears, DAT_200014ce counts absent ticks, 6 -> 7 and 8 -> 2 happen, more than 9 absent ticks in state 7 latch state 1 and set DAT_20001fbc, and more than 9 in any other state drops the machine to 0. State 3 is the long-hold state read by vcu_input_b_hold_start_tick (0x08009094).",
+    "category": "input",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The physical input behind FUN_08006994 is unknown. Thresholds (4, 3..19, 150) are read from the compare constants in the decompile."
+  },
+  "vcu_0159_08008144": {
+    "name": "vcu_input_sm_c_tick",
+    "summary": "Debounce state machine C (qualifier FUN_08007ab8) with a 150-tick hold state",
+    "description": "Periodic tick of input state machine C, using the same state sequence as vcu_input_sm_b_tick: state DAT_200021b5 moves 0 -> 6 -> 7 -> 8 -> 2 and latches 1 on a long absence in state 7, with 3 forced after 150 consecutive present ticks. The qualifier is FUN_08007ab8 (not yet described); present activation needs the old presence count above 9 (ten ticks) instead of above 4, and the 7 -> 8 window is 3..24. Present ticks clear DAT_200014de and use DAT_200014dc (saturating at 10000); absent ticks use DAT_200014de and set DAT_20001fbc on the state-1 latch.",
+    "category": "input",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Physical input unknown. Has no armed latch (unlike vcu_input_sm_a_tick)."
+  },
+  "vcu_0159_080081ec": {
+    "name": "vcu_input_sm_d_tick",
+    "summary": "Debounce state machine D on the GPIOB pin-10/pin-2 read, with status bit f92[12]",
+    "description": "Periodic tick of input state machine D. The qualifier vcu_gpio_b10_high_b2_low (0x080089bc) is sampled, so presence means PB10 high and PB2 low. The status word DAT_20001f92 bit 12 (0x1000) is cleared on every absent tick and set on present ticks when the variant DAT_20001fa7 is 4 or 6. The state byte is DAT_200021be, the counters are DAT_200014d0 (present) and DAT_200014d2 (absent), and the transitions are the same as vcu_input_sm_b_tick (activation above 4 ticks, 3..19 for 7 -> 8, 150 ticks forces state 3, long absence latches state 1 and sets DAT_20001fbc).",
+    "category": "input",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Purpose of the paired pin pattern (PB10 and PB2) is not established; vcu_input_sm_e_tick reads the complementary pattern and uses status bit f92[13]."
+  },
+  "vcu_0159_080082b4": {
+    "name": "vcu_input_sm_e_tick",
+    "summary": "Debounce state machine E on the GPIOB pin-10/pin-2 read, with status bit f92[13]",
+    "description": "Periodic tick of input state machine E, the complement of vcu_input_sm_d_tick. The qualifier vcu_gpio_b10_low_b2_high (0x080089e4) is sampled, so presence means PB10 low and PB2 high. Status bit DAT_20001f92 bit 13 (0x2000) is set on present ticks when the variant DAT_20001fa7 is 4 or 6 and cleared on absent ticks. The state byte is DAT_200021bb, the counters are DAT_200014d4 and DAT_200014d6, and the transition rules match vcu_input_sm_d_tick.",
+    "category": "input",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Together with vcu_input_sm_d_tick this reads a two-position switch on PB10/PB2; the switch itself is not named here."
+  },
+  "vcu_0159_0800854c": {
+    "name": "vcu_pa11_pulse_step",
+    "summary": "Step a 5-tick high then 1-tick low pulse on PA11 while DAT_20001fc0 is armed",
+    "description": "Returns 1 on the call that finishes the pulse and 0 otherwise. While DAT_20001fc0 equals 1 the step counter DAT_20001fc2 advances on each call. The first five calls drive PA11 high through FUN_0800d070 (gpio_bits_set); the sixth call drives it low with gpio_bits_reset(&GPIOA, 0x800), clears DAT_20001fc2 and DAT_20001fc0, and returns 1. Each call is one tick of a fixed 5-high, 1-low pattern.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "true on the call that completes the pulse"
+    },
+    "confidence": "medium",
+    "notes": "The set call in the decompile shows only the port argument, so the pin mask 0x800 is inferred from the reset call in the same function. PA11 is shared with USB D- and CAN1 RX on this part; which role this pulse serves is not established here."
+  },
+  "vcu_0159_0800898c": {
+    "name": "TMR5_GLOBAL_IRQHandler",
+    "summary": "TMR5 global interrupt: count overflow events in DAT_20001350 and clear the flag",
+    "description": "Vector handler for TMR5. If the overflow flag (value 1, TMR_OVF_FLAG) is set, as read by tmr_flag_get on TMR5, the handler clears it with tmr_flag_clear and increments the counter at 0x20001350. Nothing else is done, and the counter has no reader in this packet.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Width of the counter at 0x20001350 is not visible in the decompile (it is read and written as one unit)."
+  },
+  "vcu_0159_080089bc": {
+    "name": "vcu_gpio_b10_high_b2_low",
+    "summary": "Return 1 when GPIOB pin 10 reads high and GPIOB pin 2 reads low",
+    "description": "Calls vcu_gpio_pins_all_high on GPIOB mask 0x400 (PB10), which must return 1, and then on mask 0x004 (PB2), which must return 0. The result is 1 only when both conditions hold, otherwise 0. The function has no side effects. It is the complement pair of vcu_gpio_b10_low_b2_high, so at most one of the two can return 1.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when PB10 is high and PB2 is low"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_080089e4": {
+    "name": "vcu_gpio_b10_low_b2_high",
+    "summary": "Return 1 when GPIOB pin 10 reads low and GPIOB pin 2 reads high",
+    "description": "The mirror of vcu_gpio_b10_high_b2_low: vcu_gpio_pins_all_high on GPIOB mask 0x004 (PB2) must return 1 and on mask 0x400 (PB10) must return 0. Returns 1 only when PB10 is low and PB2 is high, otherwise 0, with no side effects.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when PB10 is low and PB2 is high"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_08008a0c": {
+    "name": "vcu_gpio_c14_set",
+    "summary": "Drive GPIOC pin 14 high for a nonzero argument, low for zero",
+    "description": "A nonzero argument calls gpio_bits_set on GPIOC; zero calls gpio_bits_reset(&GPIOC, 0x4000), which drives PC14 low. The set branch in the decompile passes only the port, so the pin mask is inferred as the same 0x4000 used by the reset branch. Used by vcu_c14_c15_blink_step and by the other paths listed in the packet callers.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "nonzero to drive the pin high, zero to drive it low"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The pin argument of the set call is not visible in the decompile; 0x4000 is inferred."
+  },
+  "vcu_0159_08008a28": {
+    "name": "vcu_gpio_c15_set",
+    "summary": "Drive GPIOC pin 15 high for a nonzero argument, low for zero",
+    "description": "Same behaviour as vcu_gpio_c14_set on the other pin: nonzero calls gpio_bits_set on GPIOC, zero calls gpio_bits_reset(&GPIOC, 0x8000), so PC15 is the pin. Used together with PC14 by vcu_c14_c15_blink_step.",
+    "category": "gpio",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "nonzero to drive the pin high, zero to drive it low"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The pin argument of the set call is not visible in the decompile; 0x8000 is inferred from the reset branch."
+  },
+  "vcu_0159_08008a9e": {
+    "name": "vcu_ninebot_frame_build",
+    "summary": "Build a 9+n byte Ninebot-style frame: 5A A5 LEN SRC DST CMD ARG DATA CKSUM",
+    "description": "Serialises one frame into the caller's buffer: bytes 0x5A and 0xA5, then LEN (the payload length), then param_1 and param_2 as the two address bytes, param_4 as the command and param_5 as the argument, followed by len payload bytes copied from param_6. The 16-bit checksum from vcu_frame_checksum (FUN_080054d0) covers bytes 2 through the end of the payload, and is stored little-endian after the payload. The function returns the total frame length, 9 + len, computed with 8-bit wrap-around arithmetic.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "first address byte (frame offset 3)"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "second address byte (frame offset 4)"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "payload length in bytes, written to frame offset 2"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "command byte (frame offset 5)"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "argument byte (frame offset 6)"
+      },
+      {
+        "name": "param_6",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "output frame buffer"
+      }
+    ],
+    "returns": {
+      "type": "u8",
+      "description": "total frame length, 9 + payload length"
+    },
+    "confidence": "high",
+    "notes": "Frame layout is Ninebot-style as the packet comment suggests; field names are inferred from the byte positions and are not confirmed by a protocol document."
+  },
+  "vcu_0159_08008bb0": {
+    "name": "vcu_ninebot_tx_queue_push",
+    "summary": "Build a Ninebot frame into the next free slot of an 8-entry TX ring, drop it when full",
+    "description": "Enqueue operation on a ring object at param_1: +1 is the write index (wraps at 8), +2 the free-slot count, +3 a re-entry guard and +4 a disable flag. Each slot is 0x100 bytes starting at offset +0xc, with its length word at +8. When the guard and the disable flag are both clear, the payload is shorter than 243 bytes and a free slot exists, the frame is built with vcu_ninebot_frame_build into the slot, the length is stored, the write index advances and the free count drops. Otherwise the frame is silently dropped, and the guard is released in both cases.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TX ring object"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "first address byte, forwarded to the frame builder"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "second address byte, forwarded"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "payload length"
+      },
+      {
+        "name": "param_5",
+        "type": "u8",
+        "description": "command byte"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "argument byte"
+      },
+      {
+        "name": "param_7",
+        "type": "ptr",
+        "description": "payload source"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The slot length word is written as a 32-bit store at +8. Who drains the ring is not in this packet."
+  },
+  "vcu_0159_08008c1c": {
+    "name": "vcu_dma_ring_drain",
+    "summary": "Copy bytes received since the last call from a 250-byte DMA ring into a buffer",
+    "description": "Given a DMA channel handle (param_2) and a ring index (param_3, 0 or 1), the bytes written so far are 250 minus the remaining count from dma_data_number_get. Each new byte is copied from the ring at 0x20002eb4 + index*0xfa to the caller's buffer, advancing the per-ring read index (u16 at 0x200018b8 + index*2) and wrapping after 249. The function returns the number of bytes copied; a write position of 250 (counter at zero) is treated as no new data, as is a read index already equal to the write position.",
+    "category": "dma",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "destination buffer; needs room for up to 249 bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "DMA channel handle passed to dma_data_number_get"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "ring index, 0 or 1"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "bytes copied, 0..249"
+    },
+    "confidence": "medium",
+    "notes": "The 250-byte ring size and the two-ring layout come from the constants in the decompile. The 250 to 0 quirk means a counter that has just reloaded is not drained on that call."
+  },
+  "vcu_0159_08008c98": {
+    "name": "USART2_IRQHandler",
+    "summary": "USART2 receive interrupt: store the received byte in a 250-byte ring at 0x200019ba",
+    "description": "Vector handler. When usart_flag_get reports the receive data buffer full flag (0x20), it reads the byte with usart_data_receive and stores it at index DAT_20000004 in the buffer at 0x200019ba, then advances the index with wrap-around at 250 (the last index is 249). Other interrupt causes are not handled here, and reading the data register clears the flag.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_08008cc0": {
+    "name": "vcu_speed_mode_snapshot_update",
+    "summary": "Per-tick speed conversion, drive sub-mode selection and periodic telemetry snapshot",
+    "description": "Runs once per tick. It copies the speed value DAT_20001cc6 into DAT_20001b62 (units presumed 0.1 km/h from the divide-by-10 steps) and forms the displayed speed DAT_20001cf8: when bit 0 of the status word DAT_20001aee is set it multiplies km/h by about 0.621 (float 0x3f1ef9db, km/h to mph) and rounds, otherwise it divides by 10. It copies DAT_20001aee bit 0 and DAT_20001af0 bits 5 and 4 into status words DAT_20001f92 and DAT_20001f98, and selects the drive sub-mode DAT_20001fa4 (1..4) from request bits af0[7], af0[8], aee[4] and whether speed is below 5.0 km/h; a nonzero sub-mode is copied to the operating mode DAT_20001b68 when the low byte of DAT_20001f90 is zero. Every 11th call it writes a snapshot of about 35 halfwords at 0x20003360 with magic 0x515c and a value of 3 at 0x200033b6, and it reports a pending warning code through vcu_warning_code_set when DAT_20001f80 is nonzero.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The source of the speed value and the meaning of the request bits are inferred from how they are used. The snapshot block is presumably read by a telemetry or diagnostic consumer that is not traced here."
+  },
+  "vcu_0159_08009080": {
+    "name": "vcu_wheel_odometer_limit_update",
+    "summary": "Accumulate wheel angle and revolutions, then compute the drive output limit",
+    "description": "Calls vcu_angle_deg_update and vcu_timebase_100_tick, then, whenever the speed snapshot DAT_20001b62 divided by 10 is nonzero, adds it to the wheel angle accumulator DAT_20001388 (wrapping at 360000, read as thousandths of a degree). On wrap, if status bit 2 of DAT_20001f92 is set, the revolution counters DAT_20001b78 (unless -1) and DAT_20001b84 (up to 0x7fff) increment. Then a limit is chosen by a switch on the variant DAT_20001fa7 and the sub-mode DAT_20001fa4, from the values 7000, 5000, 3000, 4000, 5600, 3800 and 3200 (default 7000, and 5100 for variant 6), and multiplied by DAT_20001e62 / 100: the clamped result goes to DAT_20001b72, DAT_20001b70 receives 80% of it, and the unclamped product goes to DAT_20001cd2.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "In variant 0, sub-mode 3 selects 3000 on both branches of an if on the aee bit, so one branch is dead. The variant table is read from compare constants and may be incomplete. The 360000 wrap and the 0x20001e62 percent scale are inferred."
+  },
+  "vcu_0159_08009094": {
+    "name": "vcu_input_b_hold_start_tick",
+    "summary": "Hold-to-start sequencer driven by input B reaching its long-hold state 3",
+    "description": "Runs only while status bits aec[11] and aee[12] are set and DAT_20001b68 equals the sub-mode DAT_20001fa4; otherwise it clears status bit f92[1], DAT_2000139a and DAT_20001d0a. Inside the gate, DAT_2000139a is a three-state machine: state 0 (idle) enters state 1 when input B (DAT_200021c1) is 3, status bit f92[2] is set, DAT_20001f50 is nonzero and the speed is above 59 and at most 10*(DAT_20001b44>>8)+15; it also sets f92[1]. State 1 (armed) moves to state 2 when f78[2] is set, calling app_set_state(4) and recording the low byte of DAT_20001f90, and it times out back to 0 after 300 ticks. State 2 (running) watches for speed or throttle-byte changes and returns to state 0 through app_set_state(1) when DAT_20001f4f is set or a stop condition holds. DAT_2000123d is a cancel request that clears input B's state 3.",
+    "category": "vehicle",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The inputs f78[2], f50, f4f and the throttle-like byte DAT_20001f90 are not named in the packet. The 59/300/10-tick constants are read from the decompile."
+  },
+  "vcu_0159_08009240": {
+    "name": "vcu_drive_command_update",
+    "summary": "Per-tick drive command computation: derating, mode curves, ramps and output words",
+    "description": "Largest routine of the drive path. It reads a 12-halfword profile for the current channel group DAT_20001fa5 and variant DAT_20001fa7 from ROM at 0x0800f10c + group*0xa8 + variant*0x18, and derives a derating factor from DAT_20001f7e minus 20 in 1/128 steps (128 is full scale, 25 in the top band, plus a 0.1 float in the last band). It computes a ceiling from DAT_20001e66/100 through util_map_range_clamp_high and steps the ramp value DAT_200013ba towards that ceiling every 501 calls. The operating mode DAT_20001b68 (1..4) selects one of four curve branches that fill the byte target DAT_2000139e, the words DAT_20001f94, DAT_20001f96 and DAT_20001f9a, the ramp steps DAT_200013b6 and DAT_200013b8, and per-group float values at 0x200013dc..0x200013f0. Afterwards it sets the period byte DAT_20001fee and the words DAT_20001fef and DAT_20001fe9 from the mode bytes, derives DAT_20001fb0 as 6000 times DAT_20001b46 (clamped to 30) when that changes, updates status bit f92[14] from the speed against DAT_20001b40, caps DAT_20001f96 with a 3000-to-6000-tick interpolation (util_interp_linear_clamp_hi), and applies the override pairs at 0x200020a4..0x200020b4 when their enable bytes are nonzero.",
+    "category": "motor",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "low",
+    "notes": "This is the least certain entry in the packet: the meaning of most output words and of the ROM profile fields is inferred. Sub-mode 3 with status bit f92[7] also runs an ASCII product-code test on 0x20001ad7..0x20001ada that sets DAT_20001fdb to 0x23 or 0x34 and DAT_20001f96 low byte to 0x8c. Verify before relying on the field names."
+  },
+  "vcu_0159_08009fe4": {
+    "name": "vcu_c14_c15_blink_step",
+    "summary": "Blink PC14 and PC15 together in a 40-tick cycle while blink request 10 is set",
+    "description": "Called once per tick. When DAT_20001fe8 is 10 the counter DAT_20001368 increments: counts 1..19 drive both pins high, counts 20..39 drive both low, and at 40 the counter wraps to 0 without touching the pins, giving a 40-tick period (19 high, 20 low, 1 idle). When DAT_20001fe8 is 11 the blink ends: the counter and the request byte are cleared and both pins are driven low. Other request values do nothing.",
+    "category": "lighting",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Meaning of the request codes 10 and 11 is inferred from the blink pattern. What the two pins drive is not traced."
+  },
+  "vcu_0159_0800a050": {
+    "name": "vcu_double_pulse_indicator_step",
+    "summary": "55-tick two-pulse indicator pattern on status word f98, sets DAT_20001fa8 when done",
+    "description": "Runs when DAT_20001fbf is 1 and advances the counter DAT_20001372 each tick. Ticks 0..14 are the first on-phase (f98 bit 14 set, and bits 11..9 set to 2 by clearing them and adding 0x400; for variants 2 and 5 it calls FUN_08005d9c(1) instead). Ticks 15..34 are the off-phase (bit 14 cleared, bits 11..9 zeroed, or FUN_08005d9c(0) for variants 2 and 5). Ticks 35..54 repeat the on-phase, and at tick 55 the counter wraps, DAT_20001fa8 is set to 1 to signal completion, and bit 14 is cleared unless DAT_20001b12 bit 1 is set. DAT_20001360 and DAT_20001fb4 are cleared on every active tick.",
+    "category": "lighting",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "f98 is treated as an output/indicator word; the consumer of its bit 14 and bits 11..9 is not traced. The 15/20/20 tick split is read from the compare constants."
+  },
+  "vcu_0159_0800a78a": {
+    "name": "vcu_can_tp_session_timeout_tick",
+    "summary": "Advance a J1939 TP session timer; on expiry notify, send the abort frame and mark done",
+    "description": "Ticks the transport-protocol session object param_1: the 16-bit counter at +0x16 increments and is compared with the 16-bit limit at +0x18. When the limit is reached, an optional notify callback in the ops table at param_2+4 runs with the session, its source and destination bytes and 1, vcu_can_tp_abort_frame_build (FUN_0800daac) builds the abort frame for those addresses, the send callback at ops+0xc transmits it, and the session state byte at +2 is set to 1 (done). Below the limit only the counter advances.",
+    "category": "can",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "TP session object; bytes 0 and 1 are the source and destination"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "ops table holding the notify callback at +4 and the send callback at +0xc, or 0"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "not read; copied to a stack local and unused"
+      },
+      {
+        "name": "param_4",
+        "type": "u32",
+        "description": "not read; copied to a stack local and unused"
+      }
+    ],
+    "returns": {
+      "type": "u64",
+      "description": "low word is the session pointer and high word the ops pointer, both unchanged"
+    },
+    "confidence": "medium",
+    "notes": "The send callback receives a pointer to the session pointer rather than a frame; the exact frame reference convention is not traced."
+  },
+  "vcu_0159_0800ac44": {
+    "name": "vcu_record_send_chunked",
+    "summary": "Submit a byte buffer as a series of up to 8-byte records via FUN_08007bec",
+    "description": "For a zero length it submits one empty record: the length byte at 0x20002986 and the index byte at 0x20002984 are zeroed, the tag param_2 is stored at 0x2000297c, and FUN_08007bec (record submit, not yet described) is called on that record. For a nonzero length it loops in chunks of at most 8 bytes: each chunk sets the length byte, index 0, the tag, copies the chunk bytes into the payload area at 0x20002987 with __aeabi_memcpy, and submits the record. The record layout (tag at +0, index byte at +8, length byte at +10, payload from +11) is the same as vcu_record_send_short.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "buffer length in bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "tag stored in the record header"
+      },
+      {
+        "name": "param_3",
+        "type": "ptr",
+        "description": "source buffer"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "As decompiled, the memcpy source is param_3 on every iteration and the per-chunk offset is not shown, so either the decompile dropped an offset or only the first chunk's bytes are sent for longer buffers. The memcpy byte count is also not visible (presumably the chunk size). Verify in the disassembly before relying on it."
+  },
+  "vcu_0159_0800b06c": {
+    "name": "vcu_can1_reset_pulse",
+    "summary": "Pulse the CAN1 peripheral reset bit: assert then release",
+    "description": "Calls crm_periph_reset (FUN_0800b5f4, SDK) with the value 0x100019 twice, first with TRUE and then with FALSE. In the SDK header that value is CRM_CAN1_PERIPH_RESET, MAKE_VALUE(0x10, 25), so CAN1 is reset by setting and then clearing its bit in the CRM reset register back to back.",
+    "category": "can",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800b088": {
+    "name": "vcu_record_send_short",
+    "summary": "Submit one record of up to 8 bytes with tag param_1 and type byte 1",
+    "description": "Builds a record on the stack: the tag param_1 at +4, a type byte 1 at +8, a zero byte at +9, the length (param_3 low nibble) at +10, and the payload copied to +11, then calls FUN_08007bec to submit it. Payloads are accepted only when the low nibble of the length is below 9. Latent defect: the copy loop runs for the full param_3 value rather than the masked nibble, so a length of 16 or more whose low nibble is below 9 writes past the 9-byte payload area, and the length field then disagrees with the bytes copied.",
+    "category": "protocol",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "tag stored in the record header"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "payload source"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "payload length; only low nibble is recorded and checked"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The first word of the record (uninitialised stack) is not written. The type byte is 1 here and 0 in vcu_record_send_chunked. Check the callers before assuming the overflow is reachable."
+  },
+  "vcu_0159_0800b294": {
+    "name": "vcu_runtime_defaults_init",
+    "summary": "Load default runtime status words and mode limits, then apply the variant configuration",
+    "description": "Sets the power-on defaults of a block of application words: clears bit 2 of DAT_20001aec, zeroes DAT_20001b76, DAT_20001b96, DAT_20001b98 and DAT_20001b6e, writes 0x5810 to DAT_20001aee and 0x0981 to DAT_20001af0, sets DAT_20001af2 to 2, ORs 3 into DAT_20001b32 and 2 into DAT_20001b12, sets DAT_20001b46 to 5, DAT_20001b48 to 2, DAT_20001b94 and DAT_20001b9c to 1, DAT_20001b68 (operating mode) to 1, DAT_20001b90 to 2, and DAT_20001ba6 and DAT_20001ba8 to 2. It then calls app_apply_mode_limits (FUN_080017e8) and vcu_apply_variant_config (FUN_08005db8), and finally sets DAT_20001fbe to 1, clears DAT_20001c88 and sets DAT_20001f54 to 1.",
+    "category": "app",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800b440": {
+    "name": "crm_clocks_freq_get",
+    "summary": "Compute SYSCLK, AHB, APB2, APB1 and ADC clock frequencies from the CRM registers",
+    "description": "Matches the Artery SDK crm_clocks_freq_get: the output words are sclk, ahb, apb2, apb1 and adc in the crm_clocks_freq_type order. The SYSCLK source comes from crm_sysclk_switch_status_get (FUN_0800b760). HICK gives 8 MHz, or 48 MHz when both the MISC2 and MISC1 selection bits are set; HEXT is taken as 16 MHz; PLL is computed from CRM_CFG (multiplier bits 18..21 and 29..30, source bit 16, HEXT/2 bit 17) or, when bit 31 of the PLL register is set (extended mode), as input times NS over MS shifted by FR, using a 64-bit divide (FUN_080011ac). AHB, APB2 and APB1 come from divider tables indexed by CFG bits 4..7, 11..13 and 8..10, and the ADC clock is APB2 divided by a table entry.",
+    "category": "clock",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "crm_clocks_freq_type output: five u32 frequencies in Hz"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The ADC divider index mixes CFG bits 14..15 with bits 28..31 and was not traced against the SDK adc_div_table. The 16 MHz HEXT value is the SDK HEXT_VALUE used by this board."
+  },
+  "vcu_0159_0800b598": {
+    "name": "vcu_hext_enable_and_wait",
+    "summary": "Poll for the HEXT stable flag up to 0x3000 times, enable HEXT, and report whether it is stable",
+    "description": "Polls the HEXT stable flag (crm_flag_get with CRM_HEXT_STABLE_FLAG, which is 0x11) for up to 0x3000 iterations, then calls crm_clock_source_enable on CRM_CLOCK_SOURCE_HEXT (value 1), polls the flag again and returns 1 only if it reads set. The SDK crm_hext_stable_wait is the wait portion only, without the enable. Because the stable flag cannot set before HEXT is running, the first loop always runs to its timeout unless HEXT was already on.",
+    "category": "clock",
+    "params": [],
+    "returns": {
+      "type": "bool",
+      "description": "1 when HEXT reads stable after the enable, else 0"
+    },
+    "confidence": "medium",
+    "notes": "The enable argument of crm_clock_source_enable is not visible in the decompile; TRUE is presumed from the context."
+  },
+  "vcu_153_0800ba2c": {
+    "name": "rtc_days_between_dates",
+    "summary": "Number of days from calendar date 1 to date 2 (Gregorian), 0 if date 2 is in an earlier year",
+    "description": "Computes the day count between two dates. Each date's day-of-year is taken from rtc_day_of_year (FUN_0800b944). In the same year the result is the plain day-of-year difference, which is negative if date 2 is earlier. For later years the result is the remaining days in the first year (365, or 366 when the first year is a leap year, per the Gregorian rule), plus the day-of-year of date 2, plus 365 for each full year between them, plus one for each leap year strictly between the two years. Years before the first date return 0.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "year of date 1"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "month of date 1"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "day of date 1"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "year of date 2"
+      },
+      {
+        "name": "param_5",
+        "type": "u32",
+        "description": "month of date 2"
+      },
+      {
+        "name": "param_6",
+        "type": "u32",
+        "description": "day of date 2"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "days from date 1 to date 2"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800bc4c": {
+    "name": "vcu_level_bar_update_hysteresis",
+    "summary": "Map a 0..100 level to 10-segment bar values with dithering between neighbouring steps",
+    "description": "Quantises the level into two 10-step values: DAT_200014f6 (lower) and DAT_200014f7 (upper). Level bands of five values map to pairs such as 90..94 giving (90, 100), 85..89 giving (90, 90), 80..84 giving (80, 90), and so on down to 10..14 giving (10, 20). Levels 95 and above give (100, 100), and levels 0..9 give (0, 0), with extra effects: at 5..9 led_frame_set_d3_bit2 is called and, the first time, app_set_state(2) is called; at 0..4 a flag is set. The bar is redrawn only when the counter DAT_200014f8 reaches 60 (using the upper value) or 119 (using the lower value, then wrapping), so the displayed segment count alternates between the two values and the average shows intermediate levels. Each redraw lights the first value/10 segments through led_frame_set_bit16 and clears the rest.",
+    "category": "lighting",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "level, nominally 0..100"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of the level input (state of charge, speed or other) is not established here. The 60/119 redraw points and the bands are read from the compare constants."
+  },
+  "vcu_0159_0800be64": {
+    "name": "vcu_channel_sweep_animation",
+    "summary": "Lighting animation: all groups on when bit 6 of DAT_20001e68 is 0, else a channel sweep",
+    "description": "Latches bit 6 of DAT_20001e68 into DAT_20001512. When the latch is 0 it calls led_frame_set_group_all(1) to light every group. When it is 1, a counter DAT_200021e0 advances each call, and every DAT_200014f4 counts the sweep index DAT_20001510 steps: while the index is below the width DAT_200014f5 it sets channel index (vcu_chan_mask_update with 1), and for an index from the width up to twice the width it clears channel index minus width. At twice the width both counters reset, so a lit window of the given width travels across the ten channels.",
+    "category": "lighting",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "vcu_chan_mask_update (FUN_0800aa9c) sets or clears one of the ten channel bits in the byte masks at 0x200021ce, as described in the packet callee list."
+  },
+  "vcu_0159_0800bf84": {
+    "name": "vcu_level_bar_draw",
+    "summary": "Light the first param/10 of the ten LED bar segments and clear the rest",
+    "description": "Loops over bar segments 0..9 calling led_frame_set_bit16 (FUN_0800bdf4) with 1 for each index below param_1 divided by 10 and 0 for the others. Levels of 100 or more light all ten segments. No other state is touched.",
+    "category": "lighting",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "level, nominally 0..100"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800c31c": {
+    "name": "vcu_display_anim_step",
+    "summary": "Display animation step per mode: blink icons (10), sweep segments up (12), icons on",
+    "description": "Called once per tick with the requested mode. A new mode is accepted into DAT_2000150c only while the frame counter DAT_200021de is zero. Mode 10 blinks the icon groups: at counter multiples of 50 both groups are cleared and at multiples of 100 both are set and the counter wraps, giving 50 ticks on and 50 off. Modes 0, 9 and 13 turn both icon groups on. Mode 12 runs an upward segment sweep every DAT_200014f2 ticks: while the position DAT_2000150e is below DAT_200014f3 it clears the segment pair at the position, then it sets the pair at position minus the width until twice the width, and then wraps. Other modes do nothing.",
+    "category": "display",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "requested mode code, 0..13"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Mode meanings are inferred from the animation each one produces. The segment and icon helpers are defined in the packet callee list."
+  },
+  "vcu_0159_0800c4f0": {
+    "name": "vcu_display_sweep_down_step",
+    "summary": "Downward segment sweep (20 to 0) while DAT_20001f58 is set; otherwise all icons on",
+    "description": "When DAT_20001f58 is zero it turns both icon groups on, resets its counter DAT_200021e2 and returns. Otherwise every DAT_200014f0 ticks it steps the position DAT_2000150a down from 20: while the position is above 10 it sets the segment pair at position minus DAT_200014f1 (the window width), and otherwise it clears the segment pair at the position, wrapping back to 20 at zero. The result is a window of lit segments that moves downward and then blanks out.",
+    "category": "display",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Companion of vcu_display_anim_step, which sweeps upward."
+  },
+  "vcu_0159_0800c9d8": {
+    "name": "ertc_date_set",
+    "summary": "Write the ERTC date register from year, month, day and weekday, with BCD year, month and day",
+    "description": "Matches the SDK ertc_date_set. It converts year, month and date with ertc_num_to_bcd, lifts write protection, enters init mode through FUN_0800cae4 (ertc_init_mode_enter, not yet described) and returns 0 if that fails. It writes ERTC.DATE as year<<16 | (month&0x1f)<<8 | (date&0x3f) | (weekday&7)<<13, exits init mode, waits for calendar synchronisation with ertc_wait_update when CTRL bit 5 (DREN) is clear, re-locks write protection and returns 1.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u8",
+        "description": "year, 0..99"
+      },
+      {
+        "name": "param_2",
+        "type": "u8",
+        "description": "month, 1..12"
+      },
+      {
+        "name": "param_3",
+        "type": "u8",
+        "description": "day of month"
+      },
+      {
+        "name": "param_4",
+        "type": "u8",
+        "description": "weekday, 0..7"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 on success, 0 when init mode could not be entered"
+    },
+    "confidence": "high"
+  },
+  "vcu_0159_0800ca4c": {
+    "name": "ertc_divider_set",
+    "summary": "Write the ERTC prescaler: async divider (7 bits) and sync divider (15 bits)",
+    "description": "Matches the SDK ertc_divider_set(div_a, div_b). It lifts write protection, enters init mode through FUN_0800cae4 and returns 0 if that fails. It writes the async divider into ERTC.DIV bits 16..22 and the sync divider into bits 0..14, exits init mode, re-locks write protection and returns 1.",
+    "category": "rtc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u16",
+        "description": "async divider (diva), 7 bits used"
+      },
+      {
+        "name": "param_2",
+        "type": "u16",
+        "description": "sync divider (divb), 15 bits used"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "1 on success, 0 when init mode could not be entered"
+    },
+    "confidence": "high",
+    "notes": "The decompile takes the async divider from register r3 (extraout_r3), a decompiler artefact of the call sequence; the SDK source takes it from the first argument, so the mapping above follows the SDK."
+  }
+}

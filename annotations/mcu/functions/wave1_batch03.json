@@ -1,0 +1,790 @@
+{
+  "mcu_0160_080057e8": {
+    "name": "mcu_snapshot_copy_if_changed",
+    "summary": "Copy a 7-word record to its shadow when the byte at +0x18 differs or a force flag is set",
+    "description": "Compares the byte at offset 0x18 of the source record (param_1) with the same byte in the destination (param_2). If they differ, or the RAM force flag at 0x2000066D is non-zero, the seven 32-bit words at offsets 0x00..0x18 are copied from source to destination and the force flag is cleared. Otherwise nothing is written. It is a copy-on-change snapshot, so the destination mirrors the source after any change. The byte at +0x18 acts as the change indicator for the record.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "source record, 7 words"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "destination shadow record, 7 words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "Owning subsystem not visible in this packet; only caller is mcu_0160_08004e78."
+  },
+  "mcu_0160_080059d0": {
+    "name": "mcu_poll_pc9_input_and_flag",
+    "summary": "Sample GPIOC PC9 (active low) into a flag byte and mirror a flag bit into status bit 3",
+    "description": "Reads GPIOC.IDT (0x40011008) and stores the inverted level of bit 9 (PC9) as a 0/1 byte at 0x200001BD. It then rewrites bit 3 of the 16-bit status word at 0x20001FEE with bit 0 of the byte at 0x20000E1C, leaving the other bits unchanged. Called from mcu_0160_0800a320, which runs the input and status service.",
+    "category": "gpio",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Register behaviour is certain (active-low via the ~ operator). The function of PC9 on this board is not identified."
+  },
+  "mcu_0160_08005e60": {
+    "name": "mcu_byte_sum_checksum16",
+    "summary": "16-bit byte-sum checksum over a buffer, returned as its bitwise complement",
+    "description": "Adds the len unsigned bytes of the buffer into a 16-bit accumulator (the sum wraps modulo 65536) and returns the complement of that sum truncated to 16 bits. A zero-length buffer returns 0xFFFF. This is a simple additive checksum, not a CRC: summing the data together with the returned value gives 0xFFFF. Called from mcu_0160_08006460.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "data buffer"
+      },
+      {
+        "name": "param_2",
+        "type": "u32",
+        "description": "length in bytes"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "complement of the 16-bit byte sum"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08005e7c": {
+    "name": "mcu_timed_hold_countdown",
+    "summary": "One-shot 0x567-count hold timer: started by request flag 0x20001FC8, run down per call",
+    "description": "When the request byte at 0x20001FC8 is set, the routine loads the countdown 0x20000644 with 0x567 (1383), clears the request and sets the active byte 0x2000066C. While active, each call decrements the countdown; once it is below 1 the active and request bytes are both cleared. The hold therefore lasts about 1383 calls of the caller's tick, plus one. Called from mcu_0160_0800a320.",
+    "category": "timer",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "The period of the calling tick is not visible here, so the real-time length is unknown. The purpose of the hold is a guess."
+  },
+  "mcu_0160_08005ec8": {
+    "name": "mcu_owner_release_if_match",
+    "summary": "Clear the owner word at 0x200003BC if it equals the given id",
+    "description": "Compare-and-clear on the 32-bit word at 0x200003BC: when it equals param_1 it is set to zero, otherwise it is left unchanged. This is the release half of a single-owner token, where only the owner whose id is stored can release it. Callers are mcu_0160_080061fc and mcu_0160_08007dc8.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "owner id to release"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The guarded resource is not identified in this packet."
+  },
+  "mcu_0160_08006194": {
+    "name": "mcu_watchdog_feed",
+    "summary": "Refresh the watchdog by writing the 0xAAAA key to WDT.CMD",
+    "description": "Writes the 16-bit refresh key 0xAAAA to the watchdog command register (WDT.CMD), which reloads the watchdog counter so it does not reset the MCU. This is the whole function. Called from mcu_0160_0800d548, the application main loop. Present in the 143, 152 and 0160 builds.",
+    "category": "watchdog",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_080061a4": {
+    "name": "DebugMon_Handler",
+    "summary": "Debug monitor exception handler: empty, returns immediately",
+    "description": "Handler for the Cortex-M DebugMonitor vector in the 143, 152 and 0160 builds. The body is a single return, so debug monitor events are ignored. The 12b build has the same stub at another address under the name DebugMon_Handler_v12b.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_080061a6": {
+    "name": "mcu_busy_wait_systick_counts",
+    "summary": "Busy-wait until SysTick has counted down param_1 counts",
+    "description": "Polls the SysTick current-value register (SYST_CVR, 0xE000E018) and accumulates the decrease between successive reads. When a read is larger than the previous one the counter has wrapped, so 0xFFFFFF is added, which assumes a 24-bit reload. The loop exits once the accumulated count reaches param_1, so the argument is in SysTick clock cycles, not microseconds. It runs at least one iteration even for a zero argument. Callers are mcu_0160_0800226c, mcu_0160_08007df4 and mcu_0160_0800d548.",
+    "category": "timer",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "wait length in SysTick counts"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_080062f0": {
+    "name": "mcu_fault_norm_sq_debounce_check",
+    "summary": "Return 0 when the squared magnitude of (+0x18, +0x1C) exceeds the limit at +0x3C",
+    "description": "Computes (x/8)^2 and (y/8)^2 for the s32 values x at +0x18 and y at +0x1C, shifts each product right by 15 and sums them, which is about (x^2 + y^2) / 2^21. If the sum is greater than the s32 limit at +0x3C, the counter 0x20000344 is incremented, and the function returns 0 only when the counter's previous value was above 3. Every other path clears the counter and returns 1. As written, the counter can only exceed 3 if another writer sets it, so the intended four-sample debounce does not accumulate by itself.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object with x (+0x18), y (+0x1C) and limit (+0x3C), all s32"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 = within limit or not tripped, 0 = tripped"
+    },
+    "confidence": "medium",
+    "notes": "Check whether 0x20000344 is written anywhere else. The debounce logic looks incomplete or inverted."
+  },
+  "mcu_0160_08006334": {
+    "name": "mcu_clarke_alpha_beta_step",
+    "summary": "Store the previous +0x20 sample at +0x18 and compute beta = (ia + 2*ib) / sqrt(3) in Q15",
+    "description": "Copies the sample at +0x20 into +0x18, a one-sample delay of the first component. It then computes beta = (value at +0x20 + 2 * value at +0x24) * 0x49E6 / 2^15 and writes it to +0x1C. The constant 0x49E6 / 2^15 = 0.5773 is 1/sqrt(3) in Q15. This matches the Clarke transform beta term for phase currents ia = +0x20 and ib = +0x24, though the field roles are inferred from the arithmetic. Always returns 1.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object with ia (+0x20), ib (+0x24), delayed alpha (+0x18), beta (+0x1C), s32"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium"
+  },
+  "mcu_0160_0800635e": {
+    "name": "mcu_park_transform_deadband",
+    "summary": "Park transform of (alpha, beta) with Q15 sin/cos at +0x34/+0x38 and a dead-band on d and q",
+    "description": "Reads alpha at +0x18, beta at +0x1C, sin at +0x34 and cos at +0x38, all Q15. Computes d = alpha*cos + beta*sin into +0x10 and q = beta*cos - alpha*sin into +0x14, each product taken as a 64-bit value shifted right by 15. Any component whose absolute value is below the threshold param_2 is then forced to zero, which suppresses small values near zero. Called from mcu_0160_08007364.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "object: alpha, beta, sin, cos in, d, q out"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "dead-band threshold, same units as d and q"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high",
+    "notes": "Park sign convention is the standard one; the field names are inferred."
+  },
+  "mcu_0160_080063c0": {
+    "name": "mcu_inv_park_transform",
+    "summary": "Inverse Park transform: (d, q) to (alpha, beta) using the Q15 sin/cos at +0x34/+0x38",
+    "description": "Reads d from word 0 and q from word 1 of the int block, and sin from word 13 (+0x34) and cos from word 14 (+0x38), all Q15. Writes alpha = d*cos - q*sin to word 2 (+0x08) and beta = q*cos + d*sin to word 3 (+0x0C), each product shifted right by 15 after a 64-bit multiply. This is the inverse of mcu_park_transform_deadband. Called from mcu_0160_08007364. Always returns 1.",
+    "category": "foc",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "int block: d, q in; alpha, beta out; sin at +0x34, cos at +0x38"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_0800641a": {
+    "name": "mcu_sq_scale_block_init",
+    "summary": "Initialise a block with (n*n/64) in Q15 for 0 <= n <= 2000 and set its valid byte",
+    "description": "Clears the valid byte at +0x40 first. If the block pointer is non-null and 0 <= param_2 <= 2000 (0x7D0), it zeroes words +0x00 and +0x04, stores (n*n)/64 shifted left by 15 into the word at +0x3C, sets the valid byte to 1 and returns 1. Otherwise it returns 0 with the valid byte cleared. The NULL check comes after the first store, so a NULL pointer faults. Called from mcu_0160_080078f0.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "block of at least 0x44 bytes"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "n, valid range 0..2000"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 = initialised, 0 = rejected"
+    },
+    "confidence": "medium",
+    "notes": "The meaning of n and of the scaled value is not visible in this packet."
+  },
+  "mcu_0160_0800644e": {
+    "name": "mcu_ceil_div_1024",
+    "summary": "Ceiling of param_1 / 1024: number of 1 KiB units needed for a byte count",
+    "description": "Returns (value >> 10) plus one if any of the low 10 bits are set, which is ceil(value / 1024). The caller most likely converts a byte count into flash pages, since the AT32F415 erase unit is 1 KiB. Called from mcu_0160_0800cc22.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "u32",
+        "description": "byte count"
+      }
+    ],
+    "returns": {
+      "type": "u32",
+      "description": "number of 1 KiB units, rounded up"
+    },
+    "confidence": "high",
+    "notes": "The flash-page purpose is an inference from the 1 KiB granularity."
+  },
+  "mcu_0160_08006564": {
+    "name": "mcu_take_pending_200003ba",
+    "summary": "Move the byte at 0x200003BA to 0x200003BB and clear 0x200003BA",
+    "description": "Copies the byte at 0x200003BA into 0x200003BB and then zeroes 0x200003BA. This is a snapshot-and-clear: a counter or event flag accumulates in 0x200003BA elsewhere, and the consumer reads the last period's value from 0x200003BB. The variable 0x200003B8 is also address-taken in the wider program but is not touched here. Called from mcu_0160_080085bc.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium"
+  },
+  "mcu_0160_08006574": {
+    "name": "mcu_get_var_2026",
+    "summary": "Getter returning the byte at 0x20002026",
+    "description": "Returns the unsigned byte stored at RAM address 0x20002026 unchanged. Called only from mcu_0160_08008a14. It is a pure accessor, so other modules do not touch the variable directly. Its meaning is not known from this function.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "u8",
+      "description": "value of 0x20002026"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08006580": {
+    "name": "mcu_f30_range_latch",
+    "summary": "Latch flag 0x2000010F from the magnitude of the s32 at 0x20000F30; argument 0 clears the latch",
+    "description": "An argument of 0 clears the latch byte at 0x2000010F and returns 1. Otherwise it takes the absolute value of the s32 at 0x20000F30. If that magnitude is above 0xFFFF and the latch is clear it returns 1 without changing anything. In all other cases (magnitude at most 0xFFFF, or latch already set) it sets the latch and returns 2, and the latch stays set until the caller passes 0. Called from mcu_0160_08003ab8.",
+    "category": "protection",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "s32",
+        "description": "0 = clear the latch, non-zero = evaluate"
+      }
+    ],
+    "returns": {
+      "type": "s32",
+      "description": "1 = not latched, 2 = latched"
+    },
+    "confidence": "medium",
+    "notes": "The sense of the threshold looks unusual (small magnitude latches). Confirm against the caller."
+  },
+  "mcu_0160_080065b8": {
+    "name": "mcu_read_be16",
+    "summary": "Read a big-endian 16-bit value from two bytes",
+    "description": "Returns (byte[0] << 8) | byte[1], the big-endian reading of the two bytes at param_1. It is used to decode multi-byte protocol fields that are sent most significant byte first. Called from mcu_0160_0800a0f8.",
+    "category": "util",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "pointer to two bytes"
+      }
+    ],
+    "returns": {
+      "type": "u16",
+      "description": "big-endian value"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08006620": {
+    "name": "mcu_empty_callback",
+    "summary": "Empty callback: returns immediately",
+    "description": "A single return. It is used as a hook or placeholder and is called from mcu_0160_080065f0 and from the 12b build's mcu_12b_0800bfd0. It is most likely an optional callback that is left empty in this firmware.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08006ae0": {
+    "name": "mcu_state_reset_load_key16",
+    "summary": "Reset 17 state fields and write the 16-byte ASCII constant <redacted constant> to 0x20002054",
+    "description": "Zeroes 17 RAM fields: nine byte flags and counters at 0x200006B8..0x200006C0, and eight words at 0x200006C4..0x200006E0. It then writes four 32-bit constants to 0x20002054, 0x20002058, 0x2000205C and 0x20002060, which in memory order spell the 16-byte ASCII string <redacted constant>. The string looks like a fixed key, password or seed, but this function does not show its use. Called from mcu_0160_0800665c and mcu_0160_0800672c. Present only in the 0160 build.",
+    "category": "protocol",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The constant's use is in another function, probably a comparison or key derivation. Check the callers."
+  },
+  "mcu_152_08006b58": {
+    "name": "mcu_tea_decrypt_block",
+    "summary": "TEA decryption of one 64-bit block in place: 32 rounds, delta 0x9E3779B9",
+    "description": "Standard TEA decipher. The two words at param_1[0..1] are decrypted in place with the 128-bit key in param_2[0..3]. The round sum starts at 0xC6EF3720 (32 * 0x9E3779B9) and is decremented by 0x9E3779B9 each round for 32 rounds. Each half-update is ((v<<4) + k) ^ (v + sum) ^ ((v>>5) + k'), with key words 2 and 3 for v1 and key words 0 and 1 for v0. Present in the 12b, 143 and 152 builds. There are no direct callers, so it is reached through a pointer or from code outside this packet.",
+    "category": "crypto",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "two u32 words, decrypted in place"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "four u32 key words"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Algorithm is certain. The protocol or storage that uses it is not visible here."
+  },
+  "mcu_0160_08006b68": {
+    "name": "mcu_irq_disable_thunk",
+    "summary": "Disable interrupts by calling disableIRQinterrupts (critical-section entry)",
+    "description": "A two-instruction wrapper that calls the vendor-named routine disableIRQinterrupts, which masks the global interrupt enable (PRIMASK set, cpsid i). It is the entry half of a critical section. Called from mcu_0160_080031cc and mcu_0160_080061e8. The body of disableIRQinterrupts is not in this packet, so the PRIMASK mechanism is inferred from its name.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08006b6c": {
+    "name": "mcu_irq_enable_thunk",
+    "summary": "Enable interrupts by calling enableIRQinterrupts (critical-section exit)",
+    "description": "A two-instruction wrapper that calls the vendor-named routine enableIRQinterrupts, which clears the global interrupt mask (PRIMASK, cpsie i). It is the exit half of the critical section opened by mcu_irq_disable_thunk. Called from mcu_0160_080031cc and mcu_0160_080061f6. The body of enableIRQinterrupts is not in this packet.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08006c86": {
+    "name": "mcu_ctrl_block_reset_flags",
+    "summary": "Reset a control block: clear three state words, set the byte at +0x29 to 1, clear +0x28",
+    "description": "Clears the words at +0x18, +0x20 and +0x24 (state accumulators or last-sample registers), clears the byte at +0x28 and sets the byte at +0x29 to 1, then returns 1. This is the reset routine of a controller block whose state occupies +0x18..+0x2C. The byte at +0x29 is probably an enable or armed flag, which is inferred. Called from mcu_0160_08006b70.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "control block, at least 0x2A bytes"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium"
+  },
+  "mcu_0160_08006de8": {
+    "name": "mcu_limit_block_init_params",
+    "summary": "Store seven configuration words and a flag into a limit block; set the Q15 word at +0x20 to 1.0",
+    "description": "Writes param_8 to word 0, param_3 to word 2, param_4 to word 3, param_5 to word 4, param_6 to word 5, param_2 to word 6 and param_7 to word 7, and writes param_9 to the byte at +0x3C. It clears the words at +0x24 and +0x2C and stores 0x8000 (Q15 1.0) in the word at +0x20. The byte at +0x20 is the mode byte that mcu_limit_block_update reads, and the 0x8000 leaves it 0, so the block starts in pass-through mode. Called from mcu_0160_080078f0 alongside mcu_limit_block_bind_io.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "limit block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "stored in word 6"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "stored in word 2"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "stored in word 3"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "stored in word 4"
+      },
+      {
+        "name": "param_6",
+        "type": "s32",
+        "description": "stored in word 5"
+      },
+      {
+        "name": "param_7",
+        "type": "s32",
+        "description": "stored in word 7"
+      },
+      {
+        "name": "param_8",
+        "type": "s32",
+        "description": "stored in word 0, later overwritten by mcu_limit_block_bind_io"
+      },
+      {
+        "name": "param_9",
+        "type": "u8",
+        "description": "stored at byte +0x3C"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "Physical meaning of the configuration words is not visible here."
+  },
+  "mcu_0160_08006e18": {
+    "name": "mcu_limit_block_update",
+    "summary": "Per-cycle limit update: bounds X and Y from two Q15 gains, output selected by mode bytes",
+    "description": "Inputs are the block and four samples p2..p5. The block holds gains w0 and w1 (Q15), the current and previous sample (words 4 and 5), pointers to a reference S (word 6) and to the output (word 7), and mode bytes at +0x20 (enable), +0x21 (low clamp) and +0x22 (high clamp). It forms X = p3 + w0*(p4-p2) - w1*(p2-prev) and Y = p3 + w0*(p5-p2) - w1*(p2-prev), each product Q15 rounded, then selects the output: S when the enable byte is 0; max(S,Y) for the low clamp alone; min(S,X) for the high clamp alone; and with both, max(S,Y) if S <= X and X otherwise. A final rule forces a negative output to zero when the value at 0x20000F30 is <= 0 and bit 2 of 0x2000065D is clear. Intermediate values are copied to 0x20000350..0x200003A0 for monitoring.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "limit block (see description)"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "current sample p2"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "base value p3"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "upper sample p4"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "lower sample p5"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "writes the output through the pointer in word 7"
+    },
+    "confidence": "medium",
+    "notes": "The mode table and arithmetic are read directly from the code. The physical meaning of the gains, bounds and the 0x2000065D bit is unknown."
+  },
+  "mcu_0160_08006f44": {
+    "name": "mcu_limit_block_bind_io",
+    "summary": "Bind gains and the reference and output pointers into a limit block and set all mode bytes to 1",
+    "description": "If both param_4 (reference pointer, stored in word 6) and param_5 (output pointer, word 7) are non-null, it stores param_2 as gain w0 and param_3 as gain w1, sets the mode bytes +0x20, +0x21 and +0x22 to 1 (enable, low clamp, high clamp, mode value 7), and returns 1. Otherwise it changes nothing and returns 0. Called from mcu_0160_080078f0 after mcu_limit_block_init_params.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "limit block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "gain w0"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "gain w1"
+      },
+      {
+        "name": "param_4",
+        "type": "ptr",
+        "description": "reference S, stored in word 6"
+      },
+      {
+        "name": "param_5",
+        "type": "ptr",
+        "description": "output, stored in word 7"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "1 = bound, 0 = rejected (null pointer)"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08007078": {
+    "name": "mcu_lpf_q30_step_alt",
+    "summary": "First-order low-pass step in Q30: state = (a*x + (2^30 - a)*state) >> 30",
+    "description": "Reads the input sample through param_1 and the state through param_2, with the coefficient a in Q30 (0x40000000 = 1.0) as param_3. It computes the 64-bit sum a*x + (2^30 - a)*state, including the sign corrections for a negative state and for a above 1.0, shifts it right by 30 and writes it back as the new state. This is an exponential moving average whose coefficient sets the time constant. The body is identical to mcu_lpf_q30_step (mcu_0160_0800721a), so the two are probably two copies of one helper in this build. Called from mcu_0160_08002e9c, mcu_0160_08007160 and mcu_12b_08003010.",
+    "category": "filter",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "input sample, s32"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "state, s32, updated in place"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "coefficient a in Q30"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08007198": {
+    "name": "mcu_band_block_init",
+    "summary": "Initialise a band block: bounds, half-span |p4-p5|/2 and mode bytes +0x20..+0x22",
+    "description": "Stores p2 in word 2, p3 in word 0, the bounds p4 and p5 in words 3 and 4, and p6 in the byte at +0x18. Word 5 gets half the distance between the bounds, |p4 - p5| / 2, using the x*0x4000 >> 15 idiom. The mode bytes are set to +0x20 = 0 (pass-through), +0x21 = 1 (enabled) and +0x22 = p7. Returns 1. Called from mcu_0160_08003784 and mcu_0160_080078f0.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "band block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "stored in word 2"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "stored in word 0"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "lower or upper bound, word 3"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "other bound, word 4"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "stored at byte +0x18"
+      },
+      {
+        "name": "param_7",
+        "type": "u8",
+        "description": "stored at byte +0x22"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "Uses the same mode-byte convention as mcu_limit_block_update, but the +0x18 field is a byte here and a pointer there, so these may be different objects."
+  },
+  "mcu_0160_080071de": {
+    "name": "mcu_band_block_init_compact",
+    "summary": "Initialise a compact band block: bounds, half-span |p4-p5|/2 and mode bytes at +0x1C..+0x1E",
+    "description": "Stores p2 in word 2, p3 in word 0, the bounds p4 and p5 in words 3 and 4, and word 5 = |p4 - p5| / 2. It clears the byte at +0x1C, sets the byte at +0x1D to 1 (enable) and stores p6 at +0x1E. The layout is the same as mcu_band_block_init but without the +0x18 byte, with the mode bytes four bytes lower. Called from mcu_0160_080029ac and mcu_12b_08002b70. Returns 1.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "compact band block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "stored in word 2"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "stored in word 0"
+      },
+      {
+        "name": "param_4",
+        "type": "s32",
+        "description": "bound, word 3"
+      },
+      {
+        "name": "param_5",
+        "type": "s32",
+        "description": "bound, word 4"
+      },
+      {
+        "name": "param_6",
+        "type": "u8",
+        "description": "stored at byte +0x1E"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium"
+  },
+  "mcu_0160_0800721a": {
+    "name": "mcu_lpf_q30_step",
+    "summary": "First-order low-pass step in Q30 (same code as mcu_lpf_q30_step_alt)",
+    "description": "Same operation as mcu_lpf_q30_step_alt (mcu_0160_08007078): state = (a*x + (2^30 - a)*state) >> 30, with the input through param_1, the state through param_2 and the Q30 coefficient in param_3. This copy has about ten callers, the most widely used copy in this build. Callers include mcu_0160_08004e78, mcu_0160_08005090, mcu_0160_08005b3c, mcu_0160_08006c9c, mcu_0160_080070ac, mcu_0160_0800772c, mcu_0160_0800a320, mcu_0160_0800a644, mcu_12b_08005b60 and mcu_143_0800a580.",
+    "category": "filter",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "input sample, s32"
+      },
+      {
+        "name": "param_2",
+        "type": "ptr",
+        "description": "state, s32, updated in place"
+      },
+      {
+        "name": "param_3",
+        "type": "u32",
+        "description": "coefficient a in Q30"
+      }
+    ],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_0800724e": {
+    "name": "mcu_limit_block_arm_setpoint",
+    "summary": "Arm a limit block: set the enable byte at +0x20 to 1 and store two values at +0x08 and +0x1C",
+    "description": "Sets the byte at +0x20 to 1, stores param_2 in word 2 (+0x08) and param_3 in word 7 (+0x1C), and returns 1. This hands a new setpoint and a second value to the block and enables it for the next update. Callers are mcu_0160_08003784 and mcu_0160_08004e78.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "limit block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "setpoint, stored in word 2"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "second value, stored in word 7"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "Word 7 is the output pointer in mcu_limit_block_update, so this writes a value over a pointer. Either it is a different object type or it is a bug. Check the callers."
+  },
+  "mcu_0160_0800725c": {
+    "name": "mcu_band_block_arm_setpoint",
+    "summary": "Arm a compact band block: set the byte at +0x1C to 1 and store two values at +0x08 and +0x18",
+    "description": "Sets the byte at +0x1C to 1, stores param_2 in word 2 (+0x08), stores param_3 in word 6 (+0x18), and returns 1. Callers are mcu_0160_080029ac and mcu_0160_08002b64.",
+    "category": "motor",
+    "params": [
+      {
+        "name": "param_1",
+        "type": "ptr",
+        "description": "compact band block"
+      },
+      {
+        "name": "param_2",
+        "type": "s32",
+        "description": "value stored at +0x08"
+      },
+      {
+        "name": "param_3",
+        "type": "s32",
+        "description": "value stored at +0x18"
+      }
+    ],
+    "returns": {
+      "type": "bool",
+      "description": "always 1"
+    },
+    "confidence": "medium",
+    "notes": "mcu_band_block_init_compact clears the byte at +0x1C and uses +0x1D as its enable, so the relation between these two functions is unclear."
+  },
+  "mcu_0160_0800727c": {
+    "name": "mcu_init_q14_copies_from_200003de",
+    "summary": "Set four RAM words to the byte at 0x200003DE shifted left by 14 (Q14)",
+    "description": "Computes (unsigned value at 0x200003DE) << 14 and stores it at 0x2000024C, then copies the same value to 0x20000258, 0x20000230 and 0x2000023C. All four words therefore start equal to the input in Q14 (0x4000 = 1.0 per unit). Present in the 152 and 0160 builds only. Called from mcu_0160_08003784.",
+    "category": "util",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "medium",
+    "notes": "The width of the source variable at 0x200003DE is not shown; it is read as an unsigned byte here. Its meaning is unknown."
+  },
+  "mcu_0160_08007ba0": {
+    "name": "MemManage_Handler",
+    "summary": "MemManage fault handler: infinite loop",
+    "description": "Cortex-M MemManage exception vector. The body is a bare infinite loop with no fault status saved, so a memory-protection fault halts the core until the watchdog resets it.",
+    "category": "isr",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high"
+  },
+  "mcu_0160_08007ba4": {
+    "name": "mcu_tmr1_pwm_outputs_enable",
+    "summary": "Set TMR1 CH1-3 compare values to 0x1193 and enable channels 1-3 and their complementary outputs",
+    "description": "Writes 0x1193 (4499) to TMR1.C1DT, C2DT and C3DT (0x40012C34, 0x40012C38, 0x40012C3C), so all three PWM channels start at the same duty. It then ORs 0x555 into TMR1.CCTRL (0x40012C20), which sets bits 0, 2, 4, 6, 8 and 10, the output-enable and complementary-enable bits of channels 1 to 3, with polarity left at active-high. The result is three-phase complementary PWM on the motor bridge. Dead-time is not set here. Called from mcu_0160_0800226c.",
+    "category": "pwm",
+    "params": [],
+    "returns": {
+      "type": "void",
+      "description": "none"
+    },
+    "confidence": "high",
+    "notes": "Register writes are certain. The bit names follow the usual timer layout and the duty period is not visible here."
+  }
+}

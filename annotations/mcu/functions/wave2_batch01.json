@@ -1,0 +1,471 @@
+{
+ "mcu_0160_080011ac": {
+  "name": "__udivdi3",
+  "summary": "Unsigned 64-bit division: 64-step restoring divider returning the quotient",
+  "description": "Unsigned 64-bit a / b, with a = (param_1 low word, param_2 high word) and b = (param_3 low word, param_4 high word). Runs 64 iterations from bit 63 down to bit 0: for each bit i it tests (a >> i) >= b as a 64-bit unsigned compare (equivalent to a >= b << i), and when true subtracts b << i from the running remainder and sets bit i of the 64-bit quotient. The shifts go through __aeabi_llsr (mcu_0160_0800192a) and __aeabi_llsl (mcu_0160_0800190c). Division by zero yields 0xFFFFFFFFFFFFFFFF because every compare succeeds. The remainder is not returned.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "dividend, low word"},
+   {"name": "param_2", "type": "u32", "description": "dividend, high word"},
+   {"name": "param_3", "type": "u32", "description": "divisor, low word"},
+   {"name": "param_4", "type": "u32", "description": "divisor, high word"}
+  ],
+  "returns": {"type": "u64", "description": "unsigned quotient a / b; all ones when b is zero"},
+  "confidence": "medium",
+  "notes": "Named after the libgcc unsigned 64-bit divide. The body is a plain restoring loop, not libgcc's normalised version, so the name describes the contract, not the exact code."
+ },
+ "mcu_0160_0800120e": {
+  "name": "__divdi3",
+  "summary": "Signed 64-bit division wrapper around the unsigned divider, sign fixed up afterwards",
+  "description": "Signed 64-bit division. Negates each operand whose high word is negative (two's complement on the 64-bit pair, with the borrow carried into the high word), calls the unsigned divider mcu_0160_080011ac, and negates the 64-bit quotient when the two operand signs differ. The remainder is not produced.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "dividend, low word"},
+   {"name": "param_2", "type": "s32", "description": "dividend, high word (sign carried here)"},
+   {"name": "param_3", "type": "u32", "description": "divisor, low word"},
+   {"name": "param_4", "type": "s32", "description": "divisor, high word (sign carried here)"}
+  ],
+  "returns": {"type": "s64", "description": "signed quotient, truncated toward zero"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_080012a2": {
+  "name": "__aeabi_memclr",
+  "summary": "Zero-fill a buffer: EABI memclr entry that calls the memset routine with value 0",
+  "description": "Two-instruction wrapper: calls __aeabi_memset (mcu_0160_08001294) with fill byte 0 for the (destination, byte count) pair it received in r0 and r1. Used by the C runtime and by struct initialisers.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "destination buffer"},
+   {"name": "param_2", "type": "u32", "description": "number of bytes to clear"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_080012a6": {
+  "name": "memset",
+  "summary": "ISO C memset(s, c, n): fill n bytes with byte c and return s",
+  "description": "Thin wrapper that reorders its arguments into the EABI order of __aeabi_memset (mcu_0160_08001294: dest, count, value) and returns the destination pointer. Entered directly, with no visible callers in this component (only through a function pointer or the C library).",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "destination s"},
+   {"name": "param_2", "type": "s32", "description": "fill value c (only the low byte is used)"},
+   {"name": "param_3", "type": "u32", "description": "byte count n"}
+  ],
+  "returns": {"type": "ptr", "description": "the destination pointer s"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_080012b8": {
+  "name": "__aeabi_fadd",
+  "summary": "Soft-float IEEE-754 single-precision add (no FPU), raw bit patterns in and out",
+  "description": "Adds two single-precision values given as raw bit patterns. The operand with the larger magnitude (magnitude compared with the sign shifted out) becomes the base, and the other significand is shifted right by the exponent difference, keeping guard bits. When the difference is 32 or more the result is the larger operand, adjusted by one ulp for the sticky bit when the signs differ. Equal signs add significands; different signs subtract them (the sign xor is kept in uVar4). The result is renormalised with CLZ and rounded to nearest-even from the guard and sticky bits. A zero second operand returns the first unchanged. NaN, infinity and denormal inputs are not special-cased.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "addend a, IEEE-754 bits"},
+   {"name": "param_2", "type": "u32", "description": "addend b, IEEE-754 bits"}
+  ],
+  "returns": {"type": "u32", "description": "a + b as IEEE-754 bits"},
+  "confidence": "medium",
+  "notes": "The packet's callee list for this function names __aeabi_ui2f and __aeabi_fdiv, but the decompiled body makes no calls. Treat that list as stale. The rounding and subtract paths were checked against the code only, not against a reference model."
+ },
+ "mcu_0160_0800135c": {
+  "name": "__aeabi_fsub",
+  "summary": "Soft-float single-precision subtract a - b: negate b and tail-call the add",
+  "description": "Computes a - b by flipping the sign bit of b and tail-calling __aeabi_fadd (mcu_0160_080012b8). Same special-case behaviour as the add.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "minuend a, IEEE-754 bits"},
+   {"name": "param_2", "type": "u32", "description": "subtrahend b, IEEE-754 bits"}
+  ],
+  "returns": {"type": "u32", "description": "a - b as IEEE-754 bits"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_08001362": {
+  "name": "mcu_float_rsub",
+  "summary": "Reverse float subtract: returns the second argument minus the first",
+  "description": "Flips the sign bit of its one visible argument (r0) and tail-calls __aeabi_fadd. The second addend is not a parameter in the decompile, so it is whatever the caller left in r1; the net result is r1 + (-r0) = r1 - r0, a reverse subtract. The only caller seen in this component is mcu_0160_08005830.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "value to subtract, IEEE-754 bits (r0); the minuend is passed in r1 and is not visible here"}
+  ],
+  "returns": {"type": "u32", "description": "r1 - r0 as IEEE-754 bits"},
+  "confidence": "medium",
+  "notes": "The reverse-subtract reading depends on the caller leaving the minuend in r1. Check the disassembly of mcu_0160_08005830 before relying on it."
+ },
+ "mcu_0160_080013e4": {
+  "name": "mcu_i2f_lzc",
+  "summary": "Signed int32 to float conversion, CLZ-normalised with round-to-nearest-even",
+  "description": "Converts a signed 32-bit integer to IEEE-754 single precision. Takes the absolute value (sign kept in bit 31), normalises it with LZCOUNT so the leading one is bit 31, sets the biased exponent to 0x9D minus the shift (157 - clz) and packs mantissa bits 30..8 with the exponent added in, which also restores the implicit one. Rounds to nearest-even on bit 7 with bits 6..0 as sticky. Zero returns 0. The operation matches __aeabi_i2f (mcu_0160_08001d48); this is a second copy with a different code shape, so the name avoids a clash.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "integer to convert"}
+  ],
+  "returns": {"type": "u32", "description": "IEEE-754 single-precision bits of (float) param_1"},
+  "confidence": "medium",
+  "notes": "The packet's callee list names __aeabi_ui2f for this function, but the body makes no calls and is signed, so that entry is stale. The rounding path was read from the decompile only."
+ },
+ "mcu_0160_080014cc": {
+  "name": "__aeabi_dadd",
+  "summary": "Soft-float IEEE-754 double add/subtract (no FPU) on 64-bit word pairs",
+  "description": "Adds two doubles passed as (low word, high word) pairs. Operands are ordered by magnitude, and the smaller significand is shifted right by the exponent difference (up to 63 bits, using __aeabi_llsl and __aeabi_lasr); larger differences drop it. Equal signs add the 53-bit significands; different signs subtract them, so subtraction is folded into this routine with no separate dsub body. Results with a small exponent difference are renormalised through mcu_dbl_round_pack (mcu_0160_080019fa), others are rounded inline to nearest-even. A zero operand returns the other one. The decompiled return is only 32 bits; the 64-bit result is returned in r0:r1.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "operand a, low word"},
+   {"name": "param_2", "type": "u32", "description": "operand a, high word (sign, exponent, top mantissa bits)"},
+   {"name": "param_3", "type": "u32", "description": "operand b, low word"},
+   {"name": "param_4", "type": "u32", "description": "operand b, high word"}
+  ],
+  "returns": {"type": "u64", "description": "a + b as an IEEE-754 double (r0 low, r1 high)"},
+  "confidence": "medium",
+  "notes": "The packet's callee list for this body also names __aeabi_ddiv, which is not called here. The Ghidra return type is 32-bit even though the result is 64-bit."
+ },
+ "mcu_0160_0800161a": {
+  "name": "__aeabi_dmul",
+  "summary": "Soft-float IEEE-754 double multiply (no FPU) using 32x32 partial products",
+  "description": "Multiplies two doubles given as word pairs. Splits each 53-bit significand into 32-bit pieces and forms the 106-bit product from partial products (the 32x32 products of the low and high pieces, plus the cross terms). Biased exponents are added and 0x3FF is subtracted, the sign is the xor of the two sign bits, and the wide product is passed to mcu_dbl_round_pack (mcu_0160_080019fa), which normalises, rounds and packs. The result is returned by that tail call in r0:r1.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "multiplicand a, low word"},
+   {"name": "param_2", "type": "u32", "description": "multiplicand a, high word"},
+   {"name": "param_3", "type": "u32", "description": "multiplier b, low word"},
+   {"name": "param_4", "type": "u32", "description": "multiplier b, high word"}
+  ],
+  "returns": {"type": "void", "description": "the 64-bit product is left in r0:r1 by the tail call; the decompile shows no value"},
+  "confidence": "medium",
+  "notes": "When either operand is zero the decompiled body returns without writing r0:r1, so the zero result depends on what those registers hold. Check the disassembly for this path."
+ },
+ "mcu_0160_0800180a": {
+  "name": "mcu_ui2d_low_word",
+  "summary": "Packs a 32-bit integer as a double with exponent 0x433 and returns the low word",
+  "description": "Calls mcu_dbl_round_pack with the integer as the mantissa, sign 0 and biased exponent 0x433 (the 2^52 frame where the low mantissa word carries the integer), and returns the low 32 bits of the packed double. The caller treats the result as a 32-bit integer. This looks like a magic-constant integer-to-double conversion whose high word is discarded.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "unsigned integer to pack"}
+  ],
+  "returns": {"type": "u32", "description": "low word of the packed double"},
+  "confidence": "low",
+  "notes": "Whether the result equals the input for every value is not established; only the packing arguments are certain. Callers mcu_0160_08003178 and mcu_0160_08004768 are outside this batch."
+ },
+ "mcu_0160_0800187e": {
+  "name": "__aeabi_d2iz",
+  "summary": "Soft-float IEEE-754 double to signed int32, truncating toward zero",
+  "description": "Takes a double as (low word, high word). Biased exponents below 0x3FF (|x| < 1) return 0. For exponents from 0x3FF to 0x433 the significand with the implicit one restored (high word bits 19..0 plus 0x100000) is shifted right by 0x433 - exponent through __aeabi_llsr and the low 32 bits are returned, negated when the sign bit is set. For exponents of 0x434 and above the low word is shifted left by exponent - 0x433 with no saturation, so out-of-range values wrap.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "double, low word"},
+   {"name": "param_2", "type": "u32", "description": "double, high word"}
+  ],
+  "returns": {"type": "s32", "description": "x truncated toward zero, wrapped on overflow"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_080019fa": {
+  "name": "mcu_dbl_round_pack",
+  "summary": "Normalise, round to nearest-even and pack a double from a wide mantissa and exponent",
+  "description": "Shared tail of the soft-float double routines. Takes a wide significand in param_1..param_4 (two words for the value and a sticky pair), normalises with CLZ on the high word, shifts right by 11 to get a 53-bit significand, and rounds to nearest-even with bit 10 as the guard bit and the low 10 bits as sticky. The exponent is param_7 minus the normalisation shift plus 10, placed in the high word bits 20 and up, and the sign comes from param_6. Results whose exponent goes negative return 0 (flush to zero). There is no overflow-to-infinity branch.",
+  "category": "libc",
+  "params": [
+   {"name": "param_1", "type": "u32", "description": "significand low word"},
+   {"name": "param_2", "type": "s32", "description": "significand high word (CLZ taken from here when non-zero)"},
+   {"name": "param_3", "type": "s32", "description": "extra low bits or sticky word, low"},
+   {"name": "param_4", "type": "s32", "description": "extra low bits or sticky word, high"},
+   {"name": "param_5", "type": "u32", "description": "addend for the low result word (rounding carry input)"},
+   {"name": "param_6", "type": "s32", "description": "sign bit to OR in (0 or 0x80000000)"},
+   {"name": "param_7", "type": "s32", "description": "biased exponent before normalisation"}
+  ],
+  "returns": {"type": "u64", "description": "packed IEEE-754 double (r0 low, r1 high), or 0 on underflow"},
+  "confidence": "medium",
+  "notes": "The decompile contains an unmodelled FUN_0800190c() call with no arguments at the start of the body, so the exact handling of the sticky words is inferred. Callers are __aeabi_dadd, __aeabi_dmul and mcu_ui2d_low_word."
+ },
+ "mcu_0160_08001a98": {
+  "name": "mcu_startup_init_table_main",
+  "summary": "Startup: runs the two-entry init table at 0x0800F634, then tail-calls the app main",
+  "description": "Walks a table of 16-byte records in flash from 0x0800F634 up to 0x0800F654 (two records). Each record holds three 32-bit arguments and a function pointer, and the loop calls the pointer with the three arguments, in the style of a scatter-load (typically copy-initialised data and zero-initialised BSS; the table targets are not decoded in this batch). After the loop it calls thunk_FUN_0800D548 (app_main_thunk, mcu_0160_08001178) and then halt_baddata, so the routine does not return in normal operation. It runs after the reset path's clock and vector setup.",
+  "category": "startup",
+  "params": [],
+  "returns": {"type": "void", "description": "none; never returns in normal operation"},
+  "confidence": "medium",
+  "notes": "The decompiler flags bad instruction data after the app-main call, and the function ends in halt_baddata, so the code after the call is probably a trap. The copy and zero targets are inferred from the record layout and the wave-1 Reset_Handler notes."
+ },
+ "mcu_0160_08001e5a": {
+  "name": "mcu_cascade_observer_step",
+  "summary": "Three-stage cascaded observer step: Q30 low-pass plus two gain-K integrator stages",
+  "description": "Advances a three-stage observer kept in a block of words (byte offsets used here). +0x00 is the integer gain K, +0x04, +0x08 and +0x0C are Q30 coefficients a1, a2 and a3, +0x10 holds the input x, +0x18 is the state s0, +0x20 and +0x28 are the states of stages 2 and 3, and the byte at +0x2C enables the observer. When enabled, stage 1 is a Q30 one-pole low-pass v1 = s0 + a1*(x - s0). Stage 2 is w = s2 + a2*K*(x - s0), stage 3 is y = s3 + a3*2*K*K16*(x - s0) (K16 is the low half of K), and the returned estimate is s0 = v1 + w/K + (y/K^2)/2, with the states updated to w + y/K and y. When disabled it just stores x and returns it.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "observer block (K, coefficients, input, states, enable byte at +0x2C)"},
+   {"name": "param_2", "type": "s32", "description": "new input sample x"}
+  ],
+  "returns": {"type": "s32", "description": "fused estimate (state s0), or x when disabled"},
+  "confidence": "low",
+  "notes": "The decompile indexes the block with ushort offsets, and the byte offsets above come from that indexing. What the observer tracks (speed, angle or position) is not settled by this function alone. Caller mcu_0160_08002e9c adds a Q30 low-pass at +0x40."
+ },
+ "mcu_0160_08001f34": {
+  "name": "mcu_adc1_dma_init",
+  "summary": "Starts DMA1 channel 1 as a circular ADC1 ordinary-data to RAM ring transfer",
+  "description": "Enables a peripheral clock (crm_periph_clock_enable with ID 0x00140000), resets DMA1 channel 1 (dma_reset on base 0x40020008) and loads the SDK defaults into a dma_init_type record (dma_default_para_init). The record is filled as: peripheral address 0x4001244C (ADC1 ordinary data register ODT), memory address 0x20000FB4, peripheral to memory, 200 halfwords, peripheral increment off, memory increment on, half-word widths on both sides, circular loop mode, priority 2. The channel is then configured with dma_init and enabled with dma_channel_enable. The ring at 0x20000FB4 holds 40 scans of 5 ADC results each, which mcu_0160_0800249c reads back.",
+  "category": "dma",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Field meanings of dma_init_type follow the SDK layout as inferred from the stack writes. The clock ID 0x00140000 is an SDK encoding whose target peripheral is not confirmed. A call mcu_ctx_cfg_byte_set(&DMA1, 1) sits between the DMA setup calls. Its argument is the DMA1 register window (0x40020000), but mcu_ctx_cfg_byte_set writes at +0xA0 and +0xA4 of its first argument, so this call looks misidentified and should be checked against the disassembly."
+ },
+ "mcu_0160_0800209c": {
+  "name": "mcu_speed_from_period_min",
+  "summary": "Speed estimate from the minimum of 20 captured periods, table lookup, status code",
+  "description": "Every 20th call (the counter DAT_20000290 wraps at 20) pushes the current filtered capture DAT_20000F58 into a 20-entry ring of s32 at DAT_20000294 (index DAT_20000282, wrapping modulo 20). The minimum of the ring (mcu_array_min_s32) is looked up in a 236-entry descending u16 table at 0x0800F45C with mcu_u16_table_bsearch_desc, giving DAT_2000028C = (index - 30) << 15 in Q15, a speed-like value. While DAT_20000B20 > 500 the status byte at *param_1 is set from the minimum: 0xFE below 16, 0 from 16 to 3999, 0xFD at 4000 and above. The function returns DAT_2000028C while DAT_20000B20 > 500, otherwise the fallback 0xC8000 (25.0 in Q15).",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "status byte output (0xFE, 0 or 0xFD)"}
+  ],
+  "returns": {"type": "s32", "description": "speed in Q15 (table index minus 30, shifted by 15), or 0xC8000 when not yet valid"},
+  "confidence": "medium",
+  "notes": "The units of the captured period and the meaning of the table are inferred from the shape of the code (period to speed inverse table). DAT_20000B20 is read as a validity or warm-up count, which is also an inference."
+ },
+ "mcu_0160_08002148": {
+  "name": "mcu_speed_from_max_u12",
+  "summary": "Speed estimate from the maximum of 20 samples of a 12-bit channel, with a status code",
+  "description": "Companion of mcu_speed_from_period_min for the second filtered channel DAT_20000F5C. It uses the same 20-entry ring (at DAT_20000F64, index DAT_20000280) and every-20-call cadence, but takes the maximum (mcu_array_max_s32) and looks up 0x1000 - max in the same 236-entry table at 0x0800F45C, storing (index - 30) << 15 in DAT_20000284. While DAT_20000B20 > 500 the status byte at *param_1 is set from the maximum: 0xFD when it is below 0x51, 0 from 0x51 to 0xFF0, and 0xFE from 0xFF1 up, which are the regions near the two wrap points of a 12-bit value. Returns DAT_20000284, or 0xC8000 before the validity count passes.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "status byte output (0xFE, 0 or 0xFD)"}
+  ],
+  "returns": {"type": "s32", "description": "speed in Q15 (table index minus 30, shifted by 15), or 0xC8000 when not yet valid"},
+  "confidence": "medium",
+  "notes": "The 12-bit channel is taken to be an angle-like or position-like counter from its 0x1000 wrap and thresholds. The status code thresholds are read directly from the compare chain."
+ },
+ "mcu_0160_08002240": {
+  "name": "mcu_phase_current_read",
+  "summary": "Reads the phase-current pair for the current ADC sequence and derives the third phase if enabled",
+  "description": "Calls mcu_0160_080025d8 with the mode code in DAT_20000071 (0x11, 0x22 or 0x33, which select which two of the three phase inputs were measured in this window) to fill param_1[0] and param_1[1]. When DAT_200003D7 is nonzero the second element is replaced by -(param_1[0] + param_1[1]), so the pair then satisfies Kirchhoff's current law with the sum of the three phases equal to zero. The caller must read the pair according to that mode.",
+  "category": "adc",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "two-word phase current output (s32 each, Q15 scaled)"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Only the caller mcu_0160_08003148 is known. The meaning of DAT_200003D7 as a three-phase-sum flag is inferred from its use."
+ },
+ "mcu_0160_0800249c": {
+  "name": "mcu_adc_dma_median5",
+  "summary": "Five-sample temporal median of the five ADC channels from the DMA ring into DAT_20000F58..F60",
+  "description": "Reads the DMA1 channel 1 remaining count through dma_data_number_get and converts it to the current scan index (39 - remaining / 5) in the 40-row ring at 0x20000FB4 (rows of five halfwords, one per scan). It copies the five most recent scans into a local 5x5 array transposed so each channel's five samples are contiguous, then mcu_sort_u16_exchange sorts each channel's five samples ascending and the middle value is stored in the filtered channel array DAT_20000F58 + 2*channel. A median rejects single-sample ADC spikes. DAT_20000F58 (channel 0) is read by mcu_speed_from_period_min and DAT_20000F5C (channel 2) by mcu_speed_from_max_u12.",
+  "category": "adc",
+  "params": [],
+  "returns": {"type": "void", "description": "none; writes DAT_20000F58..DAT_20000F60"},
+  "confidence": "medium",
+  "notes": "The write to (&DAT_20000F58)[channel] is decoded with a 1-byte index stride in the decompile. The 2-byte stride is inferred from the readers. The row index skips row 0 because the wrap test uses < 1."
+ },
+ "mcu_0160_08002548": {
+  "name": "mcu_adc_injected_seq_select",
+  "summary": "Programs the ADC1 injected sequence order for the three phase-pair modes",
+  "description": "Sets the ADC1 injected (preempt) conversion sequence for mode 0x11, 0x22 or 0x33. Mode 0x11 ranks channels 6, 7, 5; mode 0x22 ranks 5, 7, 6; mode 0x33 ranks 5, 6, 7 (ranks 1 to 3), each through adc_preempt_channel_set on ADC1. Other values do nothing. The three mode codes are the same ones passed to mcu_0160_080025d8, so the rank order follows the phase-pair being sampled.",
+  "category": "adc",
+  "params": [
+   {"name": "param_1", "type": "s32", "description": "mode code 0x11, 0x22 or 0x33"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "Channels 5, 6 and 7 are taken to be the phase-current sense inputs by inference. The first call in each group leaves the fourth (sample-time) argument unmodelled, so the sample time is the SDK default."
+ },
+ "mcu_0160_080025d8": {
+  "name": "mcu_phase_current_from_adc",
+  "summary": "Converts injected ADC results to offset-corrected phase currents with Kirchhoff reconstruction",
+  "description": "Reads injected results 0 and 1 from ADC1 (adc_preempt_conversion_data_get; result 2 is read and discarded) as (raw & 0xFFF) << 15. Each value has a calibrated zero-current offset subtracted (DAT_20001144, DAT_20001148, DAT_2000114C, one per phase), and the phase that was not measured is derived as -(sum of the other two). The scale K = (DAT_200003F0 << 15) / DAT_20000A60 is recomputed each call, with DAT_20000A60 clamped to 0x6666..0xA666, and each current is multiplied by -K in Q15 with a 64-bit product shifted right 15. Outputs go to param_1[0], param_1[1] and DAT_20000300, and the raw history is kept in DAT_200002E4..DAT_200002FC. DAT_20000070 selects a hold mode (0 restores the previous samples; 1 keeps the freshly measured phase or phases chosen by DAT_20000072 and restores the others), and some of those branches are only partly decoded.",
+  "category": "adc",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "output pair: phase current a and phase current b (s32 Q15)"},
+   {"name": "param_2", "type": "s32", "description": "mode code 0x11, 0x22 or 0x33, selecting which phases were measured"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "low",
+  "notes": "Several hold-mode branches (DAT_20000070 and DAT_20000072 combinations) are only partly decoded, and the sign convention of the -K scaling is taken as written. Checked against the decompile only."
+ },
+ "mcu_0160_080028c0": {
+  "name": "mcu_sort_u16_exchange",
+  "summary": "In-place exchange sort of a u16 array, descending when flag is 0, ascending otherwise",
+  "description": "Simple O(n^2) exchange sort of n halfword values in place. When the flag is 0 it swaps any pair where the earlier element is smaller, leaving the array in descending order; when the flag is nonzero it swaps where the later element is smaller, giving ascending order. Each swap goes through mcu_swap_u16. Used on five-sample windows for the temporal median in mcu_adc_dma_median5.",
+  "category": "util",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "u16 array base"},
+   {"name": "param_2", "type": "u32", "description": "element count n"},
+   {"name": "param_3", "type": "s32", "description": "order flag: 0 descending, nonzero ascending"}
+  ],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_080029ac": {
+  "name": "mcu_ctrl_block_init_default",
+  "summary": "Initialises a control block: parameter blocks, a compact band block and its setpoint",
+  "description": "Initialises a motor control block whose base is param_1 and returns 1. It calls mcu_param_block3_init_checked on the sub-block at +0x20 with the constants 1000, 0x11859820 and 0x12F1E16, passes its other arguments through to mcu_param_block8_init_checked for the whole block, initialises a compact band block at +0x50 with bound 0x1F30A6E, half-span from the words at +0xDC, mode 1 (mcu_band_block_init_compact), and then arms it with 0x2533914 and 0x3C2B6380 (mcu_band_block_arm_setpoint). The raw constants are fixed-point or IEEE-754 words; their units are not confirmed.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "control block base"},
+   {"name": "param_2", "type": "u32", "description": "forwarded to the 8-word parameter block initialiser"},
+   {"name": "param_3", "type": "u32", "description": "forwarded"},
+   {"name": "param_4", "type": "u32", "description": "forwarded"},
+   {"name": "param_5", "type": "u32", "description": "forwarded"},
+   {"name": "param_6", "type": "u32", "description": "forwarded"},
+   {"name": "param_7", "type": "u32", "description": "forwarded"},
+   {"name": "param_8", "type": "u32", "description": "forwarded"},
+   {"name": "param_9", "type": "u32", "description": "forwarded"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "medium",
+  "notes": "This build (MCU 143, 152, 0160) only. The 12b counterpart is mcu_12b_ctrl_block_init."
+ },
+ "mcu_12b_08002a3c": {
+  "name": "mcu_12b_speed_band_update",
+  "summary": "12b-build speed band update: recompute filter coefficients when out of band, then rate-limited update",
+  "description": "The 12b-only counterpart of the band update in mcu_0160_08002b64 (smaller). It tests the difference p[0x29] - p[0x31] against p[1] and the sign of p[0x31] and p[0x29]. When out of band it recomputes an alpha pair with the same constants (2*pi, 0.005, 1.0 as IEEE-754 bit patterns), scales by 2^30 and converts, stores the result at p[0x1E] and sets the byte at +0x7C, and writes 0x37366F40 to p[0x1A]; when in band it stores 0x1F30A6E in p[0x1E]. It then copies 0xB8 bytes of the block to a stack buffer, calls mcu_12b_select_stack_local_fragment and updates p[0x29] and the flag byte at +0x7C according to range checks.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "int word block (speed, band and flag fields)"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "low",
+  "notes": "Only the structure and the constants are certain. The field meanings are inferred from the matching 0160 function, and the range checks are not fully decoded."
+ },
+ "mcu_0160_08002a64": {
+  "name": "mcu_ctrl_ramp_limit_update",
+  "summary": "Ramp limiter with rising and falling edge handling for a control output",
+  "description": "Edge-aware ramp for a control output. Byte +0xB0 is the current enable and +0xB1 the previous one. On a rising edge, +0x90, +0x94 and DAT_20000738 are set to param_4 times gain +0x18 in Q15, and on a falling edge +0x94 is scaled by 0x9999/32768 (about 0.6). While disabled, +0x94 is slewed toward param_2: the step is q15_div_sat(+0x1C, rate), where rate is +0xA0 clamped to 0xCCC..0x10000 and forced to 0xCCC when +0x10 <= rate, and the value moves by the step or snaps to the target when within one step. While enabled, +0x90 is multiplied by the Q15 gain at +0x14. If param_5 is nonzero, *param_3 is min-clamped to the computed value, and the function returns 1 only when param_5 is set and the block is enabled.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "ramp block (enable bytes at +0xB0/+0xB1, accumulators at +0x90/+0x94, gains and limits)"},
+   {"name": "param_2", "type": "s32", "description": "target value"},
+   {"name": "param_3", "type": "ptr", "description": "output word, min-clamped when param_5 is set"},
+   {"name": "param_4", "type": "s32", "description": "input value used on the rising edge (scaled by gain +0x18)"},
+   {"name": "param_5", "type": "s32", "description": "clamp enable (nonzero to clamp the output)"}
+  ],
+  "returns": {"type": "s32", "description": "1 when clamp enabled and block enabled, else 0"},
+  "confidence": "medium",
+  "notes": "While the block is enabled the clamp uses the value 0 (iVar5 stays 0 there), so *param_3 is clamped to min(*param_3, 0) on that path. This matches the code but looks odd and is worth checking against the callers."
+ },
+ "mcu_0160_08002b64": {
+  "name": "mcu_speed_lpf_band_update",
+  "summary": "Speed-adaptive band update: recomputes Q30 filter alphas, sets band flags and accumulators",
+  "description": "Structure of the 0160-build band update (about 280 instructions, so this summarises it). When the difference p[0x37] - p[0x26] is outside the band from p[0] or a value is below 1, it recomputes two Q30 first-order filter coefficients alpha = wT/(1+wT), with w = 2*pi*f and T = 0.005 s (IEEE-754 constants 0x40C90FDC, 0x3BA3D70A and 0x3F800000). Here f is a clamped function of |param_2| and a second clamped quotient 0xC80000/param_2, each converted to Q30 by __ARM_scalbnf and __aeabi_f2iz, and armed on the band block at +0x14 with mcu_band_block_arm_setpoint. In band, +0x14 is armed with 0xFD6114 or 0x37366F40 depending on the flag at +0x2C. The global DAT_20000734 is set from a stack-local comparison (mcu_select_stack_local_fragment) when p[0x27] is below 0x18000, and +0x26 takes the maximum of p[3] and the value from mcu_0160_08007160. The accumulators p[0x29], p[0x2A] and p[0x2B] and the filtered output p[0x27] are then updated from the magnitude of param_2.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "int word block of the speed/band object (fields at +0x00..+0xB0)"},
+   {"name": "param_2", "type": "s32", "description": "signed speed-like input"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "low",
+  "notes": "The field meanings and the threshold constants are inferred. mcu_0160_08007160 is not described yet. The 12b counterpart is mcu_12b_speed_lpf_band_update."
+ },
+ "mcu_12b_08002b70": {
+  "name": "mcu_12b_ctrl_block_init",
+  "summary": "12b-build control block init: defaults, a parameter block and two compact band blocks",
+  "description": "The 12b-build counterpart of mcu_ctrl_block_init_default. It writes the defaults 1000, 0x11859820, 0x12F1E16 and 0 into the words at +0x10..+0x1C, sets the byte at +0x3C to 1 and calls mcu_param_block4_init_checked with the four parameters. It then initialises two compact band blocks, at +0x40 and +0x60, each with bound 0x1F30A6E and half-span from the words at +0xC4. After each band init it overwrites the words at +0x48 and +0x58 with 0x2533914 and 0x3C2B6380 in swapped order and sets the byte at +0x5C to 1. Returns 1.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "control block base"},
+   {"name": "param_2", "type": "u32", "description": "forwarded to mcu_param_block4_init_checked"},
+   {"name": "param_3", "type": "u32", "description": "forwarded"},
+   {"name": "param_4", "type": "u32", "description": "forwarded"},
+   {"name": "param_5", "type": "u32", "description": "forwarded"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "medium",
+  "notes": "The overwrites of +0x48 and +0x58 land inside the first band block, so the first block's setpoints are the swapped pair. This follows the code exactly, but the intent is not clear."
+ },
+ "mcu_12b_08002c3e": {
+  "name": "mcu_12b_ramp_limit_update",
+  "summary": "12b-build ramp limiter: halve on enable, decay to 0.6 on disable, slew toward the target",
+  "description": "Ramp limiter for the 12b build. Byte +0x9C is the current enable and +0x9D the previous one. On a rising edge the accumulator at +0x80 is halved, and on a falling edge it is multiplied by 0x9999/32768 (about 0.6). While disabled, the accumulator slews toward param_2 by a step of 0x8000 / rate (Q15 reciprocal), with rate from +0x8C clamped to 0xCCC..0x10000 and forced to 0xCCC when +0x0C <= rate, and it snaps to the target when within one step. When param_4 is nonzero *param_3 is min-clamped to the output, which is the accumulator while disabled and 0 while enabled. Returns 1 only when param_4 is set and the block is enabled.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "ramp block (enable bytes at +0x9C/+0x9D, accumulator at +0x80, rate and limit words)"},
+   {"name": "param_2", "type": "s32", "description": "target value"},
+   {"name": "param_3", "type": "ptr", "description": "output word, min-clamped when param_4 is set"},
+   {"name": "param_4", "type": "s32", "description": "clamp enable (nonzero)"}
+  ],
+  "returns": {"type": "u32", "description": "1 when clamp enabled and block enabled, else 0"},
+  "confidence": "medium",
+  "notes": "This is the 12b analogue of mcu_ctrl_ramp_limit_update, without the edge-initialisation from a gain. The output-clamp-to-0 on the enabled path matches the 0160 version."
+ },
+ "mcu_12b_08002d0c": {
+  "name": "mcu_12b_speed_lpf_band_update",
+  "summary": "12b-build speed-adaptive band update, the counterpart of the 0160 band function",
+  "description": "The 12b counterpart of mcu_0160_08002b64, with the same overall flow. It checks p[0x21] (the speed-like value at +0x84) against p[0x31] and the band limits, and when out of band it recomputes two Q30 alpha coefficients from the 2*pi*0.005 constants (scalbnf by 30, then a float to int conversion) and writes them into p[0x12] and p[0x16] with the flag byte at +0x5C. A Q15 accumulator is then driven from the sign-band tests on p[0x25] against -0x4FFFF and p[0x24] against 0xC8000, and a global flag DAT_20000720 is set from them. Accumulators p[0x23..0x26] and the filtered value p[0x22] are updated from the magnitude of param_2, as in the 0160 build.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "int word block of the speed/band object"},
+   {"name": "param_2", "type": "s32", "description": "signed speed-like input"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "low",
+  "notes": "Structure matches mcu_0160_08002b64 but the field offsets and the flag (DAT_20000720 rather than DAT_20000734) differ. Read the details from the disassembly before relying on them. Caller mcu_12b_08002c26 is outside this batch."
+ },
+ "mcu_0160_08002e9c": {
+  "name": "mcu_position_observer_update",
+  "summary": "Per-sample position observer update: cascade observer step, then Q30 low-pass of the estimate",
+  "description": "Runs mcu_cascade_observer_step on the input with the observer block at +0x20 (the estimate it returns is not used here). It then runs mcu_lpf_q30_step_alt on the state at +0x40 with the word at +0xD8 as its input and the coefficient 0x03C89460 (about 0.059 in Q30), and stores the raw input at +0xDC for the next call. Returns 1.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "observer object (observer block at +0x20, filter state at +0x40, input word at +0xD8, last input at +0xDC)"},
+   {"name": "param_2", "type": "s32", "description": "raw sample for this period"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "medium",
+  "notes": "The link between the cascade's estimate and the word at +0xD8 is not visible in this function. The 12b build's counterpart is mcu_12b_position_observer_update."
+ },
+ "mcu_12b_08003010": {
+  "name": "mcu_12b_position_observer_update",
+  "summary": "12b-build position observer update: cascade observer step, then Q30 low-pass, store input",
+  "description": "The 12b build of mcu_position_observer_update, with the same steps at 12b offsets: mcu_cascade_observer_step on the block at +0x10, mcu_lpf_q30_step_alt on the state at +0x30 with the input word at +0xC0 and coefficient 0x03C89460 (about 0.059 in Q30), and the raw input stored at +0xC4. Returns 1.",
+  "category": "motor",
+  "params": [
+   {"name": "param_1", "type": "ptr", "description": "observer object (observer block at +0x10, filter state at +0x30, input word at +0xC0, last input at +0xC4)"},
+   {"name": "param_2", "type": "s32", "description": "raw sample for this period"}
+  ],
+  "returns": {"type": "u32", "description": "always 1"},
+  "confidence": "medium",
+  "notes": "Same algorithm as mcu_position_observer_update, at the 12b layout. The packet's callee name for the observer step is mcu_0160_08001e5a, so this build calls the 0160 routine by the same behaviour."
+ },
+ "mcu_0160_080030f4": {
+  "name": "mcu_tmr4_ch4_compare_clear",
+  "summary": "Writes 0 to the TMR4 channel 4 compare register",
+  "description": "Calls tmr_channel_value_set(&TMR4, 4, 0), which writes compare value 0 to the compare register selected by channel code 4 (C4DT in the SDK layout). It is the single step of a TMR4 channel 4 clear routine; the call site mcu_0160_08003060 is outside this batch.",
+  "category": "timer",
+  "params": [],
+  "returns": {"type": "void", "description": "none"},
+  "confidence": "medium",
+  "notes": "The channel code 4 is passed literally. If the SDK enum is zero-based the channel may be 3. Check tmr_channel_value_set's encoding."
+ },
+ "mcu_0160_08003130": {
+  "name": "mcu_main_ctx_flag4_clear",
+  "summary": "Returns true when the flag byte at +0x04 of the main context object is clear",
+  "description": "Wrapper for mcu_ctx_flag4_is_clear applied to the global context pointer DAT_2000002C. Returns 1 when the byte at +0x04 of that object is zero, otherwise 0.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "bool", "description": "true when the context flag at +0x04 is clear"},
+  "confidence": "high",
+  "notes": ""
+ },
+ "mcu_0160_0800314c": {
+  "name": "mcu_position_outlier_reject",
+  "summary": "Accepts a new half-scale position sample unless it jumps more than 0x15E0000 from the last one",
+  "description": "Reads the word at +0x6C of the context DAT_2000002C with mcu_get_word_at_0x6c and halves it (>> 1) into DAT_200000A4. If that differs from DAT_200000A0 by more than 0x15E0000 in either direction, the old value DAT_200000A0 is returned and the new one is not accepted; otherwise the new value is returned. DAT_200000A0 is not written in this function, so the caller decides when the new value becomes the reference.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "s32", "description": "the new half-scale position, or the previous reference on a jump"},
+  "confidence": "medium",
+  "notes": "The units of the 0x15E0000 threshold are position units of the context word, which are not confirmed."
+ },
+ "mcu_0160_080031b8": {
+  "name": "mcu_position_multiturn_half",
+  "summary": "Returns the half-scale multi-turn position of the main context object",
+  "description": "Calls mcu_position_multiturn_compute on the global context DAT_2000002C and returns the result arithmetically shifted right by one, which halves the position scale.",
+  "category": "motor",
+  "params": [],
+  "returns": {"type": "s32", "description": "multi-turn position >> 1"},
+  "confidence": "high",
+  "notes": ""
+ }
+}

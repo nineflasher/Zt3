@@ -1,0 +1,373 @@
+{
+  "mcu_0160_0800141c": {
+    "name": "mcu_adc1_preempt_init_thunk",
+    "summary": "Tail-jump into the ADC1 injected-group init and calibration routine at 0x08001FB0",
+    "description": "One-instruction thunk with no arguments that branches to mcu_adc1_preempt_init_calibrate (0x08001FB0) and returns nothing of its own. The caller at 0x0800325C uses it as the ADC1 injected (preempt) bring-up entry, so the whole sequence lives in the callee. It is part of the ADC1 init group with mcu_adc1_dma_init and mcu_adc1_ordinary_init.",
+    "category": "adc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_08001fb0": {
+    "name": "mcu_adc1_preempt_init_calibrate",
+    "summary": "Set up ADC1 injected channels 5-7 on PA5..PA7, select trigger, enable and calibrate ADC1",
+    "description": "Brings ADC1 up for injected (preempt) conversions. PA5, PA6 and PA7 are switched to analog mode (mcu_gpio_pin_setup, mode code 3), the ADC1 clock is enabled through crm_periph_clock_enable with packed id 0x180009 (APB2 bit 9), and the ADC clock divider is set to 0 (crm_adc_clock_div_set). The injected sequence length is set to 3 (adc_preempt_channel_length_set, which stores length minus 1), channels 5, 6 and 7 are placed at injected ranks 1 to 3 (adc_preempt_channel_set), preempt trigger source 1 is selected (adc_preempt_conversion_trigger_set), interrupt mask 0x80 is enabled (adc_interrupt_enable) and ADCEN is set (mcu_adc_set_enable). It ends with the two-step calibration: mcu_adc_start_init_calibration followed by a busy-wait on mcu_adc_calib_init_busy, then mcu_adc_start_calibration followed by a busy-wait on mcu_adc_calibration_busy. Both busy-waits have no timeout.",
+    "category": "adc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Rank order and the trigger argument are read from the call pattern (the SDK prototypes were checked for argument order). The meaning of interrupt mask 0x80 is not mapped to a named ADC flag here."
+  },
+  "mcu_0160_0800143c": {
+    "name": "mcu_speed_lpf_band_update_thunk",
+    "summary": "Tail-jump into the speed-adaptive band update mcu_speed_lpf_band_update at 0x08002B64",
+    "description": "One-instruction thunk that branches to mcu_speed_lpf_band_update (0x08002B64) and passes its two arguments through unchanged. The callee takes the speed band block pointer and a signed speed-like value, recomputes the Q30 filter alphas when the speed is out of band, updates the band flags and accumulators, and returns 1 on every path. The caller at 0x08004E78 (outside this packet) reaches the band update through this address.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "speed band block (int words; the callee uses words 0 to 0x37)"},
+      {"name": "param_2", "type": "s32", "description": "signed speed-like value, passed through"}
+    ],
+    "returns": {"type": "u32", "description": "always 1, from the callee"},
+    "confidence": "high"
+  },
+  "mcu_0160_0800160e": {
+    "name": "__aeabi_dadd_thunk",
+    "summary": "Tail-call into the soft-float IEEE-754 double add __aeabi_dadd (FUN_080014CC)",
+    "description": "Two-instruction thunk that tail-calls FUN_080014CC, the soft-float IEEE-754 double add and subtract (__aeabi_dadd) working on 64-bit word pairs in r0:r1 and r2:r3. It has no arguments of its own, so the operands are whatever the caller left in the argument registers. The 0160 build has no FPU, so all double arithmetic goes through routines like this one.",
+    "category": "libc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_08002068": {
+    "name": "mcu_adc1_ordinary_init",
+    "summary": "Set up ADC1 regular sequence on channels 0, 15, 4, 14, 3 with scan mode and the DMA ring",
+    "description": "Initialises ADC1 for the regular (ordinary) sequence after calling mcu_adc1_dma_init. The pins PA0, PC5, PA4, PC4 and PA3 are switched to analog mode (mcu_gpio_pin_setup, mode code 3), the ADC1 clock is enabled (packed id 0x180009) and the ADC clock divider is set to 0. The ADC configuration record is first filled with mcu_adc_config_set_default and then overwritten with scan 1, continuous 1, right alignment 0 and sequence length 5, which mcu_adc_apply_scan_cont_config writes into ADC1. Channels 0, 15, 4, 14 and 3 go to regular ranks 1 to 5 with sample-time code 6 (adc_ordinary_channel_set), and the regular group is armed on trigger source 7 (adc_ordinary_conversion_trigger_set). Results are collected by the circular DMA ring from mcu_adc1_dma_init.",
+    "category": "adc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high",
+    "notes": "The channel-to-pin mapping (PA0=ch0, PC5=ch15, PA4=ch4, PC4=ch14, PA3=ch3) follows the standard AT32F415 ADC pinout and was not checked against the SVD."
+  },
+  "mcu_0160_08002228": {
+    "name": "mcu_adc_median_latch_previous",
+    "summary": "Run the five-sample ADC median, then latch the filtered value at 0x20000F5A as the previous sample",
+    "description": "Calls mcu_adc_dma_median5, which refreshes the filtered ADC values in DAT_20000F58..F60 from the DMA ring, and then copies DAT_20000F5A into DAT_2000027E. DAT_2000027E therefore holds the previous tick's value, and mcu_scale_delta_q15 turns the difference DAT_20000F5A minus DAT_2000027E into a per-tick slope term. The caller is the application main path at 0x0800D548 (outside this packet).",
+    "category": "adc",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_152_08002a4e": {
+    "name": "mcu_speed_lpf_band_update_152_thunk",
+    "summary": "Tail-jump into the 152/143 speed-adaptive band update at 0x08002B54",
+    "description": "One-instruction thunk that branches to 0x08002B54, the 152 and 143 build's copy of the speed-adaptive band update (mcu_speed_lpf_band_update, 0x08002B64 in the 0160 build), passing both arguments through. The printed callee body does the same job: it recomputes Q30 filter alphas when the speed is out of band, sets the band flags and accumulators, and returns 1. No direct callers appear in the packet, so the entry is reached indirectly or from a callback.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "speed band block (int words; the callee uses words 0 to 0x37)"},
+      {"name": "param_2", "type": "s32", "description": "signed speed-like value, passed through"}
+    ],
+    "returns": {"type": "u32", "description": "always 1, from the callee"},
+    "confidence": "high",
+    "notes": "The 143/152 copy is not byte-identical to the 0160 routine: it calls FUN_08001C14 and FUN_08001B84 where the 0160 copy calls FUN_08001C30 and FUN_08001BA0."
+  },
+  "mcu_12b_08002c26": {
+    "name": "mcu_12b_speed_band_gate",
+    "summary": "Gate the 12b speed band: AND the speed-band update result with the speed-LPF band update result",
+    "description": "Calls mcu_12b_speed_lpf_band_update with no arguments, then mcu_12b_speed_band_update with the two words it received, and returns the bitwise AND of the two results. The 12b speed band logic is a pair of functions (the rate-limited band update and the LPF band check), and this wrapper reports a nonzero value only where both agree. No direct callers appear in the packet.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "u32", "description": "first word, forwarded to mcu_12b_speed_band_update"},
+      {"name": "param_2", "type": "u32", "description": "second word, forwarded to mcu_12b_speed_band_update"}
+    ],
+    "returns": {"type": "u32", "description": "bitwise AND of the two sub-results"},
+    "confidence": "medium",
+    "notes": "The sub-results are combined with a bitwise AND, so they are read as bit masks; their flag meanings come from the earlier callee summaries."
+  },
+  "mcu_0160_08003060": {
+    "name": "mcu_tmr4_ch4_pwm_init_start",
+    "summary": "Init TMR4 with PR 999 and DIV 143, channel 4 in PWM mode A on PB8, compare cleared, counter running",
+    "description": "Brings TMR4 up as a PWM source and starts it. The TMR4 clock is enabled (packed id 0x1C0002, APB1 bit 2), PB8 is put in alternate-function mode (mcu_gpio_pin_setup, mode code 8), and the base is loaded with PR 999 and DIV 143 (tmr_base_init). The count direction is set to up and the clock division to 0. A 7-byte output record is built with mode code 6 (PWM mode A) and the channel-output enable byte set to 1, then applied to channel 4 with tmr_output_channel_config and enabled with tmr_channel_enable. mcu_tmr4_ch4_compare_clear writes 0 to the channel-4 compare register, the overflow interrupt is enabled in IDEN (tmr_interrupt_enable with TMR_OVF_INT), and the counter is started (tmr_counter_enable). With a 144 MHz timer clock this gives a 1 kHz period.",
+    "category": "timer",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The 144 MHz timer clock and the PB8 alternate-function number are assumptions. Mode code 6 and TMR_OVF_INT were checked against the SDK headers. TMR4 is one of the active interrupt handlers listed in the brief."
+  },
+  "mcu_0160_08003104": {
+    "name": "mcu_hall_position_step_read",
+    "summary": "Advance the hall rotor estimate by 2*arg/100 and return the context raw counter halved",
+    "description": "Calls mcu_hall_position_update on the drive context at DAT_2000002C, passing the argument doubled and divided by 100 as the step. It then reads the 32-bit raw counter at context offset 0x44 through mcu_ctx_get_field_0x44 and returns it arithmetically shifted right by one. The hall update resyncs the rotor angle at sector edges and refreshes the speed estimate, so the return value is a half-scale raw counter. The caller is at 0x08007364 (outside this packet).",
+    "category": "hall",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "step argument; the hall update receives 2 times this value divided by 100"}
+    ],
+    "returns": {"type": "s32", "description": "raw counter at context +0x44, shifted right by 1"},
+    "confidence": "medium",
+    "notes": "The physical unit of the step argument is not established."
+  },
+  "mcu_0160_08003148": {
+    "name": "mcu_phase_current_read_thunk",
+    "summary": "Tail-jump into mcu_phase_current_read (0x08002240) with the phase-current record pointer",
+    "description": "One-instruction thunk that branches to mcu_phase_current_read (0x08002240) with the record pointer unchanged. The callee samples the phase-current pair for the current ADC sequence (through mcu_phase_current_from_adc with the sequence index in DAT_20000071) into the two words of the record. When DAT_200003D7 is nonzero it then sets the second word to the negated sum of the two, so that slot holds the derived third phase. The caller is mcu_0160_08007364 (outside this packet).",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "two-word phase-current record (s32 pair)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_08003178": {
+    "name": "mcu_position_to_rpm_q15",
+    "summary": "Scale the outlier-rejected position sample by DAT_200003C0 and about 30/pi into a Q15 product",
+    "description": "Takes the position sample from mcu_position_outlier_reject and multiplies it by the integer DAT_200003C0 (converted to double) and by the constant 0x4023193A79A4DD62, which is about 30/pi. The product is scaled by 2^15 (__ARM_scalbn) and truncated to an integer with __aeabi_d2iz. The function returns the sample times that integer, shifted right by 15 as a 64-bit product with the low 32 bits kept. The 30/pi factor suggests a rad/s to rpm conversion, but neither the unit of the input nor the meaning of DAT_200003C0 is established here.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "Q15 product of the position sample and DAT_200003C0 times about 30/pi"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08003376": {
+    "name": "mcu_can_rx_command_dispatch_thunk",
+    "summary": "Tail-jump into mcu_can_rx_command_dispatch (0x080085BC) with the received frame pointer",
+    "description": "One-instruction thunk that branches to mcu_can_rx_command_dispatch (0x080085BC) with the frame pointer unchanged. The dispatcher reads the message ID from the first word of the frame and runs one handler per command. The handlers in this build cover IDs 0x100, 0x20C, 0x310, 0x311, 0x482, 0x485, 0x486 and 0x7F0/0x7F1, with the DLC at frame offset 0x0A and the data bytes from offset 0x0B. The caller is mcu_0160_08008B60 (outside this packet).",
+    "category": "can",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "received CAN frame record: ID word at +0, DLC at +0x0A, data from +0x0B"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "high"
+  },
+  "mcu_0160_08003784": {
+    "name": "mcu_drive_ctrl_init_all",
+    "summary": "Initialise all drive control blocks, limiters, edge counters and PID state; set the F54 ready flag",
+    "description": "Start-up initialisation of the whole motor drive control state, run once before the control loop. It sets up the speed range limiter (mcu_0160_08003C38) and the position tracker config (mcu_0160_0800500C), arms about two dozen edge counters through mcu_edge_counter_init (for example limit 200 and reload 300 for DAT_20000C60, 600 for DAT_20000C9C and 5 for DAT_20000CD8), initialises the band block at DAT_20000C3C with bound 0x3C89458 and arms its setpoint with 0xFD6114, and enables the PID block at DAT_20000868 (mcu_pid_enable_bumpless with 1). The controller block DAT_20000E3C is set up by mcu_ctrl_block_init_default with eight limit words: when the calibration record at DAT_20001F40 is valid (not 0 or 0xFF) they are the record words DAT_20001F30 to DAT_20001F3E shifted left by 7, otherwise literal defaults such as 0x30000, 0xA0000, 0x13333 and 0x50000. It then sets DAT_20000E1B and DAT_20000F54 to 1 (F54 is the enable byte tested by mcu_b90_low_and_enabled) and clears DAT_20000E33, DAT_20000E31, DAT_20000E38 and DAT_20000F3C. Always returns 1.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "medium",
+    "notes": "The order and meaning of the eight limit words come from the callee summary of mcu_ctrl_block_init_default and were not re-checked against its body."
+  },
+  "mcu_0160_08003ab8": {
+    "name": "mcu_drive_output_limit_select",
+    "summary": "Pick the drive output limit from the speed band and clamp it; returns the negated limit or 0",
+    "description": "Per-cycle output limiter for the drive command. DAT_20000108 is set from mode bits in DAT_20001FD4 and DAT_20000A3C, mcu_f30_range_latch latches the speed range flag at 0x2000010F from DAT_20000F30, and DAT_20000130 becomes a ramp of DAT_20000F30 (zero below 0x10000, slope one half up to 0x30000, then slope four). The 3-bit case key is bit 2 for the drive-enabled test (mcu_b90_low_and_enabled), bit 1 for DAT_20000E1B together with DAT_20000E1F, and bit 0 for DAT_20000F30 above 0x8000. Keys 0 and 1 return param_2 unchanged. Keys 3 and 7 return minus the smaller of the stored limit at param_1+0x0C and a capped product (cap 0x4CCC or 0x8000, faded toward 0xCCC over the speed range), floored at 0. Key 5, with DAT_20000108 and DAT_20001FCD set, returns minus the value at param_1+4 clamped to DAT_20000130. All other keys return 0. This is the limit used by the speed-limit group with mcu_speed_range_limiter_init and mcu_energy_budget_limiter_step.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "limiter record: +0x04 proposed limit, +0x0C stored limit"},
+      {"name": "param_2", "type": "s32", "description": "proposed value, returned unchanged on keys 0 and 1"}
+    ],
+    "returns": {"type": "s32", "description": "negated clamped limit, param_2, or 0 depending on the case key"},
+    "confidence": "medium",
+    "notes": "The value left in r2 by the latch call (extraout_r2 in the decompile) is used in the key 3/7 product and was not identified."
+  },
+  "mcu_0160_08003c38": {
+    "name": "mcu_speed_range_limiter_init",
+    "summary": "Write 0x11F333 to cfg+0x25C and arm speed-range limiter C0 with fixed parameters (mode 1)",
+    "description": "Writes the constant 0x11F333 into the word at +0x25C of the object referenced by DAT_200000F8, then calls mcu_speed_range_setup_wrap on the limiter object DAT_200000C0 with 0x11F333, 0x28000, 0x11F333 and 0xA3 as parameters and mode 1, plus one uninitialised stack word in the third slot. The wrap stores its accept byte at +0x36 and returns it, and this function discards the result. It is called from mcu_drive_ctrl_init_all and belongs to the group with mcu_drive_output_limit_select and mcu_energy_budget_limiter_step.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The third argument is an uninitialised local (undefined4 local_1c) in the decompile, so it is passed as a don't-care value."
+  },
+  "mcu_0160_08003c78": {
+    "name": "mcu_energy_budget_limiter_step",
+    "summary": "Advance the energy budget limiter: integrate excess power, saturate, select one of three bounds",
+    "description": "Per-tick limiter step. It calls mcu_limiter_set_range with two Q15 bounds, DAT_20001FDC bits 8 to 15 and DAT_20001FD6 (or 0x1999 when DAT_20000B24 is set), and sets a reference for DAT_20000A50: DAT_200000C0 when DAT_20000A50 is at least DAT_200000C0, otherwise the larger of DAT_20000A50 and DAT_200000C4. The excess term (DAT_20000A50 squared minus the reference squared, times 327 and times DAT_200000D4) is added to the integrator DAT_200000DC by mcu_add_overflow_direction_s32 and saturated to the range [0, DAT_200000E0]. The returned bound DAT_200000F0 is DAT_200000C8 while the integrator is more than a tenth below its limit, DAT_200000D0 (with DAT_200000F4 set) at or above the limit, and DAT_200000C0 when DAT_200000F6 is clear. Every DAT_200000D8/20 calls DAT_200000EC is recomputed as a windowed rate.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "s32", "description": "selected bound DAT_200000F0 (Q15)"},
+    "confidence": "medium",
+    "notes": "Reading DAT_200000DC as an energy budget and the constant 327 as a scale is inferred from the saturation and bound selection; the rate window is from the decompile only."
+  },
+  "mcu_0160_08003d2c": {
+    "name": "mcu_speed_ref_window_update",
+    "summary": "Update the speed-reference window: tracker rate when valid, otherwise a ramp toward F30",
+    "description": "Refreshes the speed-reference record at param_1 once per control cycle. It reads the position tracker field 0x0C through mcu_get_field_0x0c_ashr_scale on DAT_20000B90 and, when that value is at least 1, sets the reference to the tracker rate times DAT_20000214 (Q15). Otherwise it ramps the reference. Near the speed DAT_20000F30 (about 0x8001 to 0x1BFFF) it lowers the counter DAT_20000116 by 2 and sets the reference to F30 plus 0xA3D, capped at 0x18000. Above 0x19998, with bit 1 of DAT_20001FE2 clear, it raises the counter and moves the reference toward F30+0xA3D up to 0x20000. In both cases the reference is capped at DAT_20000224. The base DAT_20000220, DAT_20000F20, DAT_20000F24 and the limit from mcu_get_limit_min3_or_unbounded are then stored, flags are written at +0x24 to +0x27, and the byte at +0x28 is the inverse of the edge output of mcu_edge_counter_step on DAT_20000D78, fed with mcu_drive_enable_gate. Group with mcu_drive_cycle_update.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "speed-reference record; words 0 to 11 are used"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08003f2c": {
+    "name": "mcu_drive_cycle_update",
+    "summary": "Main per-tick drive update: speed reference, slew-limited limits, gains, controller block and outputs",
+    "description": "Main per-tick update of the drive record at param_1, and the largest function in this packet at about 640 instructions. It takes the speed reference DAT_20000120 from the position tracker (mcu_get_var_34c_ashr_scale), or from DAT_20000BE0 when the override flag DAT_20000E33 is set, and builds the limit words param_1[0..7] with mcu_ramp_toward_target_s32 slew steps (0xCCC or 0x3333 on word 3, 0x58000 on words 1 and 7) and mcu_drive_output_limit_select. The window bounds come from mcu_gain_threshold_select_q15. It sets the float gain words at +0x2C and +0x30 from literal constants (1.0, 2.0, 3.0, 10.0, 15.0, 20.0, 25.0, 50.0 and 0.05), with DAT_20000F50 floored at 1.0 and replaced by 10.0 when it is 25.0 or more, and updates the controller block DAT_20000E3C through mcu_ctrl_ramp_limit_update. On the path taken when DAT_20000E1B is clear and mcu_b90_low_and_enabled is clear, DAT_20000140 is a rate-limited ramp toward DAT_20000120 (reset to 0x8000 when DAT_2000012C exceeds 0.4), the output words DAT_20000190 to DAT_200001A0 are written, and *param_1 is clamped to DAT_20000198. The other path sets DAT_20000150 and DAT_20000140 to 0x8000 and writes DAT_20000194.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "drive control record (speed reference, limits, float gains at +0x2C and +0x30)"}
+    ],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Several intermediate words (DAT_20000190 to DAT_200001A0, DAT_200001BC, DAT_20000E18) are used but not named in this packet. The float constants are literal stores, not interpreted."
+  },
+  "mcu_0160_08004700": {
+    "name": "mcu_electrical_rpm_scale_q15",
+    "summary": "Return param_1 times 60*2pi*DAT_200003C0*DAT_200003CC/5.305 in Q15",
+    "description": "Computes a scale factor S in soft-float. DAT_200003C0 is converted to float and multiplied by 2pi (0x40C90FF9), widened to double and divided by about 5.305 (0x401538A6 13CD503A). The result is multiplied by DAT_200003CC widened to double and by 60.0, scaled by 2^15 and truncated to an integer. The function returns (param_1 times S) shifted right by 15, as a 64-bit product with the low 32 bits kept. The 2pi and 60 factors suggest an electrical frequency to rpm conversion, but the mechanical meaning of DAT_200003C0 is not established here.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "value to scale (Q15 input)"}
+    ],
+    "returns": {"type": "u32", "description": "(param_1 times S) shifted right by 15, low 32 bits"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08004768": {
+    "name": "mcu_scale_by_c0_gain_q15",
+    "summary": "Return param_1 times DAT_200003C0 times DAT_200003CC over about 5.305, in Q15",
+    "description": "Computes the Q15 scale S as DAT_200003C0 (converted to double) divided by about 5.305, multiplied by DAT_200003CC widened to double, scaled by 2^15 and truncated. It is the same divisor used by mcu_cfg_gain_10c_q15. The function returns (param_1 times S) shifted right by 15 as a 64-bit product with the low 32 bits kept. It is the twin of mcu_electrical_rpm_scale_q15 without the 2pi and 60 factors.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "s32", "description": "value to scale (Q15 input)"}
+    ],
+    "returns": {"type": "u32", "description": "(param_1 times S) shifted right by 15, low 32 bits"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08004944": {
+    "name": "mcu_gain_threshold_select_q15",
+    "summary": "Pick feedback word ctx+0x270 or +0x26C plus 0.1*DAT_200003DE, else saturate to 0x7FFFFFFF",
+    "description": "Takes the magnitude of mcu_cfg_gain_10c_q15. When it exceeds 0x78000, the function returns the drive context word at +0x270 if mcu_cond_mode_bit0_and_level_ok is true, and the word at +0x26C otherwise, plus DAT_200003DE times 0.1 (the 0x333333338000 >> 34 constant, a Q15 0.1). The Q15 scale-up and shift-down around each word cancel out. When the magnitude is at or below 0x78000 it returns 0x7FFFFFFF as a saturated no-limit value. The caller is mcu_drive_cycle_update.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "s32", "description": "feedback level in Q15 units, or 0x7FFFFFFF"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08004a60": {
+    "name": "mcu_ctx108_gain_q15",
+    "summary": "Return the drive context word at +0x108 scaled by DAT_200003CC times 5.305/3.6 in Q15",
+    "description": "Reads the word at +0x108 of the drive context (through DAT_200000F8) and multiplies it by S. S is DAT_200003CC widened to double, multiplied by about 5.305 and divided by 3.6 (0x400CCCCCC0000000), then scaled by 2^15 and truncated. The result is (word times S) shifted right by 15, as a 64-bit product with the low 32 bits kept. Its only caller in this packet is mcu_ratio_pi_tracker_update.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "scaled Q15 value of context word +0x108"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08004db8": {
+    "name": "mcu_band_gain_select_timed",
+    "summary": "Select band gain DAT_200000B8 from speed, refresh gain triples on change, time the update in SysTick cycles",
+    "description": "Chooses DAT_200000B8 from the signed value returned by mcu_cfg_gain_10c_q15. Above DAT_20000402 scaled to Q15 it takes the float at DAT_20000400, between 0xC000 and DAT_200003FE scaled it takes DAT_200003FC, below 0x8000 it takes 20.0, and otherwise it keeps the previous value. If the ratio of the new value to the word at +0x104 is below 1.0 in both directions, the function returns that ratio word unchanged. Otherwise it stores the new value at +0x104, derives two float factors with mcu_fscale_mul_div_a and mcu_fscale_mul_div_b from DAT_20000764, DAT_20000760 and DAT_2000085C, and loads the gain triples at DAT_200007D4 and DAT_20000818 through mcu_gain_triple_q15_from_float. On that path it stores the SysTick cycles elapsed (less 10 cycles of overhead, wrap-corrected) in DAT_20000A34 and returns 1. It returns 0 when DAT_20000764 or DAT_20000760 has a zero exponent.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "1 after a gain refresh, 0 when a source float is invalid, or the early ratio word"},
+    "confidence": "medium",
+    "notes": "The helper at 0x0800135C is taken to be a float divide from its use as a ratio; the SysTick register is SysTick->VAL at 0xE000E018."
+  },
+  "mcu_0160_0800500c": {
+    "name": "mcu_pos_tracker_arm_and_threshold",
+    "summary": "Re-init the position tracker and set status bit 0 of DAT_20000BF4 when param 654 passes 1/10 span",
+    "description": "Calls mcu_pos_tracker_config_enable and then reads the parameter from mcu_get_param_654_q15 with argument 1. If that parameter is at least DAT_20000BEE plus one tenth of (DAT_20000BEC minus DAT_20000BEE), which with the constants 0xC92 and 0 is 321, it sets bit 0 of the status byte DAT_20000BF4. It always returns 1.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08005054": {
+    "name": "mcu_pos_tracker_config_enable",
+    "summary": "Write tracker constants, init position tracker DAT_20000B90 (range 0x6490000, gain 200) and enable it",
+    "description": "Writes DAT_20000BEC = 0xC92, DAT_20000BEE = 0 and DAT_20000BF0 = 0xC93. It then calls mcu_pos_tracker_init on the tracker at DAT_20000B90 with a zero argument, range 0x06490000 and last argument 200, and enables the tracker through the routine at 0x0800A6B0 with 1. It returns 1.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "u32", "description": "always 1"},
+    "confidence": "medium",
+    "notes": "The meaning of the 0xC92 and 0xC93 pair as tracker limits is inferred from its use in mcu_pos_tracker_arm_and_threshold."
+  },
+  "mcu_0160_0800517c": {
+    "name": "mcu_drive_ready_latch_update",
+    "summary": "Latch DAT_20000E37 (drive ready) once mcu_b90_low_and_enabled passes, with an edge arm flag",
+    "description": "Per-tick ready latch. DAT_2000010C is armed on a rising edge of DAT_20000E34, with DAT_2000010D keeping the previous value. Both branches then call mcu_b90_low_and_enabled and set DAT_20000E37 to 1 when it returns nonzero, so as written the arm flag does not change the outcome. DAT_20000E37 is never cleared here.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "The two branches have the same effect; the arm flag may have been meant to gate one of them."
+  },
+  "mcu_0160_08005240": {
+    "name": "mcu_ratio_pi_tracker_update",
+    "summary": "PI-style tracking of the ctx+0x108 gain ratio into DAT_20000158, integrator DAT_20000F2C",
+    "description": "Samples the ratio from mcu_ctx108_gain_q15 into DAT_20000160 and, when its magnitude is below 0x2666 (0.3 in Q15), holds it in DAT_20000158. The error DAT_2000015C is the sample minus (DAT_20000158 plus a Q30 product of the integrator DAT_20000F2C with 0x51EB85, about 0.02, from mcu_q30_mul_round). DAT_20000158 advances by that product plus the error times 0x6CCC (about 0.85 in Q15). The integrator DAT_20000F2C advances by the error times 2 in Q15. Both updates use +0x4000 rounding before the shift.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "mcu_143_080052ac": {
+    "name": "mcu_143_position_guard_step",
+    "summary": "Per-tick guard for the multi-turn position: set or clear DAT_20000E0D from speed and tracker tests",
+    "description": "Per-tick position guard in the 12b and 143 builds. It re-initialises the object at DAT_20000C7C through FUN_080099AE when DAT_20000E10 is clear, and derives a request from DAT_200001B0, |DAT_20000F0C| below 0x18000 and FUN_080038E4. That request goes through FUN_08009894 to a debounced flag. When the flag is set together with bit 0x800 of DAT_20001FB0 and DAT_20000E0D is clear, the function sets DAT_20000E0D and latches DAT_20000E08 from FUN_08004C08. It then compares the tracker output DAT_20000B70 (through FUN_0800A4B8 and FUN_08004558, against a bound built from DAT_20000B1C and DAT_200003D2) and clears DAT_20000E0D when the tracker magnitude is above 0x1333 and that comparison holds. DAT_20000E0D is also cleared whenever DAT_20000E10 is clear. The purpose, a multi-turn zero or latch guard, is inferred from the callees and not confirmed.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "low",
+    "notes": "Callee roles (FUN_080099AE, FUN_08009894, FUN_080038E4, FUN_08004C08, FUN_08004558) are not named in this packet; the flag semantics are a guess."
+  },
+  "mcu_0160_08005480": {
+    "name": "mcu_pos_zero_latch_arm_update",
+    "summary": "Arm the multi-turn zero latch when mode bits allow and speed is small; disarm when they do not",
+    "description": "Checks the mode byte DAT_2000065D. With bit 2 set, mode bits 3 and 4 either both zero or equal to 1, and DAT_20000E31 clear, it arms the latch when |DAT_20000F30| is below 0x18000 and DAT_20000E34 is set: DAT_20000E31 becomes 1 and mcu_position_zero_and_latch stores the reference in DAT_20000E2C. While armed it disarms (clearing DAT_20000E31 and DAT_20000109) as soon as bit 2 is clear or the mode bits are neither zero nor 1.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "mcu_0160_080054fc": {
+    "name": "mcu_drive_refs_update",
+    "summary": "Refresh drive reference words DAT_2000012C, DAT_20000F20, DAT_20000F24 and DAT_20000F28",
+    "description": "Recomputes four reference words each tick. DAT_2000017C comes from mcu_target_derate_calc and is copied to DAT_20000F20. DAT_2000012C takes the float at DAT_20000F4C when it lies in the positive range 0x00800000 to 0x3F800000 (up to 1.0), and otherwise 0.5. DAT_20000F24 is 0x147 unless DAT_20000E36 is set, in which case it is the value of mcu_limit_668_or_default. DAT_20000F28 is DAT_20000F24 capped at DAT_20000B44. The caller is mcu_0160_08004E78 (outside this packet).",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08005830": {
+    "name": "mcu_vec_mag_smoothed_gain",
+    "summary": "Smooth the magnitude of words 5 and 6 of param_1 and derive six float gain words",
+    "description": "When param_3 is nonzero it takes the sum of squares of the integers at words 5 and 6 of param_1 (each product shifted by 15), square-roots it with mcu_math_sqrt_fixed, and low-passes the result with a 1/10 IIR into DAT_20000134. DAT_20000138 is set to DAT_20000134 >> 15 as an integer. It writes six float words to param_2, starting from 0.2 defaults, with 98.0 times the integer magnitude and a float ratio of products of those words, and then returns minus the Q15 value of word 2. When param_3 is zero it clears words 2 and 3 of param_2 and DAT_20000134, and returns 0.",
+    "category": "motor",
+    "params": [
+      {"name": "param_1", "type": "ptr", "description": "block with integer vector components at words 5 and 6"},
+      {"name": "param_2", "type": "ptr", "description": "six-float output record"},
+      {"name": "param_3", "type": "s32", "description": "nonzero to update the smoothed magnitude, zero to clear"}
+    ],
+    "returns": {"type": "s32", "description": "minus the Q15 value of output word 2, or 0"},
+    "confidence": "low",
+    "notes": "The magnitude path is clear; the roles of output words 0 to 5 and the final ratio are not fully traced."
+  },
+  "mcu_0160_08005930": {
+    "name": "mcu_drive_enable_gate",
+    "summary": "Return 1 when the drive may run: enable condition holds and |DAT_20000780| is at most 0x10000",
+    "description": "Returns 1 when DAT_20001FCD is clear, the magnitude of DAT_20000780 is at most 0x10000 (1.0 in Q16), and any one of these holds: mcu_b90_low_and_enabled is true, DAT_20000E1B is set, or bit 2 of DAT_20001FD4 is clear. Otherwise it returns 0. It is called from mcu_speed_ref_window_update and mcu_drive_cycle_update.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "bool", "description": "true when the drive may run"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08005c0c": {
+    "name": "mcu_fault_monitors_init_std",
+    "summary": "Init three threshold monitors and three edge counters for the standard fault set into DAT_20000B38",
+    "description": "Runs the ADC median (mcu_adc_dma_median5) and then initialises three threshold monitors through mcu_threshold_monitor_init_std. Their threshold pairs are DAT_200003E2 to E6, DAT_200003E8 to EA and DAT_200003EA to EC, all in debounce mode 2; the first has limits 200, 4000, 8000 and 75000 and the others 100. It then initialises three edge counters through mcu_edge_counter_init with limit and reload pairs 5000/10, 2000/1000 and 10/1000 in mode 1. DAT_20000B38 is the AND of all six results, so any failing init clears it. The 12b twin is mcu_12b_fault_monitors_init.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium",
+    "notes": "Which physical protection each threshold pair guards is not established in this packet."
+  },
+  "mcu_12b_08005c80": {
+    "name": "mcu_12b_fault_monitors_init",
+    "summary": "12b: init three threshold debounce objects and three edge counters; DAT_20000B14 = AND of results",
+    "description": "Build-12b version of the protection init. It runs the ADC median (the 12b copy at 0x080024C0 of mcu_adc_dma_median5) and initialises three threshold debounce objects through mcu_threshold_debounce_init_v12b from the threshold words DAT_200003DA, DE, E0, E2 and E4 (limits 200 and 8000 for the first, 100 for the others, mode 2). It then initialises three edge counters through the 12b edge counter init at 0x080097E4 with the same limit and reload pairs as the 0160 build. DAT_20000B14 is the AND of the six results.",
+    "category": "protection",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  },
+  "mcu_0160_08005d84": {
+    "name": "mcu_dq_power_step_and_scale",
+    "summary": "Run band gain select and the dq power estimate, then store the ADC slope and their Q15 product",
+    "description": "Per-tick helper for the power and gain path. It clears DAT_20000B30 and runs mcu_band_gain_select_timed (0x08004DB8). It stores the dq power estimate from mcu_dq_power_estimate on the object at DAT_20000758 in DAT_20000A4C, stores the ADC slope from mcu_scale_delta_q15 in DAT_20000A54, and writes DAT_20000A64 as the Q15 product of DAT_20000A4C and DAT_20000A44.",
+    "category": "motor",
+    "params": [],
+    "returns": {"type": "void", "description": "none"},
+    "confidence": "medium"
+  }
+}

@@ -1,0 +1,735 @@
+{
+ "vcu_0159_0800acba": {
+  "name": "can_filter_init",
+  "summary": "Configure one CAN receive filter bank (SDK can_filter_init)",
+  "description": "Matches the Artery SDK can_filter_init(can_x, init_struct). Puts the filter block in init mode (FCTRL bit0 at +0x200 set), deactivates the bank (FACFG +0x21c bit cleared), then loads the bank's two 32-bit filter words at +0x240+8*n/+0x244+8*n. Init struct bytes: [0]=activate enable, [1]=filter_mode (0 mask, 1 list -> FMCFG +0x204), [2]=filter_fifo (FIFO0/1 -> FRF +0x214), [3]=filter_number, [4]=bit width (0=16-bit -> FBWCFG +0x20c cleared, 1=32-bit -> set), halfwords at +6 id_high, +8 id_low, +10 mask_high, +12 mask_low. Finally re-activates the bank if requested and clears FCTRL init bit. Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1, 0x40006400)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "can_filter_init_type descriptor (activate, mode, fifo, number, bit width, id/mask halfwords)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Offset names (+0x200 FCTRL, +0x204 FMCFG, +0x20c FBWCFG, +0x214 FRF, +0x21c FACFG, +0x240 FFB) are from the CAN register map; in 16-bit mode FFDB1 = mask_low<<16|id_low and FFDB2 = mask_high<<16|id_high; in 32-bit mode FFDB1 = id_high<<16|id_low and FFDB2 = mask_high<<16|mask_low. Only called once, from the CAN init routine vcu_0159_080027f0."
+ },
+ "vcu_0159_0800ade8": {
+  "name": "can_flag_clear",
+  "summary": "Clear a CAN status flag selected by SDK flag code (SDK can_flag_clear)",
+  "description": "Switch over the SDK CAN_*_FLAG codes (1 EAF, 2 EPF, 3 BOF, 4 ETR, 5 EOIF, 6-8 TM0..2TCF, 10/11 RF0FF/RF0OF, 13/14 RF1FF/RF1OF, 15 QDZIF, 16 EDZC, 17 TMEF). Flags are write-1-to-clear: EAF/EPF/BOF/EOIF write 4 to MSTS (+4, EOIF bit); ETR also zeroes ESTS (+0x18); TMnTCF write 0x1/0x100/0x10000 to TSTS (+8); TMEF writes 0x10101 (all three); RF0 flags write 8 (full) / 0x10 (overflow) to RF0 (+0xc), RF1 likewise to +0x10; QDZIF writes 8 and EDZC writes 0x10 to MSTS. Unknown codes do nothing. Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "CAN_*_FLAG code 1..17"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Called from vcu_0159_08002930 (CAN interrupt/status handling). The firmware's switch lumps flags 1,2,3,5 into the same MSTS write, identical to the SDK."
+ },
+ "vcu_0159_0800ae50": {
+  "name": "can_flag_get",
+  "summary": "Read a CAN status flag selected by SDK flag code (SDK can_flag_get)",
+  "description": "Switch over the SDK CAN_*_FLAG codes and returns 0/1 (SDK flag_status). 1-3 are ESTS (+0x18) bits EAF/EPF/BOF; 4 ETR = ESTS bits 4-6 nonzero; 5 EOIF = MSTS (+4) bit2; 6-8 are TSTS (+8) TMnTCF bits 0/8/16; 9 RF0MN = RF0 (+0xc) message count (bits0-1) nonzero; 10/11 RF0FF/RF0OF bits 3/4; 12-14 same for RF1 (+0x10); 15 QDZIF = MSTS bit3; 16 EDZC = MSTS bit1 or bit4; 17 TMEF = any of TSTS bits 26-28 (transmit mailbox empty). Unknown code returns 0. Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "CAN_*_FLAG code 1..17"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 if the flag is set, else 0"
+  },
+  "confidence": "high",
+  "notes": "Callers: vcu_0159_08002904 and vcu_0159_08002930 (CAN status/IRQ handling)."
+ },
+ "vcu_0159_0800af14": {
+  "name": "can_interrupt_enable",
+  "summary": "Set or clear CAN interrupt-enable bits (SDK can_interrupt_enable)",
+  "description": "Read-modify-write on CAN INTEN (+0x14): ORs param_2 into the register when param_3 is nonzero, otherwise clears those bits. param_2 is a bitmask of CAN_*_INT enable bits (TMEIEN, RF0DIEN, ERRIEN, ...). Called once from the CAN init routine vcu_0159_080027f0. Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "INTEN bit mask"
+   },
+   {
+    "name": "param_3",
+    "type": "bool",
+    "description": "nonzero = enable, 0 = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800af28": {
+  "name": "can_message_receive",
+  "summary": "Read one frame from a CAN RX FIFO mailbox and release the FIFO (SDK can_message_receive)",
+  "description": "Reads the FIFO mailbox at CAN+0x1b0+16*fifo. Fills a can_rx_message_type at param_3: +8 id_type (RFI bit2: 0 standard, 1 extended), +0 standard_id (RFI>>21) or +4 extended_id (RFI>>3), +9 frame_type (RFI bit1, RTR), +10 dlc (RFC low nibble), +0x13 filter_index (RFC bits 8-15), data[0..7] at +0xb..+0x12 from RFDTL/RFDTH. Then releases the FIFO by writing 0x20 (RFnR release bit) to RF0 (+0xc) for fifo 0 or RF1 (+0x10) for fifo 1 (SDK can_receive_fifo_release inlined). Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "FIFO number, 0 or 1"
+   },
+   {
+    "name": "param_3",
+    "type": "ptr",
+    "description": "output can_rx_message_type"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Caller: vcu_0159_08002904 (CAN RX handler). Struct layout inferred from byte offsets, not from SDK headers; the data bytes sit at odd offsets (no padding between dlc and data)."
+ },
+ "vcu_0159_0800afa0": {
+  "name": "can_message_transmit",
+  "summary": "Load a frame into the first empty CAN TX mailbox and request transmission (SDK can_message_transmit)",
+  "description": "Picks the first empty mailbox from TSTS (+8) bits 26/27/28 (TM0EF/TM1EF/TM2EF), index 0..2, and returns silently if none is free (this build discards the mailbox number the SDK would return). In the chosen mailbox (CAN+0x180+16*n) it keeps only the TXRQ bit of TMI, then writes: IDE (bit2) from msg+8, standard id <<21 (msg+0) for type 0 or extended id <<3 (msg+4) for type 1, RTR (bit1) from msg+9, DLC low nibble from msg+10 into TMC, data[0..3] (msg+0xb..) into TMDTL and data[4..7] (msg+0xf..) into TMDTH, and finally sets TXRQ (bit0) to start transmission. Part of the CAN1 driver group (can_filter_init, can_flag_get, can_flag_clear, can_interrupt_enable, can_message_receive, can_message_transmit) that is a build of the Artery AT32 SDK at32f415_can.c.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "can_tx_message_type: std id, ext id, id_type, frame_type, dlc, data[8]"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Single caller vcu_0159_08007b08 (the CAN send routine). No mailbox-full error is reported to the caller, so frames may be dropped under load."
+ },
+ "vcu_0159_0800b37c": {
+  "name": "crm_adc_clock_div_set",
+  "summary": "Set the ADC clock divider in CRM.CFG (SDK crm_adc_clock_div_set)",
+  "description": "Read-modify-write of CRM.CFG: low two bits of the divider go to ADCDIV_L (CFG[15:14]) and bit 2 goes to ADCDIV_H (CFG[28]). Called once by the ADC init routine vcu_0159_08001d5c. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_adc_div_type, 0..7 (3-bit divider code)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b398": {
+  "name": "crm_ahb_div_set",
+  "summary": "Set the AHB prescaler in CRM.CFG (SDK crm_ahb_div_set)",
+  "description": "Replaces CRM.CFG[7:4] (AHBDIV) with the low nibble of param_1. Called from the system clock setup vcu_0159_0800e8e0. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_ahb_div_type, 4-bit AHBDIV code"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b3a8": {
+  "name": "crm_apb1_div_set",
+  "summary": "Set the APB1 prescaler in CRM.CFG (SDK crm_apb1_div_set)",
+  "description": "Replaces CRM.CFG[10:8] (APB1DIV) with the low 3 bits of param_1. Called from the system clock setup vcu_0159_0800e8e0. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_apb1_div_type, 3-bit code"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b3b8": {
+  "name": "crm_apb2_div_set",
+  "summary": "Set the APB2 prescaler in CRM.CFG (SDK crm_apb2_div_set)",
+  "description": "Replaces CRM.CFG[13:11] (APB2DIV) with the low 3 bits of param_1. Called from the system clock setup vcu_0159_0800e8e0. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_apb2_div_type, 3-bit code"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b3c8": {
+  "name": "crm_auto_step_mode_enable",
+  "summary": "Enable/disable automatic clock step-up mode (SDK crm_auto_step_mode_enable)",
+  "description": "Writes CRM.MISC2 (0x40021054) AUTO_STEP_EN field (bits 5:4): sets both bits (0x30) when param_1 == 1, otherwise clears them. The auto-step mode lets the hardware step the AHB clock when switching to a fast PLL clock above 108 MHz; it is called around system clock switching in vcu_0159_0800e8e0 and vcu_0159_0800e950. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "1 = enable (TRUE), anything else = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b3e8": {
+  "name": "crm_battery_powered_domain_reset",
+  "summary": "Assert or release the battery-powered domain reset (SDK crm_battery_powered_domain_reset)",
+  "description": "Writes CRM.BPDC (0x40021020) bit16 (BPDRST) with bit0 of param_1. The BPD reset clears the ERTC, backup registers and LEXT/ERTC clock selection. Called from the ERTC/backup-domain setup vcu_0159_0800c960 (surrounded by crm_ertc_clock_* calls). Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "1 = hold BPD in reset, 0 = release"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b3f8": {
+  "name": "crm_clock_source_enable",
+  "summary": "Enable/disable a clock source (SDK crm_clock_source_enable)",
+  "description": "Switch on the crm_clock_source_type: 0 HICK -> CRM.CTRL bit0 (HICKEN), 1 HEXT -> CTRL bit16 (HEXTEN), 2 PLL -> CTRL bit24 (PLLEN), 3 LEXT -> BPDC (0x40021020) bit0 (LEXTEN), 4 LICK -> CTRLSTS (0x40021024) bit0 (LICKEN). The bit written is bit0 of param_2. Used by clock bring-up (vcu_0159_0800e8e0, vcu_0159_0800e950), the ERTC setup (vcu_0159_0800c960) and vcu_0159_0800b598. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_clock_source_type 0..4 (HICK, HEXT, PLL, LEXT, LICK)"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "1 = enable, 0 = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b558": {
+  "name": "crm_ertc_clock_enable",
+  "summary": "Enable/disable the ERTC clock (SDK crm_ertc_clock_enable)",
+  "description": "Writes CRM.BPDC (0x40021020) bit15 (ERTCEN) from bit0 of param_1. Called from the ERTC init vcu_0159_0800c960. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "1 = enable, 0 = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b568": {
+  "name": "crm_ertc_clock_select",
+  "summary": "Select the ERTC clock source (SDK crm_ertc_clock_select)",
+  "description": "Writes CRM.BPDC (0x40021020) bits 9:8 (ERTCSEL) from the low two bits of param_1 (0 none, 1 LEXT, 2 LICK, 3 HEXT/32). Called from the ERTC init vcu_0159_0800c960. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_ertc_clock_type, 0..3"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b578": {
+  "name": "crm_flag_get",
+  "summary": "Test a CRM status flag (SDK crm_flag_get)",
+  "description": "The flag code packs the register byte offset in bits 31:16 and the bit number in bits 4:0 (SDK MAKE_VALUE). Returns 1 when that bit in the register at CRM+offset is set (computed as (1<<bit & ~reg) == 0). Used to poll HICK/HEXT/PLL/LEXT/LICK stable flags during clock bring-up (vcu_0159_0800b598, vcu_0159_0800c960, vcu_0159_0800e8e0, vcu_0159_0800e950). Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "packed flag code: (reg_offset<<16)|bit"
+   }
+  ],
+  "returns": {
+   "type": "bool",
+   "description": "true if the flag bit is set"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b5cc": {
+  "name": "crm_periph_clock_enable",
+  "summary": "Enable/disable a peripheral bus clock (SDK crm_periph_clock_enable)",
+  "description": "param_1 packs the CRM register offset (bits 31:16: 0x14 AHBEN, 0x18 APB2EN, 0x1c APB1EN) and the bit position (bits 4:0). Sets the bit when param_2 == 1, clears it otherwise. Called by essentially every peripheral init routine (GPIO, USART, TMR, ADC, CAN, DMA, ... e.g. vcu_0159_08001bca, 08001c3c, 08001ca8, 08001d5c). Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "packed peripheral clock code (reg offset<<16 | bit)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "1 = enable clock, other = disable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b5f4": {
+  "name": "crm_periph_reset",
+  "summary": "Assert/release a peripheral reset bit (SDK crm_periph_reset)",
+  "description": "Same bit-set/clear helper as crm_periph_clock_enable but for the APBxRST/AHBRST registers (offsets 0x0c/0x10 in the packed code): sets the bit when param_2 == 1, clears it otherwise. Its single caller vcu_0159_0800b06c is most likely the SDK gpio_reset-style routine that pulses the reset of a GPIO port/peripheral. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "packed peripheral reset code (reg offset<<16 | bit)"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "1 = hold in reset, other = release"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Machine code is identical to crm_periph_clock_enable; the distinction (reset vs clock vs sleep-mode clock) is inferred from the single caller only."
+ },
+ "vcu_0159_0800b61c": {
+  "name": "crm_pll_config",
+  "summary": "Select the PLL source, multiplier and reference range (SDK crm_pll_config)",
+  "description": "param_1 selects the source: 0 = HICK (CFG.PLLRCS=0, MISC1 bit25 HICKDIV=no div, ref assumed 4 MHz), 1 = HEXT direct (PLLRCS=1, PLLHEXTDIV=0, ref 16 MHz), other = HEXT/2 (PLLHEXTDIV=1, ref 8 MHz). It then maps the reference frequency to the PLL.PLLFREF code (CRM+0x2c bits 26:24): 4M=0, 6M=1, 8M=2, 12M=3, 16M=4, 25M=5, using the SDK range thresholds. The multiplier param_2 is split into CFG[21:18] (low 4 bits) and CFG[30:29] (high 2 bits). The constants imply HEXT_VALUE = 16 MHz in this build. Called from vcu_0159_0800e8e0. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "crm_pll_clock_source_type: 0 HICK, 1 HEXT, 2 HEXT/2"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "crm_pll_mult_type, 6-bit PLL multiplier code"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b708": {
+  "name": "crm_reset",
+  "summary": "Reset the CRM clock configuration to its default state (SDK crm_reset)",
+  "description": "Sets HICKEN and waits for HICKSTBL (CTRL bit1), switches SCLKSEL to HICK and waits for SCLKSTS == 0, clears CTRL bits 0x010D0000 (HEXTEN, HEXTBYPS, CFDEN, PLLEN), zeroes CFG, sets PLL to 0x1f10, MISC1 to 0x100000 and CLKINT to 0x9f0000 (disable all clock interrupts and clear flags). Used at the start of the system clock configuration vcu_0159_0800e8e0. Blocks in busy-wait loops with no timeout. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b750": {
+  "name": "crm_sysclk_switch",
+  "summary": "Select the system clock source (SDK crm_sysclk_switch)",
+  "description": "Writes CRM.CFG[1:0] (SCLKSEL) with the low 2 bits of param_1 (0 HICK, 1 HEXT, 2 PLL). The switch completes asynchronously; the caller polls crm_sysclk_switch_status_get. Called from vcu_0159_0800e8e0 and vcu_0159_0800e950. Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "crm_sclk_type 0..2"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800b760": {
+  "name": "crm_sysclk_switch_status_get",
+  "summary": "Read which clock currently drives SYSCLK (SDK crm_sysclk_switch_status_get)",
+  "description": "Returns CRM.CFG bits 3:2 (SCLKSTS): 0 HICK, 1 HEXT, 2 PLL. Called from vcu_0159_0800e8e0 / vcu_0159_0800e950 (wait loops after crm_sysclk_switch) and vcu_0159_0800b440 (likely crm_clocks_freq_get). Artery SDK at32f415_crm.c driver; accesses CRM registers directly.",
+  "category": "clock",
+  "params": [],
+  "returns": {
+   "type": "u32",
+   "description": "active system clock source code 0..2"
+  },
+  "confidence": "high"
+ },
+ "vcu_153_0800b944": {
+  "name": "rtc_day_of_year",
+  "summary": "Day-of-year from year, month, day with leap-year correction",
+  "description": "Computes table[month-1] + day + leap, where table is the 12-entry word array at 0x0800f0ec (cumulative days before each month, assumed) and leap = 1 only when month >= 3 and the year is a Gregorian leap year (divisible by 4, and not a century unless divisible by 400). Returns a 64-bit value whose low word is the day number and whose high word is just param_1 echoed back (decompiler artifact). Present only in builds up to VCU_153; its single caller vcu_153_0800ba2c is in the date/time conversion code.",
+  "category": "rtc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "full year, e.g. 2024"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "month 1..12"
+   },
+   {
+    "name": "param_3",
+    "type": "s32",
+    "description": "day of month 1..31"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "day of year (1..366); low word of a 64-bit return"
+  },
+  "confidence": "medium",
+  "notes": "Name and intent inferred from the arithmetic; the table contents at 0x0800f0ec were not dumped here. Missing from VCU_0159, so the date logic was removed or inlined in that build."
+ },
+ "vcu_0159_0800ba94": {
+  "name": "debug_periph_mode_set",
+  "summary": "Set or clear bits in the DEBUG (DBGMCU) control register (SDK debug_periph_mode_set)",
+  "description": "ORs param_1 into DEBUG.CTRL (0xE0042004) when param_2 is nonzero, otherwise clears those bits. The bits select peripherals (timers, WDT, ERTC, CAN, I2C) that are frozen while the core is halted in the debugger. Called once from vcu_0159_0800d858 during init. Artery SDK at32f415_debug.c.",
+  "category": "power",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "DEBUG_*_PAUSE bit mask"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "nonzero = set, 0 = clear"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800bab0": {
+  "name": "delay_ms",
+  "summary": "Blocking millisecond delay using SysTick",
+  "description": "Loops over chunks of at most 50 ms (0x32): loads SysTick LOAD (0xE000E014) with ticks_per_ms * n (ticks_per_ms = byte-wide global at 0x200018b4, set by the delay init), clears VAL, sets ENABLE, spins until COUNTFLAG (bit16) is set, then disables SysTick and clears VAL. The remaining count is masked to 16 bits. Standard Artery delay_ms pattern; callers vcu_0159_08003f40 and vcu_0159_08006184. Reconfigures SysTick, so it conflicts with any use of SysTick as a periodic tick at the same time.",
+  "category": "timer",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "delay in milliseconds (up to 65535)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "The SysTick tick-per-ms factor (0x200018b4) is initialised elsewhere (vcu_0159 wave1_batch01 area); that it is used to count 1 ms while another path uses SysTick as the system tick is not checked."
+ },
+ "vcu_0159_0800bb00": {
+  "name": "delay_us",
+  "summary": "Blocking microsecond delay using SysTick",
+  "description": "Loads SysTick LOAD with ticks_per_us * param_1 (ticks_per_us is the global at 0x200018b0), clears VAL, enables SysTick, spins until COUNTFLAG (bit16) is set, then disables it and clears VAL. No chunking, so param_1 must fit the 24-bit counter at the configured tick rate. Artery delay_us pattern; sole caller vcu_0159_0800688c (likely a bit-banged peripheral). Companion of delay_ms.",
+  "category": "timer",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "delay in microseconds"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Name chosen from the Artery delay.c convention; global names for 0x200018b0/0x200018b4 are not annotated in this packet."
+ },
+ "vcu_0159_0800bdf4": {
+  "name": "led_frame_set_bit16",
+  "summary": "Set/clear one of 16 output bits in the LED image bytes 0x200021d2-0x200021d3",
+  "description": "If param_1 < 8 the mask 1<<param_1 is applied to DAT_200021d2, otherwise 1<<(param_1-8) to DAT_200021d3; param_2 == 0 clears the bit, nonzero sets it. Index 0..7 low byte, 8..15 high byte. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0. Callers: vcu_0159_0800bc4c and vcu_0159_0800bf84.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "bit index 0..15"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Purpose (LED/indicator image) inferred from neighbouring packets; the physical meaning of the bits is unknown."
+ },
+ "vcu_0159_0800be30": {
+  "name": "led_frame_set_group_all",
+  "summary": "Set or clear the whole 9-bit groups in LED image bytes 0x200021ce-0x200021d1",
+  "description": "Clears bytes 0x200021ce and 0x200021d0 and bit0 of 0x200021cf and 0x200021d1; if param_1 is nonzero they are then set to 0xff, 0xff and bit0 (two groups of 9 bits, all on). param_1 == 0 gives all off. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0. Callers: vcu_0159_080057ac and vcu_0159_0800be64.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "nonzero = all on, 0 = all off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "9-bit group structure matches the 9-segment helpers vcu_0159_0800c420/0800c488; meaning unconfirmed."
+ },
+ "vcu_0159_0800bee8": {
+  "name": "led_frame_set_d3_bit2",
+  "summary": "Set or clear bit 2 of LED image byte 0x200021d3",
+  "description": "Clears bit2 (mask 0x04) of DAT_200021d3 and sets it again when param_1 != 0. Callers: vcu_0159_0800bc4c and vcu_0159_0800e60c. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Single-indicator helper; what bit 2 drives is unknown. Note bit 2 is also covered by the 16-bit helper led_frame_set_bit16 (index 10)."
+ },
+ "vcu_0159_0800bf04": {
+  "name": "led_frame_set_pair_d1_d4",
+  "summary": "Set or clear bit 4 of 0x200021d1 and bit 3 of 0x200021d4 together",
+  "description": "param_1 != 0: DAT_200021d1 |= 0x10 and DAT_200021d4 |= 0x08; param_1 == 0 clears both bits. The two bits are always driven in unison (a single logical indicator mapped to two positions). Caller: vcu_0159_080057ac. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Which indicator this is is unknown."
+ },
+ "vcu_0159_0800bf30": {
+  "name": "lighting_fade_step",
+  "summary": "Ramp counter step with threshold 51 that issues LED command codes 0x81/0x86",
+  "description": "Called each tick from vcu_0159_080057ac. If flag DAT_20001cfa is nonzero the counter DAT_2000153e is incremented; when it was already above 0x32 (51) it is reset to 0 and DAT_200022dd is set to 0x81. If the flag is zero the counter is decremented down to 0; when it is already 0 DAT_200022dd is set to 0x86 instead. DAT_200022dd is the command/mode byte later passed to the LED sender vcu_0159_0800ed4c, so this behaves like a hysteresis/dimming timer between two lighting states. Not present in VCU_148.",
+  "category": "lighting",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of 0x81 vs 0x86 and of flag 0x20001cfa not confirmed; only the counter arithmetic is certain."
+ },
+ "vcu_0159_0800bfb4": {
+  "name": "led_frame_set_cf_bit4",
+  "summary": "Set or clear bit 4 of LED image byte 0x200021cf",
+  "description": "Clears bit4 (0x10) of DAT_200021cf, then sets it again when param_1 != 0. Caller: vcu_0159_080057ac. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "What the bit drives is unknown."
+ },
+ "vcu_0159_0800c420": {
+  "name": "led_frame_set_segment_a",
+  "summary": "Set/clear one of 9 segments in the LED image (bytes 0x200021cd/d4/d5)",
+  "description": "Index 0..2 map to bits 4..6 of DAT_200021cd (1<<(idx+4)), 3..4 to bits 6..7 of DAT_200021d4 (1<<(idx+3)), 5..8 to bits 0..3 of DAT_200021d5 (1<<(idx-5)); indices >= 9 are ignored. param_2 == 0 clears, nonzero sets. Companion of led_frame_set_segment_b (same 9-segment indexing on another set of bytes), called from vcu_0159_0800c31c and vcu_0159_0800c4f0. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "segment index 0..8"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Likely a 9-step bar graph (e.g. speed or battery level); inferred from the 0..8 range only."
+ },
+ "vcu_0159_0800c488": {
+  "name": "led_frame_set_segment_b",
+  "summary": "Set/clear one of 9 segments in the LED image (bytes 0x200021c7/c9/cb)",
+  "description": "Index 0..2 map to bits 4..6 of DAT_200021c7 (1<<(idx+4)), 3..5 to bits 4..6 of DAT_200021c9 (1<<(idx+1)), 6..8 to bits 4..6 of DAT_200021cb (1<<(idx-2)); indices >= 9 are ignored. param_2 == 0 clears, nonzero sets. Second 9-segment bar next to led_frame_set_segment_a, called from vcu_0159_0800c31c and vcu_0159_0800c4f0. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "segment index 0..8"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "nonzero = on, 0 = off"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Same caveat as led_frame_set_segment_a."
+ },
+ "vcu_0159_0800c57c": {
+  "name": "led_frame_apply_mode_pattern",
+  "summary": "Light a fixed bit pattern in the LED image for display mode 1..4",
+  "description": "Switch on DAT_20002047: mode 1 ORs 0x0f into DAT_200021c6 and DAT_200021ca; mode 2 ORs 0x0f into DAT_200021c7 and DAT_200021cb; mode 3 ORs 0x33 into DAT_200021c8; mode 4 ORs 0xcc into DAT_200021cc; any other value does nothing. It only sets bits (never clears), so the image must be cleared first by the frame builder. Caller: vcu_0159_080057ac. The bytes 0x200021c6..0x200021d5 form a 16-byte bit-mapped image that other code (vcu_0159_0800b0c4, vcu_0159_0800bfd0 and the sender vcu_0159_0800ed4c) transmits to an LED/indicator driver; this helper is part of the lighting group called from the 1 ms service vcu_0159_080057ac and the mode handlers around vcu_0159_0800c31c/0800c4f0.",
+  "category": "lighting",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "DAT_20002047 is written by wave2/3 mode code; its meaning (drive mode / light mode?) is not established here."
+ },
+ "vcu_0159_0800b770": {
+  "name": "can_get_tx_payload_for_id",
+  "summary": "Build the 8-byte CAN payload for a given CAN ID in a static buffer",
+  "description": "Large if/switch on the CAN identifier param_1. For known IDs it copies fields from application globals into the static 8-byte buffer at 0x2000184c (u16 at +0, u32 at +2, u16 at +6, i.e. four little-endian words) and returns a pointer to that buffer. Handled IDs: 0x100, 0x203, 0x204 (zeros), 0x205 (zeros, only clears word 0, word 1 low half and word 3), 0x209, 0x20a, 0x20b, 0x20c, 0x301, 0x302 (words 0xff00, 0xffffffff, 0xffff), 0x480-0x485 and 0x7f0 (word0 = 0x1e, rest 0). Side effects: 0x301 also copies word0 to DAT_20003358; 0x100 copies word0 to DAT_20003356; 0x20c merges DAT_2000123d into the high byte of DAT_20001fa0 and writes the result back. Unknown IDs leave the buffer unchanged (stale data) and still return its address. No direct callers (invoked through a pointer or table).",
+  "category": "protocol",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "11-bit CAN identifier"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "pointer to the 8-byte payload buffer at 0x2000184c"
+  },
+  "confidence": "medium",
+  "notes": "Role (TX data provider for periodic/requested CAN frames) is inferred from the ID list and output buffer; the semantic meaning of each source global (speed, battery, etc.) was not resolved. Source globals include 0x20001f90-96 (0x100), 0x20001b68/d08/e62/b62 (0x203), 0x20001cd8-ce0 (0x20a), 0x20001e28/e48/e50/cc4 (0x20b), 0x20001f98-fa0 (0x20c), 0x2000186f-1870/1854/1858 (0x301), 0x20001b84/b88/b78 (0x480), 0x20001b72/b70/b4e/cb6 (0x481), 0x20001ae2/b12 (0x482), 0x20001ad4-ad9 (0x483), 0x20001adc-ae0 (0x484), 0x20001fef/f8e/fee/f8c (0x485)."
+ }
+}

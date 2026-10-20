@@ -1,0 +1,682 @@
+{
+ "vcu_0159_08007c70": {
+  "name": "uart_rx_ring0_count",
+  "summary": "Number of unread entries in the 32-slot receive ring 0",
+  "description": "Computes the fill level of a 32-entry ring buffer: head (DAT_20002c2c, advanced by the producer) minus tail (DAT_20002c30, advanced by the consumer), adding 0x20 when head is behind tail (wrap-around), masked to 16 bits. Result is 0..31. Sibling of the second ring count routine at 0x08007c8c (same code, different head/tail words); both are polled by the communication service routines that drain the rings.",
+  "category": "uart",
+  "params": [],
+  "returns": {
+   "type": "u16",
+   "description": "pending entries, 0..31"
+  },
+  "confidence": "medium",
+  "notes": "That the ring is a UART RX ring is inferred from the layout/size and from the caller (0x08007ad4); the producer is not in this packet."
+ },
+ "vcu_0159_08007c8c": {
+  "name": "uart_rx_ring1_count",
+  "summary": "Number of unread entries in the 32-slot receive ring 1",
+  "description": "Identical algorithm to uart_rx_ring0_count but on the second ring: head DAT_200029a4 minus tail DAT_200029a8, plus 0x20 when head < tail, masked to 16 bits (0..31). Used by the caller 0x08007b08 to decide whether bytes are waiting to be parsed. Together with uart_rx_ring0_count it forms a pair of per-link RX ring helpers.",
+  "category": "uart",
+  "params": [],
+  "returns": {
+   "type": "u16",
+   "description": "pending entries, 0..31"
+  },
+  "confidence": "medium",
+  "notes": "Ring ownership (which UART/link) not visible here."
+ },
+ "vcu_0159_08007ca4": {
+  "name": "vcu_uid_load",
+  "summary": "Read the 96-bit chip unique ID and derive a ones-complement checksum",
+  "description": "Copies the three device-ID words at 0x1FFFF7E8/EC/F0 into DAT_20002004/08/0c and again into DAT_20001c68/6c/70, then stores ~(w2 + w1 + w0) into DAT_20001028 (32-bit wrapping sum, inverted). The result is a per-device value later used by the application (e.g. as a serial/key seed or integrity check). Called once from the start-up/init routine 0x08009da8.",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "Consumer of 0x20001028 / 0x20001c68.. is outside this packet; 0x20001020 is only address-taken (probably the base of a struct holding the checksum)."
+ },
+ "vcu_0159_08007cfc": {
+  "name": "vcu_status_flags_mask_low",
+  "summary": "Clear the low 12 bits of two 16-bit status/limit words at 0x20001f92 and 0x20001f98",
+  "description": "Does DAT_20001f92 &= 0xf000 and DAT_20001f98 &= 0xf000, i.e. keeps only the top nibble of each halfword and zeroes the 12-bit value fields. Both halfwords belong to a packed state structure based at 0x20001f8c that is also manipulated by vcu_state_params_reset. Called from 0x0800a39c, probably when a mode/state is entered to wipe accumulated values.",
+  "category": "vehicle",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Meaning of the 4 flag bits and 12-bit values in these words is unknown; the structure at 0x20001f8c is only address-taken here."
+ },
+ "vcu_0159_08007d84": {
+  "name": "SVC_Handler",
+  "summary": "SVC exception handler: empty (immediate return)",
+  "description": "Single bx lr instruction. The firmware does not use supervisor calls (no RTOS context switching on SVC), so the vector just returns. Installed in the Cortex-M vector table slot 11.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800837c": {
+  "name": "vcu_state_params_reset",
+  "summary": "Reset the packed state words at 0x20001f8c and load default 0x2800/0x3200 limit and 0xF00 base",
+  "description": "Masks DAT_20001f98 with 0xe000 and DAT_20001f92 with 0xb000 (keeping only the top 3 / flag bits). Then, depending on the byte DAT_20001fa7, sets DAT_20001f96 = 0x2800 (10240) if the byte is not 0 and not 3, otherwise 0x3200 (12800), and sets DAT_20001f94 = (DAT_20001f94 & 0xc000) + 0xf00 (keeps the top two bits, base value 3840). The two constants look like 12-bit/14-bit scaled limits selected by a vehicle mode (0/3 versus other modes). Called from the init routine 0x08009da8.",
+  "category": "vehicle",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Units of 0x2800/0x3200/0xF00 and the meaning of the mode byte 0x20001fa7 are guesses; the struct at 0x20001f8c is address-taken only."
+ },
+ "vcu_0159_08008460": {
+  "name": "vcu_fault_code_store",
+  "summary": "Store the current fault code byte without updating the fault bitmap",
+  "description": "Writes param_1 to the byte DAT_2000123c (the latest fault/error code) and does nothing else. vcu_fault_code_set does the same store and additionally latches the code in a 48-bit bitmap; this variant is used by callers (0x080029d0, 0x08003f40) that only want to overwrite or clear the displayed code. Part of the fault/warning code group with vcu_fault_code_set and vcu_warning_code_set.",
+  "category": "diagnostics",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u8",
+    "description": "fault code, 0 = none"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Role as 'fault' code inferred from the 1..48 range handled by the sibling that sets bitmap bits."
+ },
+ "vcu_0159_0800846c": {
+  "name": "vcu_fault_code_set",
+  "summary": "Store a fault code (1..48) in DAT_2000123c and latch bit code-1 in a 3x16-bit bitmap",
+  "description": "Writes (u8)param_1 to DAT_2000123c. If 1 <= param_1 <= 0x30 it sets bit (param_1-1) of a 48-bit active-fault bitmap spread across DAT_20001ce0 (codes 1..16), DAT_20001ce2 (17..32) and DAT_20001ce4 (33..48). Codes of 0 or above 48 only update the code byte. Bits are never cleared here; callers (0x08002d18, 0x08003f40) clear the bitmap elsewhere. Group: vcu_fault_code_store / vcu_fault_code_set / vcu_warning_code_set.",
+  "category": "diagnostics",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "fault code, 1..48 (0 = none)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Naming as faults (vs. errors) is a guess; the clear path is not in this packet."
+ },
+ "vcu_0159_080084bc": {
+  "name": "vcu_warning_code_set",
+  "summary": "Record a warning code keeping the lowest non-zero one; latch it in a bitmap",
+  "description": "Keeps DAT_2000123d as the current warning code: if it is already non-zero and smaller than param_1 it is retained (lowest number = highest priority), otherwise it is set to param_1. When param_1 < 10 and the resulting code is 0 the whole bitmap (DAT_20001cd8/cda/cdc/cde) is cleared; codes 1..9 set no bit. For 10 <= param_1 < 0x3a the index n = param_1-10 sets bit n%16 in cd8 (n 0..15), cda (16..31) or cdc (32..47); the cde branch (n 48..63) is unreachable with the < 0x3a bound. Called by 0x08003f40, 0x08008cc0 and 0x0800a500; part of the fault/warning code group.",
+  "category": "diagnostics",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "warning code; 0 clears the bitmap if no code is held, 10..57 map to bitmap bits 0..47"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Semantic labelling (warning, priority rule) inferred from the min-keeping logic only."
+ },
+ "vcu_0159_0800858c": {
+  "name": "soft_timer_poll",
+  "summary": "Service the 5 software timers: fire callbacks whose period has elapsed",
+  "description": "Iterates 5 slots of a 16-byte timer table at 0x20002054 (+0 period u32, +4 last-fire timestamp u32, +8 one-shot flag u8, +9 enabled u8, +12 callback pointer). For every enabled slot, when (tick - last) >= period (tick = DAT_20001350, the millisecond system counter) the slot is re-armed by copying tick into last (periodic, flag==0) or disabled (one-shot, flag!=0), then the callback is invoked if non-NULL. Called from the main loop dispatcher 0x0800d858; slots are configured by soft_timer_start.",
+  "category": "util",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Tick unit assumed to be 1 ms; the one-shot/periodic polarity of the +8 byte follows from the code."
+ },
+ "vcu_0159_080085d0": {
+  "name": "soft_timer_start",
+  "summary": "Configure and arm software timer slot idx with period, one-shot flag and callback",
+  "description": "Writes slot param_1 of the 16-byte timer table at 0x20002054: clears enabled byte (+9), zeroes the last-fire timestamp (+4), stores callback param_4 (+12), one-shot flag param_3 (+8) and period param_2 (+0), then sets enabled=1. Because the timestamp starts at 0, the first expiry is relative to tick 0, so the callback may fire immediately if the tick counter is already larger than the period. Pair with soft_timer_poll; no bounds check on the index (0..4 valid). Called from 0x0800d858.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "slot index 0..4"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "period in ticks (ms)"
+   },
+   {
+    "name": "param_3",
+    "type": "u8",
+    "description": "0 = periodic, non-zero = one-shot"
+   },
+   {
+    "name": "param_4",
+    "type": "ptr",
+    "description": "callback function pointer, may be NULL"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "medium",
+  "notes": "Tick unit assumed ms."
+ },
+ "vcu_0159_080085f0": {
+  "name": "util_mem_equal",
+  "summary": "Compare two byte buffers of length n, return 1 if equal, 0 if different",
+  "description": "Byte-by-byte compare loop with an 8-bit index (so n is effectively limited to 255); returns 1 when all n bytes match (also when n == 0) and 0 on the first mismatch. Note the inverted sense compared with memcmp. Called from 0x080060b8 and 0x08006538, apparently to compare ID/key/header strings.",
+  "category": "util",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "buffer A"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "buffer B"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "number of bytes, <= 255"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 = equal, 0 = different"
+  },
+  "confidence": "high"
+ },
+ "vcu_14a_080087e4": {
+  "name": "vcu_angle_deg_calc_legacy",
+  "summary": "Compute (a*360)/b into a 16-bit angle value, 0 if b <= 0 (VCU_148/14a only)",
+  "description": "If DAT_20001ac8 > 0, stores (DAT_20001ac4 * 360) / DAT_20001ac8 as a 16-bit value in DAT_20001ace; otherwise stores 0. This is the old-version counterpart of vcu_angle_deg_update (0x08008dec): a numerator/denominator ratio scaled to degrees. No direct caller (likely called indirectly or inlined in the older builds). Probably a position or phase angle derived from a count and a period.",
+  "category": "vehicle",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "What the two counters measure (hall/pulse timing, steering, wheel angle) is unknown."
+ },
+ "vcu_0159_08008912": {
+  "name": "SysTick_Handler",
+  "summary": "SysTick exception handler: empty (immediate return)",
+  "description": "Single bx lr. SysTick is not used as the system time base in this image; the millisecond counter (DAT_20001350) is produced elsewhere, presumably by a hardware timer ISR. Vector table slot 15.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_08008914": {
+  "name": "SystemInit",
+  "summary": "Reset CRM to default clocks (HICK) and set VTOR to flash base (Artery SDK SystemInit)",
+  "description": "Matches the AT32F415 SDK SystemInit: sets CRM.APB1EN.PWCEN, ORs bit 2 into the byte at 0x40007050, clears PWCEN; sets CRM.CTRL.HICKEN and waits for HICKSTBL; selects HICK as SCLK (CRM.CFG &= ~3) and waits for CFG.SCLKSTS==0; clears HEXTEN/HEXTBYPS/CFDEN/PLLEN (CTRL &= 0xFEF2FFFF); then CRM.CFG=0, CRM.PLL=0x1F10, CRM.MISC1=0x100000, CRM.CLKINT=0x9F0000 and SCB->VTOR = 0x08000000 (FLASH_BASE, no offset). No direct caller: reached from the reset/startup code. Note VTOR points to 0x08000000 although the application image starts at 0x08001000.",
+  "category": "startup",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high",
+  "notes": "VTOR value 0x08000000 looks like the SDK default VECT_TAB_OFFSET=0; the app may re-set VTOR later (not seen here)."
+ },
+ "vcu_0159_08008988": {
+  "name": "TMR2_GLOBAL_IRQHandler",
+  "summary": "TMR2 global interrupt handler: empty (immediate return)",
+  "description": "Single bx lr; the vector slot is populated but TMR2 interrupt service does nothing in this firmware (no flag clear), so the interrupt is not enabled in practice.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_08008dec": {
+  "name": "vcu_angle_deg_update",
+  "summary": "Recompute angle = counter*360/period when the counter changed; 0 when period <= 0",
+  "description": "If DAT_20001b88 (period/denominator, maintained by vcu_timebase_100_tick) is positive and DAT_20001b84 differs from the cached copy DAT_2000137c, the cache is refreshed and DAT_20001b8e (16-bit) = DAT_20001b84 * 360 / DAT_20001b88, i.e. a fraction of a full cycle in degrees. If the period is not positive, DAT_20001b8e is set to 0. Called from the periodic routine 0x08009080 together with vcu_timebase_100_tick. Newer-build counterpart of vcu_angle_deg_calc_legacy.",
+  "category": "vehicle",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "The physical quantity (rotor/phase angle, pedal or wheel position) is not determinable from this function."
+ },
+ "vcu_0159_0800900c": {
+  "name": "vcu_timebase_100_tick",
+  "summary": "Divide-by-100 prescaler that advances four saturating elapsed-time counters",
+  "description": "Increments the byte/word DAT_20001384; when it reaches 100 it resets to 0 and (once per 100 calls) increments DAT_20001b86 (saturating at 0x7FFF) and the 32-bit DAT_20001b7c (saturating at 0xFFFFFFFF). If bit 2 of the status halfword DAT_20001f92 is set and DAT_20001b62 > 9, it also increments DAT_20001b88 (saturating at 0x7FFF) and 32-bit DAT_20001b80. Called from the periodic routine 0x08009080; if that runs every 10 ms the counters tick in seconds.",
+  "category": "vehicle",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Call rate and the meaning of the counters are unknown; the decompiler warned that 32-bit globals overlap smaller ones at 0x20001b7c/b80."
+ },
+ "vcu_0159_08009da4": {
+  "name": "UsageFault_Handler",
+  "summary": "UsageFault handler: spin forever",
+  "description": "Endless branch-to-self loop. A usage fault (undefined instruction, bad EPSR state, unaligned access if trapped) hangs the CPU until the watchdog (if running) resets the MCU. Vector slot 6.",
+  "category": "isr",
+  "params": [],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a676": {
+  "name": "proto_session_find_or_alloc",
+  "summary": "Find or allocate a 36-byte session slot for an (a,b) address pair",
+  "description": "param_1 points to a table descriptor {entries pointer; u16 count}; entries are 0x24 bytes with byte0/byte1 = a pair of endpoint ids and byte2 = state (1 = free). With param_4 == 0 it first returns NULL if an in-use entry already holds the reversed pair (e[0]==param_3, e[1]==param_2); otherwise it returns the in-use entry matching (e[0]==param_2, e[1]==param_3); otherwise the first free entry (state==1); otherwise NULL. With param_4 != 0 the reversed-pair check is skipped. Called from 0x0800d282 and 0x0800d2f6 (protocol/session layer).",
+  "category": "protocol",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "table descriptor: [0]=entries base, +4 u16 entry count"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "first id byte (matched against entry byte 0)"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "second id byte (matched against entry byte 1)"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "0 = also reject if reversed pair active; non-zero = skip that check"
+   }
+  ],
+  "returns": {
+   "type": "ptr",
+   "description": "matching or free entry, or NULL"
+  },
+  "confidence": "low",
+  "notes": "Semantics (src/dst addresses? command ids?) inferred from the access pattern only; the entry layout beyond +0..+2 is unknown."
+ },
+ "vcu_0159_0800a96c": {
+  "name": "adc_base_config",
+  "summary": "Configure ADC scan mode, continuous mode, data alignment and ordinary sequence length",
+  "description": "Artery SDK adc_base_config. From a 4-byte adc_base_config_type {sequence_mode, repeat_mode, data_align, ordinary_channel_length}: CTRL1.SQEN (bit 8) <- byte0, CTRL2.RPEN (bit 1) <- byte1, CTRL2.DTALIGN (bit 11) <- byte2, OSQ1.OCLEN (bits 23:20) <- byte3 - 1. Called from the ADC init routine 0x08001d5c. Group of ADC driver calls: adc_base_default_para_init, adc_calibration_*, adc_dma_mode_enable, adc_enable, adc_ordinary_channel_set, adc_ordinary_conversion_trigger_set, adc_ordinary_software_trigger_enable.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base (ADC1)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "adc_base_config_type"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a998": {
+  "name": "adc_base_default_para_init",
+  "summary": "Fill adc_base_config_type with defaults (no scan, no repeat, right-aligned, length 1)",
+  "description": "Artery SDK adc_base_default_para_init: writes bytes {0,0,0,1} to the config struct (sequence_mode=FALSE, repeat_mode=FALSE, data_align=right, ordinary_channel_length=1). Called from 0x08001d5c before adc_base_config.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "adc_base_config_type to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9a6": {
+  "name": "adc_calibration_init",
+  "summary": "Start ADC calibration-register reset (CTRL2.ADCALINIT = 1)",
+  "description": "Artery SDK adc_calibration_init: sets bit 3 (ADCALINIT) in ADC CTRL2 (offset 0x08). Hardware clears it when the calibration registers are initialised; poll with adc_calibration_init_status_get. Called from 0x08001d5c.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9b0": {
+  "name": "adc_calibration_init_status_get",
+  "summary": "Return CTRL2.ADCALINIT (1 while calibration reset is running)",
+  "description": "Artery SDK adc_calibration_init_status_get: returns 1 if bit 3 of ADC CTRL2 is set, else 0. Polled from 0x08001d5c after adc_calibration_init.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "SET(1) / RESET(0)"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9be": {
+  "name": "adc_calibration_start",
+  "summary": "Start ADC calibration (CTRL2.ADCAL = 1)",
+  "description": "Artery SDK adc_calibration_start: sets bit 2 (ADCAL) in ADC CTRL2; hardware clears it when calibration completes. Called from 0x08001d5c after the init reset finished.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9c8": {
+  "name": "adc_calibration_status_get",
+  "summary": "Return CTRL2.ADCAL (1 while calibration is running)",
+  "description": "Artery SDK adc_calibration_status_get: returns 1 if bit 2 of ADC CTRL2 is set else 0. Polled from 0x08001d5c to wait for calibration to end.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "SET(1) / RESET(0)"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9d6": {
+  "name": "adc_dma_mode_enable",
+  "summary": "Enable/disable ADC DMA requests (CTRL2.OCDMAEN)",
+  "description": "Artery SDK adc_dma_mode_enable: writes bit 0 of param_2 into bit 8 (OCDMAEN) of ADC CTRL2. Called from 0x08001d5c so the ordinary-channel results are moved by DMA.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "TRUE/FALSE"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9e0": {
+  "name": "adc_enable",
+  "summary": "Enable/disable the ADC (CTRL2.ADCEN)",
+  "description": "Artery SDK adc_enable: writes bit 0 of param_2 into bit 0 (ADCEN) of ADC CTRL2. When already enabled a further set starts an ordinary conversion per the SDK note. Called from 0x08001d5c.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "TRUE/FALSE"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800a9ea": {
+  "name": "adc_ordinary_channel_set",
+  "summary": "Assign a channel to a rank in the ordinary sequence and set its sample time",
+  "description": "Artery SDK adc_ordinary_channel_set. param_2 is the channel; its 3-bit sample time param_4 goes into SPT2 (offset 0x10, channels 0..9) or SPT1 (offset 0x0C, channel-10..). The 5-bit channel number is written at rank param_3 into OSQ3 (0x34, ranks 1..6), OSQ2 (0x30, ranks 7..12) or OSQ1 (0x2C, ranks 13..16). Called from 0x08001d5c once per scanned channel.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "channel number 0..15"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "sequence rank 1..16"
+   },
+   {
+    "name": "param_4",
+    "type": "s32",
+    "description": "sample-time code 0..7 (1.5..239.5 cycles)"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800aa5e": {
+  "name": "adc_ordinary_conversion_trigger_set",
+  "summary": "Select the ordinary-channel external trigger and enable/disable it",
+  "description": "Artery SDK adc_ordinary_conversion_trigger_set. Trigger codes 0..7 clear CTRL2 bit 25 (OCTESEL_H), codes >= 8 set it; the low three bits go to CTRL2 bits 19:17 (OCTESEL_L); param_3 bit 0 goes to CTRL2.OCTEN (bit 20). Called from 0x08001d5c; code 7 (software) enables software-triggered conversions.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "trigger select (adc_ordinary_trig_select_type), 0..8"
+   },
+   {
+    "name": "param_3",
+    "type": "u32",
+    "description": "TRUE/FALSE trigger enable"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800aa92": {
+  "name": "adc_ordinary_software_trigger_enable",
+  "summary": "Start/stop an ordinary conversion by software (CTRL2.OCSWTRG)",
+  "description": "Artery SDK adc_ordinary_software_trigger_enable: writes bit 0 of param_2 into bit 22 (OCSWTRG) of ADC CTRL2. Called from 0x08001d5c to kick off the first (continuous/DMA) conversion.",
+  "category": "adc",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "ADC peripheral base"
+   },
+   {
+    "name": "param_2",
+    "type": "u32",
+    "description": "TRUE/FALSE"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800aa9c": {
+  "name": "vcu_chan_mask_update",
+  "summary": "Set or clear the flag for channel 0..9 in a set of byte bitmasks at 0x200021ce",
+  "description": "For param_2 != 0 sets, for param_2 == 0 clears: channel 0 -> bit 0 of DAT_200021cf; channels 1..8 -> bit (n-1) in both DAT_200021ce and DAT_200021d0; channel 9 -> bit 0 of DAT_200021d1. Values >= 10 do nothing. The doubled ce/d0 masks suggest a live mask plus a shadow/pending copy. Called from 0x0800be64.",
+  "category": "vehicle",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "u32",
+    "description": "channel 0..9"
+   },
+   {
+    "name": "param_2",
+    "type": "s32",
+    "description": "0 = clear, non-zero = set"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "low",
+  "notes": "Purpose unknown (input/output enable mask, key/button bits, lamp flags?)."
+ },
+ "vcu_0159_0800ab0c": {
+  "name": "can_base_init",
+  "summary": "Configure CAN1 master control and test mode via freeze mode",
+  "description": "Artery SDK can_base_init. Clears MCTRL.DZEN and sets FZEN (bit 0) in the register at +0, waits (max 0xFFFF loops) for MSTS.FZC (+4 bit 0); then writes from the 7-byte can_base_type {mode_selection, ttc_enable, aebo_enable, aed_enable, prsf_enable, mdrsel_selection, mmssr_selection}: MCTRL bits 7 (TTCEN), 6 (AEBOEN), 5 (AEDEN), 4 (PRSFEN), 3 (MDRSEL), 2 (MMSSR), and BTMG (+0x1C) bit 30 (LBEN) / 31 (LOEN) from mode bits 0/1. Finally clears FZEN and waits for FZC to clear. Called from the CAN init routine 0x080027f0. CAN group: can_default_para_init, can_baudrate_default_para_init, can_baudrate_set.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "can_base_type configuration"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 = SUCCESS, 0 = ERROR (freeze timeout)"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800abb4": {
+  "name": "can_baudrate_default_para_init",
+  "summary": "Fill can_baudrate_type with defaults (div 1, RSAW 2tq, BTS1 4tq, BTS2 3tq)",
+  "description": "Artery SDK can_baudrate_default_para_init: writes baudrate_div (u16 at +0) = 1, rsaw_size (+2) = 1, bts1_size (+3) = 3, bts2_size (+4) = 2. Called from 0x080027f0, which then overrides the fields for the actual bit rate.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "can_baudrate_type to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800abc4": {
+  "name": "can_baudrate_set",
+  "summary": "Program CAN1 bit timing (BTMG) while in freeze mode",
+  "description": "Artery SDK can_baudrate_set. Enters freeze mode (clear DZEN, set FZEN, wait FZC up to 0xFFFF loops), then writes BTMG (+0x1C): BRDIV (bits 11:0) = baudrate_div-1, RSAW (25:24), BTS1 (19:16), BTS2 (22:20) from can_baudrate_type {u16 div, u8 rsaw @+2, u8 bts1 @+3, u8 bts2 @+4}; leaves freeze mode and waits for FZC to drop. Bit rate = fpclk / (div * (3 + bts1 + bts2)). Called from 0x080027f0.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "CAN peripheral base (CAN1)"
+   },
+   {
+    "name": "param_2",
+    "type": "ptr",
+    "description": "can_baudrate_type"
+   }
+  ],
+  "returns": {
+   "type": "u32",
+   "description": "1 = SUCCESS, 0 = ERROR (freeze timeout)"
+  },
+  "confidence": "high"
+ },
+ "vcu_0159_0800aca8": {
+  "name": "can_default_para_init",
+  "summary": "Zero the can_base_type configuration struct",
+  "description": "Artery SDK can_default_para_init: writes 0 to all seven bytes (ttc/aebo/aed/prsf disabled, discard-first-received, send-by-ID, communicate mode). Called from 0x080027f0 before can_base_init.",
+  "category": "can",
+  "params": [
+   {
+    "name": "param_1",
+    "type": "ptr",
+    "description": "can_base_type to initialise"
+   }
+  ],
+  "returns": {
+   "type": "void",
+   "description": "none"
+  },
+  "confidence": "high"
+ }
+}
